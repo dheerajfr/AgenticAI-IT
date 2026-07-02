@@ -1,0 +1,24 @@
+{
+  "plan_id": "PLN-0002-1",
+  "demand_id": "DEM-2026-0002",
+  "end_date": "2026-08-01",
+  "critical_path_task_ids": ["T-PAY-1", "T-PAY-2"],
+  "tasks": [
+    {
+      "task_id": "T-PAY-1",
+      "name": "Apple Pay Integration Core API",
+      "start_date": "2026-06-20",
+      "end_date": "2026-07-10",
+      "owner": "d.chen",
+      "predecessor_task_ids": []
+    },
+    {
+      "task_id": "T-PAY-2",
+      "name": "iOS App SDK Integration & Testing",
+      "start_date": "2026-07-11",
+      "end_date": "2026-07-25",
+      "owner": "bob.jones@example.com",
+      "predecessor_task_ids": ["T-PAY-1"]
+    }
+  ]
+}

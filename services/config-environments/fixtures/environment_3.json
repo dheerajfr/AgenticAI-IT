@@ -1,0 +1,8 @@
+{
+  "component_id": "svc-sast-scanner",
+  "environment": "dev",
+  "deployed_version": "0.8.0",
+  "expected_version": "0.8.0",
+  "drift_status": "in-sync",
+  "last_checked": "2026-07-02T09:30:00Z"
+}

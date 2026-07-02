@@ -1,0 +1,16 @@
+{
+  "plan_id": "PLN-0003-1",
+  "demand_id": "DEM-2026-0003",
+  "end_date": "2026-07-15",
+  "critical_path_task_ids": ["T-SEC-1"],
+  "tasks": [
+    {
+      "task_id": "T-SEC-1",
+      "name": "Configure SAST & DAST Pipelines",
+      "start_date": "2026-06-25",
+      "end_date": "2026-07-05",
+      "owner": "clara.davis@example.com",
+      "predecessor_task_ids": []
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DemandRecord",
+  "description": "Standard schema for a demand record produced by Stage 01 (Demand & Intake)",
+  "type": "object",
+  "properties": {
+    "demand_id": {
+      "type": "string",
+      "description": "Stable unique ID for the demand, never reused"
+    },
+    "title": {
+      "type": "string",
+      "description": "Short human-readable title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Full request description text, parsed or entered"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["project", "enhancement", "defect-fix", "compliance"],
+      "description": "Type of demand"
+    },
+    "domain": {
+      "type": "string",
+      "description": "Business or technical domain"
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Assessed risk level"
+    },
+    "funding_status": {
+      "type": "string",
+      "enum": ["unfunded", "pending", "approved"],
+      "description": "Current funding status"
+    },
+    "submitted_by": {
+      "type": "string",
+      "description": "Identifier of the submitter"
+    },
+    "submitted_date": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO 8601 date when demand was submitted"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["text", "document"],
+      "description": "Intake source type"
+    },
+    "source_filename": {
+      "type": ["string", "null"],
+      "description": "Original file name if source is document"
+    },
+    "duplicate_of": {
+      "type": ["string", "null"],
+      "description": "demand_id of the duplicate record if flagged as duplicate"
+    },
+    "business_case_summary": {
+      "type": ["string", "null"],
+      "description": "Draft business case generated summary"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["intake", "classified", "capacity-checked", "approved", "rejected"],
+      "description": "Current lifecycle status of the demand record"
+    }
+  },
+  "required": [
+    "demand_id",
+    "title",
+    "description",
+    "type",
+    "domain",
+    "risk_level",
+    "funding_status",
+    "submitted_by",
+    "submitted_date",
+    "source",
+    "source_filename",
+    "duplicate_of",
+    "business_case_summary",
+    "status"
+  ]
+}

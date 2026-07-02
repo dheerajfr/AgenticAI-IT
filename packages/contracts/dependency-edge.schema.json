@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DependencyEdge",
+  "description": "Standard schema for a dependency relationship edge produced by Stage 04 (Dependencies)",
+  "type": "object",
+  "properties": {
+    "dependency_id": {
+      "type": "string",
+      "description": "Stable unique ID for the dependency"
+    },
+    "source_task_id": {
+      "type": "string",
+      "description": "Task ID of the task that depends on another task (references task_id in plan)"
+    },
+    "target_task_id": {
+      "type": "string",
+      "description": "Task ID of the task being depended on (may be in a different plan)"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["technical", "resource", "data", "external-vendor"],
+      "description": "Type of dependency"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["open", "at-risk", "resolved"],
+      "description": "Current status of the dependency"
+    },
+    "owner": {
+      "type": "string",
+      "description": "Accountable person for managing and resolving this dependency"
+    }
+  },
+  "required": [
+    "dependency_id",
+    "source_task_id",
+    "target_task_id",
+    "type",
+    "status",
+    "owner"
+  ]
+}

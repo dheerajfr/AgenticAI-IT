@@ -1,0 +1,16 @@
+{
+  "demand_id": "DEM-2026-0005",
+  "title": "Add Apple Pay Support",
+  "description": "Our customers are asking for Apple Pay at checkout. We should add support for it in the payments system.",
+  "type": "enhancement",
+  "domain": "Payments & Checkout",
+  "risk_level": "low",
+  "funding_status": "pending",
+  "submitted_by": "marketing.mary@example.com",
+  "submitted_date": "2026-06-28",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": "DEM-2026-0002",
+  "business_case_summary": null,
+  "status": "classified"
+}

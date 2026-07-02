@@ -1,0 +1,32 @@
+{
+  "plan_id": "PLN-0001-1",
+  "demand_id": "DEM-2026-0001",
+  "end_date": "2026-09-15",
+  "critical_path_task_ids": ["T-AWS-1", "T-MIG-1", "T-TST-2"],
+  "tasks": [
+    {
+      "task_id": "T-AWS-1",
+      "name": "Database Cluster Creation",
+      "start_date": "2026-06-15",
+      "end_date": "2026-06-30",
+      "owner": "m.rodriguez",
+      "predecessor_task_ids": []
+    },
+    {
+      "task_id": "T-MIG-1",
+      "name": "Loyalty Portal Schema Migration",
+      "start_date": "2026-07-01",
+      "end_date": "2026-07-20",
+      "owner": "d.chen",
+      "predecessor_task_ids": ["T-AWS-1"]
+    },
+    {
+      "task_id": "T-TST-2",
+      "name": "Validation UAT Testing",
+      "start_date": "2026-07-21",
+      "end_date": "2026-08-05",
+      "owner": "alice.smith@example.com",
+      "predecessor_task_ids": ["T-MIG-1"]
+    }
+  ]
+}

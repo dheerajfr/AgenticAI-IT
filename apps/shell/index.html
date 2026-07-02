@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Delivery Lifecycle Platform</title>
+  <!-- Import Design Tokens and layout styles -->
+  <link rel="stylesheet" href="../../packages/ui-kit/tokens.css">
+  <link rel="stylesheet" href="./styles.css">
+  
+  <!-- Load Web Components as ES Modules -->
+  <script type="module" src="../../packages/ui-kit/status-pill.js"></script>
+  <script type="module" src="../../packages/ui-kit/stage-rail.js"></script>
+  <script type="module" src="../../packages/ui-kit/module-placeholder.js"></script>
+  
+  <!-- Load Main Shell script -->
+  <script type="module" src="./shell.js"></script>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header>
+      <div class="logo-container">
+        <svg class="logo-icon" viewBox="0 0 24 24">
+          <path d="M12 2L2 22h20L12 2zm0 3.99L19.53 19H4.47L12 5.99zM13 16h-2v2h2v-2zm0-6h-2v4h2v-4z"/>
+        </svg>
+        <span class="logo-text">AETHER PLATFORM</span>
+      </div>
+      <div class="user-profile">
+        Developer Mode (Stage 01 Owner)
+      </div>
+    </header>
+
+    <!-- Stage Pipeline Rail -->
+    <stage-rail id="pipeline-rail" active-stage="demand-intake"></stage-rail>
+
+    <!-- Core Viewport -->
+    <div class="main-content">
+      <div id="viewport" class="screen-viewport">
+        <!-- Content will be swapped here dynamically by shell.js -->
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

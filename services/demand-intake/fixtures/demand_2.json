@@ -1,0 +1,16 @@
+{
+  "demand_id": "DEM-2026-0002",
+  "title": "Enable Apple Pay for Checkout Flow",
+  "description": "Integrate Apple Pay into the mobile app and web checkout processes to streamline payment and boost conversion rates by 15%. This requires updating the payments gateway SDK.",
+  "type": "enhancement",
+  "domain": "Payments & Checkout",
+  "risk_level": "low",
+  "funding_status": "pending",
+  "submitted_by": "bob.jones@example.com",
+  "submitted_date": "2026-06-10",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": null,
+  "status": "classified"
+}

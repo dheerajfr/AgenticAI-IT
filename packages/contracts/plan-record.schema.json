@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PlanRecord",
+  "description": "Standard schema for a schedule plan record produced by Stage 03 (Plan & Schedule)",
+  "type": "object",
+  "properties": {
+    "plan_id": {
+      "type": "string",
+      "description": "Stable unique ID for the project plan"
+    },
+    "demand_id": {
+      "type": "string",
+      "description": "Foreign key to the associated demand record"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Plan's current committed end date"
+    },
+    "critical_path_task_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of task IDs that lie on the critical path"
+    },
+    "tasks": {
+      "type": "array",
+      "description": "List of tasks mapped under this plan",
+      "items": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Stable task identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable name of the task"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Assignee/owner of the task"
+          },
+          "predecessor_task_ids": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of predecessor task IDs"
+          }
+        },
+        "required": ["task_id", "name", "start_date", "end_date", "owner"]
+      }
+    }
+  },
+  "required": [
+    "plan_id",
+    "demand_id",
+    "end_date",
+    "critical_path_task_ids",
+    "tasks"
+  ]
+}

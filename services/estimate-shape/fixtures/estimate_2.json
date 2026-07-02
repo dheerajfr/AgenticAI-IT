@@ -1,0 +1,15 @@
+{
+  "estimate_id": "EST-0002-1",
+  "demand_id": "DEM-2026-0002",
+  "effort_days": 45,
+  "effort_range_low": 35,
+  "effort_range_high": 60,
+  "cost_estimate": 85000,
+  "duration_weeks": 6,
+  "confidence": "medium",
+  "methodology": "expert-judgement",
+  "risk_factors": [
+    "Apple Pay iOS SDK deprecations"
+  ],
+  "status": "draft"
+}

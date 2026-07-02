@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EstimateRecord",
+  "description": "Standard schema for an estimate record produced by Stage 02 (Estimate & Shape)",
+  "type": "object",
+  "properties": {
+    "estimate_id": {
+      "type": "string",
+      "description": "Stable unique ID for the estimate"
+    },
+    "demand_id": {
+      "type": "string",
+      "description": "Foreign key to the associated demand record"
+    },
+    "effort_days": {
+      "type": "number",
+      "description": "Point estimate of effort in person-days"
+    },
+    "effort_range_low": {
+      "type": "number",
+      "description": "Lower bound of effort range"
+    },
+    "effort_range_high": {
+      "type": "number",
+      "description": "Upper bound of effort range"
+    },
+    "cost_estimate": {
+      "type": "number",
+      "description": "Cost estimate in local currency"
+    },
+    "duration_weeks": {
+      "type": "number",
+      "description": "Estimated duration in calendar weeks"
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Confidence level in this estimate"
+    },
+    "methodology": {
+      "type": "string",
+      "description": "Estimation methodology used (e.g. comparable-history)"
+    },
+    "risk_factors": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Risk factors flagged during the estimation process"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "challenged", "approved", "re-baselined"],
+      "description": "Current lifecycle status of the estimate"
+    }
+  },
+  "required": [
+    "estimate_id",
+    "demand_id",
+    "effort_days",
+    "effort_range_low",
+    "effort_range_high",
+    "cost_estimate",
+    "duration_weeks",
+    "confidence",
+    "methodology",
+    "status"
+  ]
+}
