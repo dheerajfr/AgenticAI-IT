@@ -1,3 +1,5 @@
 .env
-services/demand-intake/__pycache__
-services/__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
