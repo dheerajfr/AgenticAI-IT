@@ -53,6 +53,3 @@ To run the backend test suite, run the following command from the project root:
 ```bash
 pytest services/demand-intake/test_endpoints.py
 ```
-
-123
-h
