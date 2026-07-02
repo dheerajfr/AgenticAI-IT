@@ -18,7 +18,7 @@ A clean monorepo scaffold designed to coordinate the development of a 5-stage AI
 Navigate to the project root and install dependencies:
 
 ```bash
-pip install -r services/demand-intake/requirements.txt httpx pytest
+pip install -r requirements.txt
 ```
 
 Start the FastAPI server:
