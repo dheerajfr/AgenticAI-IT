@@ -319,3 +319,14 @@ def approve_business_case(demand_id: str, req: ApproveBusinessCaseRequest):
     
     db.save(record)
     return record
+
+
+@app.delete("/api/demands/{demand_id}")
+def delete_demand(demand_id: str):
+    """
+    Deletes a demand record.
+    """
+    success = db.delete(demand_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Demand not found.")
+    return {"status": "deleted"}

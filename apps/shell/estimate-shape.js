@@ -87,9 +87,14 @@ function renderEstimateList() {
       <li class="demand-item ${isActive ? 'active' : ''}" data-id="${est.estimate_id}">
         <div class="demand-item-header">
           <span class="demand-item-id">${est.estimate_id}</span>
-          <span style="font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;" class="${statusClass}">
-            ${est.status}
-          </span>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <span style="font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;" class="${statusClass}">
+              ${est.status}
+            </span>
+            <button type="button" class="btn-queue-delete" data-id="${est.estimate_id}" style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; justify-content: center; opacity: 0.7; transition: opacity 0.2s;" title="Delete Estimate" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+              <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+          </div>
         </div>
         <h4 class="demand-item-title">Demand: ${est.demand_id}</h4>
         <div class="demand-item-meta">
@@ -103,6 +108,25 @@ function renderEstimateList() {
   container.querySelectorAll('.demand-item').forEach(item => {
     item.addEventListener('click', () => {
       selectEstimate(item.getAttribute('data-id'));
+    });
+  });
+
+  container.querySelectorAll('.btn-queue-delete').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation(); // Prevent selectEstimate from firing
+      const id = btn.getAttribute('data-id');
+      if (confirm('Are you sure you want to delete this estimate? This cannot be undone.')) {
+        try {
+          const res = await fetch(`${ESTIMATE_API_BASE}/estimates/${id}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error("Failed to delete estimate.");
+          if (selectedEstimateId === id) {
+              selectedEstimateId = null;
+          }
+          await window.fetchEstimates();
+        } catch (err) {
+          alert(err.message);
+        }
+      }
     });
   });
 }

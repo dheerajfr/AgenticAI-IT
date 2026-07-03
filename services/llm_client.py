@@ -28,38 +28,40 @@ def call_gemini(
         )
 
     try:
-        import google.generativeai as genai
+        from google import genai
+        from google.genai import types
     except ImportError:
         raise ImportError(
-            "The 'google-generativeai' package is not installed. "
-            "Please run 'pip install google-generativeai' or install requirements.txt."
+            "The 'google-genai' package is not installed. "
+            "Please run 'pip install google-genai' or install requirements.txt."
         )
 
-    genai.configure(api_key=key)
+    client = genai.Client(api_key=key)
+    config = types.GenerateContentConfig()
     
     if system_instruction:
-        model = genai.GenerativeModel(
-            model_name=actual_model,
-            system_instruction=system_instruction
-        )
-    else:
-        model = genai.GenerativeModel(actual_model)
-
+        config.system_instruction = system_instruction
+        
     if is_json:
-        response = model.generate_content(
-            prompt,
-            generation_config={"response_mime_type": "application/json"}
-        )
-        text = response.text.strip()
+        config.response_mime_type = "application/json"
+
+    response = client.models.generate_content(
+        model=actual_model,
+        contents=prompt,
+        config=config
+    )
+    
+    text = response.text.strip()
+    
+    if is_json:
         try:
             return json.loads(text)
         except Exception:
-            # Safe parsing fallback if Gemini outputs markdown wrappers (```json ... ```)
+            # Safe parsing fallback if Gemini outputs markdown wrappers
             if text.startswith("```json"):
                 text = text[7:]
             if text.endswith("```"):
                 text = text[:-3]
             return json.loads(text.strip())
     else:
-        response = model.generate_content(prompt)
-        return response.text
+        return text

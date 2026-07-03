@@ -58,7 +58,23 @@ async def app(scope, receive, send):
             })
             return
             
-        await static_app(scope, receive, send)
+        from starlette.exceptions import HTTPException
+        
+        try:
+            await static_app(scope, receive, send)
+        except HTTPException as exc:
+            if exc.status_code == 404:
+                await send({
+                    "type": "http.response.start",
+                    "status": 404,
+                    "headers": [(b"content-type", b"text/plain")]
+                })
+                await send({
+                    "type": "http.response.body",
+                    "body": b"404 Not Found"
+                })
+            else:
+                raise
         return
         
     elif scope["type"] == "lifespan":
