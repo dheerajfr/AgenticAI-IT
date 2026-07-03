@@ -138,9 +138,14 @@ function renderDemandList() {
       <li class="demand-item ${isActive ? 'active' : ''}" data-id="${demand.demand_id}">
         <div class="demand-item-header">
           <span class="demand-item-id">${demand.demand_id}</span>
-          <span style="font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;" class="${statusClass}">
-            ${demand.status}
-          </span>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <span style="font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;" class="${statusClass}">
+              ${demand.status}
+            </span>
+            <button type="button" class="btn-queue-delete" data-id="${demand.demand_id}" style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; justify-content: center; opacity: 0.7; transition: opacity 0.2s;" title="Delete Demand" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+              <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+          </div>
         </div>
         <h4 class="demand-item-title">${demand.title}</h4>
         <div class="demand-item-meta">
@@ -156,6 +161,26 @@ function renderDemandList() {
     item.addEventListener('click', () => {
       const id = item.getAttribute('data-id');
       selectDemand(id);
+    });
+  });
+
+  // Add click listeners for delete buttons
+  container.querySelectorAll('.btn-queue-delete').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation(); // Prevent selectDemand from firing
+      const id = btn.getAttribute('data-id');
+      if (confirm('Are you sure you want to delete this demand? This cannot be undone.')) {
+        try {
+          const res = await fetch(`${API_BASE}/demands/${id}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error("Failed to delete demand.");
+          if (selectedDemandId === id) {
+              selectedDemandId = null;
+          }
+          await fetchDemands();
+        } catch (err) {
+          alert(err.message);
+        }
+      }
     });
   });
 }
@@ -375,9 +400,12 @@ function renderDemandWizard(demand) {
           <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${demand.demand_id}</span>
           <h2 style="font-family: var(--font-display); font-size: 1.5rem; margin: 0.2rem 0 0 0; color: var(--text-primary);">${demand.title}</h2>
         </div>
-        <div style="text-align: right;">
-          <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Global lifecycle status</div>
-          <status-pill status="${demand.status}"></status-pill>
+        <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+          <div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Global lifecycle status</div>
+            <status-pill status="${demand.status}"></status-pill>
+          </div>
+          <button type="button" class="btn-secondary" id="btn-delete-demand" style="color: var(--color-status-red-text); border-color: var(--color-status-red-text); padding: 0.25rem 0.5rem; font-size: 0.75rem;">Delete Demand</button>
         </div>
       </div>
 
@@ -565,6 +593,22 @@ function renderDemandWizard(demand) {
   if (isCapacityApproved && !isAllApproved) {
     document.getElementById('btn-run-business-case').addEventListener('click', () => {
       runBusinessCaseFlow(demand.demand_id);
+    });
+  }
+
+  const deleteBtn = document.getElementById('btn-delete-demand');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to delete this demand? This cannot be undone.')) {
+        try {
+          const res = await fetch(`${API_BASE}/demands/${demand.demand_id}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error("Failed to delete demand.");
+          selectedDemandId = null;
+          await fetchDemands();
+        } catch (err) {
+          alert(err.message);
+        }
+      }
     });
   }
 }
