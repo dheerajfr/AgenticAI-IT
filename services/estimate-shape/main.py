@@ -206,3 +206,14 @@ def rebaseline_estimate(estimate_id: str):
     record.status = "re-baselined"
     db.save(record)
     return record
+
+
+@app.delete("/api/estimates/{estimate_id}")
+def delete_estimate(estimate_id: str):
+    """
+    Deletes an estimate record.
+    """
+    success = db.delete(estimate_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Estimate not found.")
+    return {"status": "deleted"}

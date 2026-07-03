@@ -13,13 +13,14 @@ def call_gemini(
     system_instruction: Optional[str] = None,
     is_json: bool = False,
     api_key: Optional[str] = None,
-    model_name: str = "gemini-1.5-flash"
+    model_name: Optional[str] = None
 ) -> Any:
     """
     Directly calls the Google Gemini API to generate content or structured JSON.
     Uses the provided api_key or falls back to the GEMINI_API_KEY environment variable.
     """
     key = api_key or os.getenv("GEMINI_API_KEY")
+    actual_model = model_name or os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash")
     if not key:
         raise ValueError(
             "GEMINI_API_KEY is not set. Please set the GEMINI_API_KEY environment variable "
@@ -38,11 +39,11 @@ def call_gemini(
     
     if system_instruction:
         model = genai.GenerativeModel(
-            model_name=model_name,
+            model_name=actual_model,
             system_instruction=system_instruction
         )
     else:
-        model = genai.GenerativeModel(model_name)
+        model = genai.GenerativeModel(actual_model)
 
     if is_json:
         response = model.generate_content(

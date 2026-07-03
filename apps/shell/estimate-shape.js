@@ -264,9 +264,12 @@ function renderEstimateWizard(est) {
           <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${est.estimate_id}</span>
           <h2 style="font-family: var(--font-display); font-size: 1.5rem; margin: 0.2rem 0 0 0; color: var(--text-primary);">Demand: ${est.demand_id}</h2>
         </div>
-        <div style="text-align: right;">
-          <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Estimate Status</div>
-          <status-pill status="${est.status}"></status-pill>
+        <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+          <div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Estimate Status</div>
+            <status-pill status="${est.status}"></status-pill>
+          </div>
+          <button type="button" class="btn-secondary" id="btn-delete-estimate" style="color: var(--color-status-red-text); border-color: var(--color-status-red-text); padding: 0.25rem 0.5rem; font-size: 0.75rem;">Delete Estimate</button>
         </div>
       </div>
 
@@ -351,6 +354,22 @@ function renderEstimateWizard(est) {
   
   if (isChallenged && !isRebaselined) {
     document.getElementById('btn-run-trigger').addEventListener('click', () => runTriggerFlow(est.estimate_id));
+  }
+
+  const deleteBtn = document.getElementById('btn-delete-estimate');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to delete this estimate? This cannot be undone.')) {
+        try {
+          const res = await fetch(`${ESTIMATE_API_BASE}/estimates/${est.estimate_id}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error("Failed to delete estimate.");
+          selectedEstimateId = null;
+          await window.fetchEstimates();
+        } catch (err) {
+          alert(err.message);
+        }
+      }
+    });
   }
 }
 
