@@ -27,6 +27,8 @@ print("Loading demand-intake service...")
 demand_app = load_service("demand-intake")
 print("Loading estimate-shape service...")
 estimate_app = load_service("estimate-shape")
+print("Loading dependencies service...")
+dependencies_app = load_service("dependencies")
 print("Gateway ready.")
 
 from starlette.staticfiles import StaticFiles
@@ -43,6 +45,9 @@ async def app(scope, receive, send):
             return
         elif path.startswith("/api/demands"):
             await demand_app(scope, receive, send)
+            return
+        elif path.startswith("/api/dependencies"):
+            await dependencies_app(scope, receive, send)
             return
             
         # 2. Route UI

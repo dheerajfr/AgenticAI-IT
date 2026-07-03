@@ -13,7 +13,7 @@ def call_gemini(
     system_instruction: Optional[str] = None,
     is_json: bool = False,
     api_key: Optional[str] = None,
-    model_name: str = "gemini-1.5-flash"
+    model_name: str = "gemini-3.5-flash"
 ) -> Any:
     """
     Directly calls the Google Gemini API to generate content or structured JSON.
