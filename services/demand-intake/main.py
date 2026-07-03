@@ -321,6 +321,20 @@ def approve_business_case(demand_id: str, req: ApproveBusinessCaseRequest):
     return record
 
 
+@app.post("/api/demands/{demand_id}/save-business-case-draft", response_model=DemandRecord)
+def save_business_case_draft(demand_id: str, req: ApproveBusinessCaseRequest):
+    """
+    Saves a draft of the business case text without transitioning status.
+    """
+    record = db.get_by_id(demand_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Demand record not found.")
+        
+    record.business_case_summary = req.business_case_summary
+    db.save(record)
+    return record
+
+
 @app.delete("/api/demands/{demand_id}")
 def delete_demand(demand_id: str):
     """

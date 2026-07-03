@@ -2,9 +2,9 @@
 const API_BASE = 'http://127.0.0.1:8000/api';
 
 // Core State
-let activeStage = 'demand-intake';
+let activeStage = sessionStorage.getItem('activeStage') || 'demand-intake';
 let demands = [];
-let selectedDemandId = null;
+let selectedDemandId = sessionStorage.getItem('selectedDemandId') || null;
 let activeFormTab = 'text'; // 'text' or 'file'
 let selectedFile = null;
 let classificationSuggestions = null;
@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function init() {
   const rail = document.getElementById('pipeline-rail');
   if (rail) {
+    // Sync the rail with activeStage
+    rail.setAttribute('active-stage', activeStage);
     rail.addEventListener('stage-change', (e) => {
       switchStage(e.detail.stageId);
     });
@@ -31,6 +33,7 @@ function init() {
 // Swap content area between Module 01 screen and placeholders
 function switchStage(stageId) {
   activeStage = stageId;
+  sessionStorage.setItem('activeStage', stageId);
   const viewport = document.getElementById('viewport');
   
   if (stageId === 'demand-intake') {
@@ -74,6 +77,7 @@ function renderIntakeScreen() {
 
   document.getElementById('btn-new-intake').addEventListener('click', () => {
     selectedDemandId = null;
+    sessionStorage.removeItem('selectedDemandId');
     clearSidebarSelection();
     showNewIntakeForm();
   });
@@ -95,10 +99,11 @@ async function fetchDemands() {
     demands = await res.json();
     renderDemandList();
     
-    // Automatically select the first demand if none is selected
-    if (demands.length > 0 && selectedDemandId === null) {
+    // Automatically select the first demand if none is selected, or if the selected demand doesn't exist anymore
+    const exists = demands.some(d => d.demand_id === selectedDemandId);
+    if (demands.length > 0 && (selectedDemandId === null || !exists)) {
       selectDemand(demands[0].demand_id);
-    } else if (selectedDemandId !== null) {
+    } else if (selectedDemandId !== null && exists) {
       selectDemand(selectedDemandId);
     } else {
       showNewIntakeForm();
@@ -188,6 +193,7 @@ function renderDemandList() {
 // Select a demand, update list states, and render the details wizard
 function selectDemand(id) {
   selectedDemandId = id;
+  sessionStorage.setItem('selectedDemandId', id);
   clearSidebarSelection();
   const activeItem = document.querySelector(`.demand-item[data-id="${id}"]`);
   if (activeItem) activeItem.classList.add('active');
@@ -387,9 +393,9 @@ function renderDemandWizard(demand) {
   
   // Determine states of each step based on the status attribute
   // Status levels: 'intake', 'classified', 'capacity-checked', 'approved', 'rejected'
-  const isIntakeApproved = ['classified', 'capacity-checked', 'approved'].includes(demand.status);
-  const isClassifyApproved = ['capacity-checked', 'approved'].includes(demand.status);
-  const isCapacityApproved = ['approved'].includes(demand.status);
+  const isIntakeApproved = ['intake', 'classified', 'capacity-checked', 'approved'].includes(demand.status);
+  const isClassifyApproved = ['classified', 'capacity-checked', 'approved'].includes(demand.status);
+  const isCapacityApproved = ['capacity-checked', 'approved'].includes(demand.status);
   const isAllApproved = demand.status === 'approved';
 
   panel.innerHTML = `
@@ -557,6 +563,25 @@ function renderDemandWizard(demand) {
                   ${demand.business_case_summary}
                 </div>
               </div>
+            ` : (demand.business_case_summary ? `
+              <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0; margin-bottom: 1rem;">
+                Review and refine your business case draft below. You can save updates as draft or submit for final sign-off.
+              </p>
+              
+              <div id="business-case-suggestion-container">
+                <div class="suggestion-box">
+                  <h5 class="suggestion-title">Saved Business Case Draft (Edit details below)</h5>
+                  <div class="form-group">
+                    <textarea id="edit-business-case" style="min-height: 180px; font-family: var(--font-sans); line-height:1.5;">${demand.business_case_summary}</textarea>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="submit-row" id="business-case-actions-row">
+                <button type="button" class="btn-secondary" id="btn-re-run-business-case">Re-run Draft</button>
+                <button type="button" class="btn-secondary" id="btn-save-business-case-draft" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); margin-left: 0.5rem; margin-right: 0.5rem;">Save as Draft</button>
+                <button type="button" class="btn-primary" id="btn-approve-business-case">Approve & Sign-off Demand</button>
+              </div>
             ` : `
               <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0; margin-bottom: 1rem;">
                 Orchestrate a draft business case document from the structured details to complete final sign-off.
@@ -569,7 +594,7 @@ function renderDemandWizard(demand) {
                   Generate Business Case Draft
                 </button>
               </div>
-            `}
+            `)}
           </div>
         </div>
 
@@ -591,9 +616,13 @@ function renderDemandWizard(demand) {
   }
 
   if (isCapacityApproved && !isAllApproved) {
-    document.getElementById('btn-run-business-case').addEventListener('click', () => {
-      runBusinessCaseFlow(demand.demand_id);
-    });
+    if (demand.business_case_summary) {
+      attachBusinessCaseListeners(demand.demand_id);
+    } else {
+      document.getElementById('btn-run-business-case').addEventListener('click', () => {
+        runBusinessCaseFlow(demand.demand_id);
+      });
+    }
   }
 
   const deleteBtn = document.getElementById('btn-delete-demand');
@@ -814,22 +843,54 @@ async function runBusinessCaseFlow(id) {
     
     actionRow.innerHTML = `
       <button type="button" class="btn-secondary" id="btn-re-run-business-case">Re-run Draft</button>
+      <button type="button" class="btn-secondary" id="btn-save-business-case-draft" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); margin-left: 0.5rem; margin-right: 0.5rem;">Save as Draft</button>
       <button type="button" class="btn-primary" id="btn-approve-business-case">Approve & Sign-off Demand</button>
     `;
     
-    document.getElementById('btn-re-run-business-case').addEventListener('click', () => {
-      runBusinessCaseFlow(id);
-    });
-    
-    document.getElementById('btn-approve-business-case').addEventListener('click', () => {
-      approveBusinessCase(id);
-    });
+    attachBusinessCaseListeners(id);
   } catch (err) {
     container.innerHTML = `<div style="color: var(--color-status-red-text); margin-bottom: 1rem;">Draft generation error: ${err.message}</div>`;
     actionRow.innerHTML = `<button type="button" class="btn-primary" id="btn-run-business-case">Generate Business Case Draft</button>`;
     document.getElementById('btn-run-business-case').addEventListener('click', () => {
       runBusinessCaseFlow(id);
     });
+  }
+}
+
+async function saveBusinessCaseDraft(id) {
+  const currentSummary = document.getElementById('edit-business-case').value;
+  const actionRow = document.getElementById('business-case-actions-row');
+  
+  const originalHTML = actionRow.innerHTML;
+  actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Saving draft...</span>`;
+  
+  try {
+    const res = await fetch(`${API_BASE}/demands/${id}/save-business-case-draft`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ business_case_summary: currentSummary })
+    });
+    
+    if (!res.ok) throw new Error("Failed to save draft.");
+    
+    await fetchDemands();
+    
+    const newActionRow = document.getElementById('business-case-actions-row');
+    if (newActionRow) {
+      const msg = document.createElement('span');
+      msg.textContent = '✓ Draft saved successfully';
+      msg.style.color = 'var(--color-status-green-text, #10b981)';
+      msg.style.fontSize = '0.85rem';
+      msg.style.marginRight = '1rem';
+      msg.style.fontWeight = '600';
+      msg.style.alignSelf = 'center';
+      newActionRow.prepend(msg);
+      setTimeout(() => msg.remove(), 3000);
+    }
+  } catch (err) {
+    alert(err.message);
+    actionRow.innerHTML = originalHTML;
+    attachBusinessCaseListeners(id);
   }
 }
 
@@ -853,7 +914,31 @@ async function approveBusinessCase(id) {
     alert(err.message);
     actionRow.innerHTML = `
       <button type="button" class="btn-secondary" id="btn-re-run-business-case">Re-run Draft</button>
+      <button type="button" class="btn-secondary" id="btn-save-business-case-draft" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); margin-left: 0.5rem; margin-right: 0.5rem;">Save as Draft</button>
       <button type="button" class="btn-primary" id="btn-approve-business-case">Approve & Sign-off Demand</button>
     `;
+    attachBusinessCaseListeners(id);
+  }
+}
+
+function attachBusinessCaseListeners(id) {
+  const btnReRun = document.getElementById('btn-re-run-business-case');
+  const btnSave = document.getElementById('btn-save-business-case-draft');
+  const btnApprove = document.getElementById('btn-approve-business-case');
+
+  if (btnReRun) {
+    btnReRun.addEventListener('click', () => {
+      runBusinessCaseFlow(id);
+    });
+  }
+  if (btnSave) {
+    btnSave.addEventListener('click', () => {
+      saveBusinessCaseDraft(id);
+    });
+  }
+  if (btnApprove) {
+    btnApprove.addEventListener('click', () => {
+      approveBusinessCase(id);
+    });
   }
 }
