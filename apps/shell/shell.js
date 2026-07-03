@@ -36,6 +36,11 @@ function switchStage(stageId) {
   if (stageId === 'demand-intake') {
     renderIntakeScreen();
     fetchDemands();
+  } else if (stageId === 'estimate-shape') {
+    if (window.renderEstimateScreen) {
+      window.renderEstimateScreen();
+      window.fetchEstimates();
+    }
   } else {
     // Render the placeholder web component for other stages
     viewport.innerHTML = `<module-placeholder module-id="${stageId}"></module-placeholder>`;
