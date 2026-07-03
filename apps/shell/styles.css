@@ -492,3 +492,9 @@ textarea {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+.wizard-container {
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}

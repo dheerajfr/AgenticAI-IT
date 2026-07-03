@@ -5,9 +5,9 @@ class StageRail extends HTMLElement {
     this.activeStage = 'demand-intake';
     this.stages = [
       { id: 'demand-intake', label: 'Demand & intake', status: 'live' },
-      { id: 'estimate-shape', label: 'Estimate & shape', status: 'building' },
+      { id: 'estimate-shape', label: 'Estimate & shape', status: 'live' },
       { id: 'plan-schedule', label: 'Plan & schedule', status: 'not started' },
-      { id: 'dependencies', label: 'Dependencies', status: 'not started' },
+      { id: 'dependencies', label: 'Dependencies', status: 'live' },
       { id: 'config-environments', label: 'Config & environments', status: 'not started' }
     ];
   }
