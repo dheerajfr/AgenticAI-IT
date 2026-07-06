@@ -1,0 +1,27 @@
+{
+  "demand_id": "DEM-2026-0001",
+  "title": "Cloud Migration for Customer Loyalty Portal",
+  "description": "Migrate the legacy on-premise customer loyalty portal to AWS. This includes refactoring the database layer to Aurora PostgreSQL and setting up automated CI/CD pipelines.",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "alice.smith@example.com",
+  "submitted_date": "2026-06-01",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "By migrating the loyalty portal to the cloud, we expect to reduce infrastructure costs by 25% and scale dynamically during peak holiday seasons, increasing customer satisfaction.",
+  "status": "approved",
+  "capacity_verdict": "feasible",
+  "capacity_score": 85,
+  "earliest_start_date": "2026-07-15",
+  "capacity_reasoning": [
+    "Sufficient backend developer capacity available across the team.",
+    "Cloud architect bandwidth confirmed for the migration window.",
+    "CI/CD pipeline setup can be parallelised with DB refactoring work.",
+    "Medium risk level does not require additional senior oversight buffer."
+  ],
+  "resource_constraints": [],
+  "skill_gaps": ["Aurora PostgreSQL"]
+}
