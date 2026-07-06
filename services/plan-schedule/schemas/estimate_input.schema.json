@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "estimate_input.schema.json",
+  "title": "EstimateRecord",
+  "description": "Upstream estimate record produced by Stage 02 (Estimate & Shape). Read-only for this module.",
+  "type": "object",
+  "required": [
+    "estimate_id",
+    "demand_id",
+    "effort_days",
+    "effort_range_low",
+    "effort_range_high",
+    "cost_estimate",
+    "duration_weeks",
+    "confidence",
+    "methodology",
+    "risk_factors",
+    "status"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "estimate_id": {
+      "type": "string",
+      "description": "Unique identifier for this estimate, e.g. EST-0001-1"
+    },
+    "demand_id": {
+      "type": "string",
+      "description": "Upstream demand this estimate belongs to, e.g. DEM-2026-0001"
+    },
+    "effort_days": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Central effort estimate in person-days"
+    },
+    "effort_range_low": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Lower bound of effort range in person-days"
+    },
+    "effort_range_high": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Upper bound of effort range in person-days"
+    },
+    "cost_estimate": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Cost estimate in USD"
+    },
+    "duration_weeks": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Estimated calendar duration in weeks"
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Confidence level of the estimate"
+    },
+    "methodology": {
+      "type": "string",
+      "description": "Estimation methodology used, e.g. comparable-history, expert-judgement"
+    },
+    "risk_factors": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of identified risk factors"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "challenged", "approved", "re-baselined"],
+      "description": "Workflow status of the estimate"
+    }
+  }
+}

@@ -20,17 +20,21 @@ function init() {
   const rail = document.getElementById('pipeline-rail');
   if (rail) {
     rail.addEventListener('stage-change', (e) => {
-      switchStage(e.detail.stageId);
+      window.switchStage(e.detail.stageId);
     });
   }
 
   // Load initial view
-  switchStage(activeStage);
+  window.switchStage(activeStage);
 }
 
 // Swap content area between Module 01 screen and placeholders
-function switchStage(stageId) {
+window.switchStage = function (stageId) {
   activeStage = stageId;
+  const rail = document.getElementById('pipeline-rail');
+  if (rail && rail.getAttribute('active-stage') !== stageId) {
+    rail.setAttribute('active-stage', stageId);
+  }
   const viewport = document.getElementById('viewport');
   
   if (stageId === 'demand-intake') {
@@ -40,6 +44,11 @@ function switchStage(stageId) {
     if (window.renderEstimateScreen) {
       window.renderEstimateScreen();
       window.fetchEstimates();
+    }
+  } else if (stageId === 'plan-schedule') {
+    if (window.renderPlanScreen) {
+      window.renderPlanScreen();
+      window.fetchPlans();
     }
   } else {
     // Render the placeholder web component for other stages
