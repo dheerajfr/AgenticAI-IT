@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plan-schedule"
+version = "1.0.0"
+description = "Stage 03 — Plan & Schedule: converts approved estimates into dated, resourced PlanRecords"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6",
+    "python-dateutil>=2.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+]
+
+[project.scripts]
+plan-schedule = "plan_schedule.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["plan_schedule*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

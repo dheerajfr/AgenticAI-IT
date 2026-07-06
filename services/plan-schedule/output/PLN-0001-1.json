@@ -1,0 +1,51 @@
+{
+  "plan_id": "PLN-0001-1",
+  "demand_id": "DEM-2026-0001",
+  "end_date": "2026-10-26",
+  "critical_path_task_ids": [
+    "PLN-0001-DESIGN",
+    "PLN-0001-BUILD",
+    "PLN-0001-TEST",
+    "PLN-0001-DEPLOY"
+  ],
+  "tasks": [
+    {
+      "task_id": "PLN-0001-DESIGN",
+      "name": "Design & Setup",
+      "start_date": "2026-07-07",
+      "end_date": "2026-07-21",
+      "owner": "m.rodriguez",
+      "predecessor_task_ids": []
+    },
+    {
+      "task_id": "PLN-0001-BUILD",
+      "name": "Build",
+      "start_date": "2026-07-22",
+      "end_date": "2026-09-03",
+      "owner": "d.chen",
+      "predecessor_task_ids": [
+        "PLN-0001-DESIGN"
+      ]
+    },
+    {
+      "task_id": "PLN-0001-TEST",
+      "name": "Test & QA",
+      "start_date": "2026-09-04",
+      "end_date": "2026-10-05",
+      "owner": "alice.smith",
+      "predecessor_task_ids": [
+        "PLN-0001-BUILD"
+      ]
+    },
+    {
+      "task_id": "PLN-0001-DEPLOY",
+      "name": "Deploy & Release",
+      "start_date": "2026-10-06",
+      "end_date": "2026-10-26",
+      "owner": "clara.davis",
+      "predecessor_task_ids": [
+        "PLN-0001-TEST"
+      ]
+    }
+  ]
+}

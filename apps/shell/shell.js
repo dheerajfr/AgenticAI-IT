@@ -32,6 +32,12 @@ function init() {
 function switchStage(stageId) {
   activeStage = stageId;
   const viewport = document.getElementById('viewport');
+
+  // Sync the stage rail highlight
+  const rail = document.getElementById('pipeline-rail');
+  if (rail && rail.getAttribute('active-stage') !== stageId) {
+    rail.setAttribute('active-stage', stageId);
+  }
   
   if (stageId === 'demand-intake') {
     renderIntakeScreen();
@@ -41,11 +47,19 @@ function switchStage(stageId) {
       window.renderEstimateScreen();
       window.fetchEstimates();
     }
+  } else if (stageId === 'plan-schedule') {
+    if (window.renderPlanScreen) {
+      window.renderPlanScreen();
+      window.fetchPlans();
+    }
   } else {
     // Render the placeholder web component for other stages
     viewport.innerHTML = `<module-placeholder module-id="${stageId}"></module-placeholder>`;
   }
 }
+
+// Expose switchStage globally so stage modules can redirect (e.g. HITL accept → Stage 04)
+window.switchStage = switchStage;
 
 // Render the Stage 01 Demand & Intake viewport layout
 function renderIntakeScreen() {

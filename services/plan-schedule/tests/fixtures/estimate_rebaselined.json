@@ -1,0 +1,17 @@
+{
+  "estimate_id": "EST-0004-1",
+  "demand_id": "DEM-2026-0004",
+  "effort_days": 60,
+  "effort_range_low": 50,
+  "effort_range_high": 80,
+  "cost_estimate": 110000,
+  "duration_weeks": 8,
+  "confidence": "low",
+  "methodology": "expert-judgement",
+  "risk_factors": [
+    "Third-party integration complexity",
+    "Security review requirements",
+    "Compliance sign-off needed"
+  ],
+  "status": "re-baselined"
+}
