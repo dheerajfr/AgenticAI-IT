@@ -223,6 +223,69 @@ class PlanDatabase:
             conn.commit()
             return cursor.rowcount > 0
 
+    def get_employees_by_skill_with_availability(self, skill: str) -> List[dict]:
+        """Return all employees of a given skill with computed days_until_free.
+        
+        For free employees: days_until_free = 0.
+        For working employees: scan all saved plan tasks to find the latest
+        pending task end_date for that owner, then compute days from today.
+        """
+        import datetime
+        today = datetime.date.today()
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT email, name, skill, status FROM employees WHERE LOWER(skill) LIKE ?",
+                (f"%{skill.lower()}%",),
+            )
+            employees = [
+                {"email": r[0], "name": r[1], "skill": r[2], "status": r[3], "days_until_free": 0}
+                for r in cursor.fetchall()
+            ]
+
+            if not employees:
+                return employees
+
+            # Build a map: owner_email -> latest pending task end_date from saved plans
+            cursor.execute("SELECT data FROM plans")
+            owner_to_latest: dict = {}
+            for (raw,) in cursor.fetchall():
+                try:
+                    plan = json.loads(raw)
+                    for task in plan.get("tasks", []):
+                        owner = task.get("owner", "")
+                        status = task.get("status", "pending")
+                        end_date_str = task.get("end_date", "")
+                        if owner and status != "completed" and end_date_str:
+                            try:
+                                end_date = datetime.date.fromisoformat(end_date_str)
+                                if owner not in owner_to_latest or end_date > owner_to_latest[owner]:
+                                    owner_to_latest[owner] = end_date
+                            except ValueError:
+                                pass
+                except Exception:
+                    pass
+
+        for emp in employees:
+            if emp["status"] == "free":
+                emp["days_until_free"] = 0
+            else:
+                latest = owner_to_latest.get(emp["email"]) or owner_to_latest.get(emp["name"])
+                if latest:
+                    delta = (latest - today).days
+                    emp["days_until_free"] = max(0, delta)
+                else:
+                    emp["days_until_free"] = None  # working but no task info found
+
+        # Sort: free first, then by days_until_free ascending, then name
+        employees.sort(key=lambda e: (
+            0 if e["status"] == "free" else 1,
+            e["days_until_free"] if e["days_until_free"] is not None else 9999,
+            e["name"]
+        ))
+        return employees
+
 
 # Global singleton — imported by main.py
 db = PlanDatabase()

@@ -20,22 +20,24 @@ function init() {
   const rail = document.getElementById('pipeline-rail');
   if (rail) {
     rail.addEventListener('stage-change', (e) => {
-      window.switchStage(e.detail.stageId);
+      switchStage(e.detail.stageId);
     });
   }
 
   // Load initial view
-  window.switchStage(activeStage);
+  switchStage(activeStage);
 }
 
 // Swap content area between Module 01 screen and placeholders
-window.switchStage = function (stageId) {
+function switchStage(stageId) {
   activeStage = stageId;
+  const viewport = document.getElementById('viewport');
+
+  // Sync the stage rail highlight
   const rail = document.getElementById('pipeline-rail');
   if (rail && rail.getAttribute('active-stage') !== stageId) {
     rail.setAttribute('active-stage', stageId);
   }
-  const viewport = document.getElementById('viewport');
   
   if (stageId === 'demand-intake') {
     renderIntakeScreen();
@@ -55,6 +57,9 @@ window.switchStage = function (stageId) {
     viewport.innerHTML = `<module-placeholder module-id="${stageId}"></module-placeholder>`;
   }
 }
+
+// Expose switchStage globally so stage modules can redirect (e.g. HITL accept → Stage 04)
+window.switchStage = switchStage;
 
 // Render the Stage 01 Demand & Intake viewport layout
 function renderIntakeScreen() {

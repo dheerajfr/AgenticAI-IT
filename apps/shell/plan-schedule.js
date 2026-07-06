@@ -366,16 +366,6 @@ async function showNewPlanForm() {
         </div>
       </details>
 
-      <!-- Workforce Allocation File Upload -->
-      <div class="form-group" style="margin-top: 1.25rem;">
-        <label for="employee-file" style="font-weight: 600;">Workforce Directory (Upload Employee Excel / CSV)</label>
-        <input type="file" id="employee-file" accept=".xlsx, .xls, .csv" style="padding: 0.4rem; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); width: 100%; background: var(--bg-tertiary);">
-        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.4rem; line-height: 1.3;">
-          Columns required: <b>Name</b>, <b>Skill</b> (backend / frontend / qa / devops), and <b>Status</b> (free / working). Only free employees will be allocated to tasks.
-        </div>
-        <div id="allocation-summary" style="font-size: 0.75rem; color: var(--color-status-green-text); margin-top: 0.4rem; display: none; font-weight: 600;"></div>
-      </div>
-
       <div id="plan-actions-row" class="submit-row" style="margin-top: 2rem;">
         <button type="button" class="btn-primary" id="btn-run-planning">Run Planning Engine</button>
       </div>
@@ -384,7 +374,6 @@ async function showNewPlanForm() {
     </div>
   `;
   document.getElementById('btn-run-planning').addEventListener('click', handleGeneratePlan);
-  document.getElementById('employee-file').addEventListener('change', handleEmployeeFileUpload);
 }
 
 let pendingPlans = null;
@@ -440,9 +429,22 @@ async function handleGeneratePlan() {
   }
 }
 
+// Helper to infer skill from task name
+function inferSkillFromTask(taskName) {
+  const n = taskName.toLowerCase();
+  if (n.includes('test') || n.includes('qa'))   return 'qa';
+  if (n.includes('deploy') || n.includes('release')) return 'devops';
+  if (n.includes('design') || n.includes('setup')) return 'frontend';
+  return 'backend';
+}
+
 function renderPlanPreview(newPlans, actionsRow) {
   const preview = document.getElementById('plan-preview-container');
   const plansArray = Array.isArray(newPlans) ? newPlans : (newPlans.plans || []);
+
+  // Track which task cells need availability dropdowns: { cellId, skill }
+  const pendingAvailability = [];
+
   preview.innerHTML = plansArray.map(plan => {
     return `
       <div class="suggestion-box" style="margin-bottom: 1rem;">
@@ -461,21 +463,36 @@ function renderPlanPreview(newPlans, actionsRow) {
               <th style="text-align:left; padding: 0.3rem 0.5rem;">Task</th>
               <th style="text-align:left; padding: 0.3rem 0.5rem;">Start</th>
               <th style="text-align:left; padding: 0.3rem 0.5rem;">End</th>
-              <th style="text-align:left; padding: 0.3rem 0.5rem;">Owner</th>
+              <th style="text-align:left; padding: 0.3rem 0.5rem; min-width: 200px;">Owner</th>
             </tr>
           </thead>
           <tbody>
-            ${plan.tasks.map(t => {
-              const isOwnerNotAvailable = !t.owner || t.owner === 'unassigned' || t.owner.includes('default') || t.owner.includes('unassigned');
-              const ownerDisplay = isOwnerNotAvailable
-                ? `<span style="color: var(--color-status-red-text); font-weight: 600; font-size: 0.72rem;">Not Available</span>`
-                : t.owner;
+            ${plan.tasks.map((t, ti) => {
+              const isOwnerNotAvailable = !t.owner || t.owner === 'unassigned' ||
+                t.owner.toLowerCase().includes('default') ||
+                t.owner.toLowerCase().includes('unassigned');
+
+              const cellId = `avail-cell-${plan.plan_id}-${ti}`.replace(/[^a-zA-Z0-9-]/g, '-');
+
+              if (isOwnerNotAvailable) {
+                const skill = inferSkillFromTask(t.name);
+                pendingAvailability.push({ cellId, skill, taskName: t.name });
+              }
+
+              const ownerCell = isOwnerNotAvailable
+                ? `<td id="${cellId}" style="padding: 0.35rem 0.5rem;">
+                    <span style="color: var(--color-status-red-text); font-weight: 600; font-size: 0.72rem;">
+                      ⚠ Not Available — loading options…
+                    </span>
+                   </td>`
+                : `<td style="padding: 0.35rem 0.5rem; color: var(--color-brand);">${t.owner}</td>`;
+
               return `
                 <tr style="border-bottom: 1px solid rgba(46,60,84,0.5);">
                   <td style="padding: 0.35rem 0.5rem; color: var(--text-primary);">${t.name}</td>
                   <td style="padding: 0.35rem 0.5rem; font-family: monospace;">${t.start_date}</td>
                   <td style="padding: 0.35rem 0.5rem; font-family: monospace;">${t.end_date}</td>
-                  <td style="padding: 0.35rem 0.5rem; color: var(--color-brand);">${ownerDisplay}</td>
+                  ${ownerCell}
                 </tr>
               `;
             }).join('')}
@@ -487,6 +504,176 @@ function renderPlanPreview(newPlans, actionsRow) {
       </div>
     `;
   }).join('');
+
+  // Asynchronously populate availability dropdowns for unavailable tasks
+  if (pendingAvailability.length > 0) {
+    // Group by skill to minimise fetch calls
+    const skillFetches = {};
+    pendingAvailability.forEach(({ cellId, skill, taskName }) => {
+      if (!skillFetches[skill]) skillFetches[skill] = [];
+      skillFetches[skill].push({ cellId, taskName });
+    });
+
+    Object.entries(skillFetches).forEach(async ([skill, cells]) => {
+      let employees = [];
+      try {
+        const res = await fetch(`${PLAN_API_BASE}/plans/employees/availability?skill=${encodeURIComponent(skill)}`);
+        if (res.ok) employees = await res.json();
+      } catch (e) {
+        employees = [];
+      }
+
+      cells.forEach(({ cellId, taskName }) => {
+        const cell = document.getElementById(cellId);
+        if (!cell) return;
+
+        if (employees.length === 0) {
+          cell.innerHTML = `<span style="color: var(--color-status-red-text); font-size: 0.72rem; font-weight: 600;">⚠ No ${skill} employees found</span>`;
+          return;
+        }
+
+        const options = employees.map(emp => {
+          let label, optStyle;
+          if (emp.status === 'free') {
+            label = `${emp.name} — ✓ Available Now`;
+            optStyle = 'color: #16a34a;';
+          } else if (emp.days_until_free === 0) {
+            label = `${emp.name} — ✓ Available Now`;
+            optStyle = 'color: #16a34a;';
+          } else if (emp.days_until_free != null) {
+            label = `${emp.name} — Free in ${emp.days_until_free} day${emp.days_until_free !== 1 ? 's' : ''}`;
+            optStyle = '';
+          } else {
+            label = `${emp.name} — Currently Busy`;
+            optStyle = 'color: #92400e;';
+          }
+          return `<option value="${emp.email}" style="${optStyle}">${label}</option>`;
+        }).join('');
+
+        cell.innerHTML = `
+          <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+            <span style="color: var(--color-status-red-text); font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em;">
+              ⚠ Not Available
+            </span>
+            <select
+              id="sel-${cellId}"
+              style="
+                font-size: 0.73rem;
+                padding: 0.3rem 0.4rem;
+                background: var(--bg-tertiary);
+                border: 1px solid var(--color-status-amber-text);
+                border-radius: var(--radius-sm);
+                color: var(--text-primary);
+                cursor: pointer;
+                max-width: 220px;
+              "
+              title="Select alternate ${skill} employee for task: ${taskName}"
+            >
+              <option value="" disabled selected>— Pick alternate (${skill}) —</option>
+              ${options}
+            </select>
+          </div>
+        `;
+
+        // Bind change listener — update cell to show selected employee details
+        const selectEl = document.getElementById(`sel-${cellId}`);
+        if (selectEl) {
+          // Named handler so it can be re-bound when the dropdown is restored
+          const handleChange = () => {
+            const currentSel = document.getElementById(`sel-${cellId}`);
+            const selectedEmail = currentSel ? currentSel.value : selectEl.value;
+            const emp = employees.find(e => e.email === selectedEmail);
+            if (!emp) return;
+
+            // Determine availability label
+            let availLabel, availColor;
+            if (emp.status === 'free' || emp.days_until_free === 0) {
+              availLabel = '✓ Available Now';
+              availColor = 'var(--color-status-green-text)';
+            } else if (emp.days_until_free != null) {
+              availLabel = `Free in ${emp.days_until_free} day${emp.days_until_free !== 1 ? 's' : ''}`;
+              availColor = 'var(--color-status-amber-text)';
+            } else {
+              availLabel = 'Currently Busy';
+              availColor = 'var(--color-status-amber-text)';
+            }
+
+            // Replace cell with selected employee card + a "Change" link
+            cell.innerHTML = `
+              <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                <div style="font-weight: 700; color: var(--color-brand); font-size: 0.78rem;">${emp.name}</div>
+                <div style="font-size: 0.68rem; color: var(--text-muted); font-family: monospace;">${emp.email}</div>
+                <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: capitalize;">${emp.skill}</div>
+                <span style="font-size: 0.68rem; font-weight: 700; color: ${availColor};">${availLabel}</span>
+                <button
+                  type="button"
+                  id="change-btn-${cellId}"
+                  style="
+                    margin-top: 0.2rem;
+                    font-size: 0.65rem;
+                    padding: 0.15rem 0.4rem;
+                    border: 1px solid var(--border-color);
+                    border-radius: var(--radius-sm);
+                    background: transparent;
+                    color: var(--text-muted);
+                    cursor: pointer;
+                    width: fit-content;
+                  "
+                >↩ Change</button>
+              </div>
+            `;
+
+            // Update the in-memory plan so Accept & Save commits the new owner
+            const arr = Array.isArray(newPlans) ? newPlans : (newPlans.plans || []);
+            arr.forEach(plan => {
+              plan.tasks.forEach((task, tIdx) => {
+                const expectedCellId = `avail-cell-${plan.plan_id}-${tIdx}`.replace(/[^a-zA-Z0-9-]/g, '-');
+                if (expectedCellId === cellId) {
+                  task.owner = emp.email;
+                }
+              });
+            });
+
+            // "Change" button re-renders the dropdown and re-binds the named handler
+            const changeBtn = document.getElementById(`change-btn-${cellId}`);
+            if (changeBtn) {
+              changeBtn.addEventListener('click', () => {
+                cell.innerHTML = `
+                  <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                    <span style="color: var(--color-status-red-text); font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em;">
+                      ⚠ Not Available
+                    </span>
+                    <select
+                      id="sel-${cellId}"
+                      style="
+                        font-size: 0.73rem;
+                        padding: 0.3rem 0.4rem;
+                        background: var(--bg-tertiary);
+                        border: 1px solid var(--color-status-amber-text);
+                        border-radius: var(--radius-sm);
+                        color: var(--text-primary);
+                        cursor: pointer;
+                        max-width: 220px;
+                      "
+                      title="Select alternate ${skill} employee"
+                    >
+                      <option value="" disabled selected>— Pick alternate (${skill}) —</option>
+                      ${options}
+                    </select>
+                  </div>
+                `;
+                // Re-bind the named handler to the restored select
+                const newSel = document.getElementById(`sel-${cellId}`);
+                if (newSel) newSel.addEventListener('change', handleChange);
+              });
+            }
+          };
+
+          selectEl.addEventListener('change', handleChange);
+        }
+      });
+    });
+  }
 
   actionsRow.innerHTML = `
     <div style="display: flex; gap: 1rem; align-items: center;">
@@ -528,7 +715,7 @@ function renderPlanPreview(newPlans, actionsRow) {
       
       setTimeout(() => {
         if (window.switchStage) {
-          window.switchStage(4);
+          window.switchStage('dependencies');
         }
       }, 1500);
     } catch (err) {

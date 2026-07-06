@@ -178,6 +178,19 @@ def list_employees():
     return db.get_employees()
 
 
+@app.get("/api/plans/employees/availability")
+def employees_availability(skill: str):
+    """Return all employees of a given skill with days_until_free computed from saved plan tasks.
+    
+    Query param: skill — e.g. 'backend', 'qa', 'devops', 'frontend'
+    Response per employee: { email, name, skill, status, days_until_free }
+      days_until_free = 0 → available now
+      days_until_free = N → free in N days
+      days_until_free = null → working but no task end date found
+    """
+    return db.get_employees_by_skill_with_availability(skill)
+
+
 @app.get("/api/plans/{plan_id}", response_model=dict)
 def get_plan(plan_id: str):
     """Return a single PlanRecord by plan_id."""
