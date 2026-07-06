@@ -172,6 +172,12 @@ def list_plans():
     return db.get_all()
 
 
+@app.get("/api/plans/employees")
+def list_employees():
+    """Return list of all employees and their statuses."""
+    return db.get_employees()
+
+
 @app.get("/api/plans/{plan_id}", response_model=dict)
 def get_plan(plan_id: str):
     """Return a single PlanRecord by plan_id."""
@@ -217,8 +223,40 @@ def generate(req: GeneratePlanRequest):
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Invalid estimate payload: {exc}")
 
+    # Build or parse team configuration dynamically from database free pool
+    team_config_dict = req.team_config
+    if not team_config_dict:
+        roles_config = []
+        total_members = 0
+        has_db_employees = False
+        try:
+            for role in ["backend", "frontend", "qa", "devops"]:
+                emails = db.get_free_employees_by_role(role)
+                if emails:
+                    has_db_employees = True
+                count = len(emails) if emails else 1
+                members = emails if emails else [f"{role}_default_1"]
+                total_members += count
+                roles_config.append({
+                    "role": role,
+                    "count": count,
+                    "hours_per_day_per_person": 8.0,
+                    "members": members
+                })
+        except Exception as e:
+            print(f"[plan-schedule] Error querying free employees: {e}")
+            has_db_employees = False
+            
+        if has_db_employees:
+            team_config_dict = {
+                "team_size": total_members,
+                "roles": roles_config
+            }
+        else:
+            team_config_dict = _DEFAULT_TEAM_CONFIG
+
     try:
-        team = TeamConfig(**(req.team_config or _DEFAULT_TEAM_CONFIG))
+        team = TeamConfig(**team_config_dict)
         constraints = SprintConstraints(
             **(req.sprint_constraints or _DEFAULT_SPRINT_CONSTRAINTS)
         )
@@ -269,12 +307,9 @@ def generate(req: GeneratePlanRequest):
     serialised = []
     for plan, reasoning in zip(plans, reasoning_list):
         plan_dict = plan.model_dump_iso()
-        # Store _reasoning in the DB row (private key, not part of PlanRecord schema)
+        # Keep _reasoning in-memory on client side, do NOT call db.save(plan_dict) yet!
         plan_dict["_reasoning"] = reasoning
-        db.save(plan_dict)
-        # Return clean plan dict without _reasoning leak
-        clean_dict = {k: v for k, v in plan_dict.items() if not k.startswith("_")}
-        serialised.append(clean_dict)
+        serialised.append(plan_dict)
 
     # Handle case where reasoning list shorter than plans (fixture fallback)
     if len(reasoning_list) < len(serialised):
@@ -302,11 +337,76 @@ class UpdateStatusRequest(BaseModel):
 
 @app.patch("/api/plans/{plan_id}/status")
 def update_plan_status(plan_id: str, req: UpdateStatusRequest):
-    """Update a plan's status (approval state)."""
+    """Update a plan's status (approval state) and mark owners as working if accepted."""
     plan = db.get_by_id(plan_id)
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found.")
-    plan["status"] = req.status
+    
+    new_status = req.status
+    plan["status"] = new_status
     db.save(plan)
-    return {"status": "updated", "plan_id": plan_id, "new_status": req.status}
+    
+    # Mark task owners as "working" when plan is accepted
+    if new_status == "accepted":
+        for t in plan.get("tasks", []):
+            owner = t.get("owner")
+            task_status = t.get("status", "pending")
+            if owner and owner != "unassigned" and task_status == "pending":
+                db.update_employee_status(owner, "working")
+                
+    return {"status": "updated", "plan_id": plan_id, "new_status": new_status}
+
+
+class UpdateTaskStatusRequest(BaseModel):
+    status: str
+
+
+@app.patch("/api/plans/{plan_id}/tasks/{task_id}/status")
+def update_task_status(plan_id: str, task_id: str, req: UpdateTaskStatusRequest):
+    """Update a specific task's status and update the owner's availability."""
+    plan = db.get_by_id(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found.")
+        
+    tasks = plan.get("tasks", [])
+    task = next((t for t in tasks if t.get("task_id") == task_id), None)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found.")
+        
+    old_status = task.get("status", "pending")
+    new_status = req.status
+    
+    if old_status != new_status:
+        task["status"] = new_status
+        db.save(plan)
+        
+        owner = task.get("owner")
+        if owner and owner != "unassigned":
+            if new_status == "completed":
+                db.update_employee_status(owner, "free")
+            elif new_status == "pending":
+                db.update_employee_status(owner, "working")
+                
+    return {"status": "updated", "plan_id": plan_id, "task_id": task_id, "new_task_status": new_status}
+
+
+# Moved above get_plan to avoid collision
+
+
+@app.post("/api/plans")
+def create_plan(plan_dict: dict):
+    """Save an approved/accepted plan to the database."""
+    # Ensure status is set to accepted by default when saved from HITL
+    plan_dict.setdefault("status", "accepted")
+    db.save(plan_dict)
+    
+    # If accepted, mark all owners of pending tasks as "working" in the DB
+    if plan_dict.get("status") == "accepted":
+        for t in plan_dict.get("tasks", []):
+            owner = t.get("owner")
+            task_status = t.get("status", "pending")
+            if owner and owner != "unassigned" and task_status == "pending":
+                db.update_employee_status(owner, "working")
+                
+    return {"status": "saved", "plan_id": plan_dict["plan_id"]}
 

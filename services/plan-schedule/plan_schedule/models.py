@@ -104,6 +104,7 @@ class Task(BaseModel):
     end_date: date
     owner: str
     predecessor_task_ids: List[str] = Field(default_factory=list)
+    status: str = "pending"
 
     @model_validator(mode="after")
     def _date_ordering(self) -> "Task":
