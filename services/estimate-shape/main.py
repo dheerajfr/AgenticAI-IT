@@ -30,6 +30,7 @@ def generate_estimate_id(demand_id: str) -> str:
 
 class GenerateEstimateRequest(BaseModel):
     demand: DemandRecord
+    rebaseline_reason: Optional[str] = None
 
 class ApproveEstimateRequest(BaseModel):
     effort_days: int
@@ -39,9 +40,9 @@ class ApproveEstimateRequest(BaseModel):
     duration_weeks: int
     confidence: str
     methodology: str
-
-class ApproveChallengeRequest(BaseModel):
-    risk_factors: List[str]
+    risk_factors: List[str] = []
+    requires_arb: bool = False
+    status: str = "draft"
 
 
 @app.get("/api/estimates", response_model=List[EstimateRecord])
@@ -72,6 +73,10 @@ def generate_estimate(req: GenerateEstimateRequest):
         "description": req.demand.description,
         "type": req.demand.type,
         "domain": req.demand.domain,
+        "business_case_summary": req.demand.business_case_summary,
+        "risk_level": req.demand.risk_level,
+        "funding_status": req.demand.funding_status,
+        "rebaseline_reason": req.rebaseline_reason,
         "error": None
     }
     
@@ -83,16 +88,27 @@ def generate_estimate(req: GenerateEstimateRequest):
     if graph_output.get("error"):
         raise HTTPException(status_code=422, detail=graph_output["error"])
         
+    # Auto-approval condition: Since the challenge step was merged into the generation, 
+    # when the user clicks "Approve Estimate" on the preview, it is considered fully approved.
+    cost = graph_output.get("cost_estimate", 0)
+    conf = graph_output.get("confidence", "low")
+    risk_level = req.demand.risk_level
+    
+    suggested_status = "approved"
+
     # We return the suggested values, wait for approval to save
     return {
         "demand_id": req.demand.demand_id,
         "effort_days": graph_output.get("effort_days"),
         "effort_range_low": graph_output.get("effort_range_low"),
         "effort_range_high": graph_output.get("effort_range_high"),
-        "cost_estimate": graph_output.get("cost_estimate"),
+        "cost_estimate": cost,
         "duration_weeks": graph_output.get("duration_weeks"),
-        "confidence": graph_output.get("confidence"),
-        "methodology": graph_output.get("methodology")
+        "confidence": conf,
+        "methodology": graph_output.get("methodology"),
+        "risk_factors": graph_output.get("risk_factors", []),
+        "requires_arb": graph_output.get("requires_arb", False),
+        "suggested_status": suggested_status
     }
 
 @app.post("/api/estimates/approve", response_model=EstimateRecord)
@@ -111,62 +127,15 @@ def approve_estimate(demand_id: str, req: ApproveEstimateRequest):
         duration_weeks=req.duration_weeks,
         confidence=req.confidence,
         methodology=req.methodology,
-        risk_factors=[],
-        status="draft"
+        risk_factors=req.risk_factors,
+        requires_arb=req.requires_arb,
+        status=req.status
     )
     db.save(new_record)
     return new_record
 
 
-@app.post("/api/estimates/{estimate_id}/challenge")
-def challenge_estimate(estimate_id: str):
-    """
-    Runs the Challenge the estimate node (Requirement 2).
-    """
-    record = db.get_by_id(estimate_id)
-    if not record:
-        raise HTTPException(status_code=404, detail="Estimate not found.")
-        
-    # Normally we would fetch the demand from demand-intake service, 
-    # but for simplicity we simulate passing title/desc.
-    state_input = {
-        "task": "challenge",
-        "demand_id": record.demand_id,
-        "title": "Demand Title Placeholder",
-        "description": "Demand Description Placeholder",
-        "effort_days": record.effort_days,
-        "cost_estimate": record.cost_estimate,
-        "error": None
-    }
-    
-    try:
-        graph_output = estimate_graph.invoke(state_input)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Challenge LangGraph execution failed: {str(e)}")
-        
-    if graph_output.get("error"):
-        raise HTTPException(status_code=422, detail=graph_output["error"])
-        
-    return {
-        "risk_factors": graph_output.get("risk_factors")
-    }
 
-@app.post("/api/estimates/{estimate_id}/approve-challenge", response_model=EstimateRecord)
-def approve_challenge(estimate_id: str, req: ApproveChallengeRequest):
-    """
-    Approves the identified risks and transitions estimate status.
-    """
-    record = db.get_by_id(estimate_id)
-    if not record:
-        raise HTTPException(status_code=404, detail="Estimate not found.")
-        
-    record.risk_factors = req.risk_factors
-    record.status = "challenged"
-    # Assuming human then decides to approve after challenge
-    record.status = "approved" 
-    
-    db.save(record)
-    return record
 
 
 @app.post("/api/estimates/{estimate_id}/trigger-check")
@@ -178,9 +147,28 @@ def trigger_check(estimate_id: str):
     if not record:
         raise HTTPException(status_code=404, detail="Estimate not found.")
         
+    import urllib.request
+    import json
+    
+    demand_id = record.demand_id
+    demand_data = {}
+    try:
+        req = urllib.request.Request(f"http://127.0.0.1:8000/api/demands/{demand_id}")
+        with urllib.request.urlopen(req) as f:
+            demand_data = json.loads(f.read().decode("utf-8"))
+    except Exception as e:
+        print(f"Failed to fetch demand {demand_id}: {e}")
+
     state_input = {
         "task": "trigger_check",
         "demand_id": record.demand_id,
+        "title": demand_data.get("title", "Unknown"),
+        "effort_days": record.effort_days,
+        "cost_estimate": record.cost_estimate,
+        "risk_factors": record.risk_factors,
+        "capacity_verdict": demand_data.get("capacity_verdict"),
+        "skill_gaps": demand_data.get("skill_gaps", []),
+        "resource_constraints": demand_data.get("resource_constraints", []),
         "error": None
     }
     

@@ -15,6 +15,12 @@ class DemandRecord(BaseModel):
     source_filename: Optional[str] = Field(None, description="Original file name if source is document")
     duplicate_of: Optional[str] = Field(None, description="demand_id of the duplicate record if flagged as duplicate")
     business_case_summary: Optional[str] = Field(None, description="Generated business case summary text")
+    capacity_verdict: Optional[str] = Field(None, description="e.g. feasible")
+    capacity_score: Optional[int] = Field(None, description="Capacity score out of 100")
+    earliest_start_date: Optional[str] = Field(None, description="ISO Date")
+    capacity_reasoning: Optional[List[str]] = Field(None, description="Reasoning for capacity verdict")
+    resource_constraints: Optional[List[str]] = Field(None, description="List of constraints")
+    skill_gaps: Optional[List[str]] = Field(None, description="List of missing skills")
     status: Literal["intake", "classified", "capacity-checked", "approved", "rejected"] = Field(..., description="Lifecycle status")
 
 
@@ -29,4 +35,5 @@ class EstimateRecord(BaseModel):
     confidence: Literal["low", "medium", "high"] = Field(..., description="Confidence level")
     methodology: str = Field(..., description="e.g. comparable-history, expert-judgement")
     risk_factors: Optional[List[str]] = Field(None, description="From 'Challenge the estimate'")
+    requires_arb: Optional[bool] = Field(False, description="Flag for Architecture Review Board")
     status: Literal["draft", "challenged", "approved", "re-baselined"] = Field(..., description="Lifecycle status")
