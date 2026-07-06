@@ -1,16 +1,15 @@
 import os
 import random
-from datetime import datetime
-from typing import Optional, List
+import math
+from datetime import datetime, timedelta
+from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from models import DemandRecord
-from database import db
-from orchestration.extract_graph import extract_graph
-from orchestration.classify_graph import classify_graph
-from orchestration.business_case import business_case_graph
+from database import db, resource_db
+from orchestration.workflow import pipeline_graph
 
 app = FastAPI(
     title="Demand & Intake Service (Stage 01)",
@@ -56,9 +55,44 @@ class ApproveClassifyRequest(BaseModel):
 
 class ApproveCapacityRequest(BaseModel):
     verdict: str
+    capacityScore: Optional[int] = None
+    earliestStartDate: Optional[str] = None
+    capacityReasoning: Optional[List[str]] = None
+    resourceConstraints: Optional[List[Dict[str, Any]]] = None
+    skillGaps: Optional[List[str]] = None
 
 class ApproveBusinessCaseRequest(BaseModel):
     business_case_summary: str
+
+
+class ResourceModel(BaseModel):
+    name: str
+    role: str
+    skills: List[str]
+    total_capacity: int
+    allocated_capacity: int
+
+
+@app.get("/api/demands/resources", response_model=List[ResourceModel])
+def get_resources():
+    """Retrieve all resources and skills in the system."""
+    return resource_db.get_all_resources()
+
+
+@app.post("/api/demands/resources", response_model=ResourceModel)
+def save_resource(resource: ResourceModel):
+    """Add or update resource capacity details."""
+    resource_db.save_resource(resource.model_dump())
+    return resource
+
+
+@app.delete("/api/demands/resources/{name}")
+def delete_resource(name: str):
+    """Delete a resource by name."""
+    success = resource_db.delete_resource(name)
+    if not success:
+        raise HTTPException(status_code=404, detail="Resource not found.")
+    return {"status": "deleted"}
 
 
 @app.get("/api/demands", response_model=List[DemandRecord])
@@ -115,6 +149,7 @@ async def submit_intake(
         
     # 2. Invoke Capture & Structure LangGraph
     state_input = {
+        "action": "extract",
         "text_content": description if has_text else None,
         "file_bytes": file_bytes,
         "file_name": file_name,
@@ -124,7 +159,7 @@ async def submit_intake(
     }
     
     try:
-        graph_output = extract_graph.invoke(state_input)
+        graph_output = pipeline_graph.invoke(state_input)
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -173,6 +208,7 @@ def run_classify_route(demand_id: str):
         raise HTTPException(status_code=404, detail="Demand record not found.")
         
     state_input = {
+        "action": "classify",
         "demand_id": record.demand_id,
         "title": record.title,
         "description": record.description,
@@ -185,7 +221,7 @@ def run_classify_route(demand_id: str):
     }
     
     try:
-        graph_output = classify_graph.invoke(state_input)
+        graph_output = pipeline_graph.invoke(state_input)
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -227,28 +263,232 @@ def approve_classify(demand_id: str, req: ApproveClassifyRequest):
     return record
 
 
+def perform_capacity_check(record: DemandRecord):
+    required_skills = []
+    required_roles = []
+    required_capacity = {}
+    
+    # 1. Fetch dynamic resources from Resource DB with error handling
+    try:
+        resources = resource_db.get_all_resources()
+        if not resources:
+            raise ValueError("Resource database is empty.")
+    except Exception as e:
+        print(f"Error fetching capacity data from Resource DB: {e}")
+        # Graceful fallback: return a verdict indicating capacity data is currently unavailable
+        current_date = datetime.today()
+        earliest_start_date = (current_date + timedelta(days=30)).strftime("%Y-%m-%d")
+        return {
+            "verdict": "at risk",
+            "riskLevel": record.risk_level,
+            "capacityScore": 0,
+            "earliestStartDate": earliest_start_date,
+            "resourceConstraints": [],
+            "skillGaps": [],
+            "reasoning": [
+                f"ERROR: Capacity check failed because Resource DB is unreachable or empty: {str(e)}",
+                "Start date has been deferred by 30 days as a placeholder safeguard."
+            ]
+        }
+
+    # Extract dynamic lists of available roles and skills from Resource DB
+    available_roles_list = list(set(res["role"] for res in resources))
+    available_roles_str = ", ".join(f'"{role}"' for role in available_roles_list)
+    
+    # 2. Prompt Gemini for requirement extraction using the dynamic roles list
+    prompt = f"""
+    You are an AI Architect. Analyze the following project demand:
+    Title: {record.title}
+    Description: {record.description}
+    
+    Available Roles: {available_roles_str}
+    
+    Extract:
+    - requiredSkills: A list of technical skills required to deliver this request (e.g. ["Java", "Cloud", "Payments", "Architecture", "Python", "React", "UI Design", "Security"]).
+    - requiredRoles: A list of roles from the Available Roles list needed for this request.
+    - requiredCapacity: A dictionary mapping each required role to the weekly effort units needed (integer, e.g. 5, 10, 15, 20).
+    
+    Format your response as a valid JSON object with fields: requiredSkills (list of strings), requiredRoles (list of strings), and requiredCapacity (object/dict).
+    """
+    
+    try:
+        from llm_client import call_gemini
+        res_json = call_gemini(
+            prompt=prompt,
+            system_instruction="Extract project delivery resource requirements.",
+            is_json=True
+        )
+        if isinstance(res_json, dict):
+            required_skills = res_json.get("requiredSkills", [])
+            required_roles = res_json.get("requiredRoles", [])
+            required_capacity = res_json.get("requiredCapacity", {})
+    except Exception as e:
+        print(f"Gemini capacity extraction failed, falling back to dynamic rules: {e}")
+        
+    # 3. Dynamic Fallback Rules (derived directly from Resource DB data)
+    if not required_skills or not required_roles or not required_capacity:
+        title_lower = record.title.lower()
+        description_lower = record.description.lower()
+        
+        # Get all skills in the DB
+        skills_in_db = list(set(s for r in resources for s in r["skills"]))
+        
+        # Match roles based on keywords
+        matched_roles = []
+        for role in available_roles_list:
+            role_words = set(role.lower().replace("&", " ").replace("-", " ").split())
+            if any(w in title_lower or w in description_lower for w in role_words if len(w) > 2):
+                matched_roles.append(role)
+                
+        # Default role fallback if no match
+        if not matched_roles:
+            if "Backend Developer" in available_roles_list:
+                matched_roles = ["Backend Developer"]
+            else:
+                matched_roles = [available_roles_list[0]]
+                
+        # Match skills based on keywords
+        matched_skills = []
+        for skill in skills_in_db:
+            if skill.lower() in title_lower or skill.lower() in description_lower:
+                matched_skills.append(skill)
+                
+        # Default skill fallback if no match
+        if not matched_skills:
+            matched_skills = ["Java", "Cloud"]
+            
+        required_skills = matched_skills
+        required_roles = matched_roles
+        
+        required_capacity = {}
+        for role in required_roles:
+            if "senior" in role.lower() or "architect" in role.lower() or "lead" in role.lower():
+                required_capacity[role] = 15
+            else:
+                required_capacity[role] = 10
+                
+    # Ensure High Risk demands require Senior Architect (if Senior Architect role exists in DB)
+    if record.risk_level == "high" and "Senior Architect" in available_roles_list:
+        if "Senior Architect" not in required_roles:
+            required_roles.append("Senior Architect")
+            required_capacity["Senior Architect"] = 15
+        if "Architecture" not in required_skills:
+            required_skills.append("Architecture")
+            
+    # 4. Skill availability check against dynamic workforce pool
+    all_workforce_skills = set()
+    for res in resources:
+        all_workforce_skills.update(res["skills"])
+        
+    skill_gaps = [skill for skill in required_skills if skill not in all_workforce_skills]
+    
+    # 5. Resource capacity check against dynamic workforce pool
+    role_available_capacity = {}
+    for res in resources:
+        role = res["role"]
+        avail = res["total_capacity"] - res["allocated_capacity"]
+        role_available_capacity[role] = role_available_capacity.get(role, 0) + avail
+        
+    resource_constraints = []
+    for role in required_roles:
+        req_cap = required_capacity.get(role, 10)
+        avail_cap = role_available_capacity.get(role, 0)
+        if avail_cap < req_cap:
+            resource_constraints.append({
+                "role": role,
+                "availableCapacity": avail_cap,
+                "requiredCapacity": req_cap
+            })
+            
+    # 6. Earliest Start Date calculation
+    current_date = datetime.today()
+    max_delay_days = 0
+    for constraint in resource_constraints:
+        gap = constraint["requiredCapacity"] - constraint["availableCapacity"]
+        delay_weeks = min(12, math.ceil(gap / 5))
+        delay_days = delay_weeks * 7
+        if delay_days > max_delay_days:
+            max_delay_days = delay_days
+            
+    if skill_gaps:
+        max_delay_days = max(max_delay_days, 30)
+        
+    earliest_start_date = (current_date + timedelta(days=max_delay_days)).strftime("%Y-%m-%d")
+    
+    # 7. Verdict and capacity score
+    verdict = "feasible"
+    if record.risk_level == "high" and any(c["role"] == "Senior Architect" for c in resource_constraints):
+        verdict = "at risk"
+    elif skill_gaps:
+        verdict = "at risk"
+    elif resource_constraints:
+        verdict = "at risk"
+        
+    score = 100
+    if skill_gaps:
+        score -= min(40, 20 * len(skill_gaps))
+    if resource_constraints:
+        for c in resource_constraints:
+            gap = c["requiredCapacity"] - c["availableCapacity"]
+            pct = gap / c["requiredCapacity"]
+            score -= int(30 * pct)
+    if record.risk_level == "high":
+        score -= 10
+    capacity_score = max(0, min(100, score))
+    
+    # 8. Reasoning list
+    reasoning = []
+    if record.risk_level == "high":
+        reasoning.append("High-risk demand requires Senior Architect oversight.")
+    else:
+        reasoning.append(f"{record.risk_level.capitalize()}-risk demand profile checked.")
+        
+    total_total_cap = sum(res["total_capacity"] for res in resources)
+    total_alloc_cap = sum(res["allocated_capacity"] for res in resources)
+    total_avail_cap = total_total_cap - total_alloc_cap
+    pct_avail = int((total_avail_cap / total_total_cap) * 100) if total_total_cap > 0 else 0
+    reasoning.append(f"Delivery team has {pct_avail}% overall available capacity.")
+    
+    if resource_constraints:
+        for c in resource_constraints:
+            reasoning.append(f"Constraint: {c['role']} has only {c['availableCapacity']} units available (requires {c['requiredCapacity']}).")
+    else:
+        reasoning.append("No resource scheduling conflicts detected.")
+        
+    if skill_gaps:
+        reasoning.append(f"Skill gap: Required skills {', '.join(skill_gaps)} are missing in the available workforce.")
+    else:
+        reasoning.append("All required technical skills are available in the current workforce pool.")
+        
+    if max_delay_days > 0:
+        reasoning.append(f"Earliest available start date is deferred by {max_delay_days} days to {earliest_start_date}.")
+    else:
+        reasoning.append("Delivery work can begin immediately.")
+        
+    return {
+        "verdict": verdict,
+        "riskLevel": record.risk_level,
+        "capacityScore": capacity_score,
+        "earliestStartDate": earliest_start_date,
+        "resourceConstraints": resource_constraints,
+        "skillGaps": skill_gaps,
+        "reasoning": reasoning
+    }
+
+
 @app.post("/api/demands/{demand_id}/capacity-check")
 def run_capacity_check(demand_id: str):
     """
-    Stub capacity check. Returns static verdict feasibility.
+    Runs the advanced capacity check feasibility engine.
     """
     record = db.get_by_id(demand_id)
     if not record:
         raise HTTPException(status_code=404, detail="Demand record not found.")
         
-    # Return dynamic-looking stub verdict
-    # E.g., if risk is high, flag as at risk, otherwise feasible
-    verdict = "feasible"
-    reason = "Standard delivery resource queue has open backlog bandwidth for current quarter."
-    
-    if record.risk_level == "high":
-        verdict = "at risk"
-        reason = "High risk assessment requires specialized Senior Architect resources, currently at 95% utilization."
-        
-    return {
-        "verdict": verdict,
-        "reason": reason
-    }
+    check_result = perform_capacity_check(record)
+    # Add backward compatible 'reason' field for client code
+    check_result["reason"] = "; ".join(check_result["reasoning"])
+    return check_result
 
 
 @app.post("/api/demands/{demand_id}/approve-capacity", response_model=DemandRecord)
@@ -260,6 +500,16 @@ def approve_capacity(demand_id: str, req: ApproveCapacityRequest):
     if not record:
         raise HTTPException(status_code=404, detail="Demand record not found.")
         
+    # Evaluate capacity metrics dynamically to save on the record
+    check_result = perform_capacity_check(record)
+    
+    record.capacity_verdict = check_result["verdict"]
+    record.capacity_score = check_result["capacityScore"]
+    record.earliest_start_date = check_result["earliestStartDate"]
+    record.capacity_reasoning = check_result["reasoning"]
+    record.resource_constraints = check_result["resourceConstraints"]
+    record.skill_gaps = check_result["skillGaps"]
+    
     record.status = "capacity-checked"
     db.save(record)
     return record
@@ -275,6 +525,7 @@ def run_business_case_draft(demand_id: str):
         raise HTTPException(status_code=404, detail="Demand record not found.")
         
     state_input = {
+        "action": "business_case",
         "demand_id": record.demand_id,
         "title": record.title,
         "description": record.description,
@@ -286,7 +537,7 @@ def run_business_case_draft(demand_id: str):
     }
     
     try:
-        graph_output = business_case_graph.invoke(state_input)
+        graph_output = pipeline_graph.invoke(state_input)
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -308,6 +559,7 @@ def run_business_case_draft(demand_id: str):
 def approve_business_case(demand_id: str, req: ApproveBusinessCaseRequest):
     """
     Commits approved business case text, transitioning status to 'approved'.
+    Also exports the full demand record as a JSON file to the outputs/ folder.
     """
     record = db.get_by_id(demand_id)
     if not record:
@@ -315,10 +567,36 @@ def approve_business_case(demand_id: str, req: ApproveBusinessCaseRequest):
         
     record.business_case_summary = req.business_case_summary
     record.status = "approved"
-    record.funding_status = "approved" # Set to approved as well as part of final sign-off
+    record.funding_status = "approved"
     
+    # 1. Save to database
     db.save(record)
+    
+    # 2. Export to outputs/ folder
+    try:
+        from datetime import datetime
+        import json as _json
+        
+        # Build path: services/demand-intake/outputs/<demand_id>/
+        outputs_root = os.path.join(os.path.dirname(__file__), "outputs")
+        demand_output_dir = os.path.join(outputs_root, demand_id)
+        os.makedirs(demand_output_dir, exist_ok=True)
+        
+        # Timestamped filename so re-approvals don't overwrite previous exports
+        timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        output_filename = f"{demand_id}_approved_{timestamp}.json"
+        output_path = os.path.join(demand_output_dir, output_filename)
+        
+        with open(output_path, "w", encoding="utf-8") as f:
+            _json.dump(record.model_dump(), f, indent=2, default=str)
+        
+        print(f"[Approve] Exported approved demand to: {output_path}")
+    except Exception as e:
+        # Non-fatal: log the error but do not fail the approval
+        print(f"[Approve] WARNING: Failed to export output file for {demand_id}: {e}")
+    
     return record
+
 
 
 @app.post("/api/demands/{demand_id}/save-business-case-draft", response_model=DemandRecord)

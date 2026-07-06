@@ -1,0 +1,22 @@
+{
+  "demand_id": "DEM-2026-0003",
+  "title": "Automated Security Scanning",
+  "description": "Implement automated vulnerability scanners (SAST/DAST) in the main API repository CI/CD pipeline to catch potential OWASP Top 10 vulnerabilities before deployment.",
+  "type": "compliance",
+  "domain": "Security & Core Dev",
+  "risk_level": "high",
+  "funding_status": "unfunded",
+  "submitted_by": "clara.davis@example.com",
+  "submitted_date": "2026-06-18",
+  "source": "document",
+  "source_filename": "security_upgrade_spec.pdf",
+  "duplicate_of": null,
+  "business_case_summary": null,
+  "status": "intake",
+  "capacity_verdict": null,
+  "capacity_score": null,
+  "earliest_start_date": null,
+  "capacity_reasoning": null,
+  "resource_constraints": null,
+  "skill_gaps": null
+}

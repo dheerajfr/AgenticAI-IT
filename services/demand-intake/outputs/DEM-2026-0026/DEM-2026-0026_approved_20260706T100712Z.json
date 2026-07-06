@@ -1,0 +1,35 @@
+{
+  "demand_id": "DEM-2026-0026",
+  "title": "Real-time AI-powered Fraud Detection System",
+  "description": "Develop a real-time AI-powered fraud detection system for transaction monitoring. The system must analyze each payment transaction within 200ms, use an ML model to flag suspicious patterns, and automatically trigger holds on high-risk transactions. Key requirements include a new ML pipeline, a rules engine, a case management dashboard for the fraud team, and integration with the existing payments gateway.",
+  "type": "project",
+  "domain": "Security & Compliance",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-06",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Real-time AI-powered Fraud Detection System (DEM-2026-0026)\n\nExecutive Summary\nThis business case proposes the development and implementation of a real-time AI-powered fraud detection system (DEM-2026-0026). The system will analyze payment transactions within 200 milliseconds using a machine learning model to identify and automatically flag suspicious patterns and trigger holds on high-risk transactions. Key components include a new ML pipeline, a robust rules engine, a dedicated case management dashboard for the fraud team, and seamless integration with the existing payments gateway. This project is critical for enhancing our security posture, improving compliance, and minimizing financial losses from fraudulent activities.\n\nDirect Business Value and Impact\nThe new system will deliver significant value by substantially reducing financial losses due to fraud through proactive, real-time intervention. It will boost operational efficiency by automating the detection and initial response to fraudulent transactions, allowing fraud analysts to focus on complex cases. Improved transaction security will strengthen customer trust and confidence, while also ensuring robust compliance with evolving regulatory requirements, thereby safeguarding the organization's reputation and avoiding potential penalties.\n\nPotential Risk Mitigation\nGiven the high-risk nature of this project, several mitigation strategies will be employed. For technical complexity and integration challenges, a phased development approach will be adopted, focusing on modular design and iterative testing, supported by a specialized integration team. To address ML model accuracy and potential bias, a continuous monitoring and retraining framework will be established, alongside A/B testing and human oversight via the case management dashboard. Data security and privacy will be paramount, enforced through stringent security protocols and compliance with relevant data protection regulations. Comprehensive training and support will be provided to the fraud team to ensure smooth adoption and effective utilization of the new system.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 50,
+  "earliest_start_date": "2026-08-05",
+  "capacity_reasoning": [
+    "High-risk demand requires Senior Architect oversight.",
+    "Delivery team has 36% overall available capacity.",
+    "No resource scheduling conflicts detected.",
+    "Skill gap: Required skills AI/ML, Real-time Processing, Backend Development, Data Engineering, API Integration, Scalability are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-05."
+  ],
+  "resource_constraints": [],
+  "skill_gaps": [
+    "AI/ML",
+    "Real-time Processing",
+    "Backend Development",
+    "Data Engineering",
+    "API Integration",
+    "Scalability"
+  ]
+}
