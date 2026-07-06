@@ -1,0 +1,37 @@
+[
+  {
+    "name": "John",
+    "role": "Backend Developer",
+    "skills": ["Java", "Cloud", "Payments"],
+    "total_capacity": 40,
+    "allocated_capacity": 30
+  },
+  {
+    "name": "Alice",
+    "role": "Frontend Developer",
+    "skills": ["React", "UI Design", "Payments"],
+    "total_capacity": 40,
+    "allocated_capacity": 25
+  },
+  {
+    "name": "Bob",
+    "role": "Senior Architect",
+    "skills": ["Architecture", "Cloud"],
+    "total_capacity": 40,
+    "allocated_capacity": 35
+  },
+  {
+    "name": "Charlie",
+    "role": "Security Engineer",
+    "skills": ["Security", "Cloud"],
+    "total_capacity": 40,
+    "allocated_capacity": 20
+  },
+  {
+    "name": "Diana",
+    "role": "Backend Developer",
+    "skills": ["Python", "Cloud", "Architecture"],
+    "total_capacity": 40,
+    "allocated_capacity": 38
+  }
+]

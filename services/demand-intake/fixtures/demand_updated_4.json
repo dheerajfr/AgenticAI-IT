@@ -1,0 +1,27 @@
+{
+  "demand_id": "DEM-2026-0004",
+  "title": "Fix memory leak in websocket server",
+  "description": "Investigate and resolve memory leak occurring in the real-time notification socket server. This leak causes pods to restart every 48 hours under high connection loads.",
+  "type": "defect-fix",
+  "domain": "Core Platform Services",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "developer.dan@example.com",
+  "submitted_date": "2026-06-25",
+  "source": "document",
+  "source_filename": "leak_analysis_report.docx",
+  "duplicate_of": null,
+  "business_case_summary": null,
+  "status": "capacity-checked",
+  "capacity_verdict": "feasible",
+  "capacity_score": 90,
+  "earliest_start_date": "2026-07-08",
+  "capacity_reasoning": [
+    "Core maintenance team has sufficient available capacity this sprint.",
+    "Defect-fix type demands are prioritised in the maintenance queue.",
+    "Medium risk requires no additional senior architect involvement.",
+    "Estimated 2-sprint resolution within current team allocation."
+  ],
+  "resource_constraints": [],
+  "skill_gaps": []
+}
