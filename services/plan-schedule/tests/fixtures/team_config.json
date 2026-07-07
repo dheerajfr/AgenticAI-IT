@@ -1,0 +1,29 @@
+{
+  "team_size": 6,
+  "roles": [
+    {
+      "role": "backend",
+      "count": 2,
+      "hours_per_day_per_person": 8,
+      "members": ["m.rodriguez", "d.chen"]
+    },
+    {
+      "role": "frontend",
+      "count": 1,
+      "hours_per_day_per_person": 8,
+      "members": ["f.nguyen"]
+    },
+    {
+      "role": "qa",
+      "count": 2,
+      "hours_per_day_per_person": 8,
+      "members": ["alice.smith", "bob.jones"]
+    },
+    {
+      "role": "devops",
+      "count": 1,
+      "hours_per_day_per_person": 8,
+      "members": ["clara.davis"]
+    }
+  ]
+}

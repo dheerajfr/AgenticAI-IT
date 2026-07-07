@@ -1,0 +1,34 @@
+{
+  "demand_id": "DEM-2026-0035",
+  "title": "Pipeline Security Compliance Integration",
+  "description": "Integrate SAST and DAST scanner tooling into the core microservices pipeline.",
+  "type": "compliance",
+  "domain": "Security & Compliance",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "security.architect@company.com",
+  "submitted_date": "2026-07-06",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Approved final draft case summary details.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 70,
+  "earliest_start_date": "2026-07-20",
+  "capacity_reasoning": [
+    "High-risk demand requires Senior Architect oversight.",
+    "Delivery team has 26% overall available capacity.",
+    "Constraint: Senior Architect has only 5 units available (requires 15).",
+    "All required technical skills are available in the current workforce pool.",
+    "Earliest available start date is deferred by 14 days to 2026-07-20."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Senior Architect",
+      "availableCapacity": 5,
+      "requiredCapacity": 15
+    }
+  ],
+  "skill_gaps": []
+}

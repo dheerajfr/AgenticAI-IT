@@ -1,0 +1,16 @@
+{
+  "estimate_id": "EST-0001-1",
+  "demand_id": "DEM-2026-0001",
+  "effort_days": 120,
+  "effort_range_low": 100,
+  "effort_range_high": 150,
+  "cost_estimate": 220000,
+  "duration_weeks": 14,
+  "confidence": "high",
+  "methodology": "comparable-history",
+  "risk_factors": [
+    "AWS database instance setup complexity",
+    "Data migration script validation time"
+  ],
+  "status": "approved"
+}

@@ -1,0 +1,2 @@
+[console_scripts]
+plan-schedule = plan_schedule.cli:main
