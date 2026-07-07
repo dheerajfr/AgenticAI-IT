@@ -4,5 +4,7 @@
   "deployed_version": "1.0.4-beta",
   "expected_version": "1.0.4-beta",
   "drift_status": "in-sync",
-  "last_checked": "2026-07-03T12:10:00Z"
+  "last_checked": "2026-07-03T12:10:00Z",
+  "observed_name": "main-api-service-svr-01",
+  "cmdb_name": "ServiceNow_Component_main-api-service"
 }

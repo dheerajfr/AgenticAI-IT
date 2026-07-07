@@ -4,5 +4,7 @@
   "deployed_version": "2.5.0",
   "expected_version": "2.5.0",
   "drift_status": "in-sync",
-  "last_checked": "2026-07-03T12:00:00Z"
+  "last_checked": "2026-07-03T12:00:00Z",
+  "observed_name": "svc-loyalty-portal-svr-01",
+  "cmdb_name": "svc-loyalty-portal-svr-01"
 }
