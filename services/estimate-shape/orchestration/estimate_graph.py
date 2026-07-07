@@ -37,13 +37,8 @@ class EstimateState(TypedDict):
     capacity_score: Optional[int]
     earliest_start_date: Optional[str]
     capacity_reasoning: Optional[List[str]]
-<<<<<<< HEAD
-    resource_constraints: Optional[List[str]]
-    skill_gaps: Optional[List[str]]
-=======
     resource_constraints: Optional[List[Any]]
     skill_gaps: Optional[List[Any]]
->>>>>>> main
     
     # Trigger check fields
     rebaseline_warranted: Optional[bool]

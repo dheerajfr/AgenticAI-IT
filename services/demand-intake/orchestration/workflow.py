@@ -274,7 +274,7 @@ def generate_draft_node(state: WorkflowState) -> Dict[str, Any]:
     demand_id = state.get("demand_id") or ""
     
     prompt = f"""
-    Draft a business case summary for the following project request.
+    Draft a concise, short business case summary for the following project request.
     
     PROJECT DETAILS:
     ID: {demand_id}
@@ -287,15 +287,15 @@ def generate_draft_node(state: WorkflowState) -> Dict[str, Any]:
     At the very beginning of your response, you MUST include the following title line:
     Business Case Summary: {title} ({demand_id})
     
-    Provide an executive summary, direct business value/impact, and potential risk mitigation.
-    Keep the draft concise, professional, and well-structured.
+    Provide a very brief executive summary (max 2 sentences), direct business value/impact (max 2 sentences), and potential risk mitigation (max 2 sentences).
+    Keep the entire draft extremely short, concise, and professional (under 120 words total).
     Do NOT use any markdown formatting like asterisks (** or *), hashes (#), or list symbols. Use plain text headings on their own lines instead.
     """
     
     try:
         draft = call_gemini(
             prompt=prompt,
-            system_instruction=f"Draft a brief business case summary in plain text. Start with 'Business Case Summary: {title} ({demand_id})'. Do not use markdown tags like #, *, or **."
+            system_instruction=f"Draft a very short, brief business case summary in plain text (under 120 words). Start with 'Business Case Summary: {title} ({demand_id})'. Do not use markdown tags like #, *, or **."
         )
         cleaned_draft = clean_markdown(draft)
         print(f"[LangGraph Node: generate_draft] Business case drafted successfully, length = {len(cleaned_draft)}")

@@ -19,13 +19,8 @@ class DemandRecord(BaseModel):
     capacity_score: Optional[int] = Field(None, description="Capacity score out of 100")
     earliest_start_date: Optional[str] = Field(None, description="ISO Date")
     capacity_reasoning: Optional[List[str]] = Field(None, description="Reasoning for capacity verdict")
-<<<<<<< HEAD
-    resource_constraints: Optional[List[str]] = Field(None, description="List of constraints")
-    skill_gaps: Optional[List[str]] = Field(None, description="List of missing skills")
-=======
     resource_constraints: Optional[List[Any]] = Field(None, description="List of constraints")
     skill_gaps: Optional[List[Any]] = Field(None, description="List of missing skills")
->>>>>>> main
     status: Literal["intake", "classified", "capacity-checked", "approved", "rejected"] = Field(..., description="Lifecycle status")
 
 
