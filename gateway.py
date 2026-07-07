@@ -29,6 +29,8 @@ print("Loading estimate-shape service...")
 estimate_app = load_service("estimate-shape")
 print("Loading config-environments service...")
 config_app = load_service("config-environments")
+print("Loading plan-schedule service...")
+plan_app = load_service("plan-schedule")
 print("Gateway ready.")
 
 from starlette.staticfiles import StaticFiles
@@ -48,6 +50,9 @@ async def app(scope, receive, send):
             return
         elif path.startswith("/api/environments"):
             await config_app(scope, receive, send)
+            return
+        elif path.startswith("/api/plans"):
+            await plan_app(scope, receive, send)
             return
             
         # 2. Route UI

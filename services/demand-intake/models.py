@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Literal
+from typing import Optional, Literal, List, Dict, Any
 
 class DemandRecord(BaseModel):
     demand_id: str = Field(..., description="Stable unique ID, never reused")
@@ -16,3 +16,9 @@ class DemandRecord(BaseModel):
     duplicate_of: Optional[str] = Field(None, description="demand_id of the duplicate record if flagged as duplicate")
     business_case_summary: Optional[str] = Field(None, description="Generated business case summary text")
     status: Literal["intake", "classified", "capacity-checked", "approved", "rejected"] = Field(..., description="Lifecycle status")
+    capacity_verdict: Optional[str] = Field(None, description="Approved capacity verdict")
+    capacity_score: Optional[int] = Field(None, description="Assessed capacity score")
+    earliest_start_date: Optional[str] = Field(None, description="Estimated earliest start date")
+    capacity_reasoning: Optional[List[str]] = Field(None, description="Evidence-based reasoning list")
+    resource_constraints: Optional[List[Dict[str, Any]]] = Field(None, description="Resource constraints list")
+    skill_gaps: Optional[List[str]] = Field(None, description="Detected skill gaps")

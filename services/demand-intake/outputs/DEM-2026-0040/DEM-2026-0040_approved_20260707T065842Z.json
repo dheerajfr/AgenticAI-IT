@@ -1,0 +1,38 @@
+{
+  "demand_id": "DEM-2026-0040",
+  "title": "Stripe Integration",
+  "description": "Request for Stripe integration.",
+  "type": "project",
+  "domain": "Payments & Checkout",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-07",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Stripe Integration (DEM-2026-0040)\n\nExecutive Summary\nThis project requests the integration of Stripe to enhance our payment processing capabilities. It aims to modernize our checkout experience and support future growth.\n\nDirect Business Value/Impact\nIntegrating Stripe will expand payment options, improve customer conversion rates, and streamline financial operations. This directly impacts revenue growth and customer satisfaction.\n\nPotential Risk Mitigation\nGiven the high risk associated with payment systems, comprehensive security audits and phased deployment are critical. Robust testing will minimize operational disruptions and protect user data.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 35,
+  "earliest_start_date": "2026-08-06",
+  "capacity_reasoning": [
+    "High-risk demand requires Senior Architect oversight.",
+    "Delivery team has 26% overall available capacity.",
+    "Constraint: Senior Architect has only 5 units available (requires 10).",
+    "Skill gap: Required skills API Integration, Backend Development, Frontend Development are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-06."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Senior Architect",
+      "availableCapacity": 5,
+      "requiredCapacity": 10
+    }
+  ],
+  "skill_gaps": [
+    "API Integration",
+    "Backend Development",
+    "Frontend Development"
+  ]
+}

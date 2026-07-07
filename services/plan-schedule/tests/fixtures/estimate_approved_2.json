@@ -1,0 +1,13 @@
+{
+  "estimate_id": "EST-0003-1",
+  "demand_id": "DEM-2026-0003",
+  "effort_days": 18,
+  "effort_range_low": 15,
+  "effort_range_high": 25,
+  "cost_estimate": 32000,
+  "duration_weeks": 3,
+  "confidence": "high",
+  "methodology": "expert-judgement",
+  "risk_factors": [],
+  "status": "approved"
+}
