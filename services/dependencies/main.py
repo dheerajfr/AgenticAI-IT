@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 from models import (
     DependencyEdge,
@@ -94,6 +94,11 @@ def create_dependency(dep: DependencyEdge):
                 status_code=400,
                 detail=f"A dependency edge from {dep.source_task_id} to {dep.target_task_id} already exists ({existing.dependency_id})."
             )
+    dep.activity_history = [
+        "✓ Dependency edge registered",
+        f"✓ Predecessor mapped to {dep.target_task_id}"
+    ]
+    dep.draft_message = ""
     db.save(dep)
     return dep
 
@@ -120,7 +125,7 @@ def sense_dependencies(req: DependencySenseRequest):
             raise HTTPException(
                 status_code=400,
                 detail=f"Precondition failed: Associated demand {plan.demand_id} has status '{status}'. "
-                       f"It must be classified and capacity-checked before sensing dependencies."
+                f"It must be classified and capacity-checked before sensing dependencies."
             )
         
     state_input = {
@@ -200,7 +205,12 @@ def sense_dependencies(req: DependencySenseRequest):
             target_task_id=target_task,
             type=raw_type,
             status=raw_status,
-            owner=raw.get("owner") or "admin@example.com"
+            owner=raw.get("owner") or "admin@example.com",
+            activity_history=[
+                "✓ Dependency sensed by AI",
+                f"✓ Predecessor mapped to {target_task}"
+            ],
+            draft_message=""
         )
         db.save(edge)
         detected_edges.append(edge)
@@ -208,8 +218,20 @@ def sense_dependencies(req: DependencySenseRequest):
     return DependencySenseResponse(detected_dependencies=detected_edges)
 
 
+from pydantic import BaseModel
+
+class LogActivityRequest(BaseModel):
+    activity: str
+
+class UpdateStatusRequest(BaseModel):
+    status: Literal["open", "at-risk", "resolved"]
+
+class SaveDraftRequest(BaseModel):
+    draft_message: str
+
+
 @app.post("/api/dependencies/{dependency_id}/chase", response_model=ChaseCommitmentResponse)
-def chase_commitment(dependency_id: str):
+def chase_commitment(dependency_id: str, tone: Optional[str] = None):
     """
     Triggers chase commitment graph.
     Generates status update nudges and checks critical path escalation.
@@ -217,6 +239,12 @@ def chase_commitment(dependency_id: str):
     dep = db.get_by_id(dependency_id)
     if not dep:
         raise HTTPException(status_code=404, detail="Dependency not found.")
+    
+    if dep.status == "resolved":
+        raise HTTPException(
+            status_code=400,
+            detail="Dependency has already been resolved. No follow-up action required."
+        )
         
     # Attempt to locate associated plan
     associated_plan = None
@@ -232,6 +260,7 @@ def chase_commitment(dependency_id: str):
         "dependency_id": dependency_id,
         "dependency": dep,
         "plan": associated_plan,
+        "tone": tone,
         "error": None
     }
     
@@ -249,12 +278,153 @@ def chase_commitment(dependency_id: str):
             detail=graph_output["error"]
         )
         
+    # Update dependency state with draft and activity history
+    if not dep.activity_history:
+        dep.activity_history = []
+    dep.activity_history.append(f"✓ AI analysis completed & reminder generated (tone: {tone or 'default'})")
+    dep.draft_message = graph_output.get("nudge_message", "")
+    dep.threat_level = graph_output.get("threat_level", "medium")
+    dep.confidence = graph_output.get("confidence", 90)
+    dep.confidence_reasons = graph_output.get("confidence_reasons", [])
+    db.save(dep)
+        
     return ChaseCommitmentResponse(
         dependency_id=dependency_id,
         nudge_message=graph_output.get("nudge_message", ""),
         escalation_required=graph_output.get("escalation_required", False),
-        threat_level=graph_output.get("threat_level", "medium")
+        threat_level=graph_output.get("threat_level", "medium"),
+        confidence=graph_output.get("confidence", 90),
+        confidence_reasons=graph_output.get("confidence_reasons", [])
     )
+
+
+@app.post("/api/dependencies/{dependency_id}/activity", response_model=DependencyEdge)
+def add_activity(dependency_id: str, req: LogActivityRequest):
+    dep = db.get_by_id(dependency_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Dependency not found.")
+    if not dep.activity_history:
+        dep.activity_history = []
+    dep.activity_history.append(req.activity)
+    db.save(dep)
+    return dep
+
+
+@app.post("/api/dependencies/{dependency_id}/status", response_model=DependencyEdge)
+def update_status(dependency_id: str, req: UpdateStatusRequest):
+    dep = db.get_by_id(dependency_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Dependency not found.")
+    dep.status = req.status
+    if not dep.activity_history:
+        dep.activity_history = []
+    dep.activity_history.append(f"✓ Status updated to {req.status.upper()}")
+    db.save(dep)
+    return dep
+
+
+@app.post("/api/dependencies/{dependency_id}/draft", response_model=DependencyEdge)
+def save_draft_message(dependency_id: str, req: SaveDraftRequest):
+    dep = db.get_by_id(dependency_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Dependency not found.")
+    dep.draft_message = req.draft_message
+    if not dep.activity_history:
+        dep.activity_history = []
+    dep.activity_history.append("✓ Draft follow-up message updated")
+    db.save(dep)
+    return dep
+
+
+@app.get("/api/dependencies/{dependency_id}/graph")
+def get_dependency_graph(dependency_id: str):
+    dep = db.get_by_id(dependency_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Dependency not found.")
+        
+    # Find associated plan
+    associated_plan = None
+    all_plans = plan_loader.load_all_plans()
+    for p in all_plans:
+        task_ids = [t.task_id for t in p.tasks]
+        if dep.source_task_id in task_ids:
+            associated_plan = p
+            break
+            
+    # Build graph nodes and links
+    nodes = []
+    links = []
+    
+    # Predecessor node
+    pred_task = None
+    if associated_plan:
+        for t in associated_plan.tasks:
+            if t.task_id == dep.target_task_id:
+                pred_task = t
+                break
+                
+    pred_name = pred_task.name if pred_task else dep.target_task_id
+    pred_owner = pred_task.owner if pred_task else dep.owner
+    nodes.append({
+        "id": dep.target_task_id,
+        "label": pred_name,
+        "type": "predecessor",
+        "owner": pred_owner,
+        "status": "pending"
+    })
+    
+    # Dependent node
+    dep_task = None
+    if associated_plan:
+        for t in associated_plan.tasks:
+            if t.task_id == dep.source_task_id:
+                dep_task = t
+                break
+                
+    dep_name = dep_task.name if dep_task else dep.source_task_id
+    dep_owner = dep_task.owner if dep_task else dep.owner
+    nodes.append({
+        "id": dep.source_task_id,
+        "label": dep_name,
+        "type": "dependent",
+        "owner": dep_owner,
+        "status": dep.status
+    })
+    
+    links.append({
+        "source": dep.target_task_id,
+        "target": dep.source_task_id,
+        "type": dep.type
+    })
+    
+    # Release node
+    release_label = "Release Milestone"
+    if associated_plan:
+        if associated_plan.plan_id == "PLN-0002-1":
+            release_label = "Release 2.3"
+        elif associated_plan.plan_id == "PLN-0001-1":
+            release_label = "Release 1.0"
+        elif associated_plan.plan_id == "PLN-0003-1":
+            release_label = "Release 1.5"
+            
+    nodes.append({
+        "id": "RELEASE_NODE",
+        "label": release_label,
+        "type": "release",
+        "owner": "Release Manager",
+        "status": "scheduled"
+    })
+    
+    links.append({
+        "source": dep.source_task_id,
+        "target": "RELEASE_NODE",
+        "type": "milestone"
+    })
+    
+    return {
+        "nodes": nodes,
+        "links": links
+    }
 
 
 @app.post("/api/dependencies/impact", response_model=CrossProgrammeImpactResponse)

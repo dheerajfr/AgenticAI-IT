@@ -25,6 +25,11 @@ class DependencyEdge(BaseModel):
     type: Literal["technical", "resource", "data", "external-vendor"] = Field(..., description="Type of dependency")
     status: Literal["open", "at-risk", "resolved"] = Field(..., description="Current status of the dependency")
     owner: str = Field(..., description="Accountable person for managing and resolving this dependency")
+    activity_history: List[str] = Field(default=[], description="History of actions taken on this dependency")
+    draft_message: Optional[str] = Field(default="", description="Draft follow-up message text")
+    threat_level: Optional[str] = Field(default="", description="AI assessed threat level")
+    confidence: Optional[int] = Field(default=None, description="AI confidence score")
+    confidence_reasons: Optional[List[str]] = Field(default=[], description="AI confidence reasons")
 
 
 class DependencySenseRequest(BaseModel):
@@ -40,6 +45,8 @@ class ChaseCommitmentResponse(BaseModel):
     nudge_message: str = Field(..., description="AI generated communication nudge to target task owner")
     escalation_required: bool = Field(..., description="True if dependency has high risk and impacts critical path")
     threat_level: Literal["low", "medium", "high"] = Field(..., description="Assessed threat level of the commitment delay")
+    confidence: int = Field(default=90, description="AI confidence score percentage")
+    confidence_reasons: List[str] = Field(default=[], description="Reasons backing the confidence score")
 
 
 class CrossProgrammeImpactRequest(BaseModel):

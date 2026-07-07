@@ -47,7 +47,8 @@ def call_gemini(
     if is_json:
         response = model.generate_content(
             prompt,
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={"response_mime_type": "application/json"},
+            request_options={"timeout": 5.0}
         )
         text = response.text.strip()
         try:
@@ -60,5 +61,5 @@ def call_gemini(
                 text = text[:-3]
             return json.loads(text.strip())
     else:
-        response = model.generate_content(prompt)
+        response = model.generate_content(prompt, request_options={"timeout": 5.0})
         return response.text

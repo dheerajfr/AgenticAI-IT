@@ -144,6 +144,13 @@ def test_chase_commitment_not_found():
     assert response.status_code == 404
 
 
+def test_chase_commitment_resolved():
+    """Verify 400 Bad Request when trying to chase an already resolved dependency."""
+    response = client.post("/api/dependencies/DEP-0002/chase")
+    assert response.status_code == 400
+    assert "already been resolved" in response.json()["detail"]
+
+
 def test_cross_programme_impact_critical_path():
     """Verify ripple impact logic when delaying a critical path task."""
     # In plan_1.json, T-AWS-1 is on the critical path and predecessor of T-MIG-1 (which is predecessor of T-TST-2).
