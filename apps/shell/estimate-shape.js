@@ -295,8 +295,9 @@ function renderEstimateWizard(est) {
   const panel = document.getElementById('estimate-panel-container');
   
   const isDraft = est.status === 'draft';
-  const isApproved = est.status === 'approved' || est.status === 're-baselined' || est.status === 'finalized';
+  const isApproved = est.status === 'approved' || est.status === 're-baselined';
   const isRebaselined = est.status === 're-baselined';
+  const isFinalized = est.status === 'approved' && est.rebaseline_reason != null;
 
   panel.innerHTML = `
     <div class="panel-card" style="padding-top: 1rem;">
@@ -343,19 +344,19 @@ function renderEstimateWizard(est) {
         </div>
 
         <!-- STEP 2: RE-BASELINE TRIGGERS -->
-        <div class="wizard-step ${isApproved ? (isRebaselined ? 'completed' : 'active') : ''}">
+        <div class="wizard-step ${isApproved ? (isRebaselined || isFinalized ? 'completed' : 'active') : ''}">
           <div class="wizard-step-header">
             <h4 class="wizard-step-title"><span class="wizard-step-num">2</span> Re-estimate Triggers</h4>
-            <status-pill status="${isRebaselined ? 'Approved' : (isApproved ? 'Monitoring' : 'Locked')}"></status-pill>
+            <status-pill status="${isRebaselined || isFinalized ? 'Approved' : (isApproved ? 'Monitoring' : 'Locked')}"></status-pill>
           </div>
           <div class="wizard-step-body">
-            ${isRebaselined ? `
+            ${isRebaselined || isFinalized ? `
               <div class="data-item">
                 <div class="data-label">Status</div>
-                <div class="data-value" style="color: var(--color-status-blue-text);">Re-baselined</div>
+                <div class="data-value" style="color: var(--color-status-${isRebaselined ? 'blue' : 'green'}-text);">${isRebaselined ? 'Re-baselined' : 'Approved (No Anomalies)'}</div>
               </div>
               <div class="data-item" style="margin-top: 1rem; grid-column: span 2;">
-                <div class="data-label">Re-baseline Reason</div>
+                <div class="data-label">${isRebaselined ? 'Re-baseline Reason' : 'Finalization Note'}</div>
                 <div class="data-value">${est.rebaseline_reason || 'No reason recorded'}</div>
               </div>
             ` : `
@@ -374,7 +375,7 @@ function renderEstimateWizard(est) {
     </div>
   `;
 
-  if (isApproved && !isRebaselined) {
+  if (isApproved && !isRebaselined && !isFinalized) {
     document.getElementById('btn-run-trigger').addEventListener('click', () => runTriggerFlow(est.estimate_id));
   }
 
@@ -439,13 +440,14 @@ async function runTriggerFlow(id) {
           <div class="suggestion-box" style="border-color: rgba(52,211,153,0.3)">
             <h5 class="suggestion-title" style="color: var(--color-status-green-text)">All Good</h5>
             <p style="font-size:0.85rem; margin:0;">Forecasts stay honest. No anomalies detected.</p>
+            <p style="font-size:0.85rem; margin: 0.5rem 0 0 0; color: var(--text-secondary);">Reason: ${data.rebaseline_reason || 'Resource pool is healthy'}</p>
           </div>
         `;
         actionRow.innerHTML = `
           <button type="button" class="btn-primary" id="btn-final-approve">Final Approve</button>
           <button type="button" class="btn-secondary" id="btn-run-trigger" style="margin-left: 0.5rem;">Check Again</button>
         `;
-        document.getElementById('btn-final-approve').addEventListener('click', () => finalApproveEstimate(id));
+        document.getElementById('btn-final-approve').addEventListener('click', () => finalApproveEstimate(id, data.rebaseline_reason));
         document.getElementById('btn-run-trigger').addEventListener('click', () => runTriggerFlow(id));
     }
   } catch (err) {
@@ -469,13 +471,17 @@ async function approveRebaseline(id, reason) {
   }
 }
 
-async function finalApproveEstimate(id) {
+async function finalApproveEstimate(id, reason) {
   const actionRow = document.getElementById('trigger-actions-row');
   if (actionRow) {
     actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Finalizing...</span>`;
   }
   try {
-    const res = await fetch(`${ESTIMATE_API_BASE}/estimates/${id}/finalize`, { method: 'POST' });
+    const res = await fetch(`${ESTIMATE_API_BASE}/estimates/${id}/finalize`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason || "No anomalies detected" })
+    });
     if (!res.ok) throw new Error("Failed to finalize estimate");
     await window.fetchEstimates();
   } catch (err) {
