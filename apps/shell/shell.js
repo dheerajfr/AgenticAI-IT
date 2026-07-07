@@ -50,6 +50,11 @@ function switchStage(stageId) {
       window.renderEstimateScreen();
       window.fetchEstimates();
     }
+  } else if (stageId === 'config-environments') {
+    if (window.renderConfigEnvironmentsScreen) {
+      window.renderConfigEnvironmentsScreen();
+      window.fetchEnvironments();
+    }
   } else if (stageId === 'plan-schedule') {
     if (window.renderPlanScreen) {
       window.renderPlanScreen();
