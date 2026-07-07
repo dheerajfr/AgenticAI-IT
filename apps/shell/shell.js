@@ -41,6 +41,11 @@ function switchStage(stageId) {
       window.renderEstimateScreen();
       window.fetchEstimates();
     }
+  } else if (stageId === 'config-environments') {
+    if (window.renderConfigEnvironmentsScreen) {
+      window.renderConfigEnvironmentsScreen();
+      window.fetchEnvironments();
+    }
   } else {
     // Render the placeholder web component for other stages
     viewport.innerHTML = `<module-placeholder module-id="${stageId}"></module-placeholder>`;

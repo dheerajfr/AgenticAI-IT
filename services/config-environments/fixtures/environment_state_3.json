@@ -1,0 +1,8 @@
+{
+  "component_id": "main-api-service",
+  "environment": "dev",
+  "deployed_version": "1.0.4-beta",
+  "expected_version": "1.0.4-beta",
+  "drift_status": "in-sync",
+  "last_checked": "2026-07-03T12:10:00Z"
+}

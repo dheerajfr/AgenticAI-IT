@@ -1,0 +1,8 @@
+{
+  "component_id": "svc-loyalty-portal",
+  "environment": "prod",
+  "deployed_version": "2.5.0",
+  "expected_version": "2.5.0",
+  "drift_status": "in-sync",
+  "last_checked": "2026-07-03T12:00:00Z"
+}
