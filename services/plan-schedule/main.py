@@ -376,30 +376,36 @@ class UpdateTaskStatusRequest(BaseModel):
 
 @app.patch("/api/plans/{plan_id}/tasks/{task_id}/status")
 def update_task_status(plan_id: str, task_id: str, req: UpdateTaskStatusRequest):
-    """Update a specific task's status and update the owner's availability."""
+    """Update a specific task's status and recompute all employee allocations.
+
+    When a task is marked completed (or its end_date has passed), the owner is
+    automatically freed via sync_employee_allocations — which also handles the
+    case where the employee still has other active tasks in other accepted plans.
+    If all remaining tasks for the employee are completed/expired, they are marked
+    Available (unallocated).
+    """
     plan = db.get_by_id(plan_id)
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found.")
-        
+
     tasks = plan.get("tasks", [])
     task = next((t for t in tasks if t.get("task_id") == task_id), None)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found.")
-        
+
     old_status = task.get("status", "pending")
     new_status = req.status
-    
+
     if old_status != new_status:
         task["status"] = new_status
+        # db.save() persists the updated task status and internally calls
+        # sync_employee_allocations(), which re-evaluates ALL employees:
+        #   - Skips tasks marked 'completed' or whose end_date has already passed
+        #   - Marks employees with no remaining active tasks as Available
+        #   - Keeps employees with other pending tasks as Allocated
+        #   - Respects active leave periods and auto-clears expired leaves
         db.save(plan)
-        
-        owner = task.get("owner")
-        if owner and owner != "unassigned":
-            if new_status == "completed":
-                db.update_employee_status(owner, "free")
-            elif new_status == "pending":
-                db.update_employee_status(owner, "working")
-                
+
     return {"status": "updated", "plan_id": plan_id, "task_id": task_id, "new_task_status": new_status}
 
 
@@ -422,4 +428,280 @@ def create_plan(plan_dict: dict):
                 db.update_employee_status(owner, "working")
                 
     return {"status": "saved", "plan_id": plan_dict["plan_id"]}
+
+
+class ReplanRequest(BaseModel):
+    reason: Optional[str] = None
+    effort_days: Optional[float] = None
+    planning_start_date: Optional[str] = None
+    working_days_per_week: Optional[int] = None
+    max_daily_utilization_percentage: Optional[float] = None
+
+
+@app.post("/api/plans/{plan_id}/replan")
+def replan_project(plan_id: str, req: ReplanRequest):
+    import datetime
+    today = datetime.date.today()
+    today_str = today.isoformat()
+
+    # 1. Fetch current plan
+    plan = db.get_by_id(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found.")
+
+    # 2. Determine if started
+    tasks = plan.get("tasks", [])
+    started = False
+    if tasks:
+        try:
+            earliest_start = min(datetime.date.fromisoformat(t["start_date"]) for t in tasks if t.get("start_date"))
+            if earliest_start <= today:
+                started = True
+        except Exception:
+            pass
+
+    # If any task is completed, it has also started
+    if any(t.get("status") == "completed" for t in tasks):
+        started = True
+
+    # 3. Validation
+    if started and (not req.reason or not req.reason.strip()):
+        raise HTTPException(status_code=400, detail="Reason for replanning is mandatory for started projects.")
+
+    # 4. Save history snapshot
+    history = db.get_plan_history(plan_id)
+    version = len(history) + 1
+    # Save a copy of the current plan to history
+    db.save_plan_history(plan_id, plan.get("demand_id"), version, req.reason or "Manual replan before start", plan)
+
+    # 5. Run AI Replanning Agent for leave detection & reallocation
+    reallocations = []
+    reason_str = req.reason or ""
+    
+    # Defaults and info to reconstruct estimate/schedule if needed
+    reasoning = plan.get("_reasoning", {})
+    raw_effort = req.effort_days if req.effort_days is not None else reasoning.get("raw_effort_days", 10.0)
+    start_date_str = req.planning_start_date or (tasks[0].get("start_date") if tasks else today_str)
+    work_days = req.working_days_per_week or 5
+    util = req.max_daily_utilization_percentage or 85.0
+
+    # AI Leave reallocation flow
+    if reason_str.strip():
+        try:
+            from llm_client import call_gemini
+            employees = db.get_employees()
+            emp_list_str = "\n".join([f"- Name: {e['employee_name']}, Email: {e['email']}" for e in employees])
+            
+            prompt = f"""
+            You are an AI Replanning Assistant. Analyze the user's reason for replanning a project and determine if an employee is going on leave.
+            
+            Today's date: {today_str}
+            
+            Reason for replanning: "{reason_str}"
+            
+            Here is the list of employees in our database:
+            {emp_list_str}
+            
+            Please output a JSON object with the following fields:
+            - "employee_on_leave": The email of the employee going on leave, or null if no employee is identified.
+            - "leave_start_date": The start date of the leave in YYYY-MM-DD format (default to today ({today_str}) if not specified), or null if not applicable.
+            - "leave_end_date": The end date of the leave in YYYY-MM-DD format (compute based on leave duration, e.g., if 'for two weeks', add 14 days to the start date), or null if not applicable.
+            - "reallocation_required": A boolean indicating if we need to reallocate tasks because the employee is unavailable.
+            """
+            
+            ai_res = call_gemini(prompt, is_json=True)
+            print(f"[AI Agent] Gemini Replan Output: {ai_res}")
+            
+            emp_email = ai_res.get("employee_on_leave")
+            if emp_email and ai_res.get("reallocation_required"):
+                l_start = ai_res.get("leave_start_date") or today_str
+                l_end = ai_res.get("leave_end_date") or (today + datetime.timedelta(days=14)).isoformat()
+                
+                # Mark employee on leave
+                db.set_employee_leave(emp_email, l_start, l_end)
+                
+                # Find replacement for their tasks
+                # Refresh employee list with their new status
+                all_emps = db.get_employees()
+                active_plans = db.get_all()
+                
+                for t in tasks:
+                    t_owner = t.get("owner")
+                    t_status = t.get("status", "pending")
+                    
+                    if t_status != "completed" and (t_owner == emp_email or t_owner == next((e["employee_name"] for e in all_emps if e["email"] == emp_email), None)):
+                        rep_emp = find_replacement_employee(t, emp_email, all_emps, active_plans)
+                        if rep_emp:
+                            previous_assignee = t_owner
+                            new_assignee = rep_emp["email"]
+                            t["owner"] = new_assignee
+                            reallocations.append({
+                                "task_id": t["task_id"],
+                                "task_name": t["name"],
+                                "previous_assignee": previous_assignee,
+                                "new_assignee": new_assignee,
+                                "allocation_status": "Reallocated"
+                            })
+                        else:
+                            reallocations.append({
+                                "task_id": t["task_id"],
+                                "task_name": t["name"],
+                                "previous_assignee": t_owner,
+                                "new_assignee": "unassigned",
+                                "allocation_status": "No candidate found"
+                            })
+        except Exception as e:
+            print(f"[AI Agent] Error in AI leave processing: {e}")
+
+    # 6. Reschedule pending tasks if scope or dates changed
+    if (req.effort_days is not None or req.planning_start_date is not None or 
+        req.working_days_per_week is not None or req.max_daily_utilization_percentage is not None):
+        try:
+            team_dict = _get_team_config_from_db()
+            team = TeamConfig(**team_dict)
+            constraints = SprintConstraints(
+                planning_start_date=datetime.date.fromisoformat(start_date_str),
+                working_days_per_week=work_days,
+                max_daily_utilization_percentage=util
+            )
+            
+            ratio = raw_effort / reasoning.get("raw_effort_days", 10.0) if reasoning.get("raw_effort_days", 0) > 0 else 1.0
+            est = EstimateRecord(
+                estimate_id=reasoning.get("estimate_id", f"EST-{plan_id}"),
+                demand_id=plan["demand_id"],
+                effort_days=raw_effort,
+                effort_range_low=reasoning.get("raw_effort_days", raw_effort) * 0.9 * ratio,
+                effort_range_high=reasoning.get("raw_effort_days", raw_effort) * 1.2 * ratio,
+                cost_estimate=1000.0 * raw_effort,
+                duration_weeks=raw_effort / 5.0,
+                confidence="medium",
+                methodology="WBS",
+                risk_factors=[],
+                status="approved"
+            )
+            
+            new_plans = generate_plans([est], team, constraints)
+            if new_plans:
+                new_plan = new_plans[0]
+                new_tasks = new_plan.tasks
+                
+                merged_tasks = []
+                for nt in new_tasks:
+                    old_t = next((ot for ot in plan.get("tasks", []) if ot["task_id"] == nt.task_id), None)
+                    if old_t and old_t.get("status") == "completed":
+                        merged_tasks.append(old_t)
+                    else:
+                        nt_dict = nt.model_dump_iso()
+                        reassigned = next((r for r in reallocations if r["task_id"] == nt.task_id), None)
+                        if reassigned:
+                            nt_dict["owner"] = reassigned["new_assignee"]
+                        merged_tasks.append(nt_dict)
+                
+                plan["tasks"] = merged_tasks
+                plan["end_date"] = max(t["end_date"] for t in merged_tasks)
+                plan["critical_path_task_ids"] = [t["task_id"] for t in merged_tasks]
+                plan["_reasoning"] = _build_reasoning(est, plan_id)
+        except Exception as e:
+            print(f"[Reschedule] Error during replan rescheduling: {e}")
+
+    # 7. Save updated plan
+    db.save(plan)
+
+    return {
+        "status": "success",
+        "plan": plan,
+        "reallocations": reallocations,
+        "started": started
+    }
+
+
+@app.get("/api/plans/{plan_id}/history")
+def get_history(plan_id: str):
+    """Fetch history list for this plan."""
+    return db.get_plan_history(plan_id)
+
+
+def find_replacement_employee(task, original_employee_email, all_employees, active_plans):
+    import datetime
+    orig_emp = next((e for e in all_employees if e["email"] == original_employee_email), None)
+    if not orig_emp:
+        orig_emp = {"role": "backend", "skills": "backend", "experience": 5}
+    
+    task_start = datetime.date.fromisoformat(task["start_date"])
+    task_end = datetime.date.fromisoformat(task["end_date"])
+    
+    candidates = []
+    for emp in all_employees:
+        if emp["email"] == original_employee_email:
+            continue
+        if emp["status"] == "On Leave":
+            continue
+        
+        if emp["leave_start_date"] and emp["leave_end_date"]:
+            try:
+                l_start = datetime.date.fromisoformat(emp["leave_start_date"])
+                l_end = datetime.date.fromisoformat(emp["leave_end_date"])
+                if max(task_start, l_start) <= min(task_end, l_end):
+                    continue
+            except ValueError:
+                pass
+        
+        skill_match = emp["skills"].lower() == orig_emp["skills"].lower()
+        role_match = emp["role"].lower() == orig_emp["role"].lower()
+        
+        available = True
+        workload = 0
+        for plan in active_plans:
+            for t in plan.get("tasks", []):
+                if t.get("owner") == emp["email"] or t.get("owner") == emp["employee_name"]:
+                    t_status = t.get("status", "pending")
+                    if t_status != "completed":
+                        workload += 1
+                        try:
+                            p_start = datetime.date.fromisoformat(t["start_date"])
+                            p_end = datetime.date.fromisoformat(t["end_date"])
+                            if max(task_start, p_start) <= min(task_end, p_end):
+                                available = False
+                        except ValueError:
+                            pass
+        
+        exp_diff = abs(emp["experience"] - orig_emp["experience"])
+        
+        score = (
+            0 if skill_match else 1,
+            0 if role_match else 1,
+            0 if available else 1,
+            workload,
+            exp_diff
+        )
+        candidates.append((emp, score))
+    
+    if not candidates:
+        return None
+    
+    candidates.sort(key=lambda x: x[1])
+    return candidates[0][0]
+
+
+def _get_team_config_from_db():
+    roles_config = []
+    total_members = 0
+    for role in ["backend", "frontend", "qa", "devops"]:
+        matched = db.get_employees_by_role(role, only_available=False)
+        members = [e["email"] for e in matched]
+        count = len(members) if members else 1
+        if not members:
+            members = [f"{role}_default_1"]
+        total_members += count
+        roles_config.append({
+            "role": role,
+            "count": count,
+            "hours_per_day_per_person": 8.0,
+            "members": members
+        })
+    return {
+        "team_size": total_members,
+        "roles": roles_config
+    }
+
 
