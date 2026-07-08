@@ -3,9 +3,14 @@
 *.py[cod]
 *$py.class
 .pytest_cache/
-<<<<<<< HEAD
+**/.pytest_cache/
+venv/
+.venv/
+*.log
+.DS_Store
+.vscode/
+.idea/
 services/demand-intake/orchestration/__pycache__/
 services/demand-intake/orchestration/__pycache__/business_case.cpython-314.pyc
-=======
 services/demand-intake/orchestration/__pycache__/
 >>>>>>> main

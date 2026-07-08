@@ -50,10 +50,20 @@ function switchStage(stageId) {
       window.renderEstimateScreen();
       window.fetchEstimates();
     }
+  } else if (stageId === 'config-environments') {
+    if (window.renderConfigEnvironmentsScreen) {
+      window.renderConfigEnvironmentsScreen();
+      window.fetchEnvironments();
+    }
   } else if (stageId === 'plan-schedule') {
     if (window.renderPlanScreen) {
       window.renderPlanScreen();
       window.fetchPlans();
+    }
+  } else if (stageId === 'dependencies') {
+    if (window.renderDependenciesScreen) {
+      window.renderDependenciesScreen();
+      window.fetchDependencies();
     }
   } else {
     // Render the placeholder web component for other stages

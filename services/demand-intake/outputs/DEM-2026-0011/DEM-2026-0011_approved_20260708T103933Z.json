@@ -1,0 +1,43 @@
+{
+  "demand_id": "DEM-2026-0011",
+  "title": "GTA 6 remake",
+  "description": "A request for a GTA 6 remake.",
+  "type": "project",
+  "domain": "Gaming & Entertainment",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-08",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: GTA 6 remake (DEM-2026-0011)\n\nExecutive Summary\nThis proposal requests a remake of GTA 6. Given the high risk level and minimal project details, a preliminary analysis and scope definition are required before any commitment.\n\nDirect Business Value/Impact\nA successful GTA 6 remake could generate substantial revenue and significantly strengthen our market leadership in gaming. It would capitalize on immense brand loyalty and attract a large global audience.\n\nPotential Risk Mitigation\nMitigation requires a comprehensive feasibility study detailing technical scope, budget, timeline, and market demand. Phased development and robust project governance are essential to manage the inherent high risk.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 21,
+  "earliest_start_date": "2026-08-07",
+  "capacity_reasoning": [
+    "High-risk demand requires Senior Architect oversight.",
+    "Delivery team has 26% overall available capacity.",
+    "Constraint: Senior Architect has only 5 units available (requires 20).",
+    "Constraint: Frontend Developer has only 15 units available (requires 20).",
+    "Skill gap: Required skills Database, Networking are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-07."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Senior Architect",
+      "availableCapacity": 5,
+      "requiredCapacity": 20
+    },
+    {
+      "role": "Frontend Developer",
+      "availableCapacity": 15,
+      "requiredCapacity": 20
+    }
+  ],
+  "skill_gaps": [
+    "Database",
+    "Networking"
+  ]
+}

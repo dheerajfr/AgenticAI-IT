@@ -4,7 +4,5 @@
   "deployed_version": "0.8.0",
   "expected_version": "0.8.0",
   "drift_status": "in-sync",
-  "last_checked": "2026-07-02T09:30:00Z",
-  "observed_name": "svc-sast-scanner-svr-01",
-  "cmdb_name": "ServiceNow_Component_svc-sast-scanner"
+  "last_checked": "2026-07-02T09:30:00Z"
 }
