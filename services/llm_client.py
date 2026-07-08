@@ -8,6 +8,17 @@ try:
 except ImportError:
     pass
 
+try:
+    from langsmith import traceable
+except ImportError:
+    def traceable(*args, **kwargs):
+        def decorator(func):
+            return func
+        if len(args) == 1 and callable(args[0]):
+            return args[0]
+        return decorator
+
+@traceable(name="call_gemini")
 def call_gemini(
     prompt: str,
     system_instruction: Optional[str] = None,
