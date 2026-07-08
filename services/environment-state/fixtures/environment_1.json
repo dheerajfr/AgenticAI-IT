@@ -1,0 +1,8 @@
+{
+  "component_id": "svc-loyalty-portal-api",
+  "environment": "staging",
+  "deployed_version": "1.0.5",
+  "expected_version": "1.0.5",
+  "drift_status": "in-sync",
+  "last_checked": "2026-07-02T10:00:00Z"
+}

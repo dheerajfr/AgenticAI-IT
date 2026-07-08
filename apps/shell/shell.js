@@ -60,6 +60,11 @@ function switchStage(stageId) {
       window.renderPlanScreen();
       window.fetchPlans();
     }
+  } else if (stageId === 'dependencies') {
+    if (window.renderDependenciesScreen) {
+      window.renderDependenciesScreen();
+      window.fetchDependencies();
+    }
   } else {
     // Render the placeholder web component for other stages
     viewport.innerHTML = `<module-placeholder module-id="${stageId}"></module-placeholder>`;
