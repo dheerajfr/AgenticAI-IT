@@ -121,7 +121,6 @@ function renderDependencyList() {
 let selectedTone = 'friendly';
 let selectedChannel = 'teams';
 let selectedSchedule = 'now';
-
 async function selectDependency(id) {
   selectedDependencyId = id;
   clearDependencySidebarSelection();
@@ -225,6 +224,7 @@ function renderDependencyDetails(dep) {
   else if (dep.status === 'at-risk') statusClass = 'red';
   else if (dep.status === 'resolved') statusClass = 'green';
 
+<<<<<<< HEAD
   let hasDraft = !!dep.draft_message;
   let activityLogs = dep.activity_history || [];
   const defaultNudge = `Hi, I'm reaching out regarding the dependency ${dep.dependency_id}. We are waiting on the completion of '${dep.target_task_id}' before we can begin '${dep.source_task_id}'. Could you please provide an updated ETA or let us know if there are any blockers?`;
@@ -410,12 +410,16 @@ function renderDependencyDetails(dep) {
       }
     </style>
 
+=======
+  container.innerHTML = `
+>>>>>>> 7f119538b3cb23eedfc15cdd9f2375027cbaa0fe
     <div class="wizard-container">
       <div class="wizard-header">
         <div>
           <span class="wizard-stage-indicator" style="text-transform: uppercase;">Dependency Details</span>
           <h2 class="wizard-title">${dep.dependency_id}</h2>
         </div>
+<<<<<<< HEAD
         <div style="display: flex; gap: 0.5rem; align-items: center;">
           ${dep.status !== 'resolved' ? `
             <button type="button" class="btn-new" id="btn-mark-resolved" style="background-color: var(--color-status-green-bg); border: 1px solid var(--color-status-green-border); color: var(--color-status-green-text); height: 32px; padding: 0 0.75rem;" title="Mark dependency as resolved">
@@ -426,6 +430,11 @@ function renderDependencyDetails(dep) {
             ${dep.status}
           </span>
         </div>
+=======
+        <span style="padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; display: inline-block;" class="${statusClass}">
+          ${dep.status}
+        </span>
+>>>>>>> 7f119538b3cb23eedfc15cdd9f2375027cbaa0fe
       </div>
 
       <div class="wizard-card info-card">
@@ -450,6 +459,7 @@ function renderDependencyDetails(dep) {
         </div>
       </div>
 
+<<<<<<< HEAD
       <!-- Dependency Graph Visualization -->
       <div class="wf-card">
         <h4 class="card-section-title">Dependency Chain Graph</h4>
@@ -636,6 +646,25 @@ function renderDependencyDetails(dep) {
         </h4>
         <p class="description-text" style="margin-bottom: 1rem;">
           ${dep.status === 'resolved' ? 'Simulate task delays to model potential timeline slippages and schedule relaxation ripples across the portfolio.' : 'Forecast timeline slippages and schedule relaxation ripples across the program when a task is delayed.'}
+=======
+      <!-- Chase Commitment Tool Section -->
+      <div class="wizard-card" style="margin-top: 1.5rem;">
+        <h4 class="card-section-title">Chase Commitment Workflow</h4>
+        <p class="description-text" style="margin-bottom: 1rem;">
+          Triggers an automated analysis of this dependency. Senses critical path context and compiles an actionable follow-up nudge draft.
+        </p>
+        <div id="chase-action-row">
+          <button type="button" class="btn-primary" id="btn-trigger-chase">Trigger Chase Workflow (AI)</button>
+        </div>
+        <div id="chase-result-container" style="margin-top: 1rem;"></div>
+      </div>
+
+      <!-- Cross-Programme Impact Delay Tool Section -->
+      <div class="wizard-card" style="margin-top: 1.5rem;">
+        <h4 class="card-section-title">Cross-Programme Ripple Impact Analysis</h4>
+        <p class="description-text" style="margin-bottom: 1rem;">
+          Forecast timeline slippages and schedule relaxation ripples across the program when a task is delayed.
+>>>>>>> 7f119538b3cb23eedfc15cdd9f2375027cbaa0fe
         </p>
         <div class="grid-2col" style="gap: 1rem; align-items: end;">
           <div class="form-group" style="margin-bottom: 0;">
@@ -644,7 +673,11 @@ function renderDependencyDetails(dep) {
           </div>
           <div class="form-group" style="margin-bottom: 0;">
             <label for="impact-delay-days">Delay Days</label>
+<<<<<<< HEAD
             <input type="number" id="impact-delay-days" value="${dep.status === 'resolved' ? 0 : (dep.status === 'at-risk' ? 15 : 5)}" min="${dep.status === 'resolved' ? 0 : 1}" max="365" style="width: 100%;">
+=======
+            <input type="number" id="impact-delay-days" value="10" min="1" max="365" style="width: 100%;">
+>>>>>>> 7f119538b3cb23eedfc15cdd9f2375027cbaa0fe
           </div>
           <div>
             <button type="button" class="btn-secondary" id="btn-check-impact" style="width: 100%; height: 42px;">Forecast Impact</button>
@@ -654,6 +687,7 @@ function renderDependencyDetails(dep) {
         <div id="impact-result-container" style="margin-top: 1.5rem;"></div>
       </div>
     </div>
+<<<<<<< HEAD
 
     <!-- Modal Dialog for Message Preview -->
     <div class="wf-modal" id="wf-preview-modal">
@@ -915,6 +949,72 @@ function hidePreviewModal() {
   if (modal) modal.classList.remove('open');
 }
 
+=======
+  `;
+
+  document.getElementById('btn-trigger-chase').addEventListener('click', handleTriggerChase);
+  document.getElementById('btn-check-impact').addEventListener('click', handleCheckImpact);
+}
+
+async function handleTriggerChase() {
+  const actionRow = document.getElementById('chase-action-row');
+  const resultContainer = document.getElementById('chase-result-container');
+  actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Running LangGraph orchestration...</span>`;
+  resultContainer.innerHTML = '';
+
+  try {
+    const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/${selectedDependencyId}/chase`, {
+      method: 'POST'
+    });
+
+    if (!res.ok) throw new Error("Chase workflow failed to complete.");
+    const data = await res.json();
+
+    let threatClass = 'gray';
+    if (data.threat_level === 'low') threatClass = 'green';
+    else if (data.threat_level === 'medium') threatClass = 'amber';
+    else if (data.threat_level === 'high') threatClass = 'red';
+
+    resultContainer.innerHTML = `
+      <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-top: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h5 style="margin: 0; font-size: 0.95rem; font-weight: 600;">Chase commitment result</h5>
+          <span style="font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;" class="${threatClass}">
+            Threat Level: ${data.threat_level}
+          </span>
+        </div>
+        
+        ${data.escalation_required ? `
+          <div style="background-color: var(--color-status-red-bg); border: 1px solid var(--color-status-red-border); color: var(--color-status-red-text); border-radius: var(--radius-sm); padding: 0.75rem; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+            <svg style="width: 18px; height: 18px; fill: currentColor;" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            Critical Path Escalation Required!
+          </div>
+        ` : ''}
+
+        <div style="background-color: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem; position: relative;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+            <span style="background-color: var(--color-brand); width: 8px; height: 8px; border-radius: 50%;"></span>
+            <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">Suggested Follow-Up Nudge Message:</span>
+          </div>
+          <p style="margin: 0; font-size: 0.9rem; line-height: 1.5; color: var(--text-primary); font-style: italic;">
+            "${data.nudge_message}"
+          </p>
+        </div>
+      </div>
+    `;
+
+    actionRow.innerHTML = `<button type="button" class="btn-primary" id="btn-trigger-chase">Trigger Chase Workflow (AI)</button>`;
+    document.getElementById('btn-trigger-chase').addEventListener('click', handleTriggerChase);
+  } catch (err) {
+    resultContainer.innerHTML = `<div class="error-alert">${err.message}</div>`;
+    actionRow.innerHTML = `<button type="button" class="btn-primary" id="btn-trigger-chase">Trigger Chase Workflow (AI)</button>`;
+    document.getElementById('btn-trigger-chase').addEventListener('click', handleTriggerChase);
+  }
+}
+
+>>>>>>> 7f119538b3cb23eedfc15cdd9f2375027cbaa0fe
 async function handleCheckImpact() {
   const taskId = document.getElementById('impact-task-id').value.trim();
   const delayDays = parseInt(document.getElementById('impact-delay-days').value);

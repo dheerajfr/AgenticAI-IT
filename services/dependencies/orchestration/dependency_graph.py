@@ -287,7 +287,6 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
                 threat = "medium"
         else:
             threat = threat_lower
-            
         conf = res.get("confidence")
         if not isinstance(conf, int):
             try:

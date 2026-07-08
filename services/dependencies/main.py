@@ -239,7 +239,6 @@ def chase_commitment(dependency_id: str, tone: Optional[str] = None):
     dep = db.get_by_id(dependency_id)
     if not dep:
         raise HTTPException(status_code=404, detail="Dependency not found.")
-    
     if dep.status == "resolved":
         raise HTTPException(
             status_code=400,
@@ -287,7 +286,6 @@ def chase_commitment(dependency_id: str, tone: Optional[str] = None):
     dep.confidence = graph_output.get("confidence", 90)
     dep.confidence_reasons = graph_output.get("confidence_reasons", [])
     db.save(dep)
-        
     return ChaseCommitmentResponse(
         dependency_id=dependency_id,
         nudge_message=graph_output.get("nudge_message", ""),
@@ -425,7 +423,6 @@ def get_dependency_graph(dependency_id: str):
         "nodes": nodes,
         "links": links
     }
-
 
 @app.post("/api/dependencies/impact", response_model=CrossProgrammeImpactResponse)
 def check_cross_programme_impact(req: CrossProgrammeImpactRequest):
