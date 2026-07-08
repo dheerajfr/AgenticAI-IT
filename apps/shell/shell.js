@@ -59,6 +59,10 @@ function switchStage(stageId) {
     if (window.renderPlanScreen) {
       window.renderPlanScreen();
       window.fetchPlans();
+  } else if (stageId === 'dependencies') {
+    if (window.renderDependenciesScreen) {
+      window.renderDependenciesScreen();
+      window.fetchDependencies();
     }
   } else {
     // Render the placeholder web component for other stages
