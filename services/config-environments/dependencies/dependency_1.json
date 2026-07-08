@@ -1,0 +1,8 @@
+{
+  "dependency_id": "DEP-0001",
+  "source_task_id": "T-PAY-2",
+  "target_task_id": "T-PAY-1",
+  "type": "technical",
+  "status": "open",
+  "owner": "bob.jones@example.com"
+}
