@@ -37,3 +37,4 @@ class EstimateRecord(BaseModel):
     risk_factors: Optional[List[str]] = Field(None, description="From 'Challenge the estimate'")
     requires_arb: Optional[bool] = Field(False, description="Flag for Architecture Review Board")
     status: Literal["draft", "challenged", "approved", "re-baselined"] = Field(..., description="Lifecycle status")
+    rebaseline_reason: Optional[str] = Field(None, description="Reason for rebaseline")

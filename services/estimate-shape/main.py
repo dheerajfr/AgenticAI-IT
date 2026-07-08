@@ -45,6 +45,10 @@ class ApproveEstimateRequest(BaseModel):
     status: str = "draft"
 
 
+class RebaselineRequest(BaseModel):
+    reason: str
+
+
 @app.get("/api/estimates", response_model=List[EstimateRecord])
 def get_estimates():
     """List all estimate records in the system."""
@@ -183,15 +187,32 @@ def trigger_check(estimate_id: str):
     }
 
 @app.post("/api/estimates/{estimate_id}/rebaseline", response_model=EstimateRecord)
-def rebaseline_estimate(estimate_id: str):
+def rebaseline_estimate(estimate_id: str, req: RebaselineRequest):
     """
-    Approves the re-baseline, changing the status.
+    Approves the re-baseline, changing the status and saving the reason.
     """
     record = db.get_by_id(estimate_id)
     if not record:
         raise HTTPException(status_code=404, detail="Estimate not found.")
         
     record.status = "re-baselined"
+    record.rebaseline_reason = req.reason
+    db.save(record)
+    return record
+
+
+
+@app.post("/api/estimates/{estimate_id}/finalize", response_model=EstimateRecord)
+def finalize_estimate(estimate_id: str, req: RebaselineRequest):
+    """
+    Finalizes the estimate when no anomalies are found.
+    """
+    record = db.get_by_id(estimate_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Estimate not found.")
+        
+    record.status = "approved"
+    record.rebaseline_reason = req.reason
     db.save(record)
     return record
 

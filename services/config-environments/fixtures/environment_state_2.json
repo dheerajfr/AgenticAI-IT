@@ -1,0 +1,10 @@
+{
+  "component_id": "svc-checkout-gateway",
+  "environment": "staging",
+  "deployed_version": "2.4.1",
+  "expected_version": "2.4.2",
+  "drift_status": "drifted",
+  "last_checked": "2026-07-03T12:05:00Z",
+  "observed_name": "svc-checkout-gateway-svr-01",
+  "cmdb_name": "ServiceNow_Component_svc-checkout-gateway"
+}

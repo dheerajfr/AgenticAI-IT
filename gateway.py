@@ -27,6 +27,8 @@ print("Loading demand-intake service...")
 demand_app = load_service("demand-intake")
 print("Loading estimate-shape service...")
 estimate_app = load_service("estimate-shape")
+print("Loading config-environments service...")
+config_app = load_service("config-environments")
 print("Loading plan-schedule service...")
 plan_app = load_service("plan-schedule")
 print("Gateway ready.")
@@ -45,6 +47,9 @@ async def app(scope, receive, send):
             return
         elif path.startswith("/api/demands"):
             await demand_app(scope, receive, send)
+            return
+        elif path.startswith("/api/environments"):
+            await config_app(scope, receive, send)
             return
         elif path.startswith("/api/plans"):
             await plan_app(scope, receive, send)
