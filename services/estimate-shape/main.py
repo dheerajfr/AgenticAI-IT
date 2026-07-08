@@ -203,7 +203,7 @@ def rebaseline_estimate(estimate_id: str, req: RebaselineRequest):
 
 
 @app.post("/api/estimates/{estimate_id}/finalize", response_model=EstimateRecord)
-def finalize_estimate(estimate_id: str):
+def finalize_estimate(estimate_id: str, req: RebaselineRequest):
     """
     Finalizes the estimate when no anomalies are found.
     """
@@ -211,7 +211,8 @@ def finalize_estimate(estimate_id: str):
     if not record:
         raise HTTPException(status_code=404, detail="Estimate not found.")
         
-    record.status = "finalized"
+    record.status = "approved"
+    record.rebaseline_reason = req.reason
     db.save(record)
     return record
 

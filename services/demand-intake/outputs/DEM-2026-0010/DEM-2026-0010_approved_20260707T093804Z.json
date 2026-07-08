@@ -1,0 +1,38 @@
+{
+  "demand_id": "DEM-2026-0010",
+  "title": "Chatbot App",
+  "description": "A request for a Chatbot App.",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-07",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Chatbot App (DEM-2026-0010)\n\nExecutive Summary:\nThis project proposes developing a Chatbot App (DEM-2026-0010) to enhance our customer digital experience. It will provide instant support and information, streamlining customer interactions effectively.\n\nDirect Business Value/Impact:\nThe app will reduce support ticket volumes and associated operational costs through automated responses. It will also boost customer satisfaction by offering 24/7 self-service and faster issue resolution.\n\nPotential Risk Mitigation:\nMedium risks will be mitigated via a phased implementation and robust data security protocols. Ongoing training, performance monitoring, and user feedback will ensure accuracy and acceptance.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 45,
+  "earliest_start_date": "2026-08-06",
+  "capacity_reasoning": [
+    "Medium-risk demand profile checked.",
+    "Delivery team has 26% overall available capacity.",
+    "Constraint: Senior Architect has only 5 units available (requires 10).",
+    "Skill gap: Required skills Backend Development, Frontend Development, AI/ML are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-06."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Senior Architect",
+      "availableCapacity": 5,
+      "requiredCapacity": 10
+    }
+  ],
+  "skill_gaps": [
+    "Backend Development",
+    "Frontend Development",
+    "AI/ML"
+  ]
+}
