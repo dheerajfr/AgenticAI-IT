@@ -1,8 +1,0 @@
-{
-  "dependency_id": "DEP-0001",
-  "source_task_id": "PLN-0001-BUILD",
-  "target_task_id": "PLN-0001-DESIGN",
-  "type": "technical",
-  "status": "open",
-  "owner": "umar.roy@example.com"
-}

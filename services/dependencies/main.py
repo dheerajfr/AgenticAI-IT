@@ -64,6 +64,28 @@ def get_dependency(dependency_id: str):
 import os
 import json
 
+def derive_release_label(plan: Optional["PlanRecord"]) -> str:
+    """
+    Derives a human-readable release label for a plan using real, live data —
+    never a static per-plan-id lookup table. Priority order:
+      1. plan.release_name, if the plan record tracks one (from plan.db).
+      2. release_name on the linked demand record, if the demand tracks one.
+      3. A label computed from the plan's own real fields (plan_id + committed
+         end date), so it stays accurate as plans change over time.
+    """
+    if not plan:
+        return "Release Milestone"
+
+    if getattr(plan, "release_name", None):
+        return plan.release_name
+
+    demand = load_demand_by_id(plan.demand_id)
+    if demand and demand.get("release_name"):
+        return demand["release_name"]
+
+    return f"{plan.plan_id} Release (target {plan.end_date})"
+
+
 def load_demand_by_id(demand_id: str) -> Optional[dict]:
     """Helper to locate demand fixtures and load demand record."""
     fixtures_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "demand-intake", "fixtures"))
@@ -415,16 +437,10 @@ def get_dependency_graph(dependency_id: str):
         "type": dep.type
     })
     
-    # Release node
-    release_label = "Release Milestone"
-    if associated_plan:
-        if associated_plan.plan_id == "PLN-0002-1":
-            release_label = "Release 2.3"
-        elif associated_plan.plan_id == "PLN-0001-1":
-            release_label = "Release 1.0"
-        elif associated_plan.plan_id == "PLN-0003-1":
-            release_label = "Release 1.5"
-            
+    # Release node — derive the label from real plan/demand data instead of a
+    # hardcoded plan_id lookup table, so any plan (not just the 3 seeded ones) works.
+    release_label = derive_release_label(associated_plan)
+
     nodes.append({
         "id": "RELEASE_NODE",
         "label": release_label,

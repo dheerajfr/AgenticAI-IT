@@ -1,8 +1,0 @@
-{
-  "dependency_id": "DEP-0002",
-  "source_task_id": "PLN-0001-TEST",
-  "target_task_id": "PLN-0001-BUILD",
-  "type": "technical",
-  "status": "resolved",
-  "owner": "ivan.rivera@example.com"
-}

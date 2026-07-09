@@ -1,8 +1,0 @@
-{
-  "dependency_id": "DEP-0003",
-  "source_task_id": "PLN-0001-DEPLOY",
-  "target_task_id": "PLN-0001-TEST",
-  "type": "technical",
-  "status": "at-risk",
-  "owner": "gabriel.morris1@example.com"
-}
