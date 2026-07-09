@@ -284,9 +284,10 @@ def generate(req: GeneratePlanRequest):
         except Exception as exc:
             raise HTTPException(status_code=422, detail=f"Invalid dependency payload: {exc}")
 
+    accepted_plans = db.get_all()
     try:
         plans: List[PlanRecord] = generate_plans(
-            estimate_objects, team, constraints, dependencies=dep_objects
+            estimate_objects, team, constraints, dependencies=dep_objects, accepted_plans=accepted_plans
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
@@ -580,7 +581,8 @@ def replan_project(plan_id: str, req: ReplanRequest):
                 status="approved"
             )
             
-            new_plans = generate_plans([est], team, constraints)
+            accepted_plans = db.get_all()
+            new_plans = generate_plans([est], team, constraints, accepted_plans=accepted_plans)
             if new_plans:
                 new_plan = new_plans[0]
                 new_tasks = new_plan.tasks

@@ -32,6 +32,11 @@ from plan_schedule.wbs import compute_phase_allocations
 
 log = logging.getLogger(__name__)
 
+try:
+    from database import db
+except ImportError:
+    db = None
+
 # Statuses that are eligible for scheduling
 _ELIGIBLE_STATUSES = frozenset(["approved", "re-baselined"])
 
@@ -47,6 +52,7 @@ def generate_plans(
     team_config: Optional[TeamConfig],
     sprint_constraints: Optional[SprintConstraints],
     dependencies: Optional[List[DependencyEdge]] = None,
+    accepted_plans: Optional[List[dict]] = None,
 ) -> List[PlanRecord]:
     """
     Convert a batch of EstimateRecords into PlanRecords.
@@ -90,12 +96,13 @@ def generate_plans(
 
     # Shared round-robin owner state across all plans in this batch.
     # Retrieve all accepted plans from SQLite to check for scheduling overlaps.
-    accepted_plans = []
-    try:
-        from database import db
-        accepted_plans = db.get_all()
-    except Exception as e:
-        log.warning("Could not load accepted plans for scheduling overlap checking: %s", e)
+    if accepted_plans is None:
+        accepted_plans = []
+        if db is not None:
+            try:
+                accepted_plans = db.get_all()
+            except Exception as e:
+                log.warning("Could not load accepted plans for scheduling overlap checking: %s", e)
 
     global_owner_rr = _RoundRobinOwner(team_config, accepted_plans)
 
