@@ -64,6 +64,28 @@ def get_dependency(dependency_id: str):
 import os
 import json
 
+def derive_release_label(plan: Optional["PlanRecord"]) -> str:
+    """
+    Derives a human-readable release label for a plan using real, live data —
+    never a static per-plan-id lookup table. Priority order:
+      1. plan.release_name, if the plan record tracks one (from plan.db).
+      2. release_name on the linked demand record, if the demand tracks one.
+      3. A label computed from the plan's own real fields (plan_id + committed
+         end date), so it stays accurate as plans change over time.
+    """
+    if not plan:
+        return "Release Milestone"
+
+    if getattr(plan, "release_name", None):
+        return plan.release_name
+
+    demand = load_demand_by_id(plan.demand_id)
+    if demand and demand.get("release_name"):
+        return demand["release_name"]
+
+    return f"{plan.plan_id} Release (target {plan.end_date})"
+
+
 def load_demand_by_id(demand_id: str) -> Optional[dict]:
     """Helper to locate demand fixtures and load demand record."""
     fixtures_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "demand-intake", "fixtures"))
@@ -85,8 +107,22 @@ def load_demand_by_id(demand_id: str) -> Optional[dict]:
 @app.post("/api/dependencies", response_model=DependencyEdge)
 def create_dependency(dep: DependencyEdge):
     """Manually add a dependency edge."""
-    if db.get_by_id(dep.dependency_id):
+    if not dep.dependency_id or dep.dependency_id.strip() == "":
+        dep.dependency_id = generate_dependency_id()
+    elif db.get_by_id(dep.dependency_id):
         raise HTTPException(status_code=400, detail="Dependency ID already exists.")
+    # Validate that source and target task exist in the plans database
+    plans = plan_loader.load_all_plans()
+    all_task_ids = set()
+    for p in plans:
+        for t in p.tasks:
+            all_task_ids.add(t.task_id)
+            
+    if dep.source_task_id not in all_task_ids:
+        raise HTTPException(status_code=400, detail=f"Source task ID '{dep.source_task_id}' does not exist in any project plan.")
+    if dep.target_task_id not in all_task_ids:
+        raise HTTPException(status_code=400, detail=f"Target task ID '{dep.target_task_id}' does not exist in any project plan.")
+
     # Check for duplicate dependency edge (same source and target task ID)
     for existing in db.get_all():
         if existing.source_task_id == dep.source_task_id and existing.target_task_id == dep.target_task_id:
@@ -152,9 +188,15 @@ def sense_dependencies(req: DependencySenseRequest):
     raw_edges = graph_output.get("detected_dependencies") or []
     detected_edges = []
     
+    all_plan_tasks = {t.task_id for t in plan.tasks}
+    
     for raw in raw_edges:
         source_task = raw.get("source_task_id") or "UNKNOWN"
         target_task = raw.get("target_task_id") or "UNKNOWN"
+        
+        # Verify both task IDs exist in the plan tasks
+        if source_task not in all_plan_tasks or target_task not in all_plan_tasks:
+            continue
         
         # Verify no duplicate source/target edge already exists in DB
         is_duplicate = False
@@ -395,16 +437,10 @@ def get_dependency_graph(dependency_id: str):
         "type": dep.type
     })
     
-    # Release node
-    release_label = "Release Milestone"
-    if associated_plan:
-        if associated_plan.plan_id == "PLN-0002-1":
-            release_label = "Release 2.3"
-        elif associated_plan.plan_id == "PLN-0001-1":
-            release_label = "Release 1.0"
-        elif associated_plan.plan_id == "PLN-0003-1":
-            release_label = "Release 1.5"
-            
+    # Release node — derive the label from real plan/demand data instead of a
+    # hardcoded plan_id lookup table, so any plan (not just the 3 seeded ones) works.
+    release_label = derive_release_label(associated_plan)
+
     nodes.append({
         "id": "RELEASE_NODE",
         "label": release_label,
