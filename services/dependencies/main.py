@@ -85,8 +85,22 @@ def load_demand_by_id(demand_id: str) -> Optional[dict]:
 @app.post("/api/dependencies", response_model=DependencyEdge)
 def create_dependency(dep: DependencyEdge):
     """Manually add a dependency edge."""
-    if db.get_by_id(dep.dependency_id):
+    if not dep.dependency_id or dep.dependency_id.strip() == "":
+        dep.dependency_id = generate_dependency_id()
+    elif db.get_by_id(dep.dependency_id):
         raise HTTPException(status_code=400, detail="Dependency ID already exists.")
+    # Validate that source and target task exist in the plans database
+    plans = plan_loader.load_all_plans()
+    all_task_ids = set()
+    for p in plans:
+        for t in p.tasks:
+            all_task_ids.add(t.task_id)
+            
+    if dep.source_task_id not in all_task_ids:
+        raise HTTPException(status_code=400, detail=f"Source task ID '{dep.source_task_id}' does not exist in any project plan.")
+    if dep.target_task_id not in all_task_ids:
+        raise HTTPException(status_code=400, detail=f"Target task ID '{dep.target_task_id}' does not exist in any project plan.")
+
     # Check for duplicate dependency edge (same source and target task ID)
     for existing in db.get_all():
         if existing.source_task_id == dep.source_task_id and existing.target_task_id == dep.target_task_id:
@@ -152,9 +166,15 @@ def sense_dependencies(req: DependencySenseRequest):
     raw_edges = graph_output.get("detected_dependencies") or []
     detected_edges = []
     
+    all_plan_tasks = {t.task_id for t in plan.tasks}
+    
     for raw in raw_edges:
         source_task = raw.get("source_task_id") or "UNKNOWN"
         target_task = raw.get("target_task_id") or "UNKNOWN"
+        
+        # Verify both task IDs exist in the plan tasks
+        if source_task not in all_plan_tasks or target_task not in all_plan_tasks:
+            continue
         
         # Verify no duplicate source/target edge already exists in DB
         is_duplicate = False
