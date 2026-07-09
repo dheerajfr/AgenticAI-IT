@@ -4,7 +4,7 @@ let dependencies = [];
 let selectedDependencyId = null;
 
 // Expose to window so shell.js can call it
-window.renderDependenciesScreen = function() {
+window.renderDependenciesScreen = function () {
   const viewport = document.getElementById('viewport');
   viewport.innerHTML = `
     <div class="intake-screen">
@@ -47,7 +47,7 @@ function clearDependencySidebarSelection() {
   });
 }
 
-window.fetchDependencies = async function() {
+window.fetchDependencies = async function () {
   const container = document.getElementById('dependency-list-container');
   try {
     const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies`);
@@ -136,7 +136,7 @@ function renderDependencyList() {
             method: 'DELETE'
           });
           if (!res.ok) throw new Error("Failed to delete dependency.");
-          
+
           if (selectedDependencyId === id) {
             selectedDependencyId = null;
           }
@@ -154,7 +154,7 @@ let selectedChannel = 'teams';
 async function selectDependency(id) {
   selectedDependencyId = id;
   clearDependencySidebarSelection();
-  
+
   const activeItem = document.querySelector(`.demand-item[data-id="${id}"]`);
   if (activeItem) activeItem.classList.add('active');
 
@@ -184,14 +184,14 @@ async function selectDependency(id) {
 async function renderDependencyGraph(dependencyId, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
-  
+
   container.innerHTML = `<div style="padding: 1rem; text-align: center; color: var(--text-muted);">Loading graph...</div>`;
-  
+
   try {
     const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/${dependencyId}/graph`);
     if (!res.ok) throw new Error("Failed to load graph.");
     const data = await res.json();
-    
+
     const nodeHtmls = data.nodes.map((node, index) => {
       let typeLabel = "Task";
       let colorClass = "gray";
@@ -205,9 +205,9 @@ async function renderDependencyGraph(dependencyId, containerId) {
         typeLabel = "Milestone Release";
         colorClass = "green";
       }
-      
+
       const isLast = index === data.nodes.length - 1;
-      
+
       return `
         <div style="display: flex; align-items: center; flex: 1; min-width: 150px;">
           <div style="flex: 1; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem 1rem; box-shadow: var(--shadow-sm); position: relative; border-left: 4px solid var(--color-${colorClass === 'brand' ? 'brand' : 'status-' + colorClass + '-text'});">
@@ -234,7 +234,7 @@ async function renderDependencyGraph(dependencyId, containerId) {
         </div>
       `;
     }).join('');
-    
+
     container.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.25rem; padding: 0.5rem 0; overflow-x: auto;">
         ${nodeHtmls}
@@ -970,7 +970,7 @@ async function triggerChaseFlow(id, tone, channel) {
     const data = await res.json();
 
     await selectDependency(id);
-    
+
     const draftCard = document.getElementById('chase-results-card');
     if (draftCard) {
       draftCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1032,7 +1032,7 @@ async function escalateManager(id) {
   const managerOptions = ["Project Manager", "Release Manager", "Program Manager"];
   const chosen = prompt("Escalate dependency risk to leadership:\n1. Project Manager\n2. Release Manager\n3. Program Manager\n(Enter number 1-3):", "2");
   if (!chosen) return;
-  
+
   let managerName = "Release Manager";
   if (chosen === "1") managerName = "Project Manager";
   else if (chosen === "3") managerName = "Program Manager";
@@ -1067,7 +1067,7 @@ async function sendMessage(dep) {
       body: JSON.stringify({ activity: `âœ“ Nudge reminder sent to ${dep.owner} via ${channelText} (${scheduleText})` })
     });
     if (!res.ok) throw new Error("Failed to record message transmission.");
-    
+
     alert(`Nudge reminder message sent via ${channelText}!`);
     await selectDependency(dep.dependency_id);
   } catch (err) {
@@ -1138,7 +1138,7 @@ async function handleCheckImpact() {
   try {
     const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/impact`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ task_id: taskId, delay_days: delayDays })
     });
 
@@ -1343,7 +1343,7 @@ async function handleRunSense() {
   try {
     const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/sense`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ plan_id: planId })
     });
 
@@ -1394,7 +1394,7 @@ async function handleRunSense() {
 
     actionRow.innerHTML = `<button type="button" class="btn-primary" id="btn-run-sense">Analyze Plan & Extract</button>`;
     document.getElementById('btn-run-sense').addEventListener('click', handleRunSense);
-    
+
     // Refresh sidebar listing
     await window.fetchDependencies();
   } catch (err) {
@@ -1546,7 +1546,7 @@ async function handleSaveEdge() {
 
     const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
@@ -1556,7 +1556,7 @@ async function handleSaveEdge() {
     }
     const newRecord = await res.json();
     selectedDependencyId = newRecord.dependency_id;
-    
+
     await window.fetchDependencies();
   } catch (err) {
     errorAlert.textContent = err.message;
