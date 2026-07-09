@@ -1,0 +1,34 @@
+{
+  "component_id": "svc",
+  "exported_at": "2026-07-09T09:37:28Z",
+  "environments": {
+    "dev": {
+      "expected_version": "1.2.0",
+      "deployed_version": "1.2.0",
+      "drift_status": "in-sync",
+      "cmdb_name": "svc-dev-node1",
+      "observed_name": "svc-dev-node1"
+    },
+    "test": {
+      "expected_version": "1.2.0",
+      "deployed_version": "v5.x-drifted",
+      "drift_status": "drifted",
+      "cmdb_name": "ServiceNow_svc_TEST_legacy",
+      "observed_name": "svc-test-node1"
+    },
+    "staging": {
+      "expected_version": "1.0.0",
+      "deployed_version": "v8.x-drifted",
+      "drift_status": "drifted",
+      "cmdb_name": "ServiceNow_svc_STAGING_legacy",
+      "observed_name": "svc-staging-node1"
+    },
+    "prod": {
+      "expected_version": "1.0.0",
+      "deployed_version": "v5.x-drifted",
+      "drift_status": "drifted",
+      "cmdb_name": "ServiceNow_svc_PROD_legacy",
+      "observed_name": "svc-prod-node1"
+    }
+  }
+}

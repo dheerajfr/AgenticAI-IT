@@ -5,12 +5,9 @@ Mirrors the pattern used by services/estimate-shape/database.py and
 services/demand-intake/database.py so that PlanRecords survive gateway
 restarts.
 
-Schema: one table `plans(plan_id TEXT PK, demand_id TEXT, data TEXT)`
-        where `data` is the full PlanRecord serialised as JSON (ISO dates).
-
-Fixture seeding: on first start (empty table), load plan_*.json files from
-the `fixtures/` directory alongside this file. Subsequent restarts read from
-SQLite only — fixtures are NOT re-loaded once any plan exists.
+Resource/employee data is read and written directly from
+services/resource.db (resources table) — no local copy is kept in plan.db.
+plan.db only contains: plans, plan_history.
 """
 
 from __future__ import annotations
@@ -18,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import datetime
 from typing import List, Optional
 
 
@@ -27,11 +25,27 @@ class PlanDatabase:
         self._init_db()
 
     # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _get_resource_db_path(self) -> str:
+        return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "resource.db"))
+
+    def _resource_conn(self) -> sqlite3.Connection:
+        """Return an open connection to resource.db."""
+        return sqlite3.connect(self._get_resource_db_path())
+
+    def _plan_conn(self) -> sqlite3.Connection:
+        """Return an open connection to plan.db."""
+        return sqlite3.connect(self.db_path)
+
+    # ------------------------------------------------------------------
     # Initialisation
     # ------------------------------------------------------------------
 
+
     def _init_db(self) -> None:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._plan_conn() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -44,123 +58,66 @@ class PlanDatabase:
             )
             cursor.execute(
                 """
-                CREATE TABLE IF NOT EXISTS employees (
-                    email  TEXT PRIMARY KEY,
-                    name   TEXT,
-                    skill  TEXT,
-                    status TEXT
+                CREATE TABLE IF NOT EXISTS plan_history (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    plan_id     TEXT,
+                    demand_id   TEXT,
+                    version     INTEGER,
+                    reason      TEXT,
+                    data        TEXT,
+                    timestamp   TEXT
                 )
                 """
             )
             conn.commit()
 
-            cursor.execute("SELECT COUNT(*) FROM employees")
-            if cursor.fetchone()[0] == 0:
-                self._seed_employees(conn)
+        # Reset allocations to Available, then immediately re-derive correct
+        # statuses from active plans — so allocated employees stay Allocated
+        # across service restarts instead of being wiped to Available.
+        self._reset_all_allocations()
+        self.sync_employee_allocations()
 
-    def _load_fixtures(self, conn: sqlite3.Connection) -> None:
-        fixtures_dir = os.path.join(os.path.dirname(__file__), "fixtures")
-        if not os.path.exists(fixtures_dir):
-            print(f"[plan-schedule] Fixtures directory not found at: {fixtures_dir}")
+    def _reset_all_allocations(self) -> None:
+        """Reset every resource to unallocated/Available in resource.db.
+
+        This is a clean-slate step — must always be followed by
+        sync_employee_allocations() to restore correct statuses from active
+        plans.  Leave date fields are preserved so on-leave windows survive
+        service restarts.
+        """
+        resource_db = self._get_resource_db_path()
+        if not os.path.exists(resource_db):
             return
-
-        cursor = conn.cursor()
-        count = 0
-        for filename in sorted(os.listdir(fixtures_dir)):
-            if filename.startswith("plan_") and filename.endswith(".json"):
-                filepath = os.path.join(fixtures_dir, filename)
-                try:
-                    with open(filepath, encoding="utf-8") as fh:
-                        data = json.load(fh)
-                    cursor.execute(
-                        "INSERT INTO plans (plan_id, demand_id, data) VALUES (?, ?, ?)",
-                        (data["plan_id"], data["demand_id"], json.dumps(data)),
-                    )
-                    count += 1
-                except Exception as exc:
-                    print(f"[plan-schedule] Error loading fixture {filename}: {exc}")
-        conn.commit()
-        print(f"[plan-schedule] Initialised SQLite DB with {count} plans from fixtures.")
-
-    def _seed_employees(self, conn: sqlite3.Connection) -> None:
-        import zipfile
-        import xml.etree.ElementTree as ET
-        path = r"C:\Users\2862049\Downloads\Employee_Data.xlsx"
-        if not os.path.exists(path):
-            print(f"[plan-schedule] Employee sheet not found at {path}, skipping database seeding.")
-            return
-
-        try:
-            ns = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
-            rows = {}
-            with zipfile.ZipFile(path, 'r') as zip_ref:
-                with zip_ref.open('xl/worksheets/sheet1.xml') as f:
-                    tree = ET.parse(f)
-                    root = tree.getroot()
-                    for row in root.findall(f'.//{ns}row'):
-                        r_idx = int(row.attrib['r'])
-                        rows[r_idx] = {}
-                        for c in row.findall(f'.//{ns}c'):
-                            r_ref = c.attrib['r']
-                            col_letter = ''.join([char for char in r_ref if char.isalpha()])
-                            val = ""
-                            is_elem = c.find(f'{ns}is')
-                            if is_elem is not None:
-                                t_elem = is_elem.find(f'{ns}t')
-                                if t_elem is not None and t_elem.text is not None:
-                                    val = t_elem.text
-                            else:
-                                v_elem = c.find(f'{ns}v')
-                                if v_elem is not None and v_elem.text is not None:
-                                    val = v_elem.text
-                            rows[r_idx][col_letter] = val
-
-            if not rows:
-                return
-
-            header_row = rows.get(1, {})
-            headers = {col: str(val).strip() for col, val in header_row.items() if val}
-            
+        with self._resource_conn() as conn:
             cursor = conn.cursor()
-            count = 0
-            for r_idx in sorted(rows.keys()):
-                if r_idx == 1:
-                    continue
-                row_data = rows[r_idx]
-                obj = {}
-                for col, header in headers.items():
-                    obj[header] = row_data.get(col, '')
-                
-                email = obj.get("Email", "").strip()
-                name = obj.get("Name", "").strip()
-                skill = obj.get("Skill", "").strip()
-                status = obj.get("Status", "").strip()
-                
-                if email:
-                    cursor.execute(
-                        "INSERT OR IGNORE INTO employees (email, name, skill, status) VALUES (?, ?, ?, ?)",
-                        (email, name, skill, status),
-                    )
-                    count += 1
+            cursor.execute(
+                """
+                UPDATE resources
+                SET allocated             = 0,
+                    status                = 'Available',
+                    current_project       = NULL,
+                    current_task          = NULL,
+                    project_start_date    = NULL,
+                    project_end_date      = NULL,
+                    allocation_percentage = 0.0
+                """
+            )
             conn.commit()
-            print(f"[plan-schedule] Seeded {count} employees into SQLite DB.")
-        except Exception as exc:
-            print(f"[plan-schedule] Error seeding employees: {exc}")
 
     # ------------------------------------------------------------------
     # Public API (mirrors estimate-shape/database.py naming)
     # ------------------------------------------------------------------
 
     def get_all(self) -> List[dict]:
-        """Return all PlanRecords as dicts (ISO date strings)."""
-        with sqlite3.connect(self.db_path) as conn:
+        """Return all PlanRecords as dicts."""
+        with self._plan_conn() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT data FROM plans")
             return [json.loads(row[0]) for row in cursor.fetchall()]
 
     def get_by_id(self, plan_id: str) -> Optional[dict]:
         """Return a single PlanRecord dict or None."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._plan_conn() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT data FROM plans WHERE plan_id = ?", (plan_id,))
             row = cursor.fetchone()
@@ -169,7 +126,7 @@ class PlanDatabase:
     def save(self, plan_dict: dict) -> None:
         """Upsert a PlanRecord dict (keyed by plan_id)."""
         plan_dict.setdefault("status", "draft")
-        with sqlite3.connect(self.db_path) as conn:
+        with self._plan_conn() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -182,82 +139,218 @@ class PlanDatabase:
                 (plan_dict["plan_id"], plan_dict["demand_id"], json.dumps(plan_dict)),
             )
             conn.commit()
+        self.sync_employee_allocations()
 
     def delete(self, plan_id: str) -> bool:
         """Delete a plan by plan_id. Returns True if a row was removed."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._plan_conn() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM plans WHERE plan_id = ?", (plan_id,))
             deleted = cursor.rowcount > 0
             conn.commit()
-            return deleted
+        if deleted:
+            self.sync_employee_allocations()
+        return deleted
+
+    def _read_resources(self) -> List[dict]:
+        """Read all rows from resource.db.resources and return as list of dicts."""
+        resource_db = self._get_resource_db_path()
+        if not os.path.exists(resource_db):
+            return []
+        with self._resource_conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT employee_id, employee_name, email, role, skill, skills,
+                       experience, department, status, allocated,
+                       current_project, current_task,
+                       project_start_date, project_end_date,
+                       allocation_percentage,
+                       leave_start_date, leave_end_date
+                FROM resources
+                """
+            )
+            rows = cursor.fetchall()
+        return [
+            {
+                "employee_id": r[0],
+                "employee_name": r[1],
+                "name": r[1],           # alias for backward compat
+                "email": r[2],
+                "role": r[3],
+                "skill": r[4],
+                "skills": r[5],
+                "experience": r[6],
+                "department": r[7],
+                "status": r[8],
+                "allocated": bool(r[9]),
+                "current_project": r[10],
+                "current_task": r[11],
+                "project_start_date": r[12],
+                "project_end_date": r[13],
+                "allocation_percentage": r[14],
+                "leave_start_date": r[15],
+                "leave_end_date": r[16],
+            }
+            for r in rows
+        ]
 
     def get_employees(self) -> List[dict]:
-        """Return all employees from SQLite store."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT email, name, skill, status FROM employees")
-            return [
-                {"email": r[0], "name": r[1], "skill": r[2], "status": r[3]}
-                for r in cursor.fetchall()
-            ]
+        """Return all resources from resource.db with up-to-date allocation state."""
+        self.sync_employee_allocations()
+        return self._read_resources()
+
+    def get_employees_by_role(self, role: str, only_available: bool = True) -> List[dict]:
+        """Return resource dicts matching a standardised planning role."""
+        self.sync_employee_allocations()
+        all_resources = self._read_resources()
+
+        matched = []
+        for r in all_resources:
+            db_role_lower = (r.get("role") or "").lower()
+            db_skills_lower = (r.get("skills") or "").lower()
+            status = r.get("status", "Available")
+
+            if only_available and status != "Available":
+                continue
+
+            role_match = False
+            if role == "backend":
+                is_dev = (
+                    "developer" in db_role_lower
+                    or "architect" in db_role_lower
+                    or "backend" in db_role_lower
+                    or "backend" in db_skills_lower
+                )
+                is_other = (
+                    "frontend" in db_role_lower or "frontend" in db_skills_lower
+                    or "qa" in db_role_lower or "qa" in db_skills_lower
+                    or "devops" in db_role_lower or "devops" in db_skills_lower
+                    or "security" in db_role_lower or "security" in db_skills_lower
+                    or "test" in db_role_lower or "test" in db_skills_lower
+                )
+                if is_dev and not is_other:
+                    role_match = True
+            elif role == "frontend":
+                if (
+                    "frontend" in db_role_lower
+                    or "frontend" in db_skills_lower
+                    or "ui" in db_role_lower
+                    or "ux" in db_role_lower
+                ):
+                    role_match = True
+            elif role == "qa":
+                if (
+                    "qa" in db_role_lower
+                    or "qa" in db_skills_lower
+                    or "test" in db_role_lower
+                    or "test" in db_skills_lower
+                ):
+                    role_match = True
+            elif role == "devops":
+                if (
+                    "devops" in db_role_lower
+                    or "devops" in db_skills_lower
+                    or "security" in db_role_lower
+                    or "security" in db_skills_lower
+                    or "infra" in db_role_lower
+                    or "cloud" in db_role_lower
+                ):
+                    role_match = True
+
+            if role_match:
+                matched.append({
+                    "email": r["email"],
+                    "name": r["employee_name"],
+                    "role": r["role"],
+                    "skills": r["skills"],
+                    "status": status,
+                    "allocated": r["allocated"],
+                })
+        return matched
 
     def get_free_employees_by_role(self, role: str) -> List[str]:
         """Return list of emails of free employees with matching skill/role."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT email FROM employees WHERE status = 'free' AND LOWER(skill) LIKE ?",
-                (f"%{role.lower()}%",),
-            )
-            return [r[0] for r in cursor.fetchall()]
+        matched = self.get_employees_by_role(role, only_available=False)
+        return [emp["email"] for emp in matched]
+
 
     def update_employee_status(self, email: str, status: str) -> bool:
-        """Update an employee's status in SQLite store."""
-        with sqlite3.connect(self.db_path) as conn:
+        """Update a resource's status directly in resource.db."""
+        if status == "free":
+            status = "Available"
+        elif status == "working":
+            status = "Allocated"
+        allocated = 1 if status == "Allocated" else 0
+        resource_db = self._get_resource_db_path()
+        if not os.path.exists(resource_db):
+            return False
+        with self._resource_conn() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "UPDATE employees SET status = ? WHERE email = ?",
-                (status, email),
+                "UPDATE resources SET status = ?, allocated = ? WHERE email = ?",
+                (status, allocated, email),
             )
             conn.commit()
-            return cursor.rowcount > 0
+            success = cursor.rowcount > 0
+        if success:
+            self.sync_employee_allocations()
+        return success
 
     def get_employees_by_skill_with_availability(self, skill: str) -> List[dict]:
-        """Return all employees of a given skill with computed days_until_free.
-        
-        For free employees: days_until_free = 0.
-        For working employees: scan all saved plan tasks to find the latest
-        pending task end_date for that owner, then compute days from today.
-        """
-        import datetime
+        """Return all resources matching a skill with computed days_until_free."""
+        self.sync_employee_allocations()
         today = datetime.date.today()
 
-        with sqlite3.connect(self.db_path) as conn:
+        resource_db = self._get_resource_db_path()
+        if not os.path.exists(resource_db):
+            return []
+
+        with self._resource_conn() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT email, name, skill, status FROM employees WHERE LOWER(skill) LIKE ?",
-                (f"%{skill.lower()}%",),
+                """
+                SELECT email, employee_name, skill, status,
+                       leave_start_date, leave_end_date,
+                       project_start_date, project_end_date
+                FROM resources
+                WHERE LOWER(skill) LIKE ? OR LOWER(role) = ?
+                """,
+                (f"%{skill.lower()}%", skill.lower()),
             )
             employees = [
-                {"email": r[0], "name": r[1], "skill": r[2], "status": r[3], "days_until_free": 0}
+                {
+                    "email": r[0],
+                    "name": r[1],
+                    "skill": r[2],
+                    "status": r[3],
+                    "days_until_free": 0,
+                    "leave_start_date": r[4],
+                    "leave_end_date": r[5],
+                    "project_start_date": r[6],
+                    "project_end_date": r[7],
+                }
                 for r in cursor.fetchall()
             ]
 
-            if not employees:
-                return employees
+        if not employees:
+            return employees
 
-            # Build a map: owner_email -> latest pending task end_date from saved plans
+        # Build owner -> latest pending task end_date map from saved plans
+        owner_to_latest: dict = {}
+        with self._plan_conn() as conn:
+            cursor = conn.cursor()
             cursor.execute("SELECT data FROM plans")
-            owner_to_latest: dict = {}
             for (raw,) in cursor.fetchall():
                 try:
                     plan = json.loads(raw)
+                    if plan.get("status") != "accepted":
+                        continue
                     for task in plan.get("tasks", []):
                         owner = task.get("owner", "")
-                        status = task.get("status", "pending")
+                        task_status = task.get("status", "pending")
                         end_date_str = task.get("end_date", "")
-                        if owner and status != "completed" and end_date_str:
+                        if owner and task_status != "completed" and end_date_str:
                             try:
                                 end_date = datetime.date.fromisoformat(end_date_str)
                                 if owner not in owner_to_latest or end_date > owner_to_latest[owner]:
@@ -268,7 +361,7 @@ class PlanDatabase:
                     pass
 
         for emp in employees:
-            if emp["status"] == "free":
+            if emp["status"] == "Available":
                 emp["days_until_free"] = 0
             else:
                 latest = owner_to_latest.get(emp["email"]) or owner_to_latest.get(emp["name"])
@@ -276,16 +369,237 @@ class PlanDatabase:
                     delta = (latest - today).days
                     emp["days_until_free"] = max(0, delta)
                 else:
-                    emp["days_until_free"] = None  # working but no task info found
+                    emp["days_until_free"] = None
 
-        # Sort: free first, then by days_until_free ascending, then name
-        employees.sort(key=lambda e: (
-            0 if e["status"] == "free" else 1,
-            e["days_until_free"] if e["days_until_free"] is not None else 9999,
-            e["name"]
-        ))
+        # Sort: Available first, then by days_until_free ascending, then name
+        employees.sort(
+            key=lambda e: (
+                0 if e["status"] == "Available" else 1,
+                e["days_until_free"] if e["days_until_free"] is not None else 9999,
+                e["name"],
+            )
+        )
         return employees
 
+    def set_employee_leave(self, email: str, start_date: str, end_date: str) -> bool:
+        """Mark a resource on leave in resource.db."""
+        resource_db = self._get_resource_db_path()
+        if not os.path.exists(resource_db):
+            return False
+        with self._resource_conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE resources
+                SET leave_start_date = ?,
+                    leave_end_date   = ?,
+                    status           = 'On Leave',
+                    allocated        = 0
+                WHERE email = ?
+                """,
+                (start_date, end_date, email),
+            )
+            conn.commit()
+            success = cursor.rowcount > 0
+        if success:
+            self.sync_employee_allocations()
+        return success
 
-# Global singleton — imported by main.py
+    def get_plan_history(self, plan_id: str) -> List[dict]:
+        """Fetch historical replan records for a plan."""
+        with self._plan_conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT version, reason, data, timestamp FROM plan_history WHERE plan_id = ? ORDER BY version DESC",
+                (plan_id,),
+            )
+            return [
+                {
+                    "version": r[0],
+                    "reason": r[1],
+                    "data": json.loads(r[2]),
+                    "timestamp": r[3],
+                }
+                for r in cursor.fetchall()
+            ]
+
+    def save_plan_history(
+        self, plan_id: str, demand_id: str, version: int, reason: str, data_dict: dict
+    ) -> None:
+        """Save a plan snapshot to history."""
+        timestamp = datetime.datetime.utcnow().isoformat() + "Z"
+        with self._plan_conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO plan_history (plan_id, demand_id, version, reason, data, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (plan_id, demand_id, version, reason, json.dumps(data_dict), timestamp),
+            )
+            conn.commit()
+
+    def sync_employee_allocations(self) -> None:
+        """Re-derive resource allocation state from accepted plans in plan.db.
+
+        Reads:  plan.db      -> plans table
+        Writes: resource.db  -> resources table
+                (allocated, status, current_project, current_task,
+                 project_start_date, project_end_date, allocation_percentage,
+                 leave_start_date, leave_end_date)
+        """
+        resource_db = self._get_resource_db_path()
+        if not os.path.exists(resource_db):
+            return
+
+        today = datetime.date.today()
+        today_str = today.isoformat()
+
+        # 1. Load all resources from resource.db
+        with self._resource_conn() as rconn:
+            rcursor = rconn.cursor()
+            rcursor.execute(
+                "SELECT email, employee_name, leave_start_date, leave_end_date FROM resources"
+            )
+            db_resources = rcursor.fetchall()
+
+        # 2. Load all accepted plans from plan.db
+        with self._plan_conn() as pconn:
+            pcursor = pconn.cursor()
+            pcursor.execute("SELECT data FROM plans")
+            db_plans = [json.loads(row[0]) for row in pcursor.fetchall()]
+
+        # 3. Build email/name -> assignments map from accepted plans
+        assignments: dict = {}
+        for plan in db_plans:
+            if plan.get("status") != "accepted":
+                continue
+
+            plan_id = plan.get("plan_id")
+            demand_id = plan.get("demand_id")
+            tasks = plan.get("tasks", [])
+
+            # Compute plan-level date range
+            plan_dates = []
+            for t in tasks:
+                for date_key in ("start_date", "end_date"):
+                    raw = t.get(date_key)
+                    if raw:
+                        try:
+                            plan_dates.append(datetime.date.fromisoformat(raw))
+                        except ValueError:
+                            pass
+
+            plan_start_str = min(plan_dates).isoformat() if plan_dates else None
+            plan_end_str = max(plan_dates).isoformat() if plan_dates else None
+
+            for t in tasks:
+                owner = t.get("owner")
+                if not owner or owner == "unassigned":
+                    continue
+                if t.get("status") == "completed":
+                    continue
+                # Auto-expire tasks whose end_date has already passed
+                t_end_str = t.get("end_date")
+                if t_end_str:
+                    try:
+                        if datetime.date.fromisoformat(t_end_str) < today:
+                            continue
+                    except ValueError:
+                        pass
+
+                assignments.setdefault(owner, []).append({
+                    "plan_id": plan_id,
+                    "demand_id": demand_id,
+                    "plan_start": plan_start_str,
+                    "plan_end": plan_end_str,
+                    "task_id": t.get("task_id"),
+                    "task_name": t.get("name"),
+                    "start_date": t.get("start_date"),
+                    "end_date": t.get("end_date"),
+                })
+
+        # 4. Write updated state back to resource.db
+        with self._resource_conn() as rconn:
+            rcursor = rconn.cursor()
+
+            for email, name, l_start, l_end in db_resources:
+                # Determine leave status
+                on_leave = False
+                leave_completed = False
+                if l_start and l_end:
+                    try:
+                        if l_start <= today_str <= l_end:
+                            on_leave = True
+                        elif today_str > l_end:
+                            leave_completed = True
+                    except Exception:
+                        pass
+
+                # Match assignments by email or name
+                emp_assignments = assignments.get(email, [])
+                if not emp_assignments and name:
+                    emp_assignments = assignments.get(name, [])
+
+                if emp_assignments and not on_leave:
+                    emp_assignments.sort(key=lambda x: x.get("start_date") or "")
+                    primary = emp_assignments[0]
+                    allocated = 1
+                    status = "Allocated"
+                    current_project = primary["demand_id"]
+                    current_task = primary["task_name"]
+                    project_start_date = primary["plan_start"]
+                    project_end_date = primary["plan_end"]
+                    allocation_percentage = 100.0
+                elif on_leave:
+                    allocated = 0
+                    status = "On Leave"
+                    current_project = None
+                    current_task = None
+                    project_start_date = None
+                    project_end_date = None
+                    allocation_percentage = 0.0
+                else:
+                    allocated = 0
+                    status = "Available"
+                    current_project = None
+                    current_task = None
+                    project_start_date = None
+                    project_end_date = None
+                    allocation_percentage = 0.0
+
+                # Clear expired leave dates
+                update_l_start = None if leave_completed else l_start
+                update_l_end = None if leave_completed else l_end
+
+                rcursor.execute(
+                    """
+                    UPDATE resources
+                    SET allocated             = ?,
+                        status                = ?,
+                        current_project       = ?,
+                        current_task          = ?,
+                        project_start_date    = ?,
+                        project_end_date      = ?,
+                        allocation_percentage = ?,
+                        leave_start_date      = ?,
+                        leave_end_date        = ?
+                    WHERE email = ?
+                    """,
+                    (
+                        allocated,
+                        status,
+                        current_project,
+                        current_task,
+                        project_start_date,
+                        project_end_date,
+                        allocation_percentage,
+                        update_l_start,
+                        update_l_end,
+                        email,
+                    ),
+                )
+            rconn.commit()
+
 db = PlanDatabase()
+

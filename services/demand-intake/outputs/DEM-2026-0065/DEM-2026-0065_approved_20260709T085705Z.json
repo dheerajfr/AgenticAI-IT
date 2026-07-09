@@ -1,0 +1,49 @@
+{
+  "demand_id": "DEM-2026-0065",
+  "title": "Docker clone",
+  "description": "Request to clone Docker.",
+  "type": "project",
+  "domain": "Infrastructure",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-09",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Docker clone (DEM-2026-0065)\n\nExecutive Summary\nThis project proposes creating an internal Docker clone to replicate its core containerization functionality. The objective is to establish an alternative, self-managed platform.\n\nDirect Business Value/Impact\nDeveloping an in-house Docker alternative could significantly reduce reliance on commercial licensing and external vendor roadmaps. This offers enhanced control and potential long-term cost efficiencies for our infrastructure.\n\nPotential Risk Mitigation\nDue to high risk, a comprehensive architectural design and a phased development strategy are essential. Thorough security reviews and leveraging open-source components will help mitigate technical complexities and ensure stability.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 0,
+  "earliest_start_date": "2026-08-08",
+  "capacity_reasoning": [
+    "High-risk demand requires Senior Architect oversight.",
+    "Delivery team has 22% overall available capacity.",
+    "Constraint: Security Engineer has only 0 units available (requires 15).",
+    "Constraint: QA Engineer has only 0 units available (requires 20).",
+    "Skill gap: Required skills Containerization, Linux Kernel Programming, Go, System Architecture, Networking, Storage, API Design, Distributed Systems are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-08."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Security Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 15
+    },
+    {
+      "role": "QA Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 20
+    }
+  ],
+  "skill_gaps": [
+    "Containerization",
+    "Linux Kernel Programming",
+    "Go",
+    "System Architecture",
+    "Networking",
+    "Storage",
+    "API Design",
+    "Distributed Systems"
+  ]
+}

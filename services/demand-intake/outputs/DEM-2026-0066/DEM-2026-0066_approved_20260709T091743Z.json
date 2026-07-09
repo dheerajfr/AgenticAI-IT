@@ -1,0 +1,42 @@
+{
+  "demand_id": "DEM-2026-0066",
+  "title": "IT Services HelpDesk Creation",
+  "description": "The request is to create a HelpDesk system specifically for IT services.",
+  "type": "project",
+  "domain": "IT Operations",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-09",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: IT Services HelpDesk Creation (DEM-2026-0066)\n\nExecutive Summary:\nThis project proposes creating a dedicated HelpDesk system for IT services. Its goal is to centralize support requests and significantly enhance the overall efficiency of IT operations.\n\nBusiness Value/Impact:\nImplementation will streamline incident management, reducing resolution times and improving user satisfaction. This frees IT staff to focus on strategic initiatives, boosting organizational productivity.\n\nPotential Risk Mitigation:\nMedium risks include potential integration complexities and user adoption challenges. Mitigation involves a phased deployment, robust system testing, and comprehensive user training programs.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 30,
+  "earliest_start_date": "2026-08-08",
+  "capacity_reasoning": [
+    "Medium-risk demand profile checked.",
+    "Delivery team has 70% overall available capacity.",
+    "Constraint: Security Engineer has only 0 units available (requires 10).",
+    "Skill gap: Required skills System Design, Backend Development, API Design, Database Management, Authentication & Authorization, Frontend Development, Quality Assurance are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-08."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Security Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 10
+    }
+  ],
+  "skill_gaps": [
+    "System Design",
+    "Backend Development",
+    "API Design",
+    "Database Management",
+    "Authentication & Authorization",
+    "Frontend Development",
+    "Quality Assurance"
+  ]
+}
