@@ -1,0 +1,37 @@
+{
+  "demand_id": "DEM-2026-0011",
+  "title": "Spotify App Functionality Description",
+  "description": "Describe the spotify app working",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "low",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-09",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Spotify App Functionality Description (DEM-2026-0011)\n\nExecutive Summary:\nThis project aims to clearly document the core functionality of the Spotify application. It will serve as a foundational resource for internal teams and new developers.\n\nBusiness Value/Impact:\nThis description will enhance internal knowledge transfer and accelerate developer onboarding, reducing time spent on basic explanations. It provides a clear reference for future feature development and troubleshooting.\n\nPotential Risk Mitigation:\nThe primary risk is the the documentation becoming outdated; this will be mitigated by scheduled, quarterly reviews. A clear scope definition will prevent over-description and maintain focus.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 45,
+  "earliest_start_date": "2026-08-08",
+  "capacity_reasoning": [
+    "Low-risk demand profile checked.",
+    "Delivery team has 26% overall available capacity.",
+    "Constraint: Senior Architect has only 5 units available (requires 10).",
+    "Skill gap: Required skills System Design, Technical Writing are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-08."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Senior Architect",
+      "availableCapacity": 5,
+      "requiredCapacity": 10
+    }
+  ],
+  "skill_gaps": [
+    "System Design",
+    "Technical Writing"
+  ]
+}
