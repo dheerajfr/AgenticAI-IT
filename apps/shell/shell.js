@@ -11,6 +11,52 @@ let classificationSuggestions = null;
 let capacitySuggestion = null;
 let businessCaseSuggestion = null;
 
+// Scroll state management for Demand & Intake wizard
+let demandPanelScrollTop = 0;
+let demandPanelScrollId = null;
+
+function saveDemandScrollPosition(id) {
+  const panelCard = document.querySelector('#details-panel-container .panel-card');
+  if (panelCard) {
+    // Find the ID of the demand currently rendered in the panel card
+    const idSpan = panelCard.querySelector('span[style*="font-family: monospace"]');
+    const currentIdInDOM = idSpan ? idSpan.textContent.trim() : null;
+    
+    // If we are switching demands, start fresh at the top (scrollTop = 0)
+    if (currentIdInDOM && currentIdInDOM !== id) {
+      demandPanelScrollTop = 0;
+      demandPanelScrollId = id;
+      return;
+    }
+    
+    // If a loader/spinner is active, do not overwrite a previously saved scroll position for the same ID
+    const hasLoader = panelCard.querySelector('.loader, .spinner');
+    if (hasLoader && demandPanelScrollId === id && demandPanelScrollTop > 0) {
+      return;
+    }
+    
+    demandPanelScrollTop = panelCard.scrollTop;
+    demandPanelScrollId = id;
+  }
+}
+
+function restoreDemandScrollPosition(id) {
+  if (demandPanelScrollId === id) {
+    const panelCard = document.querySelector('#details-panel-container .panel-card');
+    if (panelCard) {
+      panelCard.scrollTop = demandPanelScrollTop;
+    }
+  }
+  // Reset after restore attempt unless we are currently in a loader state
+  const panelCard = document.querySelector('#details-panel-container .panel-card');
+  const hasLoader = panelCard ? panelCard.querySelector('.loader, .spinner') : false;
+  if (demandPanelScrollId !== id && !hasLoader) {
+    demandPanelScrollTop = 0;
+    demandPanelScrollId = null;
+  }
+}
+
+
 // Initialize app when DOM loads
 document.addEventListener('DOMContentLoaded', () => {
   init();
@@ -50,10 +96,20 @@ function switchStage(stageId) {
       window.renderEstimateScreen();
       window.fetchEstimates();
     }
+  } else if (stageId === 'config-environments') {
+    if (window.renderConfigEnvironmentsScreen) {
+      window.renderConfigEnvironmentsScreen();
+      window.fetchEnvironments();
+    }
   } else if (stageId === 'plan-schedule') {
     if (window.renderPlanScreen) {
       window.renderPlanScreen();
       window.fetchPlans();
+    }
+  } else if (stageId === 'dependencies') {
+    if (window.renderDependenciesScreen) {
+      window.renderDependenciesScreen();
+      window.fetchDependencies();
     }
   } else {
     // Render the placeholder web component for other stages
@@ -403,6 +459,7 @@ function showIntakeError(msg) {
 
 // Render the 4-step wizard workflow details for the selected demand
 function renderDemandWizard(demand) {
+  saveDemandScrollPosition(demand.demand_id);
   const panel = document.getElementById('details-panel-container');
   
   // Determine states of each step based on the status attribute
@@ -750,22 +807,27 @@ function renderDemandWizard(demand) {
       }
     });
   }
+
+  restoreDemandScrollPosition(demand.demand_id);
 }
 
 // -------------------------------------------------------------
 // Stage 02: Classify Suggestion & Approval Flow
 // -------------------------------------------------------------
 async function runClassifyRouteFlow(id) {
+  saveDemandScrollPosition(id);
   const container = document.getElementById('classify-suggestion-container');
   const actionRow = document.getElementById('classify-actions-row');
   
   actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Running classify -> duplicate-check -> route nodes...</span>`;
+  restoreDemandScrollPosition(id);
   
   try {
     const res = await fetch(`${API_BASE}/demands/${id}/classify-route`, { method: 'POST' });
     if (!res.ok) throw new Error("Classification call failed");
     classificationSuggestions = await res.json();
     
+    saveDemandScrollPosition(id);
     // Display interactive values that can be approved
     container.innerHTML = `
       <div class="suggestion-box">
@@ -829,16 +891,20 @@ async function runClassifyRouteFlow(id) {
     document.getElementById('btn-approve-classify').addEventListener('click', () => {
       approveClassification(id);
     });
+    restoreDemandScrollPosition(id);
   } catch (err) {
+    saveDemandScrollPosition(id);
     container.innerHTML = `<div style="color: var(--color-status-red-text); margin-bottom: 1rem;">Failed to fetch classifications: ${err.message}</div>`;
     actionRow.innerHTML = `<button type="button" class="btn-primary" id="btn-run-classify">Retry Classify & Route</button>`;
     document.getElementById('btn-run-classify').addEventListener('click', () => {
       runClassifyRouteFlow(id);
     });
+    restoreDemandScrollPosition(id);
   }
 }
 
 async function approveClassification(id) {
+  saveDemandScrollPosition(id);
   const type = document.getElementById('suggest-type').value;
   const risk_level = document.getElementById('suggest-risk').value;
   const domain = document.getElementById('suggest-domain').value;
@@ -846,6 +912,7 @@ async function approveClassification(id) {
   
   const actionRow = document.getElementById('classify-actions-row');
   actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Saving classification state...</span>`;
+  restoreDemandScrollPosition(id);
   
   try {
     const res = await fetch(`${API_BASE}/demands/${id}/approve-classify`, {
@@ -859,11 +926,19 @@ async function approveClassification(id) {
     // Success, refetch and reselect
     await fetchDemands();
   } catch (err) {
+    saveDemandScrollPosition(id);
     alert(`Failed to save suggestions: ${err.message}`);
     actionRow.innerHTML = `
       <button type="button" class="btn-secondary" id="btn-re-run-classify">Re-run</button>
       <button type="button" class="btn-primary" id="btn-approve-classify">Approve Suggestions</button>
     `;
+    document.getElementById('btn-re-run-classify').addEventListener('click', () => {
+      runClassifyRouteFlow(id);
+    });
+    document.getElementById('btn-approve-classify').addEventListener('click', () => {
+      approveClassification(id);
+    });
+    restoreDemandScrollPosition(id);
   }
 }
 
@@ -871,10 +946,12 @@ async function approveClassification(id) {
 // Stage 03: Capacity Suggestion & Approval Flow
 // -------------------------------------------------------------
 async function runCapacityCheckFlow(id) {
+  saveDemandScrollPosition(id);
   const container = document.getElementById('capacity-suggestion-container');
   const actionRow = document.getElementById('capacity-actions-row');
   
   actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Querying platform capacity logs...</span>`;
+  restoreDemandScrollPosition(id);
   
   try {
     const res = await fetch(`${API_BASE}/demands/${id}/capacity-check`, { method: 'POST' });
@@ -883,6 +960,7 @@ async function runCapacityCheckFlow(id) {
     
     const isFeasible = capacitySuggestion.verdict === 'feasible';
     
+    saveDemandScrollPosition(id);
     container.innerHTML = `
       <div class="suggestion-box" style="border-color: ${isFeasible ? 'rgba(52,211,153,0.3)' : 'rgba(251,191,36,0.3)'}; margin-top: 1rem;">
         <h5 class="suggestion-title" style="color: ${isFeasible ? 'var(--color-status-green-text)' : 'var(--color-status-amber-text)'}; font-size: 1rem; margin-top: 0; margin-bottom: 0.75rem;">
@@ -938,18 +1016,23 @@ async function runCapacityCheckFlow(id) {
     document.getElementById('btn-approve-capacity').addEventListener('click', () => {
       approveCapacity(id);
     });
+    restoreDemandScrollPosition(id);
   } catch (err) {
+    saveDemandScrollPosition(id);
     container.innerHTML = `<div style="color: var(--color-status-red-text); margin-bottom: 1rem;">Capacity check query failure: ${err.message}</div>`;
     actionRow.innerHTML = `<button type="button" class="btn-primary" id="btn-run-capacity">Verify Capacity</button>`;
     document.getElementById('btn-run-capacity').addEventListener('click', () => {
       runCapacityCheckFlow(id);
     });
+    restoreDemandScrollPosition(id);
   }
 }
 
 async function approveCapacity(id) {
+  saveDemandScrollPosition(id);
   const actionRow = document.getElementById('capacity-actions-row');
   actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Committing capacity sign-off...</span>`;
+  restoreDemandScrollPosition(id);
   
   try {
     const res = await fetch(`${API_BASE}/demands/${id}/approve-capacity`, {
@@ -962,14 +1045,21 @@ async function approveCapacity(id) {
     
     await fetchDemands();
   } catch (err) {
+    saveDemandScrollPosition(id);
     alert(err.message);
     actionRow.innerHTML = `<button type="button" class="btn-primary" id="btn-approve-capacity">Approve Capacity Verdict</button>`;
+    document.getElementById('btn-approve-capacity').addEventListener('click', () => {
+      approveCapacity(id);
+    });
+    restoreDemandScrollPosition(id);
   }
 }
 
 async function loadWorkforcePool() {
   const container = document.getElementById('workforce-table-container');
   if (!container) return;
+  
+  const workforceScrollTop = container.scrollTop;
   
   try {
     const res = await fetch(`${API_BASE}/demands/resources`);
@@ -1067,6 +1157,8 @@ async function loadWorkforcePool() {
         }
       });
     });
+    
+    container.scrollTop = workforceScrollTop;
   } catch (err) {
     container.innerHTML = `<div style="color: var(--color-status-red-text); font-size: 0.85rem;">${err.message}</div>`;
   }
@@ -1147,16 +1239,19 @@ function attachWorkforceListeners() {
 // Stage 04: Business Case Suggestion & Approval Flow
 // -------------------------------------------------------------
 async function runBusinessCaseFlow(id) {
+  saveDemandScrollPosition(id);
   const container = document.getElementById('business-case-suggestion-container');
   const actionRow = document.getElementById('business-case-actions-row');
   
   actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Running draft generation node...</span>`;
+  restoreDemandScrollPosition(id);
   
   try {
     const res = await fetch(`${API_BASE}/demands/${id}/business-case`, { method: 'POST' });
     if (!res.ok) throw new Error("Business case draft generation failed.");
     businessCaseSuggestion = await res.json();
     
+    saveDemandScrollPosition(id);
     container.innerHTML = `
       <div class="suggestion-box">
         <h5 class="suggestion-title">Generated Business Case Draft (Edit details below)</h5>
@@ -1180,21 +1275,26 @@ async function runBusinessCaseFlow(id) {
     `;
     
     attachBusinessCaseListeners(id);
+    restoreDemandScrollPosition(id);
   } catch (err) {
+    saveDemandScrollPosition(id);
     container.innerHTML = `<div style="color: var(--color-status-red-text); margin-bottom: 1rem;">Draft generation error: ${err.message}</div>`;
     actionRow.innerHTML = `<button type="button" class="btn-primary" id="btn-run-business-case">Generate Business Case Draft</button>`;
     document.getElementById('btn-run-business-case').addEventListener('click', () => {
       runBusinessCaseFlow(id);
     });
+    restoreDemandScrollPosition(id);
   }
 }
 
 async function saveBusinessCaseDraft(id) {
+  saveDemandScrollPosition(id);
   const currentSummary = document.getElementById('edit-business-case').value;
   const actionRow = document.getElementById('business-case-actions-row');
   
   const originalHTML = actionRow.innerHTML;
   actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Saving draft...</span>`;
+  restoreDemandScrollPosition(id);
   
   try {
     const res = await fetch(`${API_BASE}/demands/${id}/save-business-case-draft`, {
@@ -1207,6 +1307,7 @@ async function saveBusinessCaseDraft(id) {
     
     await fetchDemands();
     
+    saveDemandScrollPosition(id);
     const newActionRow = document.getElementById('business-case-actions-row');
     if (newActionRow) {
       const msg = document.createElement('span');
@@ -1217,20 +1318,29 @@ async function saveBusinessCaseDraft(id) {
       msg.style.fontWeight = '600';
       msg.style.alignSelf = 'center';
       newActionRow.prepend(msg);
-      setTimeout(() => msg.remove(), 3000);
+      setTimeout(() => {
+        saveDemandScrollPosition(id);
+        msg.remove();
+        restoreDemandScrollPosition(id);
+      }, 3000);
     }
+    restoreDemandScrollPosition(id);
   } catch (err) {
+    saveDemandScrollPosition(id);
     alert(err.message);
     actionRow.innerHTML = originalHTML;
     attachBusinessCaseListeners(id);
+    restoreDemandScrollPosition(id);
   }
 }
 
 async function approveBusinessCase(id) {
+  saveDemandScrollPosition(id);
   const finalSummary = document.getElementById('edit-business-case').value;
   const actionRow = document.getElementById('business-case-actions-row');
   
   actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Committing final approval & release parameters...</span>`;
+  restoreDemandScrollPosition(id);
   
   try {
     const res = await fetch(`${API_BASE}/demands/${id}/approve-business-case`, {
@@ -1243,6 +1353,7 @@ async function approveBusinessCase(id) {
     
     await fetchDemands();
   } catch (err) {
+    saveDemandScrollPosition(id);
     alert(err.message);
     actionRow.innerHTML = `
       <button type="button" class="btn-secondary" id="btn-re-run-business-case">Re-run Draft</button>
@@ -1250,6 +1361,7 @@ async function approveBusinessCase(id) {
       <button type="button" class="btn-primary" id="btn-approve-business-case">Approve & Sign-off Demand</button>
     `;
     attachBusinessCaseListeners(id);
+    restoreDemandScrollPosition(id);
   }
 }
 

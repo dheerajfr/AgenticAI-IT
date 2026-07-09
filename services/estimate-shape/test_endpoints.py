@@ -3,7 +3,8 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-# Add services folder to path and mock call_gemini globally before app import
+# Add current folder and services folder to path, and mock call_gemini globally before app import
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import llm_client
 
@@ -35,6 +36,13 @@ llm_client.call_gemini = dummy_call_gemini
 def mock_gemini_global_cleanup():
     yield
     llm_client.call_gemini = original_call_gemini
+
+# Clear cached local modules to prevent cross-contamination
+for m in ['main', 'models', 'database', 'orchestration']:
+    sys.modules.pop(m, None)
+for m in list(sys.modules.keys()):
+    if m.startswith('orchestration.'):
+        sys.modules.pop(m, None)
 
 from main import app
 from database import db

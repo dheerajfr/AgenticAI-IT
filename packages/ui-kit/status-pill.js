@@ -23,7 +23,7 @@ class StatusPill extends HTMLElement {
     const normalized = status.toLowerCase().trim();
     let className = 'gray';
 
-    if (normalized === 'live' || normalized === 'approved') {
+    if (normalized === 'live' || normalized === 'approved' || normalized === 'finalized' || normalized === 're-baselined') {
       className = 'green';
     } else if (normalized === 'building' || normalized === 'classified' || normalized === 'capacity-checked') {
       className = 'amber';
