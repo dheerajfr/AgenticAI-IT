@@ -1,81 +1,145 @@
 import os
 import json
+import sqlite3
 from typing import List, Optional, Dict
 from models import DependencyEdge, PlanRecord
 
-class InMemoryDependencyDatabase:
+class DependencyDatabase:
     def __init__(self):
-        self.records: Dict[str, DependencyEdge] = {}
-        self._load_fixtures()
+        self.db_path = os.path.join(os.path.dirname(__file__), "dependencies.db")
+        self.fixtures_dir = os.path.join(os.path.dirname(__file__), "fixtures")
+        self._init_db()
 
-    def _load_fixtures(self):
-        """Loads DependencyEdge JSON files from the fixtures directory."""
-        fixtures_dir = os.path.join(os.path.dirname(__file__), "fixtures")
-        if not os.path.exists(fixtures_dir):
+    def _init_db(self):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS dependencies (
+                    dependency_id TEXT PRIMARY KEY,
+                    data TEXT
+                )
+            ''')
+            conn.commit()
+
+            # Seed from fixtures if table is empty
+            cursor.execute('SELECT COUNT(*) FROM dependencies')
+            if cursor.fetchone()[0] == 0:
+                self._load_fixtures(conn)
+
+    def _load_fixtures(self, conn):
+        if not os.path.exists(self.fixtures_dir):
+            print(f"Fixtures directory not found at: {self.fixtures_dir}")
             return
 
-        for filename in os.listdir(fixtures_dir):
+        cursor = conn.cursor()
+        count = 0
+        for filename in os.listdir(self.fixtures_dir):
             if filename.endswith(".json"):
-                filepath = os.path.join(fixtures_dir, filename)
+                filepath = os.path.join(self.fixtures_dir, filename)
                 try:
                     with open(filepath, "r", encoding="utf-8") as f:
                         data = json.load(f)
                         record = DependencyEdge(**data)
-                        self.records[record.dependency_id] = record
+                        cursor.execute(
+                            "INSERT INTO dependencies (dependency_id, data) VALUES (?, ?)",
+                            (record.dependency_id, record.model_dump_json())
+                        )
+                        count += 1
                 except Exception as e:
                     print(f"Error loading fixture {filename}: {e}")
+        conn.commit()
+        print(f"Initialized dependencies.db with {count} records from fixtures.")
 
     def get_all(self) -> List[DependencyEdge]:
-        return list(self.records.values())
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT data FROM dependencies ORDER BY dependency_id")
+            rows = cursor.fetchall()
+            return [DependencyEdge.model_validate_json(row[0]) for row in rows]
 
     def get_by_id(self, dependency_id: str) -> Optional[DependencyEdge]:
-        return self.records.get(dependency_id)
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT data FROM dependencies WHERE dependency_id = ?", (dependency_id,))
+            row = cursor.fetchone()
+            if row:
+                return DependencyEdge.model_validate_json(row[0])
+            return None
 
     def get_by_task_id(self, task_id: str) -> List[DependencyEdge]:
         """Finds any dependency where the task is either the source or target."""
+        all_deps = self.get_all()
         return [
-            r for r in self.records.values()
+            r for r in all_deps
             if r.source_task_id == task_id or r.target_task_id == task_id
         ]
 
     def save(self, record: DependencyEdge):
-        self.records[record.dependency_id] = record
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO dependencies (dependency_id, data)
+                VALUES (?, ?)
+                ON CONFLICT(dependency_id) DO UPDATE SET data=excluded.data
+                """,
+                (record.dependency_id, record.model_dump_json())
+            )
+            conn.commit()
 
 
 class PlanLoader:
     @staticmethod
-    def get_plan_fixtures_dir() -> str:
-        # Navigate relative to this file: services/dependencies/../../services/plan-schedule/fixtures
+    def get_plan_db_path() -> str:
+        # Navigate relative to this file: services/dependencies/../plan-schedule/plan.db
         return os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "plan-schedule", "fixtures")
+            os.path.join(os.path.dirname(__file__), "..", "plan-schedule", "plan.db")
         )
 
     @classmethod
     def load_all_plans(cls) -> List[PlanRecord]:
         plans = []
-        fixtures_dir = cls.get_plan_fixtures_dir()
-        if not os.path.exists(fixtures_dir):
+        db_path = cls.get_plan_db_path()
+        if not os.path.exists(db_path):
             return plans
 
-        for filename in os.listdir(fixtures_dir):
-            if filename.endswith(".json"):
-                filepath = os.path.join(fixtures_dir, filename)
-                try:
-                    with open(filepath, "r", encoding="utf-8") as f:
-                        data = json.load(f)
+        try:
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT data FROM plans")
+                rows = cursor.fetchall()
+                for row in rows:
+                    try:
+                        data = json.loads(row[0])
                         plans.append(PlanRecord(**data))
-                except Exception as e:
-                    print(f"Error loading plan fixture {filename}: {e}")
+                    except Exception as e:
+                        print(f"Error parsing plan: {e}")
+        except Exception as e:
+            print(f"Error reading plan.db: {e}")
         return plans
 
     @classmethod
     def load_plan_by_id(cls, plan_id: str) -> Optional[PlanRecord]:
-        for plan in cls.load_all_plans():
-            if plan.plan_id == plan_id:
-                return plan
+        db_path = cls.get_plan_db_path()
+        if not os.path.exists(db_path):
+            return None
+
+        try:
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT data FROM plans WHERE plan_id = ?", (plan_id,))
+                row = cursor.fetchone()
+                if row:
+                    try:
+                        data = json.loads(row[0])
+                        return PlanRecord(**data)
+                    except Exception as e:
+                        print(f"Error parsing plan {plan_id}: {e}")
+        except Exception as e:
+            print(f"Error reading plan.db for {plan_id}: {e}")
         return None
 
 
 # Global instances
-db = InMemoryDependencyDatabase()
+db = DependencyDatabase()
 plan_loader = PlanLoader()

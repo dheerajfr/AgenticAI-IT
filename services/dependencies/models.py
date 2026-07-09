@@ -16,10 +16,14 @@ class PlanRecord(BaseModel):
     end_date: str = Field(..., description="Plan's current committed end date")
     critical_path_task_ids: List[str] = Field(..., description="List of task IDs that lie on the critical path")
     tasks: List[Task] = Field(..., description="List of tasks mapped under this plan")
+    release_name: Optional[str] = Field(
+        default=None,
+        description="Human-readable release/milestone name for this plan, if tracked upstream in plan.db or the demand record"
+    )
 
 
 class DependencyEdge(BaseModel):
-    dependency_id: str = Field(..., description="Stable unique ID for the dependency")
+    dependency_id: Optional[str] = Field(default="", description="Stable unique ID for the dependency")
     source_task_id: str = Field(..., description="Task ID of the task that depends on another task (references task_id in plan)")
     target_task_id: str = Field(..., description="Task ID of the task being depended on (may be in a different plan)")
     type: Literal["technical", "resource", "data", "external-vendor"] = Field(..., description="Type of dependency")
