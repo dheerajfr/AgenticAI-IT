@@ -1,0 +1,48 @@
+{
+  "demand_id": "DEM-2026-0014",
+  "title": "Youtube Music Clone",
+  "description": "Request to create a clone of Youtube Music.",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-09",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Youtube Music Clone (DEM-2026-0014)\n\nExecutive Summary\nThis project proposes creating a Youtube Music clone to expand our customer digital offerings. The goal is to capture market share in the rapidly growing online music streaming sector.\n\nDirect Business Value/Impact\nIt will generate new revenue through subscriptions and advertising, driving customer acquisition. This initiative enhances our brand's presence and competitiveness in digital entertainment.\n\nPotential Risk Mitigation\nHigh risks involve intellectual property and market competition. Mitigation includes thorough legal vetting, phased development, and a differentiated content strategy to ensure uniqueness.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 23,
+  "earliest_start_date": "2026-08-08",
+  "capacity_reasoning": [
+    "High-risk demand requires Senior Architect oversight.",
+    "Delivery team has 26% overall available capacity.",
+    "Constraint: Frontend Developer has only 15 units available (requires 20).",
+    "Constraint: Senior Architect has only 5 units available (requires 15).",
+    "Skill gap: Required skills Backend Development, Frontend Development, Database, API Development, Audio Streaming, System Architecture, DevOps are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-08."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Frontend Developer",
+      "availableCapacity": 15,
+      "requiredCapacity": 20
+    },
+    {
+      "role": "Senior Architect",
+      "availableCapacity": 5,
+      "requiredCapacity": 15
+    }
+  ],
+  "skill_gaps": [
+    "Backend Development",
+    "Frontend Development",
+    "Database",
+    "API Development",
+    "Audio Streaming",
+    "System Architecture",
+    "DevOps"
+  ]
+}

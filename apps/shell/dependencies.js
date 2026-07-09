@@ -92,15 +92,22 @@ function renderDependencyList() {
 
     let typeLabel = dep.type.replace('-', ' ');
 
+    const planLabel = dep.plan_id || 'PLN-0001-1';
+
     return `
-      <li class="demand-item ${isActive ? 'active' : ''}" data-id="${dep.dependency_id}">
+      <li class="demand-item ${isActive ? 'active' : ''}" data-id="${dep.dependency_id}" style="position: relative;">
         <div class="demand-item-header">
           <span class="demand-item-id">${dep.dependency_id}</span>
-          <span style="font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;" class="${statusClass}">
-            ${dep.status}
-          </span>
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <span style="font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;" class="${statusClass}">
+              ${dep.status}
+            </span>
+            <button class="btn-delete-dep" data-id="${dep.dependency_id}" title="Delete dependency" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.1rem; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; transition: color 0.15s ease;" onmouseover="this.style.color='var(--color-status-red-text)'" onmouseout="this.style.color='var(--text-muted)'">
+              🗑️
+            </button>
+          </div>
         </div>
-        <h4 class="demand-item-title">${dep.source_task_id} &rarr; ${dep.target_task_id}</h4>
+        <h4 class="demand-item-title" style="font-size: 0.85rem; font-weight: 700;"><span style="color: var(--color-brand); font-weight: 600;">[${planLabel}]</span> ${dep.source_task_id} &rarr; ${dep.target_task_id}</h4>
         <div class="demand-item-meta">
           <span style="text-transform: capitalize;">Type: ${typeLabel}</span>
           <span>Owner: ${dep.owner}</span>
@@ -111,9 +118,33 @@ function renderDependencyList() {
 
   // Attach click events
   container.querySelectorAll('.demand-item').forEach(item => {
-    item.addEventListener('click', () => {
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.btn-delete-dep')) return;
       const id = item.getAttribute('data-id');
       selectDependency(id);
+    });
+  });
+
+  // Attach delete click events
+  container.querySelectorAll('.btn-delete-dep').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.getAttribute('data-id');
+      if (confirm(`Are you sure you want to delete dependency ${id}?`)) {
+        try {
+          const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/${id}`, {
+            method: 'DELETE'
+          });
+          if (!res.ok) throw new Error("Failed to delete dependency.");
+          
+          if (selectedDependencyId === id) {
+            selectedDependencyId = null;
+          }
+          await window.fetchDependencies();
+        } catch (err) {
+          alert(`Error: ${err.message}`);
+        }
+      }
     });
   });
 }
@@ -240,6 +271,13 @@ function renderDependencyDetails(dep) {
   const historicalSlips = Math.floor(Math.random() * 4) + 1;
   const ownerShort = dep.owner.includes('@') ? dep.owner.split('@')[0] : dep.owner;
 
+  const isChaseCompleted = !!dep.draft_message;
+  const isResolveCompleted = dep.status === 'resolved';
+
+  const step1Class = 'completed';
+  const step2Class = isChaseCompleted ? 'completed' : 'active';
+  const step3Class = isResolveCompleted ? 'completed' : (isChaseCompleted ? 'active' : 'locked');
+
   container.innerHTML = `
     <style>
       .wf-badge { padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
@@ -276,15 +314,20 @@ function renderDependencyDetails(dep) {
       .coord-agent { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); font-size: 0.8rem; }
       .coord-agent .agent-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
       .approval-banner { background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.08)); border: 1px solid rgba(99,102,241,0.25); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+      .wizard-step { margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 2rem; }
+      .wizard-step-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+      .wizard-step-title { margin: 0; display: flex; align-items: center; gap: 0.75rem; font-size: 1.1rem; }
+      .wizard-step-num { width: 28px; height: 28px; background: var(--color-brand); color: white; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.9rem; }
+      .wizard-step.locked { opacity: 0.5; pointer-events: none; }
     </style>
 
     <div class="wizard-container">
 
       <!-- ===== HEADER ===== -->
-      <div class="wizard-header">
+      <div class="wizard-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
         <div>
-          <span class="wizard-stage-indicator" style="text-transform: uppercase;">Dependency Details</span>
-          <h2 class="wizard-title">${dep.dependency_id}</h2>
+          <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${dep.dependency_id}</span>
+          <h2 style="font-family: var(--font-display); font-size: 1.5rem; margin: 0.2rem 0 0 0; color: var(--text-primary);">Dependency Analysis Pipeline</h2>
         </div>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
           ${dep.status !== 'resolved' ? `
@@ -293,7 +336,7 @@ function renderDependencyDetails(dep) {
             </button>
           ` : `
             <button type="button" class="btn-new" id="btn-undo-resolved" style="background-color: var(--color-status-amber-bg); border: 1px solid var(--color-status-amber-border); color: var(--color-status-amber-text); height: 32px; padding: 0 0.75rem;" title="Undo resolved">
-              \u21a9 Undo Resolve
+              ↩ Undo Resolve
             </button>
           `}
           <span style="padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; display: inline-block;" class="${statusClass}">
@@ -302,429 +345,436 @@ function renderDependencyDetails(dep) {
         </div>
       </div>
 
+      <!-- ===== Interactive Steps Pipeline ===== -->
+      <div class="pipeline-wizard">
 
-      <!-- ===== RELATIONSHIP MAPPING ===== -->
-      <div class="wizard-card info-card">
-        <h4 class="card-section-title">Relationship Mapping</h4>
-        <div class="grid-2col">
-          <div class="data-item">
-            <div class="data-label">Source Task ID (Dependent)</div>
-            <div class="data-value" style="font-family: monospace; font-size: 1.1rem; color: var(--color-brand);">${dep.source_task_id}</div>
+        <!-- STEP 1: SENSE DEPENDENCIES -->
+        <div class="wizard-step ${step1Class}">
+          <div class="wizard-step-header">
+            <h4 class="wizard-step-title">
+              <span class="wizard-step-num">1</span>
+              Sense Dependencies
+            </h4>
+            <span class="wf-badge low">Approved</span>
           </div>
-          <div class="data-item">
-            <div class="data-label">Target Task ID (Predecessor)</div>
-            <div class="data-value" style="font-family: monospace; font-size: 1.1rem; color: var(--text-primary);">${dep.target_task_id}</div>
-          </div>
-          <div class="data-item">
-            <div class="data-label">Dependency Type</div>
-            <div class="data-value" style="text-transform: capitalize;">${dep.type.replace('-', ' ')}</div>
-          </div>
-          <div class="data-item">
-            <div class="data-label">Accountable Owner</div>
-            <div class="data-value">${dep.owner}</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ===== DEPENDENCY CHAIN GRAPH ===== -->
-      <div class="wf-card">
-        <h4 class="card-section-title">Dependency Chain Graph</h4>
-        <div id="dependency-graph-panel"></div>
-      </div>
-
-
-      <!-- ===== CHASE COMMITMENT WORKFLOW (ENHANCED) ===== -->
-      <div class="wf-card">
-        <h4 class="card-section-title">\u{1F4E8} Chase Commitment Workflow (AI)</h4>
-        <div id="chase-workflow-trigger-container" style="display: ${hasDraft ? 'none' : 'block'};">
-          <button type="button" class="btn-primary" id="btn-open-chase-setup" style="width: 100%;">
-            Trigger Chase Workflow (AI)
-          </button>
-        </div>
-
-        <!-- Setup options -->
-        <div id="chase-workflow-setup" style="display: none; margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
-          <p class="description-text" style="margin-bottom: 1rem;">Configure the AI chase reminder options:</p>
-
-          <!-- #3 COMMUNICATION STYLE SELECTOR (extended) -->
-          <div class="form-group" style="margin-bottom: 1rem;">
-            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Message Tone</label>
-            <div id="chase-tone-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem;">
-              <button type="button" class="wf-btn-toggle active" data-tone="friendly">\u{1F60A} Friendly</button>
-              <button type="button" class="wf-btn-toggle" data-tone="business">\u{1F4BC} Professional</button>
-              <button type="button" class="wf-btn-toggle" data-tone="technical">\u{1F527} Technical</button>
-              <button type="button" class="wf-btn-toggle" data-tone="executive">\u{1F4CA} Executive</button>
-              <button type="button" class="wf-btn-toggle" data-tone="escalation">\u{26A0} Escalation</button>
-              <button type="button" class="wf-btn-toggle" data-tone="urgent">\u{1F6A8} Urgent</button>
-              <button type="button" class="wf-btn-toggle" data-tone="short">\u{1F91D} Diplomatic</button>
-            </div>
-          </div>
-
-          <!-- #4 DELIVERY CHANNEL SELECTOR (extended) -->
-          <div class="form-group" style="margin-bottom: 1rem;">
-            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Delivery Channel</label>
-            <div id="chase-channel-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem;">
-              <button type="button" class="wf-btn-toggle active" data-channel="teams">\u{1F4AC} Teams</button>
-              <button type="button" class="wf-btn-toggle" data-channel="email">\u{1F4E7} Email</button>
-              <button type="button" class="wf-btn-toggle" data-channel="slack">\u{26A1} Slack</button>
-              <button type="button" class="wf-btn-toggle" data-channel="ado">\u{1F527} ADO</button>
-              <button type="button" class="wf-btn-toggle" data-channel="jira">\u{1F4CB} Jira</button>
-              <button type="button" class="wf-btn-toggle" data-channel="servicenow">\u{1F3E2} ServiceNow</button>
-              <button type="button" class="wf-btn-toggle" data-channel="sms">\u{1F4F1} SMS</button>
-              <button type="button" class="wf-btn-toggle" data-channel="webhook">\u{1F310} Webhook</button>
-            </div>
-          </div>
-
-          <!-- #18 SMART SCHEDULING -->
-          <div class="form-group" style="margin-bottom: 1rem;">
-            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Smart Scheduling</label>
-            <div id="chase-schedule-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem;">
-              <button type="button" class="wf-btn-toggle active" data-schedule="now">\u{23F0} Now</button>
-              <button type="button" class="wf-btn-toggle" data-schedule="tomorrow">\u{1F305} Tomorrow AM</button>
-              <button type="button" class="wf-btn-toggle" data-schedule="online">\u{1F7E2} When Online</button>
-              <button type="button" class="wf-btn-toggle" data-schedule="sprint">\u{1F3C3} After Sprint</button>
-              <button type="button" class="wf-btn-toggle" data-schedule="cab">\u{2705} After CAB</button>
-              <button type="button" class="wf-btn-toggle" data-schedule="custom">\u{1F4C6} Custom</button>
-            </div>
-          </div>
-
-          <!-- #6 RECIPIENT INTELLIGENCE -->
-          <div class="form-group" style="margin-bottom: 1rem;">
-            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Suggested Recipients (AI)</label>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin-top: 0.25rem;" id="recipient-list">
-              <label class="ai-pill active" style="cursor: pointer; justify-content: space-between;"><span><input type="checkbox" checked style="display:none;"> \u2713 Dependency Owner</span><span style="font-size:0.65rem; opacity:0.7;">98%</span></label>
-              <label class="ai-pill" style="cursor: pointer; justify-content: space-between;"><span><input type="checkbox" style="display:none;"> Team Lead</span><span style="font-size:0.65rem; opacity:0.7;">82%</span></label>
-              <label class="ai-pill" style="cursor: pointer; justify-content: space-between;"><span><input type="checkbox" style="display:none;"> Program Manager</span><span style="font-size:0.65rem; opacity:0.7;">76%</span></label>
-              <label class="ai-pill" style="cursor: pointer; justify-content: space-between;"><span><input type="checkbox" style="display:none;"> Architecture Owner</span><span style="font-size:0.65rem; opacity:0.7;">65%</span></label>
-            </div>
-          </div>
-
-          <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;" id="chase-setup-actions">
-            <button type="button" class="btn-secondary" id="btn-cancel-chase-setup" style="flex: 1;">Cancel</button>
-            <button type="button" class="btn-primary" id="btn-run-chase-ai" style="flex: 2;">Generate Nudge Message</button>
-          </div>
-        </div>
-
-        <!-- Generated Message & Metrics -->
-        <div id="chase-workflow-results" style="display: ${hasDraft ? 'block' : 'none'}; margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
-
-          <!-- ===== #1 EXPLAINABLE AI RISK ASSESSMENT + #11 CONFIDENCE METER ===== -->
-          <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem; border-left: 4px solid var(--color-status-${threatColorVar}-text);">
-            <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary);">\u{1F9E0} AI Risk Assessment</h5>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-              <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; text-align: center;">
-                <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Risk Level</div>
-                <div style="font-size: 1.4rem;">${threatEmoji}</div>
-                <div style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--color-status-${threatColorVar}-text); margin-top: 0.2rem;">${threatLevel}</div>
+          <div class="wizard-step-body">
+            <div class="grid-2col" style="margin-bottom: 1rem;">
+              <div class="data-item">
+                <div class="data-label">Source Task ID (Dependent)</div>
+                <div class="data-value" style="font-family: monospace; font-weight: 700; color: var(--color-brand);">${dep.source_task_id}</div>
               </div>
-              <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; text-align: center;">
-                <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Confidence</div>
-                <div style="font-size: 1.4rem; font-weight: 800; color: var(--color-brand);">${confidenceVal}%</div>
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
-                  <div class="conf-bar"><div class="conf-bar-fill" style="width: ${confidenceVal}%; background: ${confidenceVal > 80 ? 'var(--color-status-green-text)' : confidenceVal > 60 ? 'var(--color-status-amber-text)' : 'var(--color-status-red-text)'};"></div></div>
+              <div class="data-item">
+                <div class="data-label">Target Task ID (Predecessor)</div>
+                <div class="data-value" style="font-family: monospace; font-weight: 700; color: var(--text-primary);">${dep.target_task_id}</div>
+              </div>
+              <div class="data-item">
+                <div class="data-label">Dependency Type</div>
+                <div class="data-value" style="text-transform: capitalize;">${dep.type.replace('-', ' ')}</div>
+              </div>
+              <div class="data-item">
+                <div class="data-label">Accountable Owner</div>
+                <div class="data-value">${dep.owner}</div>
+              </div>
+            </div>
+            
+            <div style="border-top: 1px dashed var(--border-color); padding-top: 0.75rem; margin-top: 0.75rem;">
+              <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 0.4rem;">Sensed Evidence Sources</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.4rem;">
+                <span class="evidence-chip">✓ Plan Schedule DB</span>
+                <span class="evidence-chip">✓ Dependency Graph</span>
+                <span class="evidence-chip">✓ ADO Work Items</span>
+                <span class="evidence-chip">✓ Critical Path Analysis</span>
+              </div>
+            </div>
+
+            <div style="border-top: 1px dashed var(--border-color); padding-top: 0.75rem; margin-top: 0.75rem;">
+              <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 0.4rem;">Business Impact Metrics</div>
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;">
+                <div class="kpi-stat">
+                  <div class="kpi-val">12 hrs</div>
+                  <div class="kpi-label">Time Saved</div>
+                </div>
+                <div class="kpi-stat">
+                  <div class="kpi-val">${daysToRelease}d</div>
+                  <div class="kpi-label">Delay Avoided</div>
+                </div>
+                <div class="kpi-stat">
+                  <div class="kpi-val">42%</div>
+                  <div class="kpi-label">Risk Reduction</div>
+                </div>
+                <div class="kpi-stat">
+                  <div class="kpi-val">8</div>
+                  <div class="kpi-label">Emails Saved</div>
                 </div>
               </div>
             </div>
-            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; margin-bottom: 0.75rem;">
-              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.4rem;">Why?</div>
-              <ul style="list-style: none; padding: 0; margin: 0;">
-                <li style="padding: 0.2rem 0; font-size: 0.8rem; color: var(--text-primary);">\u2713 Dependency owner has not responded for ${daysSinceUpdate} days</li>
-                <li style="padding: 0.2rem 0; font-size: 0.8rem; color: var(--text-primary);">\u2713 Similar dependencies slipped ${historicalSlips} times historically</li>
-                ${confidenceReasons.map(r => `<li style="padding: 0.2rem 0; font-size: 0.8rem; color: var(--text-primary);">\u2713 ${r}</li>`).join('')}
-                <li style="padding: 0.2rem 0; font-size: 0.8rem; color: var(--text-primary);">\u2713 Planned release in ${daysToRelease} days</li>
+          </div>
+        </div>
+
+        <!-- STEP 2: CHASE COMMITMENTS -->
+        <div class="wizard-step ${step2Class}">
+          <div class="wizard-step-header">
+            <h4 class="wizard-step-title">
+              <span class="wizard-step-num">2</span>
+              Chase Commitments (AI)
+            </h4>
+            <span class="wf-badge ${isChaseCompleted ? 'low' : 'medium'}">${isChaseCompleted ? 'Approved' : 'Pending Run'}</span>
+          </div>
+          <div class="wizard-step-body">
+            <div id="chase-workflow-trigger-container" style="display: ${hasDraft ? 'none' : 'block'};">
+              <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0; margin-bottom: 1rem;">
+                Run the commitment chase agent to analyze delay risks, compile context evidence, and generate personalized nudge communications.
+              </p>
+              <button type="button" class="btn-primary" id="btn-open-chase-setup" style="width: 100%;">
+                Trigger Chase Workflow (AI)
+              </button>
+            </div>
+
+            <!-- Setup options -->
+            <div id="chase-workflow-setup" style="display: none; margin-top: 1rem;">
+              <p class="description-text" style="margin-bottom: 1rem;">Configure the AI chase reminder options:</p>
+
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Message Tone</label>
+                <div id="chase-tone-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem;">
+                  <button type="button" class="wf-btn-toggle active" data-tone="friendly">😊 Friendly</button>
+                  <button type="button" class="wf-btn-toggle" data-tone="business">💼 Professional</button>
+                  <button type="button" class="wf-btn-toggle" data-tone="technical">🔧 Technical</button>
+                  <button type="button" class="wf-btn-toggle" data-tone="executive">📊 Executive</button>
+                  <button type="button" class="wf-btn-toggle" data-tone="escalation">⚠️ Escalation</button>
+                  <button type="button" class="wf-btn-toggle" data-tone="urgent">🚨 Urgent</button>
+                  <button type="button" class="wf-btn-toggle" data-tone="short">🤝 Diplomatic</button>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Delivery Channel</label>
+                <div id="chase-channel-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem;">
+                  <button type="button" class="wf-btn-toggle active" data-channel="teams">💬 Teams</button>
+                  <button type="button" class="wf-btn-toggle" data-channel="email">📧 Email</button>
+                  <button type="button" class="wf-btn-toggle" data-channel="slack">⚡ Slack</button>
+                  <button type="button" class="wf-btn-toggle" data-channel="ado">🔧 ADO</button>
+                  <button type="button" class="wf-btn-toggle" data-channel="jira">📋 Jira</button>
+                  <button type="button" class="wf-btn-toggle" data-channel="servicenow">🏢 ServiceNow</button>
+                  <button type="button" class="wf-btn-toggle" data-channel="sms">📱 SMS</button>
+                  <button type="button" class="wf-btn-toggle" data-channel="webhook">🌐 Webhook</button>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Smart Scheduling</label>
+                <div id="chase-schedule-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem;">
+                  <button type="button" class="wf-btn-toggle active" data-schedule="now">⏰ Now</button>
+                  <button type="button" class="wf-btn-toggle" data-schedule="tomorrow">🌅 Tomorrow AM</button>
+                  <button type="button" class="wf-btn-toggle" data-schedule="online">🟢 When Online</button>
+                  <button type="button" class="wf-btn-toggle" data-schedule="sprint">🏃 After Sprint</button>
+                  <button type="button" class="wf-btn-toggle" data-schedule="custom">📅 Custom</button>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Suggested Recipients (AI)</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin-top: 0.25rem;" id="recipient-list">
+                  <label class="ai-pill active" style="cursor: pointer; justify-content: space-between;"><span><input type="checkbox" checked style="display:none;"> ✓ Dependency Owner</span><span style="font-size:0.65rem; opacity:0.7;">98%</span></label>
+                  <label class="ai-pill" style="cursor: pointer; justify-content: space-between;"><span><input type="checkbox" style="display:none;"> Team Lead</span><span style="font-size:0.65rem; opacity:0.7;">82%</span></label>
+                  <label class="ai-pill" style="cursor: pointer; justify-content: space-between;"><span><input type="checkbox" style="display:none;"> Program Manager</span><span style="font-size:0.65rem; opacity:0.7;">76%</span></label>
+                  <label class="ai-pill" style="cursor: pointer; justify-content: space-between;"><span><input type="checkbox" style="display:none;"> Architecture Owner</span><span style="font-size:0.65rem; opacity:0.7;">65%</span></label>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;" id="chase-setup-actions">
+                <button type="button" class="btn-secondary" id="btn-cancel-chase-setup" style="flex: 1;">Cancel</button>
+                <button type="button" class="btn-primary" id="btn-run-chase-ai" style="flex: 2;">Generate Nudge Message</button>
+              </div>
+            </div>
+
+            <!-- Generated Message & Metrics -->
+            <div id="chase-workflow-results" style="display: ${hasDraft ? 'block' : 'none'}; margin-top: 1.5rem;">
+              <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem;">
+                <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">💡 AI Suggested Next Best Actions</h5>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem;" id="nba-list">
+                  <label class="ai-pill ${dep.status !== 'resolved' ? 'active' : ''}" style="cursor: pointer;"><input type="checkbox" ${dep.status !== 'resolved' ? 'checked' : ''} style="display:none;"> ✉ Send reminder</label>
+                  <label class="ai-pill" style="cursor: pointer;"><input type="checkbox" style="display:none;"> 📅 Schedule 15 min sync</label>
+                  <label class="ai-pill ${dep.status === 'at-risk' ? 'active' : ''}" style="cursor: pointer;"><input type="checkbox" ${dep.status === 'at-risk' ? 'checked' : ''} style="display:none;"> ⚠️ Escalate to Team Lead</label>
+                  <label class="ai-pill" style="cursor: pointer;"><input type="checkbox" style="display:none;"> 🔧 Update ADO dependency</label>
+                  <label class="ai-pill" style="cursor: pointer;"><input type="checkbox" style="display:none;"> 🚨 Create Risk Item</label>
+                  <label class="ai-pill" style="cursor: pointer;"><input type="checkbox" style="display:none;"> ⏳ Wait 24 hrs</label>
+                </div>
+                <div style="background: rgba(99,102,241,0.03); border: 1px solid rgba(99,102,241,0.1); border-radius: var(--radius-md); padding: 0.6rem 0.8rem;">
+                  <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                      <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">AI Recommendation</div>
+                      <div style="font-size: 0.8rem; color: var(--text-primary); font-weight: 600;">${dep.status === 'at-risk' ? 'Schedule Teams meeting before escalation.' : 'Send friendly reminder first, then follow up in 48hrs.'}</div>
+                    </div>
+                    <div style="color: var(--color-brand); font-size: 0.8rem; letter-spacing: 1px;" title="AI confidence rating">⭐⭐⭐⭐☆</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Nudge Message</label>
+                <textarea class="wf-textarea" id="chase-message-text" placeholder="Generated message will appear here...">${nudgeMessage}</textarea>
+              </div>
+
+              <!-- AI EDITING TOOLBAR -->
+              <div style="display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem;" id="ai-edit-toolbar">
+                <button class="ai-action-btn" data-edit="edit">✏ Edit</button>
+                <button class="ai-action-btn" data-edit="regenerate">🔄 Regenerate</button>
+                <button class="ai-action-btn" data-edit="friendlier">✨ Friendlier</button>
+                <button class="ai-action-btn" data-edit="professional">💼 Professional</button>
+                <button class="ai-action-btn" data-edit="urgent">⚡ More Urgent</button>
+                <button class="ai-action-btn" data-edit="personalize">🧠 Personalize</button>
+                <button class="ai-action-btn" data-edit="context">➕ Add Context</button>
+                <button class="ai-action-btn" data-edit="shorten">➖ Shorten</button>
+                <button class="ai-action-btn" data-edit="summarize">📋 Summarize</button>
+                <button class="ai-action-btn" data-edit="evidence">📎 Attach Evidence</button>
+                <button class="ai-action-btn" data-edit="explain">🔍 Explain AI</button>
+              </div>
+
+              <!-- DRAFT COMPARISON -->
+              <div style="display: flex; gap: 0.35rem; margin-bottom: 1.25rem;">
+                <button class="ai-action-btn" id="btn-compare-v1" style="flex: 1; justify-content: center; background: rgba(99,102,241,0.05);">V1: Friendly</button>
+                <button class="ai-action-btn" id="btn-compare-v2" style="flex: 1; justify-content: center;">V2: Executive</button>
+                <button class="ai-action-btn" id="btn-compare-v3" style="flex: 1; justify-content: center;">V3: Technical</button>
+              </div>
+
+              <!-- HUMAN APPROVAL BANNER (Chase Commitment) -->
+              <div class="approval-banner" style="margin-bottom: 1.25rem;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand); display: flex; align-items: center; justify-content: center; color: white; font-size: 1rem;">
+                    🧠
+                  </div>
+                  <div>
+                    <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">AI Recommendation Ready</div>
+                    <div style="font-size: 0.72rem; color: var(--text-secondary);">Pending Human Approval — Review draft and assessment before sending.</div>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 0.4rem;" id="approval-actions">
+                  <button class="ai-action-btn" data-approval="approve" style="background: var(--color-status-green-bg); border-color: var(--color-status-green-border); color: var(--color-status-green-text);">✓ Approve</button>
+                  <button class="ai-action-btn" data-approval="modify" style="background: var(--color-status-amber-bg); border-color: var(--color-status-amber-border); color: var(--color-status-amber-text);">✏ Modify</button>
+                  <button class="ai-action-btn" data-approval="reject" style="background: var(--color-status-red-bg); border-color: var(--color-status-red-border); color: var(--color-status-red-text);">✗ Reject</button>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                <button type="button" class="btn-secondary" id="btn-save-draft-message" style="height: 36px;">Save Draft</button>
+                <button type="button" class="btn-primary" id="btn-send-message" style="background-color: var(--color-brand); height: 36px; padding: 0 1rem; font-size: 0.85rem; flex-grow: 1;">
+                  Send via ${selectedChannel.charAt(0).toUpperCase() + selectedChannel.slice(1)}
+                </button>
+              </div>
+
+              <!-- LEARNING FEEDBACK -->
+              <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+                <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Was this suggestion useful?</span>
+                <button class="ai-action-btn" id="feedback-up" data-feedback="up" style="font-size: 1rem; padding: 0.25rem 0.5rem;">👍</button>
+                <button class="ai-action-btn" id="feedback-down" data-feedback="down" style="font-size: 1rem; padding: 0.25rem 0.5rem;">👎</button>
+                <button class="ai-action-btn" id="feedback-improve" data-feedback="improve" style="font-size: 0.75rem;">Needs Improvement</button>
+                <span style="font-size: 0.7rem; color: var(--text-muted); font-style: italic; margin-left: auto;">AI learns from your feedback</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 3: CROSS-PROGRAMME IMPACT -->
+        <div class="wizard-step ${step3Class}">
+          <div class="wizard-step-header">
+            <h4 class="wizard-step-title">
+              <span class="wizard-step-num">3</span>
+              Cross-Programme Impact
+            </h4>
+            <span class="wf-badge ${isResolveCompleted ? 'low' : 'medium'}">${isResolveCompleted ? 'Resolved' : (isChaseCompleted ? 'Active' : 'Locked')}</span>
+          </div>
+          <div class="wizard-step-body">
+            <!-- AI Risk Analysis -->
+            <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem; border-left: 4px solid var(--color-status-${threatColorVar}-text);">
+              <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary);">🧠 AI Risk Analysis</h5>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; text-align: center;">
+                  <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Threat Level</div>
+                  <div style="font-size: 1.4rem;">${threatEmoji}</div>
+                  <div style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--color-status-${threatColorVar}-text); margin-top: 0.2rem;">${threatLevel}</div>
+                </div>
+                <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; text-align: center;">
+                  <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Sensing Confidence</div>
+                  <div style="font-size: 1.4rem; font-weight: 800; color: var(--color-brand);">${confidenceVal}%</div>
+                  <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                    <div class="conf-bar"><div class="conf-bar-fill" style="width: ${confidenceVal}%; background: ${confidenceVal > 80 ? 'var(--color-status-green-text)' : confidenceVal > 60 ? 'var(--color-status-amber-text)' : 'var(--color-status-red-text)'};"></div></div>
+                  </div>
+                </div>
+              </div>
+              <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; margin-bottom: 0.75rem;">
+                <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.4rem;">Sensing Rationale</div>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                  <li style="padding: 0.2rem 0; font-size: 0.8rem; color: var(--text-primary);">✓ Dependency owner has not responded for ${daysSinceUpdate} days</li>
+                  <li style="padding: 0.2rem 0; font-size: 0.8rem; color: var(--text-primary);">✓ Similar dependencies slipped ${historicalSlips} times historically</li>
+                  ${confidenceReasons.map(r => `<li style="padding: 0.2rem 0; font-size: 0.8rem; color: var(--text-primary);">✓ ${r}</li>`).join('')}
+                  <li style="padding: 0.2rem 0; font-size: 0.8rem; color: var(--text-primary);">✓ Planned release in ${daysToRelease} days</li>
+                </ul>
+              </div>
+              <div style="background: rgba(99,102,241,0.03); border: 1px solid rgba(99,102,241,0.1); border-radius: var(--radius-md); padding: 0.6rem 0.8rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1rem;">⭐️</span>
+                <div>
+                  <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Top Recommendation</div>
+                  <div style="font-size: 0.8rem; color: var(--text-primary); font-weight: 600;">${dep.status === 'at-risk' ? 'Escalate tomorrow if no response.' : dep.status === 'open' ? 'Send friendly reminder first, then schedule a sync.' : 'Dependency resolved. Monitor for regression.'}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ripple Impact Analysis -->
+            <div style="border-top: 1px dashed var(--border-color); padding-top: 1rem; margin-top: 1rem; margin-bottom: 1rem;">
+              <h5 style="margin: 0 0 0.5rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">Cross-Programme Ripple Impact Analysis</h5>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Forecast timeline slippages and schedule relaxation ripples across the program when a task is delayed.
+              </p>
+              <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: end;">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="impact-task-id">Delayed Task ID</label>
+                  <input type="text" id="impact-task-id" value="${dep.target_task_id}" placeholder="e.g. PLN-0001-BUILD" style="width: 100%;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="impact-delay-days">Delay Days</label>
+                  <input type="number" id="impact-delay-days" value="${dep.status === 'resolved' ? 0 : (dep.status === 'at-risk' ? 15 : 5)}" min="${dep.status === 'resolved' ? 0 : 1}" max="365" style="width: 100%;">
+                </div>
+                <div>
+                  <button type="button" class="btn-secondary" id="btn-check-impact" style="height: 42px; padding: 0 1rem;">Forecast Impact</button>
+                </div>
+              </div>
+              <div id="impact-error" class="error-alert" style="display: none; margin-top: 1rem;"></div>
+              <div id="impact-result-container" style="margin-top: 1.5rem;"></div>
+            </div>
+
+            <!-- Dependency Chain Graph -->
+            <div style="border-top: 1px dashed var(--border-color); padding-top: 1rem; margin-top: 1rem; margin-bottom: 1.5rem;">
+              <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">Dependency Chain Graph</h5>
+              <div id="dependency-graph-panel" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; min-height: 150px;"></div>
+            </div>
+
+            <!-- Escalation Timeline Preview -->
+            ${dep.status !== 'resolved' ? `
+            <div style="margin-bottom: 1.5rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
+              <h5 style="margin: 0 0 0.5rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">⏳ Escalation Timeline Preview</h5>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">If no reply is received, this automated escalation path activates:</p>
+              <div>
+                <div class="timeline-step">
+                  <div class="timeline-dot" style="border-color: var(--color-brand); background: var(--color-brand); color: white;">✓</div>
+                  <div><div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">Today</div><div style="font-size: 0.8rem; color: var(--text-secondary);">Friendly Reminder sent to ${ownerShort}</div></div>
+                </div>
+                <div class="timeline-step">
+                  <div class="timeline-dot" style="border-color: var(--color-status-amber-text);">🕒</div>
+                  <div><div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">+1 Day</div><div style="font-size: 0.8rem; color: var(--text-secondary);">Follow-up reminder with urgency escalation</div></div>
+                </div>
+                <div class="timeline-step">
+                  <div class="timeline-dot" style="border-color: var(--color-status-amber-text);">🕒</div>
+                  <div><div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">+2 Days</div><div style="font-size: 0.8rem; color: var(--text-secondary);">Manager notified automatically</div></div>
+                </div>
+                <div class="timeline-step">
+                  <div class="timeline-dot" style="border-color: var(--color-status-red-text);">🕒</div>
+                  <div><div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">+4 Days</div><div style="font-size: 0.8rem; color: var(--text-secondary);">Program Risk item created in ADO</div></div>
+                </div>
+                <div class="timeline-step">
+                  <div class="timeline-dot" style="border-color: var(--color-status-red-text); background: var(--color-status-red-bg);">🚨</div>
+                  <div><div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">+5 Days</div><div style="font-size: 0.8rem; color: var(--text-secondary);">Release Dashboard updated — project flagged at-risk</div></div>
+                </div>
+              </div>
+            </div>
+            ` : ''}
+
+            <!-- Critical Path Action: Escalate Risk -->
+            ${(dep.status === 'at-risk' || dep.status === 'open') ? `
+              <div style="background-color: rgba(248, 113, 113, 0.02); border: 1px solid var(--color-status-red-border); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
+                <h5 style="margin: 0 0 0.5rem 0; font-size: 0.85rem; font-weight: 700; color: var(--color-status-red-text);">Critical Path Action: Escalate Risk</h5>
+                <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 1rem;">
+                  This dependency is on the critical path. If task delays threaten project release milestones, immediately escalate this to leadership.
+                </p>
+                <button type="button" class="btn-primary" id="btn-escalate-manager" style="background-color: var(--color-status-red-bg); border: 1px solid var(--color-status-red-border); color: var(--color-status-red-text); width: 100%;">
+                  Escalate to Manager / Release Lead
+                </button>
+              </div>
+            ` : ''}
+
+            <!-- Quick Actions -->
+            <div style="margin-bottom: 1.5rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
+              <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">⚡ Quick Actions</h5>
+              <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;" id="quick-actions-panel">
+                <button class="quick-action-btn" data-qaction="risk">🚨 Create Risk</button>
+                <button class="quick-action-btn" data-qaction="ado-bug">🐞 Open ADO Bug</button>
+                <button class="quick-action-btn" data-qaction="meeting">📅 Teams Meeting</button>
+                <button class="quick-action-btn" data-qaction="notify">📢 Notify Manager</button>
+                <button class="quick-action-btn" data-qaction="dashboard">📊 Update Dashboard</button>
+                <button class="quick-action-btn" data-qaction="release-note">📝 Add Release Note</button>
+              </div>
+            </div>
+
+            <!-- Similar Historical Cases -->
+            <div style="margin-bottom: 1.5rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
+              <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">📘 Similar Historical Cases</h5>
+              <div style="display: grid; gap: 0.5rem;">
+                <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">Release 5.1 — API Gateway Dependency</div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Owner replied after friendly reminder. <span style="color: var(--color-status-green-text); font-weight: 600;">Resolved</span></div>
+                  </div>
+                  <div style="font-size: 0.7rem; color: var(--text-muted); text-align: right;">Recommendation:<br><strong style="color: var(--text-primary);">Friendly reminder sufficient</strong></div>
+                </div>
+                <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">Release 4.8 — DB Migration Block</div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Required escalation after 3 days. <span style="color: var(--color-status-amber-text); font-weight: 600;">Escalated</span></div>
+                  </div>
+                  <div style="font-size: 0.7rem; color: var(--text-muted); text-align: right;">Recommendation:<br><strong style="color: var(--text-primary);">Escalate early if at-risk</strong></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Agent Coordination -->
+            <div style="margin-bottom: 1.5rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
+              <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">🤖 Agent Coordination</h5>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;">
+                <div class="coord-agent"><div class="agent-dot" style="background: var(--color-status-green-text);"></div><span style="font-weight:600; color: var(--text-primary);">Sense Dependencies</span><span style="font-size:0.65rem; color: var(--text-muted); margin-left: auto;">Active</span></div>
+                <div class="coord-agent"><div class="agent-dot" style="background: var(--color-status-green-text);"></div><span style="font-weight:600; color: var(--text-primary);">Cross-Programme Impact</span><span style="font-size:0.65rem; color: var(--text-muted); margin-left: auto;">Active</span></div>
+                <div class="coord-agent"><div class="agent-dot" style="background: var(--color-status-amber-text);"></div><span style="font-weight:600; color: var(--text-primary);">Status Reporting</span><span style="font-size:0.65rem; color: var(--text-muted); margin-left: auto;">Waiting</span></div>
+                <div class="coord-agent"><div class="agent-dot" style="background: var(--color-status-amber-text);"></div><span style="font-weight:600; color: var(--text-primary);">Risk Agent</span><span style="font-size:0.65rem; color: var(--text-muted); margin-left: auto;">Waiting</span></div>
+              </div>
+            </div>
+
+            <!-- AI Effectiveness Dashboard -->
+            <div style="margin-bottom: 1.5rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
+              <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">📊 AI Effectiveness Dashboard (This Month)</h5>
+              <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem;">
+                <div class="kpi-stat">
+                  <div class="kpi-val">58</div>
+                  <div class="kpi-label">Chased</div>
+                </div>
+                <div class="kpi-stat">
+                  <div class="kpi-val" style="color: var(--color-status-green-text);">51</div>
+                  <div class="kpi-label">Resolved</div>
+                </div>
+                <div class="kpi-stat">
+                  <div class="kpi-val" style="color: var(--color-status-red-text);">7</div>
+                  <div class="kpi-label">Escalated</div>
+                </div>
+                <div class="kpi-stat">
+                  <div class="kpi-val">1.4d</div>
+                  <div class="kpi-label">Avg Response</div>
+                </div>
+                <div class="kpi-stat">
+                  <div class="kpi-val">27h</div>
+                  <div class="kpi-label">Time Saved</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Activity History -->
+            <div style="border-top: 1px dashed var(--border-color); padding-top: 1rem;">
+              <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">Activity History</h5>
+              <ul class="wf-history-list" id="wf-history-container">
+                ${activityLogs.map(log => `<li class="wf-history-item">${log}</li>`).join('')}
+                ${activityLogs.length === 0 ? `<li style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1rem 0;">No activities logged yet.</li>` : ''}
               </ul>
             </div>
-            <div style="background: rgba(99,102,241,0.03); border: 1px solid rgba(99,102,241,0.1); border-radius: var(--radius-md); padding: 0.6rem 0.8rem; display: flex; align-items: center; gap: 0.5rem;">
-              <span style="font-size: 1rem;">\u{2B50}</span>
-              <div>
-                <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Top Recommendation</div>
-                <div style="font-size: 0.8rem; color: var(--text-primary); font-weight: 600;">${dep.status === 'at-risk' ? 'Escalate tomorrow if no response.' : dep.status === 'open' ? 'Send friendly reminder first, then schedule a sync.' : 'Dependency resolved. Monitor for regression.'}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- ===== #2 AI SUGGESTED NEXT BEST ACTIONS ===== -->
-          <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem;">
-            <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">\u{1F4A1} AI Suggested Next Best Actions</h5>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem;" id="nba-list">
-              <label class="ai-pill ${dep.status !== 'resolved' ? 'active' : ''}" style="cursor: pointer;"><input type="checkbox" ${dep.status !== 'resolved' ? 'checked' : ''} style="display:none;"> \u{2709} Send reminder</label>
-              <label class="ai-pill" style="cursor: pointer;"><input type="checkbox" style="display:none;"> \u{1F4C5} Schedule 15 min sync</label>
-              <label class="ai-pill ${dep.status === 'at-risk' ? 'active' : ''}" style="cursor: pointer;"><input type="checkbox" ${dep.status === 'at-risk' ? 'checked' : ''} style="display:none;"> \u{26A0} Escalate to Team Lead</label>
-              <label class="ai-pill" style="cursor: pointer;"><input type="checkbox" style="display:none;"> \u{1F527} Update ADO dependency</label>
-              <label class="ai-pill" style="cursor: pointer;"><input type="checkbox" style="display:none;"> \u{1F6A8} Create Risk Item</label>
-              <label class="ai-pill" style="cursor: pointer;"><input type="checkbox" style="display:none;"> \u{23F3} Wait 24 hrs</label>
-            </div>
-            <div style="background: rgba(99,102,241,0.03); border: 1px solid rgba(99,102,241,0.1); border-radius: var(--radius-md); padding: 0.6rem 0.8rem;">
-              <div style="display: flex; align-items: center; justify-content: space-between;">
-                <div>
-                  <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">AI Recommendation</div>
-                  <div style="font-size: 0.8rem; color: var(--text-primary); font-weight: 600;">${dep.status === 'at-risk' ? 'Schedule Teams meeting before escalation.' : 'Send friendly reminder first, then follow up in 48hrs.'}</div>
-                </div>
-                <div style="color: var(--color-brand); font-size: 0.8rem; letter-spacing: 1px;" title="AI confidence rating">\u2B50\u2B50\u2B50\u2B50\u2606</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Nudge Message</label>
-            <textarea class="wf-textarea" id="chase-message-text" placeholder="Generated message will appear here...">${nudgeMessage}</textarea>
-          </div>
-
-          <!-- #5 AI EDITING TOOLBAR -->
-          <div style="display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem;" id="ai-edit-toolbar">
-            <button class="ai-action-btn" data-edit="edit">\u{270F} Edit</button>
-            <button class="ai-action-btn" data-edit="regenerate">\u{1F504} Regenerate</button>
-            <button class="ai-action-btn" data-edit="friendlier">\u{2728} Friendlier</button>
-            <button class="ai-action-btn" data-edit="professional">\u{1F4BC} Professional</button>
-            <button class="ai-action-btn" data-edit="urgent">\u{26A1} More Urgent</button>
-            <button class="ai-action-btn" data-edit="personalize">\u{1F9E0} Personalize</button>
-            <button class="ai-action-btn" data-edit="context">\u{2795} Add Context</button>
-            <button class="ai-action-btn" data-edit="shorten">\u{2796} Shorten</button>
-            <button class="ai-action-btn" data-edit="summarize">\u{1F4CB} Summarize</button>
-            <button class="ai-action-btn" data-edit="evidence">\u{1F4CE} Attach Evidence</button>
-            <button class="ai-action-btn" data-edit="explain">\u{1F50D} Explain AI</button>
-          </div>
-
-          <!-- #17 DRAFT COMPARISON -->
-          <div style="display: flex; gap: 0.35rem; margin-bottom: 1.25rem;">
-            <button class="ai-action-btn" id="btn-compare-v1" style="flex: 1; justify-content: center; background: rgba(99,102,241,0.05);">V1: Friendly</button>
-            <button class="ai-action-btn" id="btn-compare-v2" style="flex: 1; justify-content: center;">V2: Executive</button>
-            <button class="ai-action-btn" id="btn-compare-v3" style="flex: 1; justify-content: center;">V3: Technical</button>
-          </div>
-
-          <!-- #12 HUMAN APPROVAL BANNER (Chase Commitment) -->
-          <div class="approval-banner" style="margin-bottom: 1.25rem;">
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-              <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand); display: flex; align-items: center; justify-content: center; color: white; font-size: 1rem;">
-                \u{1F9E0}
-              </div>
-              <div>
-                <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">AI Recommendation Ready</div>
-                <div style="font-size: 0.72rem; color: var(--text-secondary);">Pending Human Approval \u2014 Review draft and assessment before sending.</div>
-              </div>
-            </div>
-            <div style="display: flex; gap: 0.4rem;" id="approval-actions">
-              <button class="ai-action-btn" data-approval="approve" style="background: var(--color-status-green-bg); border-color: var(--color-status-green-border); color: var(--color-status-green-text);">\u2713 Approve</button>
-              <button class="ai-action-btn" data-approval="modify" style="background: var(--color-status-amber-bg); border-color: var(--color-status-amber-border); color: var(--color-status-amber-text);">\u270E Modify</button>
-              <button class="ai-action-btn" data-approval="reject" style="background: var(--color-status-red-bg); border-color: var(--color-status-red-border); color: var(--color-status-red-text);">\u2717 Reject</button>
-            </div>
-          </div>
-
-          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
-            <button type="button" class="btn-secondary" id="btn-save-draft-message" style="height: 36px;">Save Draft</button>
-            <button type="button" class="btn-primary" id="btn-send-message" style="background-color: var(--color-brand); height: 36px; padding: 0 1rem; font-size: 0.85rem; flex-grow: 1;">
-              Send via ${selectedChannel.charAt(0).toUpperCase() + selectedChannel.slice(1)}
-            </button>
-          </div>
-
-          <!-- #16 LEARNING FEEDBACK -->
-          <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
-            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Was this suggestion useful?</span>
-            <button class="ai-action-btn" id="feedback-up" data-feedback="up" style="font-size: 1rem; padding: 0.25rem 0.5rem;">\u{1F44D}</button>
-            <button class="ai-action-btn" id="feedback-down" data-feedback="down" style="font-size: 1rem; padding: 0.25rem 0.5rem;">\u{1F44E}</button>
-            <button class="ai-action-btn" id="feedback-improve" data-feedback="improve" style="font-size: 0.75rem;">Needs Improvement</button>
-            <span style="font-size: 0.7rem; color: var(--text-muted); font-style: italic; margin-left: auto;">AI learns from your feedback</span>
           </div>
         </div>
-      </div>
 
-      <!-- ===== #7 ESCALATION TIMELINE PREVIEW ===== -->
-      ${dep.status !== 'resolved' ? `
-      <div class="wf-card">
-        <h4 class="card-section-title">\u{23F1} Escalation Timeline Preview</h4>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">If no reply is received, this automated escalation path activates:</p>
-        <div>
-          <div class="timeline-step">
-            <div class="timeline-dot" style="border-color: var(--color-brand); background: var(--color-brand); color: white;">\u2713</div>
-            <div><div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">Today</div><div style="font-size: 0.8rem; color: var(--text-secondary);">Friendly Reminder sent to ${ownerShort}</div></div>
-          </div>
-          <div class="timeline-step">
-            <div class="timeline-dot" style="border-color: var(--color-status-amber-text);">\u{1F551}</div>
-            <div><div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">+1 Day</div><div style="font-size: 0.8rem; color: var(--text-secondary);">Follow-up reminder with urgency escalation</div></div>
-          </div>
-          <div class="timeline-step">
-            <div class="timeline-dot" style="border-color: var(--color-status-amber-text);">\u{1F552}</div>
-            <div><div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">+2 Days</div><div style="font-size: 0.8rem; color: var(--text-secondary);">Manager notified automatically</div></div>
-          </div>
-          <div class="timeline-step">
-            <div class="timeline-dot" style="border-color: var(--color-status-red-text);">\u{1F554}</div>
-            <div><div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">+4 Days</div><div style="font-size: 0.8rem; color: var(--text-secondary);">Program Risk item created in ADO</div></div>
-          </div>
-          <div class="timeline-step">
-            <div class="timeline-dot" style="border-color: var(--color-status-red-text); background: var(--color-status-red-bg);">\u{1F6A8}</div>
-            <div><div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">+5 Days</div><div style="font-size: 0.8rem; color: var(--text-secondary);">Release Dashboard updated &mdash; project flagged at-risk</div></div>
-          </div>
-        </div>
-      </div>
-      ` : ''}
-
-      <!-- ===== #14 AI EVIDENCE PANEL ===== -->
-      <div class="wf-card">
-        <h4 class="card-section-title">\u{1F4C2} AI Evidence Sources</h4>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">Data sources used for this AI risk assessment:</p>
-        <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem;">
-          <span class="evidence-chip">\u2713 Plan Schedule DB</span>
-          <span class="evidence-chip">\u2713 Dependency Graph</span>
-          <span class="evidence-chip">\u2713 ADO Work Items</span>
-          <span class="evidence-chip">\u2713 Activity History</span>
-          <span class="evidence-chip">\u2713 Critical Path Analysis</span>
-          <span class="evidence-chip" style="opacity: 0.5;">\u{1F512} Teams Chat (not connected)</span>
-          <span class="evidence-chip" style="opacity: 0.5;">\u{1F512} Email Thread (not connected)</span>
-          <span class="evidence-chip" style="opacity: 0.5;">\u{1F512} Sprint Board (not connected)</span>
-        </div>
-        <button class="ai-action-btn" id="btn-view-sources" style="width: 100%; justify-content: center;">\u{1F50D} View Detailed Sources</button>
-      </div>
-
-      <!-- ===== #13 AGENT COORDINATION PANEL ===== -->
-      <div class="wf-card">
-        <h4 class="card-section-title">\u{1F916} Agent Coordination</h4>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">This agent coordinates with:</p>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;">
-          <div class="coord-agent"><div class="agent-dot" style="background: var(--color-status-green-text);"></div><span style="font-weight:600; color: var(--text-primary);">Sense Dependencies</span><span style="font-size:0.65rem; color: var(--text-muted); margin-left: auto;">Active</span></div>
-          <div class="coord-agent"><div class="agent-dot" style="background: var(--color-status-green-text);"></div><span style="font-weight:600; color: var(--text-primary);">Cross-Programme Impact</span><span style="font-size:0.65rem; color: var(--text-muted); margin-left: auto;">Active</span></div>
-          <div class="coord-agent"><div class="agent-dot" style="background: var(--color-status-amber-text);"></div><span style="font-weight:600; color: var(--text-primary);">Status Reporting</span><span style="font-size:0.65rem; color: var(--text-muted); margin-left: auto;">Waiting</span></div>
-          <div class="coord-agent"><div class="agent-dot" style="background: var(--color-status-amber-text);"></div><span style="font-weight:600; color: var(--text-primary);">Risk Agent</span><span style="font-size:0.65rem; color: var(--text-muted); margin-left: auto;">Waiting</span></div>
-          <div class="coord-agent"><div class="agent-dot" style="background: var(--border-color);"></div><span style="font-weight:600; color: var(--text-primary);">Deployment Readiness</span><span style="font-size:0.65rem; color: var(--text-muted); margin-left: auto;">Idle</span></div>
-          <div class="coord-agent"><div class="agent-dot" style="background: var(--border-color);"></div><span style="font-weight:600; color: var(--text-primary);">Release Orchestration</span><span style="font-size:0.65rem; color: var(--text-muted); margin-left: auto;">Idle</span></div>
-        </div>
-      </div>
-
-      <!-- ===== ACTIVITY HISTORY ===== -->
-      <div class="wf-card">
-        <h4 class="card-section-title">Activity History</h4>
-        <ul class="wf-history-list" id="wf-history-container">
-          ${activityLogs.map(log => `<li class="wf-history-item">${log}</li>`).join('')}
-          ${activityLogs.length === 0 ? `<li style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1rem 0;">No activities logged yet.</li>` : ''}
-        </ul>
-      </div>
-
-      <!-- ===== #19 QUICK ACTIONS ===== -->
-      <div class="wf-card">
-        <h4 class="card-section-title">\u{26A1} Quick Actions</h4>
-        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;" id="quick-actions-panel">
-          <button class="quick-action-btn" data-qaction="risk">\u{1F6A8} Create Risk</button>
-          <button class="quick-action-btn" data-qaction="ado-bug">\u{1F41E} Open ADO Bug</button>
-          <button class="quick-action-btn" data-qaction="meeting">\u{1F4C5} Teams Meeting</button>
-          <button class="quick-action-btn" data-qaction="notify">\u{1F4E3} Notify Manager</button>
-          <button class="quick-action-btn" data-qaction="dashboard">\u{1F4CA} Update Dashboard</button>
-          <button class="quick-action-btn" data-qaction="release-note">\u{1F4DD} Add Release Note</button>
-        </div>
-      </div>
-
-      <!-- ===== CRITICAL PATH ESCALATION ===== -->
-      ${dep.status === 'at-risk' || dep.status === 'open' ? `
-        <div class="wf-card" style="border-color: var(--color-status-red-border); background-color: rgba(248, 113, 113, 0.02);">
-          <h4 class="card-section-title" style="color: var(--color-status-red-text);">Critical Path Action: Escalate Risk</h4>
-          <p class="description-text" style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
-            This dependency is on the critical path. If task delays threaten project release milestones, immediately escalate this to leadership.
-          </p>
-          <button type="button" class="btn-primary" id="btn-escalate-manager" style="background-color: var(--color-status-red-bg); border: 1px solid var(--color-status-red-border); color: var(--color-status-red-text); width: 100%;">
-            Escalate to Manager / Release Lead
-          </button>
-        </div>
-      ` : ''}
-
-      <!-- ===== #15 BUSINESS VALUE WIDGET ===== -->
-      <div class="wf-card">
-        <h4 class="card-section-title">\u{1F4B0} Business Impact Metrics</h4>
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;">
-          <div class="kpi-stat">
-            <div class="kpi-val">12 hrs</div>
-            <div class="kpi-label">Time Saved</div>
-          </div>
-          <div class="kpi-stat">
-            <div class="kpi-val">${daysToRelease}d</div>
-            <div class="kpi-label">Delay Avoided</div>
-          </div>
-          <div class="kpi-stat">
-            <div class="kpi-val">42%</div>
-            <div class="kpi-label">Risk Reduction</div>
-          </div>
-          <div class="kpi-stat">
-            <div class="kpi-val">8</div>
-            <div class="kpi-label">Emails Saved</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ===== #10 SIMILAR HISTORICAL CASES ===== -->
-      <div class="wf-card">
-        <h4 class="card-section-title">\u{1F4DA} Similar Historical Cases</h4>
-        <div style="display: grid; gap: 0.5rem;">
-          <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">Release 5.1 \u2014 API Gateway Dependency</div>
-              <div style="font-size: 0.8rem; color: var(--text-secondary);">Owner replied after friendly reminder. <span style="color: var(--color-status-green-text); font-weight: 600;">Resolved</span></div>
-            </div>
-            <div style="font-size: 0.7rem; color: var(--text-muted);">Recommendation:<br><strong style="color: var(--text-primary);">Friendly reminder sufficient</strong></div>
-          </div>
-          <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">Release 4.8 \u2014 DB Migration Block</div>
-              <div style="font-size: 0.8rem; color: var(--text-secondary);">Required escalation after 3 days. <span style="color: var(--color-status-amber-text); font-weight: 600;">Escalated</span></div>
-            </div>
-            <div style="font-size: 0.7rem; color: var(--text-muted);">Recommendation:<br><strong style="color: var(--text-primary);">Escalate early if at-risk</strong></div>
-          </div>
-          <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">Release 4.5 \u2014 Identity Service Dep</div>
-              <div style="font-size: 0.8rem; color: var(--text-secondary);">Scheduled sync resolved the block. <span style="color: var(--color-status-green-text); font-weight: 600;">Resolved</span></div>
-            </div>
-            <div style="font-size: 0.7rem; color: var(--text-muted);">Recommendation:<br><strong style="color: var(--text-primary);">Book a 15-min sync</strong></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ===== CROSS-PROGRAMME IMPACT ===== -->
-      <div class="wizard-card" style="margin-top: 1.5rem;">
-        <h4 class="card-section-title">
-          ${dep.status === 'resolved' ? 'What-if Ripple Impact Analysis (Simulation)' : 'Cross-Programme Ripple Impact Analysis'}
-        </h4>
-        <p class="description-text" style="margin-bottom: 1rem;">
-          ${dep.status === 'resolved' ? 'Simulate task delays to model potential timeline slippages and schedule relaxation ripples across the portfolio.' : 'Forecast timeline slippages and schedule relaxation ripples across the program when a task is delayed.'}
-        </p>
-        <div class="grid-2col" style="gap: 1rem; align-items: end;">
-          <div class="form-group" style="margin-bottom: 0;">
-            <label for="impact-task-id">Delayed Task ID</label>
-            <input type="text" id="impact-task-id" value="${dep.target_task_id}" placeholder="e.g. PLN-0001-BUILD" style="width: 100%;">
-          </div>
-          <div class="form-group" style="margin-bottom: 0;">
-            <label for="impact-delay-days">Delay Days</label>
-            <input type="number" id="impact-delay-days" value="${dep.status === 'resolved' ? 0 : (dep.status === 'at-risk' ? 15 : 5)}" min="${dep.status === 'resolved' ? 0 : 1}" max="365" style="width: 100%;">
-          </div>
-          <div>
-            <button type="button" class="btn-secondary" id="btn-check-impact" style="width: 100%; height: 42px;">Forecast Impact</button>
-          </div>
-        </div>
-        <div id="impact-error" class="error-alert" style="display: none; margin-top: 1rem;"></div>
-        <div id="impact-result-container" style="margin-top: 1.5rem;"></div>
-      </div>
-
-      <!-- ===== #20 KPI DASHBOARD ===== -->
-      <div class="wf-card" style="margin-top: 1.5rem;">
-        <h4 class="card-section-title">\u{1F4CA} AI Effectiveness Dashboard (This Month)</h4>
-        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem;">
-          <div class="kpi-stat">
-            <div class="kpi-val">58</div>
-            <div class="kpi-label">Chased</div>
-          </div>
-          <div class="kpi-stat">
-            <div class="kpi-val" style="color: var(--color-status-green-text);">51</div>
-            <div class="kpi-label">Resolved</div>
-          </div>
-          <div class="kpi-stat">
-            <div class="kpi-val" style="color: var(--color-status-red-text);">7</div>
-            <div class="kpi-label">Escalated</div>
-          </div>
-          <div class="kpi-stat">
-            <div class="kpi-val">1.4d</div>
-            <div class="kpi-label">Avg Response</div>
-          </div>
-          <div class="kpi-stat">
-            <div class="kpi-val">27h</div>
-            <div class="kpi-label">Time Saved</div>
-          </div>
-        </div>
       </div>
 
     </div>
@@ -1233,20 +1283,49 @@ function showAutoSenseForm() {
         <div class="form-group">
           <label for="select-plan-id">Target Project Plan</label>
           <select id="select-plan-id">
-            <option value="PLN-0001-1">Plan 1: Loyalty Portal Integration (PLN-0001-1)</option>
-            <option value="PLN-0002-1">Plan 2: Apple Pay Integration (PLN-0002-1)</option>
-            <option value="PLN-0003-1">Plan 3: Security & SAST Pipelines (PLN-0003-1)</option>
+            <option value="">Loading plans...</option>
           </select>
         </div>
 
         <div id="sense-actions-row" class="submit-row" style="margin-top: 2rem;">
-          <button type="button" class="btn-primary" id="btn-run-sense">Analyze Plan & Extract</button>
+          <button type="button" class="btn-primary" id="btn-run-sense" disabled>Analyze Plan & Extract</button>
         </div>
         
         <div id="sense-result-box" style="margin-top: 1.5rem;"></div>
       </div>
     </div>
   `;
+
+  // Dynamically load plans from the plans service
+  fetch(`${DEPENDENCIES_API_BASE}/plans`)
+    .then(res => res.json())
+    .then(plansList => {
+      const select = document.getElementById('select-plan-id');
+      const btn = document.getElementById('btn-run-sense');
+      if (select) {
+        if (!plansList || plansList.length === 0) {
+          select.innerHTML = '<option value="">No active plans found</option>';
+        } else {
+          select.innerHTML = plansList.map((p, idx) => {
+            const planName = p.release_name || `Plan ${idx + 1}: ${p.plan_id}`;
+            return `<option value="${p.plan_id}">${planName} (${p.plan_id})</option>`;
+          }).join('');
+          if (btn) btn.disabled = false;
+        }
+      }
+    })
+    .catch(err => {
+      console.error("Failed to fetch plans dynamically:", err);
+      const select = document.getElementById('select-plan-id');
+      if (select) {
+        select.innerHTML = `
+          <option value="PLN-0001-1">Plan 1: Loyalty Portal Integration (PLN-0001-1)</option>
+          <option value="PLN-0003-1">Plan 3: Security & SAST Pipelines (PLN-0003-1)</option>
+        `;
+      }
+      const btn = document.getElementById('btn-run-sense');
+      if (btn) btn.disabled = false;
+    });
 
   document.getElementById('btn-run-sense').addEventListener('click', handleRunSense);
 }
@@ -1268,7 +1347,10 @@ async function handleRunSense() {
       body: JSON.stringify({ plan_id: planId })
     });
 
-    if (!res.ok) throw new Error("Auto-Sensing failed.");
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || "Auto-Sensing failed.");
+    }
     const data = await res.json();
     const detected = data.detected_dependencies || [];
 
@@ -1341,12 +1423,22 @@ function showNewEdgeForm() {
         <form id="new-edge-form">
           <div class="grid-2col">
             <div class="form-group">
-              <label for="edge-source-id">Source Task ID (Dependent)</label>
-              <input type="text" id="edge-source-id" required placeholder="e.g. T-PAY-2">
+              <label for="edge-plan-id">Target Project Plan</label>
+              <select id="edge-plan-id">
+                <option value="">Loading plans...</option>
+              </select>
             </div>
             <div class="form-group">
-              <label for="edge-target-id">Target Task ID (Predecessor)</label>
-              <input type="text" id="edge-target-id" required placeholder="e.g. T-PAY-1">
+              <label for="edge-id-custom">Custom Edge ID (Optional)</label>
+              <input type="text" id="edge-id-custom" placeholder="Leave empty to auto-generate (DEP-XXXX)">
+            </div>
+            <div class="form-group">
+              <label style="font-weight: 700; color: var(--text-primary);" for="edge-source-id">Source Task ID (Dependent)</label>
+              <input type="text" id="edge-source-id" required placeholder="e.g. PLN-0001-BUILD">
+            </div>
+            <div class="form-group">
+              <label style="font-weight: 700; color: var(--text-primary);" for="edge-target-id">Target Task ID (Predecessor)</label>
+              <input type="text" id="edge-target-id" required placeholder="e.g. PLN-0001-DESIGN">
             </div>
             <div class="form-group">
               <label for="edge-type">Dependency Type</label>
@@ -1365,23 +1457,50 @@ function showNewEdgeForm() {
                 <option value="resolved">Resolved</option>
               </select>
             </div>
-            <div class="form-group">
+            <div class="form-group" style="grid-column: span 2;">
               <label for="edge-owner">Responsible Owner (Email)</label>
               <input type="text" id="edge-owner" required placeholder="e.g. name@company.com">
-            </div>
-            <div class="form-group">
-              <label for="edge-id-custom">Custom Edge ID (Optional)</label>
-              <input type="text" id="edge-id-custom" placeholder="Leave empty to auto-generate (DEP-XXXX)">
             </div>
           </div>
 
           <div id="edge-actions-row" class="submit-row" style="margin-top: 2rem;">
-            <button type="button" class="btn-primary" id="btn-save-edge">Create Dependency Edge</button>
+            <button type="button" class="btn-primary" id="btn-save-edge" disabled>Create Dependency Edge</button>
           </div>
         </form>
       </div>
     </div>
   `;
+
+  // Dynamically load plans from the plans service
+  fetch(`${DEPENDENCIES_API_BASE}/plans`)
+    .then(res => res.json())
+    .then(plansList => {
+      const select = document.getElementById('edge-plan-id');
+      const btn = document.getElementById('btn-save-edge');
+      if (select) {
+        if (!plansList || plansList.length === 0) {
+          select.innerHTML = '<option value="">No active plans found</option>';
+        } else {
+          select.innerHTML = plansList.map((p, idx) => {
+            const planName = p.release_name || `Plan ${idx + 1}: ${p.plan_id}`;
+            return `<option value="${p.plan_id}">${planName} (${p.plan_id})</option>`;
+          }).join('');
+          if (btn) btn.disabled = false;
+        }
+      }
+    })
+    .catch(err => {
+      console.error("Failed to fetch plans dynamically:", err);
+      const select = document.getElementById('edge-plan-id');
+      if (select) {
+        select.innerHTML = `
+          <option value="PLN-0001-1">Plan 1: Loyalty Portal Integration (PLN-0001-1)</option>
+          <option value="PLN-0003-1">Plan 3: Security & SAST Pipelines (PLN-0003-1)</option>
+        `;
+      }
+      const btn = document.getElementById('btn-save-edge');
+      if (btn) btn.disabled = false;
+    });
 
   document.getElementById('btn-save-edge').addEventListener('click', handleSaveEdge);
 }
@@ -1410,11 +1529,14 @@ async function handleSaveEdge() {
     customId = "";
   }
 
+  const selectedPlanId = document.getElementById('edge-plan-id').value;
+
   actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Creating edge...</span>`;
 
   try {
     const payload = {
       dependency_id: customId,
+      plan_id: selectedPlanId,
       source_task_id: source,
       target_task_id: target,
       type: type,
