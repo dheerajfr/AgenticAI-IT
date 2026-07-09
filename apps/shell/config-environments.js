@@ -458,11 +458,8 @@ window.simulateHygiene = async function(component_id, environment) {
     
     let html = `Hygiene Check Complete!\nStatus: ${data.status}\nMessage: ${data.message}`;
     
-    // As requested, explicitly show the names that are "okay" when it's a clean match
-    if (data.status === 'clean') {
-      const record = environments.find(e => e.component_id === component_id && e.environment === environment);
-      html += `\n\nCompared Names (Matched Okay):\n- Observed: ${record.observed_name}\n- CMDB: ${record.cmdb_name}`;
-    }
+    const record = environments.find(e => e.component_id === component_id && e.environment === environment);
+    html += `\n\nCompared Names:\n- Current CMDB Name: ${record.cmdb_name}\n- Observed Name: ${record.observed_name}`;
     
     if (data.proposed_action) {
       html += `<br/><br/>Proposed CMDB Update:\n`;
