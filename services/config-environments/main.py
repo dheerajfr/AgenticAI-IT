@@ -169,14 +169,14 @@ def promote_environment(req: PromoteEnvironmentRequest):
 
 @app.post("/api/environments/verify-readiness")
 def verify_readiness(req: VerifyReadinessRequest):
+    record = db.get_by_id_and_env(req.component_id, req.environment)
+    if not record:
+        raise HTTPException(status_code=404, detail="Environment record not found.")
+
     issues = []
-    # Evaluate the list of requirements for the software version to satisfy
-    for req_item in req.dependent_component_ids:
-        # Simulate missing requirements in specific environments
-        if req.environment == 'test' and 'Schema' in req_item:
-            issues.append(f"Requirement '{req_item}' is not satisfied in {req.environment}.")
-        if req.environment == 'staging' and 'IAM' in req_item:
-            issues.append(f"Requirement '{req_item}' is missing or improperly configured in {req.environment}.")
+    for expected in record.expected_requirements:
+        if expected not in record.observed_requirements:
+            issues.append(f"Requirement '{expected}' is missing or not satisfied in {req.environment}.")
             
     if issues:
         return {"ready": False, "issues": issues}

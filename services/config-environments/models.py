@@ -10,6 +10,8 @@ class EnvironmentStateRecord(BaseModel):
     last_checked: str = Field(..., description="ISO 8601 datetime string")
     observed_name: Optional[str] = Field(None, description="Physical observed name")
     cmdb_name: Optional[str] = Field(None, description="Name in the CMDB")
+    expected_requirements: List[str] = Field(default_factory=list)
+    observed_requirements: List[str] = Field(default_factory=list)
 
 class ReconcileDriftRequest(BaseModel):
     component_id: str
@@ -37,4 +39,3 @@ class PromoteEnvironmentRequest(BaseModel):
 class VerifyReadinessRequest(BaseModel):
     component_id: str
     environment: Literal["dev", "test", "staging", "prod"]
-    dependent_component_ids: List[str] = []
