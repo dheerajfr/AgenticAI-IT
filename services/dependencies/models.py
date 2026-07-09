@@ -24,6 +24,7 @@ class PlanRecord(BaseModel):
 
 class DependencyEdge(BaseModel):
     dependency_id: Optional[str] = Field(default="", description="Stable unique ID for the dependency")
+    plan_id: Optional[str] = Field(default="", description="ID of the plan this dependency belongs to")
     source_task_id: str = Field(..., description="Task ID of the task that depends on another task (references task_id in plan)")
     target_task_id: str = Field(..., description="Task ID of the task being depended on (may be in a different plan)")
     type: Literal["technical", "resource", "data", "external-vendor"] = Field(..., description="Type of dependency")
