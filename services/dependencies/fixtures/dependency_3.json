@@ -1,8 +1,0 @@
-{
-  "dependency_id": "DEP-0003",
-  "source_task_id": "T-SEC-1",
-  "target_task_id": "T-INF-009",
-  "type": "external-vendor",
-  "status": "at-risk",
-  "owner": "clara.davis@example.com"
-}

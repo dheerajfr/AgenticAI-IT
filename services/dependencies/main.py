@@ -64,8 +64,43 @@ def get_dependency(dependency_id: str):
 import os
 import json
 
+def derive_release_label(plan: Optional["PlanRecord"]) -> str:
+    """
+    Derives a human-readable release label for a plan using real, live data —
+    never a static per-plan-id lookup table. Priority order:
+      1. plan.release_name, if the plan record tracks one (from plan.db).
+      2. release_name on the linked demand record, if the demand tracks one.
+      3. A label computed from the plan's own real fields (plan_id + committed
+         end date), so it stays accurate as plans change over time.
+    """
+    if not plan:
+        return "Release Milestone"
+
+    if getattr(plan, "release_name", None):
+        return plan.release_name
+
+    demand = load_demand_by_id(plan.demand_id)
+    if demand and demand.get("release_name"):
+        return demand["release_name"]
+
+    return f"{plan.plan_id} Release (target {plan.end_date})"
+
+
 def load_demand_by_id(demand_id: str) -> Optional[dict]:
-    """Helper to locate demand fixtures and load demand record."""
+    """Helper to locate demand and load demand record from SQLite or fixtures."""
+    import sqlite3
+    db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "demand-intake", "demand.db"))
+    if os.path.exists(db_path):
+        try:
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT data FROM demands WHERE demand_id = ?", (demand_id,))
+                row = cursor.fetchone()
+                if row:
+                    return json.loads(row[0])
+        except Exception as e:
+            print(f"Error querying demand.db from dependencies: {e}")
+
     fixtures_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "demand-intake", "fixtures"))
     if not os.path.exists(fixtures_dir):
         return None
@@ -85,14 +120,28 @@ def load_demand_by_id(demand_id: str) -> Optional[dict]:
 @app.post("/api/dependencies", response_model=DependencyEdge)
 def create_dependency(dep: DependencyEdge):
     """Manually add a dependency edge."""
-    if db.get_by_id(dep.dependency_id):
+    if not dep.dependency_id or dep.dependency_id.strip() == "":
+        dep.dependency_id = generate_dependency_id()
+    elif db.get_by_id(dep.dependency_id):
         raise HTTPException(status_code=400, detail="Dependency ID already exists.")
-    # Check for duplicate dependency edge (same source and target task ID)
+    # Validate that source and target task exist in the plans database
+    plans = plan_loader.load_all_plans()
+    all_task_ids = set()
+    for p in plans:
+        for t in p.tasks:
+            all_task_ids.add(t.task_id)
+            
+    if dep.source_task_id not in all_task_ids:
+        raise HTTPException(status_code=400, detail=f"Source task ID '{dep.source_task_id}' does not exist in any project plan.")
+    if dep.target_task_id not in all_task_ids:
+        raise HTTPException(status_code=400, detail=f"Target task ID '{dep.target_task_id}' does not exist in any project plan.")
+
+    # Check for duplicate dependency edge (same source and target task ID in the same plan)
     for existing in db.get_all():
-        if existing.source_task_id == dep.source_task_id and existing.target_task_id == dep.target_task_id:
+        if existing.plan_id == dep.plan_id and existing.source_task_id == dep.source_task_id and existing.target_task_id == dep.target_task_id:
             raise HTTPException(
                 status_code=400,
-                detail=f"A dependency edge from {dep.source_task_id} to {dep.target_task_id} already exists ({existing.dependency_id})."
+                detail=f"A dependency edge from {dep.source_task_id} to {dep.target_task_id} already exists for this plan ({existing.dependency_id})."
             )
     dep.activity_history = [
         "✓ Dependency edge registered",
@@ -122,11 +171,14 @@ def sense_dependencies(req: DependencySenseRequest):
         status = demand.get("status")
         # Enforce that scope must be confirmed (classified, capacity-checked, or approved)
         if status not in ["classified", "capacity-checked", "approved"]:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Precondition failed: Associated demand {plan.demand_id} has status '{status}'. "
-                f"It must be classified and capacity-checked before sensing dependencies."
-            )
+            if status == "intake" and plan.tasks:
+                pass # Allow already scheduled/accepted plans to proceed
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Precondition failed: Associated demand {plan.demand_id} has status '{status}'. "
+                    f"It must be classified and capacity-checked before sensing dependencies."
+                )
         
     state_input = {
         "task": "sense",
@@ -152,14 +204,20 @@ def sense_dependencies(req: DependencySenseRequest):
     raw_edges = graph_output.get("detected_dependencies") or []
     detected_edges = []
     
+    all_plan_tasks = {t.task_id for t in plan.tasks}
+    
     for raw in raw_edges:
         source_task = raw.get("source_task_id") or "UNKNOWN"
         target_task = raw.get("target_task_id") or "UNKNOWN"
         
-        # Verify no duplicate source/target edge already exists in DB
+        # Verify both task IDs exist in the plan tasks
+        if source_task not in all_plan_tasks or target_task not in all_plan_tasks:
+            continue
+        
+        # Verify no duplicate source/target edge already exists in DB for this plan
         is_duplicate = False
         for existing in db.get_all():
-            if existing.source_task_id == source_task and existing.target_task_id == target_task:
+            if existing.plan_id == req.plan_id and existing.source_task_id == source_task and existing.target_task_id == target_task:
                 is_duplicate = True
                 break
         if is_duplicate:
@@ -201,6 +259,7 @@ def sense_dependencies(req: DependencySenseRequest):
 
         edge = DependencyEdge(
             dependency_id=dep_id,
+            plan_id=req.plan_id,
             source_task_id=source_task,
             target_task_id=target_task,
             type=raw_type,
@@ -395,16 +454,10 @@ def get_dependency_graph(dependency_id: str):
         "type": dep.type
     })
     
-    # Release node
-    release_label = "Release Milestone"
-    if associated_plan:
-        if associated_plan.plan_id == "PLN-0002-1":
-            release_label = "Release 2.3"
-        elif associated_plan.plan_id == "PLN-0001-1":
-            release_label = "Release 1.0"
-        elif associated_plan.plan_id == "PLN-0003-1":
-            release_label = "Release 1.5"
-            
+    # Release node — derive the label from real plan/demand data instead of a
+    # hardcoded plan_id lookup table, so any plan (not just the 3 seeded ones) works.
+    release_label = derive_release_label(associated_plan)
+
     nodes.append({
         "id": "RELEASE_NODE",
         "label": release_label,
@@ -478,3 +531,16 @@ def check_cross_programme_impact(req: CrossProgrammeImpactRequest):
         affected_tasks=graph_output.get("affected_tasks") or [],
         explanation=graph_output.get("explanation", "")
     )
+
+
+@app.delete("/api/dependencies/{dependency_id}")
+def delete_dependency(dependency_id: str):
+    """Delete a dependency edge by ID."""
+    success = db.delete(dependency_id)
+    if not success:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Dependency with ID {dependency_id} not found."
+        )
+    return {"message": "Dependency deleted successfully."}
+
