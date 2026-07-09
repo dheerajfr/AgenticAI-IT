@@ -1,8 +1,0 @@
-{
-  "dependency_id": "DEP-0002",
-  "source_task_id": "T-MIG-1",
-  "target_task_id": "T-AWS-1",
-  "type": "technical",
-  "status": "resolved",
-  "owner": "d.chen"
-}

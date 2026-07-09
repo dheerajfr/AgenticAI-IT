@@ -2,7 +2,6 @@ from typing import TypedDict, Optional, Dict, Any, List
 from langgraph.graph import StateGraph, END
 import sys
 import os
-import random
 from datetime import datetime, timedelta
 
 # Append paths to access services-wide llm_client and current folder models/database
@@ -13,53 +12,6 @@ import json
 from llm_client import call_gemini
 from models import DependencyEdge, PlanRecord, Task
 from database import db, plan_loader
-
-SIMULATED_RESOURCES = {
-    "PLN-0001-1": {
-        "work_item_links": [
-            "ADO Link #45213 (Loyalty Portal UI) -> ADO Link #45211 (Loyalty API Backend)",
-            "ADO Link #45211 (Loyalty API Backend) -> ADO Link #45209 (Loyalty Database Cluster)"
-        ],
-        "architecture_schema": (
-            "The Loyalty UI service (React) communicates via REST API with `/api/loyalty/v1` "
-            "hosted on the Loyalty API service. The Loyalty API service connects to the Loyalty "
-            "PostgreSQL database cluster (db-loyalty-cluster-01) for state storage. "
-            "Additionally, the Loyalty API service requires API Gateway routing configurations."
-        ),
-        "teams_communications": [
-            "[07-02 10:14] d.chen: @m.rodriguez, is the loyalty database cluster ready for schema migration? We cannot start 'Loyalty Portal Schema Migration' (T-MIG-1) until 'Database Cluster Creation' (T-AWS-1) is finalized and we have the connection string.",
-            "[07-02 10:18] m.rodriguez: The cluster (T-AWS-1) will be fully provisioned by June 30th. You can proceed with migration schema tests then.",
-            "[07-02 11:02] alice.smith: Hey guys, 'Validation UAT Testing' (T-TST-2) is scheduled right after schema migration (T-MIG-1), so we need that migration running on schedule."
-        ]
-    },
-    "PLN-0002-1": {
-        "work_item_links": [
-            "ADO Link #88432 (Apple Pay Integration) -> ADO Link #88430 (Payment Engine Core)"
-        ],
-        "architecture_schema": (
-            "The Apple Pay Gateway service integrates with Payment Engine Core endpoint `/v2/charge`. "
-            "Payment Engine Core depends on HSM modules for cryptographic signing of payloads."
-        ),
-        "teams_communications": [
-            "[07-02 09:30] bob.jones: @alice.smith, we cannot proceed with 'Apple Pay Gateway' (T-PAY-2) test scripts until 'Payment Core API Endpoint' (T-PAY-1) is deployed in staging.",
-            "[07-02 09:35] alice.smith: Correct, we are blocked on core APIs. Is the external vendor certificate ready for the endpoint setup?",
-            "[07-02 09:40] bob.jones: No, we are chasing the security team for HSM keys as well."
-        ]
-    },
-    "PLN-0003-1": {
-        "work_item_links": [
-            "ADO Link #99101 (SAST Scanner integration) -> ADO Link #99100 (Jenkins upgrade)"
-        ],
-        "architecture_schema": (
-            "The SAST Scanner integrates directly into the Jenkins CI/CD pipeline agent pool. "
-            "It queries the corporate Artifactory registry for scanning container images."
-        ),
-        "teams_communications": [
-            "[07-02 14:10] s.security: Pipeline updates (T-SEC-1) are absolutely required before we inject SAST scanners (T-SEC-2).",
-            "[07-02 14:15] admin: Agreed, we'll configure the Jenkins agents first."
-        ]
-    }
-}
 
 class DependencyState(TypedDict):
     task: str # 'sense', 'chase', or 'impact'
@@ -75,6 +27,7 @@ class DependencyState(TypedDict):
     
     # Chase inputs / outputs
     tone: Optional[str]
+    channel: Optional[str]
     nudge_message: Optional[str]
     escalation_required: Optional[bool]
     threat_level: Optional[str]
@@ -101,13 +54,6 @@ def sense_node(state: DependencyState) -> Dict[str, Any]:
     if not plan:
         return {"error": "Plan record is missing for auto-sensing."}
     
-    # Retrieve simulated resource documents
-    sim_data = SIMULATED_RESOURCES.get(plan_id, {
-        "work_item_links": [],
-        "architecture_schema": "No explicit architecture records found.",
-        "teams_communications": []
-    })
-    
     # Format tasks list to pass to LLM
     tasks_info = []
     for t in plan.tasks:
@@ -123,11 +69,8 @@ def sense_node(state: DependencyState) -> Dict[str, Any]:
     prompt = f"""
     You are an AI Project Management Analyst specializing in Knowledge Graph Analytics, NLP Entity Extraction, and Semantic Retrieval.
     
-    Your task is to automatically discover dependencies and risk links within this project plan by analyzing and linking:
+    Your task is to automatically discover dependencies and risk links within this project plan by analyzing:
     1. The project task metadata list.
-    2. Corporate Work-Item Links (ADO).
-    3. Component Architecture and Infrastructure Schema definitions.
-    4. Teams chat logs and communications transcripts between task owners.
     
     Plan Details:
     - Plan ID: {plan.plan_id}
@@ -139,19 +82,7 @@ def sense_node(state: DependencyState) -> Dict[str, Any]:
     {json.dumps(tasks_info, indent=2)}
     
     ---
-    2. Scanned ADO Work-Item Links:
-    {json.dumps(sim_data["work_item_links"], indent=2)}
-    
-    ---
-    3. Mapped Component Architecture & Schema:
-    {sim_data["architecture_schema"]}
-    
-    ---
-    4. Retrieved Teams Chat Logs & Comms Transcripts:
-    {json.dumps(sim_data["teams_communications"], indent=2)}
-    
-    ---
-    Using Knowledge Graph mapping, identify logical/technical dependencies between these tasks (e.g., if one task's work description or conversation indicates it relies on another task being completed first, or if the component architecture requires a database cluster/endpoint setup before API/schema deployment, etc.).
+    Using Knowledge Graph mapping, identify logical/technical dependencies between these tasks (e.g., if one task's work description or predecessor_task_ids indicates it relies on another task being completed first, or if the component architecture requires a database cluster/endpoint setup before API/schema deployment, etc.).
     Also classify the type of dependency edge as:
     - "technical"
     - "resource"
@@ -174,7 +105,7 @@ def sense_node(state: DependencyState) -> Dict[str, Any]:
             prompt=prompt,
             system_instruction=(
                 "Discover hidden dependencies in project schedules by performing NLP entity "
-                "extraction and semantic retrieval over task meta, architecture schemas, and Teams chat transcripts."
+                "extraction and semantic retrieval over task metadata."
             ),
             is_json=True
         )
@@ -183,38 +114,20 @@ def sense_node(state: DependencyState) -> Dict[str, Any]:
         return {"detected_dependencies": detected}
     except Exception as e:
         print(f"[LangGraph Node: sense] Failed: {e}. Using fallback sensor.")
-        if plan_id == "PLN-0001-1":
-            detected = [
-                {
-                    "dependency_id": "DEP-0004",
-                    "source_task_id": "T-MIG-1",
-                    "target_task_id": "T-AWS-1",
+        # Fallback sensor: dynamically generate dependencies based on actual task predecessor relationships from DB
+        detected = []
+        dep_counter = 1
+        for t in plan.tasks:
+            for pred_id in (t.predecessor_task_ids or []):
+                detected.append({
+                    "dependency_id": f"DEP-SENSE-{dep_counter:03d}",
+                    "source_task_id": t.task_id,
+                    "target_task_id": pred_id,
                     "type": "technical",
                     "status": "open",
-                    "owner": "m.rodriguez@example.com"
-                },
-                {
-                    "dependency_id": "DEP-0005",
-                    "source_task_id": "T-TST-2",
-                    "target_task_id": "T-MIG-1",
-                    "type": "technical",
-                    "status": "open",
-                    "owner": "d.chen@example.com"
-                }
-            ]
-        elif plan_id == "PLN-0002-1":
-            detected = [
-                {
-                    "dependency_id": "DEP-0001",
-                    "source_task_id": "T-PAY-2",
-                    "target_task_id": "T-PAY-1",
-                    "type": "technical",
-                    "status": "open",
-                    "owner": "bob.jones@example.com"
-                }
-            ]
-        else:
-            detected = []
+                    "owner": t.owner
+                })
+                dep_counter += 1
         return {"detected_dependencies": detected}
 
 
@@ -226,6 +139,7 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
         
     plan = state.get("plan")
     tone = state.get("tone") or "friendly"
+    channel = state.get("channel") or "email"
     
     # Gather task info from plan if available
     source_name = dep.source_task_id
@@ -245,7 +159,7 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
                 target_owner = t.owner
                 
     prompt = f"""
-    You are an Automated Project Manager. You need to write a nudge email/slack message to check the status of a dependency.
+    You are an Automated Project Manager. You need to write a nudge message to check the status of a dependency.
     
     Dependency Details:
     Dependency ID: {dep.dependency_id}
@@ -255,24 +169,33 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
     Status: {dep.status}
     Is either task on Critical Path? {on_critical_path}
     
-    Requested message tone: {tone} (options: friendly, executive, technical, short-teams)
-    Friendly tone: Warm, polite reminder.
-    Executive tone: High-level escalation focus, concise, highlights project-wide impact.
-    Technical tone: Asks specific technical blocking questions, requests logs or endpoint details.
-    Short-teams tone: Ultra-brief 1-2 sentence Slack/Teams direct message.
+    Communication Channel: {channel}
+    Channel formatting guides:
+    - email: Formal email format with subject line and professional sign-off.
+    - teams: Microsoft Teams message — moderate length, use @mentions where appropriate.
+    - slack: Slack message — can use emojis, mention handles with @, keep concise.
+    - ado: Azure DevOps work item comment — formal, link to work items, reference task IDs directly.
+    
+    Requested message tone: {tone}
+    Tone guides:
+    - friendly: Warm, polite reminder, collaborative language.
+    - technical: Asks specific technical blocking questions, requests logs or endpoint details.
+    - business: Business-focused, highlights financial or delivery impact, schedule risk and SLA implications.
+    - executive: High-level escalation focus, concise, highlights project-wide impact for senior stakeholders.
+    - short: Ultra-brief 1-2 sentence direct message suitable for quick nudge.
     
     Output a JSON object containing:
-    - nudge_message: string (personalized nudge to {target_owner} from the perspective of {source_owner} or project admin matching the requested tone)
+    - nudge_message: string (personalized nudge to {target_owner} from the perspective of {source_owner} or project admin, formatted for {channel} channel, matching the {tone} tone)
     - escalation_required: boolean (True if status is 'at-risk' and on critical path, or 'open' and on critical path)
     - threat_level: one of "low", "medium", "high"
-    - confidence: integer between 70 and 99 (represents AI risk estimation confidence score based on critial path status and owner history)
+    - confidence: integer between 70 and 99 (represents AI risk estimation confidence score based on critical path status and owner history)
     - confidence_reasons: list of strings (reasons behind the confidence score, e.g. ["Critical path task has zero float", "Predecessor owner has not updated ETA in 3 days", "Resource dependency constraint"])
     """
     
     try:
         res = call_gemini(
             prompt=prompt,
-            system_instruction="Generate project status nudges and risk alerts with confidence metrics.",
+            system_instruction="Generate project status nudges and risk alerts with confidence metrics, tailored for the specified communication channel and tone.",
             is_json=True
         )
         print(f"[LangGraph Node: chase] Nudge generated: {res.get('nudge_message')[:50]}... Threat level: {res.get('threat_level')}")
@@ -310,24 +233,44 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
         }
     except Exception as e:
         print(f"[LangGraph Node: chase] Failed: {e}. Using fallback nudge generator.")
-        nudge = (
-            f"Hi {target_owner.split('@')[0]}, I'm reaching out regarding the critical dependency {dep.dependency_id}. "
-            f"Bob Jones is waiting on the completion of '{target_name}' (ID: {dep.target_task_id}) before they can begin '{source_name}' (ID: {dep.source_task_id}). "
-            f"Could you please provide an updated ETA or let us know if there are any blockers?"
-        )
+        target_display = target_owner.split('@')[0] if '@' in target_owner else target_owner
+        source_display = source_owner.split('@')[0] if '@' in source_owner else source_owner
+
         if tone == "executive":
             nudge = (
-                f"Escalation Alert: Dependency {dep.dependency_id} is currently blocking '{source_name}'. "
-                f"Predecessor task '{target_name}' is past scheduled timeline, impacting critical path milestones. "
-                f"Immediate manager attention and updated ETA required."
+                f"Escalation Alert: Dependency {dep.dependency_id} is currently blocking '{source_name}' ({dep.source_task_id}). "
+                f"Predecessor task '{target_name}' ({dep.target_task_id}) is past its scheduled timeline, "
+                f"impacting critical path milestones. Immediate attention and updated ETA required."
             )
         elif tone == "technical":
             nudge = (
-                f"Technical Follow-up: '{source_name}' requires the deployment of '{target_name}' core APIs/schemas. "
-                f"Are HSM signing keys and API gateway routing tables updated in staging? Please share active logs or blockers."
+                f"Technical Follow-up [{dep.dependency_id}]: '{source_name}' ({dep.source_task_id}) is blocked on "
+                f"'{target_name}' ({dep.target_task_id}). "
+                f"Please confirm completion status, share any blockers, logs, or endpoint readiness details."
             )
-        elif tone == "short-teams":
-            nudge = f"Hey, quick reminder: Bob is waiting on {dep.target_task_id} so we can start {dep.source_task_id}. Any ETA update?"
+        elif tone == "business":
+            nudge = (
+                f"Business Impact Notice: The dependency {dep.dependency_id} is at risk of impacting delivery timelines. "
+                f"'{source_name}' cannot proceed until '{target_name}' is complete. "
+                f"This has schedule and SLA implications. Please provide an updated ETA at your earliest convenience."
+            )
+        elif tone == "short":
+            nudge = f"Hi {target_display}, quick check — any update on '{target_name}' ({dep.target_task_id})? It's blocking '{source_name}'. Thanks!"
+        else:  # friendly (default)
+            nudge = (
+                f"Hi {target_display}, I'm reaching out regarding dependency {dep.dependency_id}. "
+                f"{source_display} is waiting on the completion of '{target_name}' (ID: {dep.target_task_id}) "
+                f"before they can begin '{source_name}' (ID: {dep.source_task_id}). "
+                f"Could you please provide an updated ETA or let us know if there are any blockers? Thank you!"
+            )
+
+        # Format for channel
+        if channel == "slack":
+            nudge = f":wave: {nudge}"
+        elif channel == "teams":
+            nudge = f"@{target_display} — {nudge}"
+        elif channel == "ado":
+            nudge = f"[Work Item Comment] Ref: {dep.dependency_id} | {dep.source_task_id} -> {dep.target_task_id}\n{nudge}"
 
         fallback_threat = "medium"
         if dep.status == "at-risk":

@@ -465,11 +465,15 @@ window.simulateHygiene = async function(component_id, environment) {
     let html = `Hygiene Check Complete!\nStatus: ${data.status}\nMessage: ${data.message}`;
     
     const record = environments.find(e => e.component_id === component_id && e.environment === environment);
+<<<<<<< HEAD
     if (data.status === 'clean') {
       html += `\n\nCompared Names (Matched Okay):\n- Observed: ${record.observed_name}\n- CMDB: ${record.cmdb_name}`;
     } else {
       html += `\n\nCompared Names (Mismatch):\n- Observed: ${record.observed_name}\n- CMDB: ${record.cmdb_name}`;
     }
+=======
+    html += `\n\nCompared Names:\n- Current CMDB Name: ${record.cmdb_name}\n- Observed Name: ${record.observed_name}`;
+>>>>>>> main
     
     if (data.proposed_action) {
       html += `<br/><br/>Proposed CMDB Update:\n`;
