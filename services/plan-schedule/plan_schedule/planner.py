@@ -88,8 +88,16 @@ def generate_plans(
 
     deps: List[DependencyEdge] = dependencies or []
 
-    # Shared round-robin owner state across all plans in this batch
-    global_owner_rr = _RoundRobinOwner(team_config)
+    # Shared round-robin owner state across all plans in this batch.
+    # Retrieve all accepted plans from SQLite to check for scheduling overlaps.
+    accepted_plans = []
+    try:
+        from database import db
+        accepted_plans = db.get_all()
+    except Exception as e:
+        log.warning("Could not load accepted plans for scheduling overlap checking: %s", e)
+
+    global_owner_rr = _RoundRobinOwner(team_config, accepted_plans)
 
     plans: List[PlanRecord] = []
 

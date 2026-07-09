@@ -367,10 +367,10 @@ async function showNewPlanForm() {
   }
 
   const estimateOptions = availableEstimates.length
-    ? availableEstimates.map(e =>
-      `<option value="${e.estimate_id}">${e.estimate_id} — ${e.demand_id} (${e.confidence} conf, ${e.effort_days}d)</option>`
+    ? `<option value="" disabled selected>— Select an Estimate —</option>` + availableEstimates.map(e =>
+      `<option value="${e.estimate_id}">${e.estimate_id} — Demand ${e.demand_id} (${e.confidence} conf, ${e.effort_days}d)</option>`
     ).join('')
-    : `<option value="" disabled>No approved estimates found</option>`;
+    : `<option value="" disabled selected>No approved estimates found</option>`;
 
   panel.innerHTML = `
     <div class="panel-card">
@@ -378,18 +378,18 @@ async function showNewPlanForm() {
         Generate Plan
       </h3>
       <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
-        Select one or more approved estimates. The planning engine applies confidence buffers,
+        Select an approved estimate from the dropdown list. The planning engine applies confidence buffers,
         WBS decomposition, and capacity-aware scheduling to produce a dated PlanRecord.
       </p>
 
       <div class="error-message" id="plan-error"></div>
 
       <div class="form-group">
-        <label for="select-estimates">Approved / Re-baselined Estimates</label>
-        <select id="select-estimates" multiple style="height: 130px; font-size: 0.85rem;">
+        <label for="select-estimates">Approved / Re-baselined Estimates Dropdown</label>
+        <select id="select-estimates" style="font-size: 0.85rem; padding: 0.5rem; width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-tertiary); color: var(--text-primary);">
           ${estimateOptions}
         </select>
-        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem;">Hold Ctrl / ⌘ to select multiple</div>
+        <div id="estimate-detail-preview" style="margin-top: 1rem; display: none;"></div>
       </div>
 
       <!-- Team Config (collapsible defaults) -->
@@ -401,17 +401,17 @@ async function showNewPlanForm() {
           <div class="form-group" style="margin: 0;">
             <label style="font-size: 0.75rem;">Planning Start Date</label>
             <input type="date" id="cfg-start-date" value="2026-07-07"
-              style="font-size: 0.85rem; padding: 0.4rem 0.6rem;">
+               style="font-size: 0.85rem; padding: 0.4rem 0.6rem;">
           </div>
           <div class="form-group" style="margin: 0;">
             <label style="font-size: 0.75rem;">Working Days/Week</label>
             <input type="number" id="cfg-work-days" value="5" min="1" max="7"
-              style="font-size: 0.85rem; padding: 0.4rem 0.6rem;">
+               style="font-size: 0.85rem; padding: 0.4rem 0.6rem;">
           </div>
           <div class="form-group" style="margin: 0;">
             <label style="font-size: 0.75rem;">Max Utilization %</label>
             <input type="number" id="cfg-util" value="85" min="1" max="100"
-              style="font-size: 0.85rem; padding: 0.4rem 0.6rem;">
+               style="font-size: 0.85rem; padding: 0.4rem 0.6rem;">
           </div>
         </div>
       </details>
@@ -423,6 +423,36 @@ async function showNewPlanForm() {
       <div id="plan-preview-container" style="margin-top: 1.5rem;"></div>
     </div>
   `;
+
+  // Attach change listener to show estimate details dynamically
+  const selectEl = document.getElementById('select-estimates');
+  const detailPreview = document.getElementById('estimate-detail-preview');
+  selectEl.addEventListener('change', () => {
+    const val = selectEl.value;
+    const est = availableEstimates.find(e => e.estimate_id === val);
+    if (est) {
+      const riskList = est.risk_factors && est.risk_factors.length
+        ? `<div style="grid-column: span 2; margin-top: 0.25rem;"><strong>Risk Factors:</strong><ul style="margin: 0.2rem 0 0 1rem; padding: 0;">${est.risk_factors.map(r => `<li>${r}</li>`).join('')}</ul></div>`
+        : '';
+      detailPreview.innerHTML = `
+        <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4;">
+          <div style="font-weight: 700; color: var(--color-brand); margin-bottom: 0.5rem; font-size: 0.88rem;">Selected Estimate Details</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1rem;">
+            <div><strong>Effort Days:</strong> ${est.effort_days}d (${est.effort_range_low}d - ${est.effort_range_high}d)</div>
+            <div><strong>Cost Estimate:</strong> $${(est.cost_estimate || 0).toLocaleString()}</div>
+            <div><strong>Duration:</strong> ${est.duration_weeks} weeks</div>
+            <div><strong>Confidence:</strong> ${est.confidence.toUpperCase()}</div>
+            <div style="grid-column: span 2;"><strong>Methodology:</strong> ${est.methodology}</div>
+            ${riskList}
+          </div>
+        </div>
+      `;
+      detailPreview.style.display = 'block';
+    } else {
+      detailPreview.style.display = 'none';
+    }
+  });
+
   document.getElementById('btn-run-planning').addEventListener('click', handleGeneratePlan);
 }
 
@@ -431,9 +461,9 @@ let selectedEstimateObjs = null;
 
 async function handleGeneratePlan() {
   const selectEl = document.getElementById('select-estimates');
-  const selectedIds = Array.from(selectEl.selectedOptions).map(o => o.value).filter(Boolean);
+  const selectedIds = [selectEl.value].filter(Boolean);
   if (!selectedIds.length) {
-    showPlanError('Please select at least one estimate.');
+    showPlanError('Please select an estimate.');
     return;
   }
 
@@ -488,6 +518,20 @@ function inferSkillFromTask(taskName) {
   return 'backend';
 }
 
+function getEmployeeDisplayName(owner) {
+  if (!owner) return 'unassigned';
+  if (window.allEmployees) {
+    const emp = window.allEmployees.find(e => (e.email || '').toLowerCase() === owner.toLowerCase() || (e.name || '').toLowerCase() === owner.toLowerCase());
+    if (emp && emp.name) return emp.name;
+  }
+  // Fallback: strip domain from email if it is an email
+  if (owner.includes('@')) {
+    const part = owner.split('@')[0];
+    return part.charAt(0).toUpperCase() + part.slice(1);
+  }
+  return owner;
+}
+
 function getAvailabilityStatusForTask(emp, task) {
   const taskEnd = new Date(task.end_date);
   taskEnd.setHours(0, 0, 0, 0);
@@ -539,7 +583,7 @@ function renderPlanPreview(newPlans, actionsRow) {
   // Track which task cells need availability dropdowns: { cellId, skill }
   const pendingAvailability = [];
 
-  preview.innerHTML = plansArray.map(plan => {
+  let html = plansArray.map(plan => {
     return `
       <div class="suggestion-box" style="margin-bottom: 1rem;">
         <h5 class="suggestion-title" style="display: flex; justify-content: space-between; align-items: center;">
@@ -584,6 +628,8 @@ function renderPlanPreview(newPlans, actionsRow) {
         pendingAvailability.push({ cellId, skill, taskName: t.name, taskObj: t, planObj: plan, originalOwner: t.owner });
       }
 
+      const displayName = getEmployeeDisplayName(t.owner);
+
       const ownerCell = (isOwnerNotAvailable || hasConflict)
         ? `<td id="${cellId}" style="padding: 0.35rem 0.5rem;">
             <div style="display: flex; flex-direction: column; gap: 0.2rem;">
@@ -595,7 +641,7 @@ function renderPlanPreview(newPlans, actionsRow) {
               </span>
             </div>
            </td>`
-        : `<td style="padding: 0.35rem 0.5rem; color: var(--color-brand);">${t.owner}</td>`;
+        : `<td style="padding: 0.35rem 0.5rem; color: var(--color-brand);">${displayName}</td>`;
 
       return `
                 <tr style="border-bottom: 1px solid rgba(46,60,84,0.5);">
@@ -614,6 +660,31 @@ function renderPlanPreview(newPlans, actionsRow) {
       </div>
     `;
   }).join('');
+
+  // Add the review/preview buttons container at the bottom of the preview HTML
+  html += `
+    <div style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;" id="preview-review-section">
+      <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">
+        Human-in-the-loop Review
+      </div>
+      <div style="display: flex; gap: 1.2rem; align-items: center;">
+        <button type="button" class="btn-primary" id="btn-accept-preview" style="background-color: var(--color-status-green-border); border: 1px solid var(--color-status-green-text); color: var(--color-status-green-text); cursor: pointer; font-weight: 700; padding: 0.4rem 1.2rem; border-radius: var(--radius-sm);">
+          ✓ Accept & Save
+        </button>
+        <button type="button" class="btn-secondary" id="btn-replan-preview" style="color: var(--color-status-amber-text); border-color: var(--color-status-amber-text); cursor: pointer; font-weight: 700; padding: 0.4rem 1.2rem; border-radius: var(--radius-sm);">
+          ⚠ Request Replan (Edit Scope)
+        </button>
+      </div>
+      <div id="preview-replan-section" style="margin-top: 1.5rem; display: none; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem;"></div>
+      <div id="preview-success-msg" style="font-size: 0.85rem; color: var(--color-status-green-text); display: none; font-weight: 600; margin-top: 0.75rem;"></div>
+    </div>
+  `;
+
+  preview.innerHTML = html;
+
+  // Restore the "Run Planning Engine" button in actionsRow above
+  actionsRow.innerHTML = `<button type="button" class="btn-primary" id="btn-run-planning">Run Planning Engine</button>`;
+  document.getElementById('btn-run-planning').addEventListener('click', handleGeneratePlan);
 
   // Asynchronously populate availability dropdowns for unavailable tasks
   if (pendingAvailability.length > 0) {
@@ -809,19 +880,6 @@ function renderPlanPreview(newPlans, actionsRow) {
     });
   }
 
-  actionsRow.innerHTML = `
-    <div style="display: flex; gap: 1rem; align-items: center;">
-      <button type="button" class="btn-primary" id="btn-accept-preview" style="background-color: var(--color-status-green-border); border: 1px solid var(--color-status-green-text); color: var(--color-status-green-text); cursor: pointer;">
-        ✓ Accept & Save
-      </button>
-      <button type="button" class="btn-secondary" id="btn-replan-preview" style="color: var(--color-status-amber-text); border-color: var(--color-status-amber-text); cursor: pointer;">
-        ⚠ Request Replan (Edit Scope)
-      </button>
-    </div>
-    <div id="preview-replan-section" style="margin-top: 1.5rem; display: none; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem;"></div>
-    <div id="preview-success-msg" style="font-size: 0.85rem; color: var(--color-status-green-text); display: none; font-weight: 600; margin-top: 0.75rem;"></div>
-  `;
-
   const acceptBtn = document.getElementById('btn-accept-preview');
   const replanBtn = document.getElementById('btn-replan-preview');
   const replanSection = document.getElementById('preview-replan-section');
@@ -999,12 +1057,20 @@ function renderPlanDetail(plan) {
   let reviewHtml = '';
   if (status === 'accepted') {
     reviewHtml = `
-      <div style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem; flex-shrink: 0;">
+      <div style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem; flex-shrink: 0;" id="review-section">
         <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">
           Human-in-the-loop Review
         </div>
-        <div style="font-size: 0.85rem; color: var(--color-status-green-text); font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+        <div style="font-size: 0.85rem; color: var(--color-status-green-text); font-weight: 600; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
           ✓ Plan has been accepted and advanced to Stage 04: Dependencies.
+        </div>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+          <button type="button" id="btn-replan-project"
+            class="btn-primary"
+            style="background-color: var(--color-status-amber-border); border: 1px solid var(--color-status-amber-text); color: var(--color-status-amber-text); cursor: pointer; padding: 0.4rem 1rem; display: flex; align-items: center; gap: 4px; font-weight: 700; font-size: 0.82rem; border-radius: var(--radius-sm);">
+            <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; fill: currentColor;"><path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.77-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.78.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/></svg>
+            Replan Project
+          </button>
         </div>
       </div>
     `;
@@ -1014,11 +1080,11 @@ function renderPlanDetail(plan) {
         <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">
           Human-in-the-loop Review
         </div>
-        <div style="display: flex; gap: 1rem; align-items: center;">
-          <button type="button" class="btn-primary" id="btn-accept-plan" style="background-color: var(--color-status-green-border); border: 1px solid var(--color-status-green-text); color: var(--color-status-green-text); cursor: pointer;">
-            ✓ Accept & Advance
+        <div style="display: flex; gap: 1.2rem; align-items: center;">
+          <button type="button" class="btn-primary" id="btn-accept-plan" style="background-color: var(--color-status-green-border); border: 1px solid var(--color-status-green-text); color: var(--color-status-green-text); cursor: pointer; font-weight: 700; padding: 0.4rem 1.2rem; border-radius: var(--radius-sm);">
+            ✓ Accept & Save
           </button>
-          <button type="button" class="btn-secondary" id="btn-replan-trigger" style="color: var(--color-status-amber-text); border-color: var(--color-status-amber-text); cursor: pointer;">
+          <button type="button" class="btn-secondary" id="btn-replan-trigger" style="color: var(--color-status-amber-text); border-color: var(--color-status-amber-text); cursor: pointer; font-weight: 700; padding: 0.4rem 1.2rem; border-radius: var(--radius-sm);">
             ⚠ Request Replan (Edit Scope)
           </button>
         </div>
@@ -1044,13 +1110,7 @@ function renderPlanDetail(plan) {
         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
           <div style="font-size: 0.75rem; color: var(--text-secondary);">Plan End Date</div>
           <div style="font-family: var(--font-display); font-size: 1.1rem; font-weight: 700;
-                      color: var(--color-brand);">${plan.end_date}</div>
-          <button type="button" id="btn-replan-project"
-            class="btn-primary"
-            style="margin-bottom: 0.5rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; background-color: var(--color-status-amber-border); border-color: var(--color-status-amber-text); color: var(--color-status-amber-text); cursor: pointer; display: flex; align-items: center; gap: 4px;">
-            <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: currentColor;"><path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.77-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.78.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/></svg>
-            Replan Project
-          </button>
+                      color: var(--color-brand); margin-bottom: 0.25rem;">${plan.end_date}</div>
           <button type="button" id="btn-delete-plan"
             class="btn-secondary"
             style="color: var(--color-status-red-text); border-color: var(--color-status-red-text); padding: 0.25rem 0.5rem; font-size: 0.75rem;">
@@ -1101,14 +1161,17 @@ function renderPlanDetail(plan) {
     const isCompleted = t.status === 'completed';
 
     let statusCell = '';
-    if (status === 'accepted') {
+    if (isCompleted) {
       statusCell = `
-                  <label class="task-checkbox-label" style="display: flex; align-items: center; justify-content: center; gap: 0.35rem; cursor: pointer; user-select: none; margin: 0;">
-                    <input type="checkbox" class="task-complete-chk" data-task-id="${t.task_id}" ${isCompleted ? 'checked' : ''} style="cursor: pointer; width: 15px; height: 15px;">
-                    <span style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; color: ${isCompleted ? 'var(--color-status-green-text)' : 'var(--text-muted)'};">
-                      ${isCompleted ? 'Done' : 'Active'}
-                    </span>
-                  </label>
+                  <span style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; color: var(--color-status-green-text);">
+                    Done
+                  </span>
+                `;
+    } else if (status === 'accepted') {
+      statusCell = `
+                  <span style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; color: var(--color-brand);">
+                    Active
+                  </span>
                 `;
     } else {
       statusCell = `
@@ -1130,12 +1193,14 @@ function renderPlanDetail(plan) {
       }
     }
 
+    const displayName = getEmployeeDisplayName(t.owner);
+
     let ownerDisplay = '';
     if (isOwnerNotAvailable || hasConflict) {
       ownerDisplay = `
         <div style="display: flex; flex-direction: column; gap: 0.2rem; background: rgba(239, 68, 68, 0.08); padding: 6px; border-radius: var(--radius-sm); border: 1px solid var(--color-status-red-text); line-height: 1.25;">
           <span style="color: var(--color-status-red-text); font-weight: 600; font-size: 0.78rem;">
-            ⚠ ${isOwnerNotAvailable ? 'employee for this task is currently is not available' : t.owner + ' is currently not available'}
+            ⚠ ${isOwnerNotAvailable ? 'employee for this task is currently is not available' : displayName + ' is currently not available'}
           </span>
           <span style="font-size: 0.75rem; color: var(--color-status-red-text); font-weight: 700; display: block;">
             hire a new employee with the skills for this task
@@ -1143,7 +1208,7 @@ function renderPlanDetail(plan) {
         </div>
       `;
     } else {
-      ownerDisplay = `<span style="color: var(--color-brand); font-weight: 500;">${t.owner}</span>`;
+      ownerDisplay = `<span style="color: var(--color-brand); font-weight: 500;">${displayName}</span>`;
     }
 
     return `
@@ -1236,15 +1301,13 @@ function renderPlanDetail(plan) {
           </div>
         </div>
 
-        ${hasStarted ? `
-          <div class="form-group" style="margin-bottom: 1.25rem;">
-            <label style="font-size: 0.75rem; font-weight: 700; color: var(--color-status-amber-text);">
-              Reason for Replanning * (Mandatory - Project Has Started)
-            </label>
-            <textarea id="project-replan-reason" placeholder="e.g. Employee Gabriel Morris is on leave for two weeks..." 
-              style="font-size: 0.85rem; padding: 0.5rem; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm); width: 100%; min-height: 80px;"></textarea>
-          </div>
-        ` : ''}
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label style="font-size: 0.75rem; font-weight: 700; color: var(--color-status-amber-text);">
+            Reason for Replanning * (Mandatory)
+          </label>
+          <textarea id="project-replan-reason" placeholder="e.g. Employee Gabriel Morris is on leave for two weeks..." 
+            style="font-size: 0.85rem; padding: 0.5rem; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm); width: 100%; min-height: 80px;"></textarea>
+        </div>
 
         <div style="display: flex; gap: 1rem; align-items: center;">
           <button type="button" class="btn-primary" id="btn-submit-project-replan" style="background-color: var(--color-status-amber-border); border: 1px solid var(--color-status-amber-text); color: var(--color-status-amber-text); cursor: pointer; padding: 0.4rem 1rem;">
@@ -1269,9 +1332,9 @@ function renderPlanDetail(plan) {
         const reasonEl = document.getElementById('project-replan-reason');
         const reasonVal = reasonEl ? reasonEl.value.trim() : "";
 
-        if (hasStarted && !reasonVal) {
+        if (!reasonVal) {
           const errEl = document.getElementById('project-replan-error-msg');
-          errEl.textContent = 'Validation Error: Reason for replanning is required because the project has already started.';
+          errEl.textContent = 'Validation Error: Reason for replanning is required.';
           errEl.style.display = 'block';
           return;
         }
@@ -1428,31 +1491,6 @@ function renderPlanDetail(plan) {
     });
   });
 
-  if (status === 'accepted') {
-    panel.querySelectorAll('.task-complete-chk').forEach(chk => {
-      chk.addEventListener('change', async () => {
-        const taskId = chk.getAttribute('data-task-id');
-        const newStatus = chk.checked ? 'completed' : 'pending';
-        try {
-          const res = await fetch(`${PLAN_API_BASE}/plans/${plan.plan_id}/tasks/${taskId}/status`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: newStatus })
-          });
-          if (!res.ok) throw new Error('Failed to update task status.');
-
-          const taskObj = plan.tasks.find(t => t.task_id === taskId);
-          if (taskObj) taskObj.status = newStatus;
-
-          await window.fetchPlans();
-          selectPlan(plan.plan_id);
-        } catch (err) {
-          alert(err.message);
-          chk.checked = !chk.checked;
-        }
-      });
-    });
-  }
 
   if (status !== 'accepted') {
     document.getElementById('btn-accept-plan').addEventListener('click', async () => {
@@ -1585,12 +1623,16 @@ function renderPlanDetail(plan) {
           const result = await res.json();
           const newPlan = result.plans[0];
 
-          await fetch(`${PLAN_API_BASE}/plans/${newPlan.plan_id}/status`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'replan' })
-          });
           newPlan.status = 'replan';
+          const saveRes = await fetch(`${PLAN_API_BASE}/plans`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newPlan)
+          });
+          if (!saveRes.ok) {
+            const err = await saveRes.json().catch(() => ({ detail: 'Unknown error' }));
+            throw new Error(err.detail || 'Failed to save replanned plan');
+          }
 
           await window.fetchPlans();
           selectPlan(newPlan.plan_id);
@@ -1629,6 +1671,7 @@ function renderTimelineBars(plan) {
     const widthPct = Math.max(1, ((end - start) / totalMs * 100)).toFixed(1);
     const color = phaseColors[t.name] || 'var(--color-brand)';
     const isCritical = plan.critical_path_task_ids.includes(t.task_id);
+    const displayName = getEmployeeDisplayName(t.owner);
     return `
       <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
         <div style="width: 130px; flex-shrink: 0; font-size: 0.75rem; color: var(--text-secondary); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
@@ -1651,7 +1694,7 @@ function renderTimelineBars(plan) {
             font-weight: 700;
             white-space: nowrap;
             overflow: hidden;
-          ">${t.owner}</div>
+          ">${displayName}</div>
         </div>
         <div style="width: 80px; flex-shrink: 0; font-size: 0.7rem; color: var(--text-muted); font-family: monospace;">${t.end_date}</div>
       </div>
