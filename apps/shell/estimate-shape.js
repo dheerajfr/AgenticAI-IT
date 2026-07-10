@@ -346,7 +346,7 @@ function renderEstimateWizard(est) {
               <div class="data-item"><div class="data-label">Cost</div><div class="data-value">$${est.cost_estimate}</div></div>
               <div class="data-item"><div class="data-label">Duration Weeks</div><div class="data-value">${est.duration_weeks}</div></div>
               <div class="data-item"><div class="data-label">Confidence</div><div class="data-value" style="text-transform: capitalize;">${est.confidence}</div></div>
-              <div class="data-item"><div class="data-label">Methodology</div><div class="data-value">${est.methodology}</div></div>
+              <div class="data-item"><div class="data-label">Methodology</div><div class="data-value">${est.methodology === 'comparable-history' ? 'LLM prediction' : est.methodology}</div></div>
               <div class="data-item"><div class="data-label">ARB Required</div><div class="data-value">${est.requires_arb ? 'Yes' : 'No'}</div></div>
             </div>
             <div style="margin-top: 1rem;">
