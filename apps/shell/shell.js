@@ -857,9 +857,14 @@ async function runClassifyRouteFlow(id) {
         <div class="form-group">
           <label for="suggest-domain">Domain</label>
           <input type="text" id="suggest-domain" value="${classificationSuggestions.domain || 'General Platform'}">
-          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem; font-style: italic; line-height: 1.25;">
-            Why chosen: ${classificationSuggestions.domain_reason || 'Classification domain suggested by AI analysis.'}
-          </div>
+          <details style="margin-top: 0.5rem; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem;">
+            <summary style="font-size: 0.8rem; color: var(--color-brand); cursor: pointer; font-weight: 600; outline: none; user-select: none;">
+              Why was this domain suggested?
+            </summary>
+            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem; font-style: italic; line-height: 1.4;">
+              ${classificationSuggestions.domain_reason || 'Classification domain suggested by AI analysis.'}
+            </div>
+          </details>
         </div>
         
         <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
