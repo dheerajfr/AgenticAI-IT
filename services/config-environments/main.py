@@ -53,21 +53,26 @@ def reconcile_drift(req: ReconcileDriftRequest):
     Accepts expected and deployed state payloads, compares them, flags drift if they don't match,
     and saves/returns the updated record.
     """
-    existing_record = db.get_by_id_and_env(req.component_id, req.environment)
-    
+    record = db.get_by_id_and_env(req.component_id, req.environment)
     drift_status = "in-sync" if req.deployed_version == req.expected_version else "drifted"
     
-    record = EnvironmentStateRecord(
-        component_id=req.component_id,
-        environment=req.environment,
-        deployed_version=req.deployed_version,
-        expected_version=req.expected_version,
-        drift_status=drift_status,
-        last_checked=_get_current_time_iso(),
-        observed_name=existing_record.observed_name if existing_record else None,
-        cmdb_name=existing_record.cmdb_name if existing_record else None
-    )
-    
+    if record:
+        record.deployed_version = req.deployed_version
+        record.expected_version = req.expected_version
+        record.drift_status = drift_status
+        record.last_checked = _get_current_time_iso()
+    else:
+        record = EnvironmentStateRecord(
+            component_id=req.component_id,
+            environment=req.environment,
+            deployed_version=req.deployed_version,
+            expected_version=req.expected_version,
+            drift_status=drift_status,
+            last_checked=_get_current_time_iso(),
+            observed_name=None,
+            cmdb_name=None
+        )
+        
     db.save(record)
     return record
 
