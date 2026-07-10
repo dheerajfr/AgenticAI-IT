@@ -6,9 +6,9 @@ class StageRail extends HTMLElement {
     this.stages = [
       { id: 'demand-intake', label: 'Demand & intake', status: 'live' },
       { id: 'estimate-shape', label: 'Estimate & shape', status: 'live' },
-      { id: 'plan-schedule', label: 'Plan & schedule', status: 'not started' },
+      { id: 'plan-schedule', label: 'Plan & schedule', status: 'live' },
       { id: 'dependencies', label: 'Dependencies', status: 'live' },
-      { id: 'config-environments', label: 'Config & environments', status: 'not started' }
+      { id: 'config-environments', label: 'Config & environments', status: 'live' }
     ];
   }
 
@@ -112,14 +112,14 @@ class StageRail extends HTMLElement {
       </style>
       <div class="rail-container">
         ${this.stages.map(stage => {
-          const isActive = stage.id === this.activeStage;
-          return `
+      const isActive = stage.id === this.activeStage;
+      return `
             <div class="stage-node ${isActive ? 'active' : ''}" data-id="${stage.id}">
               <div class="stage-title">${stage.label}</div>
               <status-pill status="${stage.status}"></status-pill>
             </div>
           `;
-        }).join('')}
+    }).join('')}
       </div>
     `;
 

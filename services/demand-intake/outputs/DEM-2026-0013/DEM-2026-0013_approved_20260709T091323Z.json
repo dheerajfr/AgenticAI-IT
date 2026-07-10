@@ -1,0 +1,30 @@
+{
+  "demand_id": "DEM-2026-0013",
+  "title": "Spotify Clone",
+  "description": "Spotify Clone",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-09",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": "DEM-2026-0012",
+  "business_case_summary": "Business Case Summary: Spotify Clone (DEM-2026-0013)\n\nExecutive Summary\nThis project proposes developing a Spotify-like music streaming platform to expand our digital entertainment portfolio. It aims to attract new users and establish a presence in the growing audio content market.\n\nDirect Business Value/Impact\nThe platform will generate new revenue streams through subscriptions and advertising. It will also enhance brand recognition and customer engagement within the digital domain.\n\nPotential Risk Mitigation\nTo mitigate high risks, we will adopt a phased development approach with strict security measures. Comprehensive legal counsel for content rights and agile feedback loops will be critical.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 70,
+  "earliest_start_date": "2026-08-08",
+  "capacity_reasoning": [
+    "High-risk demand requires Senior Architect oversight.",
+    "Delivery team has 26% overall available capacity.",
+    "No resource scheduling conflicts detected.",
+    "Skill gap: Required skills Database are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-08."
+  ],
+  "resource_constraints": [],
+  "skill_gaps": [
+    "Database"
+  ]
+}

@@ -85,22 +85,80 @@ def _add_working_days(start: date, n_days: int, working_days_per_week: int) -> d
 # ---------------------------------------------------------------------------
 
 class _RoundRobinOwner:
-    """Stateful round-robin owner iterator per role."""
+    """Stateful capacity-aware and round-robin owner iterator per role."""
 
-    def __init__(self, team: TeamConfig) -> None:
+    def __init__(self, team: TeamConfig, accepted_plans: List[dict] | None = None) -> None:
+        self.team = team
         self._counters: Dict[str, int] = {}
         self._members: Dict[str, List[str]] = {}
         for role_cfg in team.roles:
             self._members[role_cfg.role] = role_cfg.members
             self._counters[role_cfg.role] = 0
 
-    def next_owner(self, role: str) -> str:
+        # Track existing assignments to avoid overlaps
+        self.assignments: List[Tuple[str, date, date]] = []
+        if accepted_plans:
+            for plan in accepted_plans:
+                if plan.get("status") == "accepted":
+                    for t in plan.get("tasks", []):
+                        owner = t.get("owner")
+                        t_start = t.get("start_date")
+                        t_end = t.get("end_date")
+                        if owner and owner != "unassigned" and t_start and t_end:
+                            try:
+                                self.assignments.append((
+                                    owner,
+                                    date.fromisoformat(t_start),
+                                    date.fromisoformat(t_end)
+                                ))
+                            except ValueError:
+                                pass
+
+    def next_owner(self, role: str, start_date: date | None = None, end_date: date | None = None) -> str:
         members = self._members.get(role, [])
         if not members:
             return "unassigned"
-        idx = self._counters.get(role, 0)
-        owner = members[idx % len(members)]
-        self._counters[role] = idx + 1
+
+        # If start/end dates are provided, filter members who are available (no overlaps)
+        if start_date and end_date:
+            available_members = []
+            for m in members:
+                has_overlap = False
+                for owner, s_date, e_date in self.assignments:
+                    # Check if assignee matches member name/email (case-insensitive)
+                    if owner.lower() == m.lower() or owner.lower().split("@")[0] == m.lower().split("@")[0]:
+                        if max(start_date, s_date) <= min(end_date, e_date):
+                            has_overlap = True
+                            break
+                if not has_overlap:
+                    available_members.append(m)
+
+            if available_members:
+                idx = self._counters.get(role, 0)
+                owner = available_members[idx % len(available_members)]
+                self._counters[role] = idx + 1
+            else:
+                # If everyone is busy, assign to the one who is free earliest
+                member_earliest_free: Dict[str, date] = {}
+                for m in members:
+                    max_end = None
+                    for owner, s_date, e_date in self.assignments:
+                        if owner.lower() == m.lower() or owner.lower().split("@")[0] == m.lower().split("@")[0]:
+                            if max_end is None or e_date > max_end:
+                                max_end = e_date
+                    member_earliest_free[m] = max_end if max_end else date.min
+
+                sorted_members = sorted(members, key=lambda m: member_earliest_free[m])
+                owner = sorted_members[0]
+        else:
+            # Traditional round-robin fallback
+            idx = self._counters.get(role, 0)
+            owner = members[idx % len(members)]
+            self._counters[role] = idx + 1
+
+        # Record this assignment
+        if start_date and end_date:
+            self.assignments.append((owner, start_date, end_date))
         return owner
 
 
@@ -203,7 +261,7 @@ def schedule_phases(
 
         # Build a compact task_id:  PLN-<seq>-<PHASE>
         task_id = f"PLN-{plan_seq:04d}-{alloc.phase.upper()}"
-        owner = owner_rr.next_owner(role)
+        owner = owner_rr.next_owner(role, current_start, end)
         display_name = _PHASE_DISPLAY_NAMES[alloc.phase]
 
         task = Task(

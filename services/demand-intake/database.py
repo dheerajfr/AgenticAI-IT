@@ -95,110 +95,138 @@ class DemandDatabase:
 
 
 # ---------------------------------------------------------------------------
-# ResourceDatabase — backed by resource.db (separate file)
+# ResourceDatabase — reads directly from resource.db (new employee schema)
 # ---------------------------------------------------------------------------
 
 class ResourceDatabase:
     def __init__(self, fixtures_dir: str):
         self.fixtures_dir = fixtures_dir
         self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "resource.db"))
-        self._init_db()
 
-    def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS resources (
-                    name TEXT PRIMARY KEY,
-                    role TEXT,
-                    skills TEXT,
-                    total_capacity INTEGER,
-                    allocated_capacity INTEGER
-                )
-            ''')
-            conn.commit()
-
-            # Seed from resources.json if table is empty
-            cursor.execute('SELECT COUNT(*) FROM resources')
-            if cursor.fetchone()[0] == 0:
-                self._seed_resources(conn)
-
-    def _seed_resources(self, conn):
-        resources_path = os.path.join(self.fixtures_dir, "resources.json")
-        if not os.path.exists(resources_path):
-            print(f"Resources seed file not found at: {resources_path}")
-            return
-
-        try:
-            with open(resources_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                cursor = conn.cursor()
-                rows = [
-                    (
-                        res["name"],
-                        res["role"],
-                        json.dumps(res["skills"]),
-                        res["total_capacity"],
-                        res["allocated_capacity"],
-                    )
-                    for res in data
-                ]
-                cursor.executemany(
-                    "INSERT OR REPLACE INTO resources "
-                    "(name, role, skills, total_capacity, allocated_capacity) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    rows,
-                )
-                conn.commit()
-                print(f"Initialized resource.db with {len(rows)} records from {resources_path}.")
-        except Exception as e:
-            print(f"Error seeding resource.db: {e}")
+    def _conn(self) -> sqlite3.Connection:
+        return sqlite3.connect(self.db_path)
 
     def get_all_resources(self) -> List[dict]:
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT name, role, skills, total_capacity, allocated_capacity FROM resources"
-            )
-            rows = cursor.fetchall()
-            return [
-                {
-                    "name": row[0],
-                    "role": row[1],
-                    "skills": json.loads(row[2]),
-                    "total_capacity": row[3],
-                    "allocated_capacity": row[4],
-                }
-                for row in rows
-            ]
+        """Return all resources from resource.db using the employee schema.
 
-    def save_resource(self, resource: dict) -> dict:
-        with sqlite3.connect(self.db_path) as conn:
+        Derives total_capacity and allocated_capacity from allocation_percentage
+        so that perform_capacity_check() in main.py works without changes.
+        Capacity unit = 40 hours/week (standard)
+        """
+        if not os.path.exists(self.db_path):
+            return []
+        with self._conn() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT OR REPLACE INTO resources
-                (name, role, skills, total_capacity, allocated_capacity)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    resource["name"],
-                    resource["role"],
-                    json.dumps(resource["skills"]),
-                    resource["total_capacity"],
-                    resource["allocated_capacity"],
-                ),
+                SELECT employee_name, role, skills, allocation_percentage, status
+                FROM resources
+                """
             )
+            rows = cursor.fetchall()
+
+        result = []
+        for name, role, skills_raw, alloc_pct, status in rows:
+            try:
+                skills = json.loads(skills_raw) if skills_raw else []
+            except (json.JSONDecodeError, TypeError):
+                skills = [skills_raw] if skills_raw else []
+
+            alloc_pct = alloc_pct or 0.0
+            total_capacity = 40  # standard weekly hours
+            allocated_capacity = int(round(total_capacity * alloc_pct / 100))
+
+            result.append({
+                "name": name,
+                "role": role,
+                "skills": skills,
+                "total_capacity": total_capacity,
+                "allocated_capacity": allocated_capacity,
+                # extra fields for richer capacity logic
+                "allocation_percentage": alloc_pct,
+                "status": status or "Available",
+            })
+        return result
+
+    def save_resource(self, resource: dict) -> dict:
+        """Upsert a resource into resource.db using the employee schema.
+
+        - If an employee with the same email already exists: update role, skills,
+          allocation_percentage.
+        - If the employee is new: insert a full row with a generated employee_id,
+          derived email, and Available/unallocated defaults.
+        """
+        if not os.path.exists(self.db_path):
+            return resource
+
+        name = resource.get("name", "").strip()
+        role = resource.get("role", "")
+        skills_list = resource.get("skills", [])
+        skills_str = json.dumps(skills_list)
+        skill = skills_list[0] if skills_list else role
+
+        # Derive allocation_percentage from provided capacity fields
+        total = resource.get("total_capacity", 40) or 40
+        alloc = resource.get("allocated_capacity", 0) or 0
+        alloc_pct = round((alloc / total) * 100, 1)
+
+        # Generate a deterministic email from the name
+        email = name.lower().replace(" ", ".") + "@example.com"
+
+        with self._conn() as conn:
+            cursor = conn.cursor()
+
+            # Check if this employee already exists
+            cursor.execute(
+                "SELECT COUNT(*) FROM resources WHERE email = ? OR employee_name = ?",
+                (email, name),
+            )
+            exists = cursor.fetchone()[0] > 0
+
+            if exists:
+                # Update mutable fields only — preserve allocation/leave state
+                cursor.execute(
+                    """
+                    UPDATE resources
+                    SET role = ?, skill = ?, skills = ?, allocation_percentage = ?
+                    WHERE email = ? OR employee_name = ?
+                    """,
+                    (role, skill, skills_str, alloc_pct, email, name),
+                )
+            else:
+                # Generate next employee_id
+                cursor.execute("SELECT COUNT(*) FROM resources")
+                count = cursor.fetchone()[0]
+                emp_id = f"EMP-2026-{count + 1:04d}"
+
+                cursor.execute(
+                    """
+                    INSERT INTO resources (
+                        employee_id, employee_name, email, role, skill, skills,
+                        experience, department, status, allocated,
+                        current_project, current_task,
+                        project_start_date, project_end_date,
+                        allocation_percentage,
+                        leave_start_date, leave_end_date
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Available', 0,
+                              NULL, NULL, NULL, NULL, ?, NULL, NULL)
+                    """,
+                    (emp_id, name, email, role, skill, skills_str,
+                     5, "Engineering", alloc_pct),
+                )
             conn.commit()
         return resource
 
     def delete_resource(self, name: str) -> bool:
-        with sqlite3.connect(self.db_path) as conn:
+        """Delete a resource by employee_name."""
+        if not os.path.exists(self.db_path):
+            return False
+        with self._conn() as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM resources WHERE name = ?", (name,))
+            cursor.execute("DELETE FROM resources WHERE employee_name = ?", (name,))
             deleted = cursor.rowcount > 0
             conn.commit()
-            return deleted
+        return deleted
 
 
 # ---------------------------------------------------------------------------

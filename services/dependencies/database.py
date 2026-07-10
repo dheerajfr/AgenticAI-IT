@@ -88,6 +88,14 @@ class DependencyDatabase:
             conn.commit()
 
 
+    def delete(self, dependency_id: str) -> bool:
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM dependencies WHERE dependency_id = ?", (dependency_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+
 class PlanLoader:
     @staticmethod
     def get_plan_db_path() -> str:

@@ -1,0 +1,28 @@
+{
+  "demand_id": "DEM-2026-0067",
+  "title": "Clone Netflix",
+  "description": "The user is requesting a project to clone the Netflix platform.",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-09",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Clone Netflix (DEM-2026-0067)\n\nExecutive Summary\nThis request proposes cloning the Netflix platform, a high-risk endeavor due to immense complexity and resource requirements. A thorough feasibility study is imperative to assess viability.\n\nDirect Business Value/Impact\nDirect value is low given lack of differentiation against an established market leader. It risks significant financial and operational investment without clear competitive advantage or ROI.\n\nPotential Risk Mitigation\nConduct a comprehensive feasibility study and competitive analysis first. Explore unique niche markets or distinct content strategies, or pivot to a more achievable and differentiated offering.",
+  "status": "approved",
+  "capacity_verdict": "feasible",
+  "capacity_score": 90,
+  "earliest_start_date": "2026-07-09",
+  "capacity_reasoning": [
+    "High-risk demand requires Senior Architect oversight.",
+    "Delivery team has 72% overall available capacity.",
+    "No resource scheduling conflicts detected.",
+    "All required technical skills are available in the current workforce pool.",
+    "Delivery work can begin immediately."
+  ],
+  "resource_constraints": [],
+  "skill_gaps": []
+}

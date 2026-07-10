@@ -27,48 +27,56 @@ def call_gemini(
     model_name: Optional[str] = None
 ) -> Any:
     """
-    Directly calls the Google Gemini API to generate content or structured JSON.
-    Uses the provided api_key or falls back to the GEMINI_API_KEY environment variable.
+    Directly calls the Azure OpenAI API to generate content or structured JSON.
+    Uses the provided api_key or falls back to Entra ID or the AZURE_OPENAI_API_KEY environment variable.
     """
-    key = api_key or os.getenv("GEMINI_API_KEY")
-    actual_model = model_name or os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash")
-    if not key:
-        raise ValueError(
-            "GEMINI_API_KEY is not set. Please set the GEMINI_API_KEY environment variable "
-            "or pass it as an argument."
-        )
-
     try:
-        from google import genai
-        from google.genai import types
+        from openai import OpenAI
+        from azure.identity import DefaultAzureCredential, get_bearer_token_provider
     except ImportError:
         raise ImportError(
-            "The 'google-genai' package is not installed. "
-            "Please run 'pip install google-genai' or install requirements.txt."
+            "The 'openai' or 'azure-identity' package is not installed."
         )
 
-    client = genai.Client(api_key=key)
-    config = types.GenerateContentConfig()
+    endpoint = "https://karthiksajja9098-2712-resource.services.ai.azure.com/openai/v1"
+    deployment_name = model_name or "gpt-4.1-mini"
     
-    if system_instruction:
-        config.system_instruction = system_instruction
-        
-    if is_json:
-        config.response_mime_type = "application/json"
+    # Try using AZURE_OPENAI_API_KEY, else use Entra ID token provider
+    env_api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("GEMINI_API_KEY")
 
-    response = client.models.generate_content(
-        model=actual_model,
-        contents=prompt,
-        config=config
+    if env_api_key:
+        client = OpenAI(
+            base_url=endpoint,
+            api_key=env_api_key
+        )
+    else:
+        token_provider = get_bearer_token_provider(DefaultAzureCredential(), "https://ai.azure.com/.default")
+        client = OpenAI(
+            base_url=endpoint,
+            api_key=token_provider
+        )
+
+    messages = []
+    if system_instruction:
+        messages.append({"role": "system", "content": system_instruction})
+    messages.append({"role": "user", "content": prompt})
+    
+    response_format = None
+    if is_json:
+        response_format = {"type": "json_object"}
+
+    response = client.chat.completions.create(
+        model=deployment_name,
+        messages=messages,
+        response_format=response_format
     )
     
-    text = response.text.strip()
+    text = response.choices[0].message.content.strip()
     
     if is_json:
         try:
             return json.loads(text)
         except Exception:
-            # Safe parsing fallback if Gemini outputs markdown wrappers
             if text.startswith("```json"):
                 text = text[7:]
             if text.endswith("```"):

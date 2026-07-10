@@ -39,9 +39,20 @@ function clearEstimateSidebarSelection() {
   });
 }
 
+let allDemands = [];
+
 window.fetchEstimates = async function() {
   const container = document.getElementById('estimate-list-container');
   try {
+    try {
+      const dRes = await fetch(`${DEMAND_API_BASE}/demands`);
+      if (dRes.ok) {
+          allDemands = await dRes.json();
+      }
+    } catch(e) {
+      console.error("Could not fetch demands for title mapping", e);
+    }
+
     const res = await fetch(`${ESTIMATE_API_BASE}/estimates`);
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
     estimates = await res.json();
@@ -83,6 +94,9 @@ function renderEstimateList() {
     else if (est.status === 'approved') statusClass = 'green';
     else if (est.status === 're-baselined') statusClass = 'blue';
     
+    const demand = allDemands.find(d => d.demand_id === est.demand_id);
+    const displayTitle = demand ? demand.title : est.demand_id;
+    
     return `
       <li class="demand-item ${isActive ? 'active' : ''}" data-id="${est.estimate_id}">
         <div class="demand-item-header">
@@ -96,7 +110,7 @@ function renderEstimateList() {
             </button>
           </div>
         </div>
-        <h4 class="demand-item-title">Demand: ${est.demand_id}</h4>
+        <h4 class="demand-item-title">Demand: ${displayTitle}</h4>
         <div class="demand-item-meta">
           <span>Cost: $${est.cost_estimate}</span>
           <span>Effort: ${est.effort_days}d</span>
@@ -294,6 +308,9 @@ function showEstimateError(msg) {
 function renderEstimateWizard(est) {
   const panel = document.getElementById('estimate-panel-container');
   
+  const demand = allDemands.find(d => d.demand_id === est.demand_id);
+  const displayTitle = demand ? demand.title : est.demand_id;
+
   const isDraft = est.status === 'draft';
   const isApproved = est.status === 'approved' || est.status === 're-baselined';
   const isRebaselined = est.status === 're-baselined';
@@ -304,7 +321,7 @@ function renderEstimateWizard(est) {
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
         <div>
           <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${est.estimate_id}</span>
-          <h2 style="font-family: var(--font-display); font-size: 1.5rem; margin: 0.2rem 0 0 0; color: var(--text-primary);">Demand: ${est.demand_id}</h2>
+          <h2 style="font-family: var(--font-display); font-size: 1.5rem; margin: 0.2rem 0 0 0; color: var(--text-primary);">Demand: ${displayTitle}</h2>
         </div>
         <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
           <div>
