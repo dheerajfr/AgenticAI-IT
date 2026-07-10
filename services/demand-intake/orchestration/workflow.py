@@ -26,7 +26,7 @@ class WorkflowState(TypedDict):
     domain: Optional[str]
     risk_level: Optional[str]
     duplicate_of: Optional[str]
-    assigned_to: Optional[str]
+    domain_reason: Optional[str]
     business_case_summary: Optional[str]
     
     # Extraction inputs/outputs
@@ -182,21 +182,23 @@ def classify_node(state: WorkflowState) -> Dict[str, Any]:
     - type: one of "project", "enhancement", "defect-fix", "compliance"
     - domain: the business or technical area (e.g., "Payments & Checkout", "Customer Digital", "Infrastructure", "Security & Compliance")
     - risk_level: one of "low", "medium", "high"
+    - domain_reason: a brief, one-line explanation of why this domain was selected based on the title and description.
     
-    Format response as valid JSON with fields: type, domain, risk_level.
+    Format response as valid JSON with fields: type, domain, risk_level, domain_reason.
     """
     
     try:
         classification = call_gemini(
             prompt=prompt,
-            system_instruction="Classify development requests.",
+            system_instruction="Classify development requests and explain domain selection.",
             is_json=True
         )
         print(f"[LangGraph Node: classify] Suggested type={classification.get('type')}, domain={classification.get('domain')}, risk={classification.get('risk_level')}")
         return {
             "type": classification.get("type") or "project",
             "domain": classification.get("domain") or "General Platform",
-            "risk_level": classification.get("risk_level") or "medium"
+            "risk_level": classification.get("risk_level") or "medium",
+            "domain_reason": classification.get("domain_reason") or "Assigned to General Platform by default."
         }
     except Exception as e:
         print(f"[LangGraph Node: classify] Classification failed: {e}")
@@ -238,27 +240,6 @@ def check_duplicates_node(state: WorkflowState) -> Dict[str, Any]:
     return {"duplicate_of": duplicate_of}
 
 
-def route_node(state: WorkflowState) -> Dict[str, Any]:
-    print(f"[LangGraph Node: route] Selecting owner and team queue for demand {state.get('demand_id')}...")
-    domain = state.get("domain") or ""
-    dtype = state.get("type") or ""
-    
-    assigned_to = "general-delivery-queue"
-    
-    domain_lower = domain.lower()
-    if "payment" in domain_lower or "checkout" in domain_lower:
-        assigned_to = "d.chen (Payments & Checkout Team)"
-    elif "security" in domain_lower or "compliance" in domain_lower or dtype == "compliance":
-        assigned_to = "clara.davis (Security & Governance Team)"
-    elif "infrastructure" in domain_lower or "cloud" in domain_lower or "database" in domain_lower:
-        assigned_to = "infra-platform-queue"
-    elif "digital" in domain_lower or "customer" in domain_lower:
-        assigned_to = "m.rodriguez (Customer Digital Team)"
-    elif dtype == "defect-fix":
-        assigned_to = "developer.dan (Core Maintenance Team)"
-        
-    print(f"[LangGraph Node: route] Routed demand to: {assigned_to}")
-    return {"assigned_to": assigned_to}
 
 # ---------------------------------------------------------------------------
 # Node 6: Business Case Generation Node
@@ -335,7 +316,6 @@ builder.add_node("parse_document", parse_document_node)
 builder.add_node("extract", extract_node)
 builder.add_node("classify", classify_node)
 builder.add_node("check_duplicates", check_duplicates_node)
-builder.add_node("route", route_node)
 builder.add_node("generate_draft", generate_draft_node)
 
 # Set conditional entry point
@@ -355,8 +335,7 @@ builder.add_edge("parse_document", "extract")
 builder.add_edge("extract", END)
 
 builder.add_edge("classify", "check_duplicates")
-builder.add_edge("check_duplicates", "route")
-builder.add_edge("route", END)
+builder.add_edge("check_duplicates", END)
 
 builder.add_edge("generate_draft", END)
 

@@ -17,7 +17,8 @@ def dummy_call_gemini(prompt, system_instruction=None, is_json=False, **kwargs):
             return {
                 "type": "compliance",
                 "domain": "Security & Compliance",
-                "risk_level": "high"
+                "risk_level": "high",
+                "domain_reason": "Because this request explicitly deals with security compliance policies."
             }
         elif "extract" in prompt_lower or "structure" in prompt_lower:
             import re

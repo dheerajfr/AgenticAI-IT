@@ -857,21 +857,18 @@ async function runClassifyRouteFlow(id) {
         <div class="form-group">
           <label for="suggest-domain">Domain</label>
           <input type="text" id="suggest-domain" value="${classificationSuggestions.domain || 'General Platform'}">
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem; font-style: italic; line-height: 1.25;">
+            Why chosen: ${classificationSuggestions.domain_reason || 'Classification domain suggested by AI analysis.'}
+          </div>
         </div>
         
-        <div class="grid-2col" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
           <div class="data-item">
             <div class="data-label">Duplicate Detection Check</div>
             <div class="data-value">
               ${classificationSuggestions.duplicate_of ? 
                 `<strong style="color: var(--color-status-amber-text);">DUPLICATE MATCH: ${classificationSuggestions.duplicate_of}</strong>` : 
                 '<span style="color: var(--color-status-green-text);">Clean (No duplicates found)</span>'}
-            </div>
-          </div>
-          <div class="data-item">
-            <div class="data-label">Routed Queue Owner</div>
-            <div class="data-value" style="font-family: monospace; font-size: 0.85rem;">
-              ${classificationSuggestions.assigned_to || 'General Queue'}
             </div>
           </div>
         </div>

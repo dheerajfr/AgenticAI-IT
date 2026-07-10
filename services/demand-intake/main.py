@@ -216,7 +216,7 @@ def run_classify_route(demand_id: str):
         "domain": None,
         "risk_level": None,
         "duplicate_of": None,
-        "assigned_to": None,
+        "domain_reason": None,
         "error": None
     }
     
@@ -239,7 +239,7 @@ def run_classify_route(demand_id: str):
         "domain": graph_output.get("domain"),
         "risk_level": graph_output.get("risk_level"),
         "duplicate_of": graph_output.get("duplicate_of"),
-        "assigned_to": graph_output.get("assigned_to")
+        "domain_reason": graph_output.get("domain_reason")
     }
 
 
