@@ -1,0 +1,46 @@
+{
+  "demand_id": "DEM-2026-0076",
+  "title": "Team Tracker Website Development",
+  "description": "Build a team tracker website using GenAI technology.",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-10",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": "DEM-2026-0072",
+  "business_case_summary": "Business Case Summary: Team Tracker Website Development (DEM-2026-0076)\n\nExecutive Summary  \nThis project aims to develop a team tracker website leveraging GenAI technology to enhance team collaboration and productivity within the Customer Digital domain. The solution will modernize workflows and provide real-time insights into team activities.\n\nBusiness Value  \nThe website will improve operational efficiency by enabling better resource management and faster decision-making. It is expected to increase team transparency, leading to higher customer satisfaction and business performance.\n\nRisk Mitigation  \nMedium-level risks include technology integration and data privacy concerns, which will be addressed through thorough testing and compliance with security standards. Ongoing monitoring and contingency planning will ensure timely issue resolution.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 0,
+  "earliest_start_date": "2026-08-09",
+  "capacity_reasoning": [
+    "Medium-risk demand profile checked.",
+    "Delivery team has 54% overall available capacity.",
+    "Constraint: Security Engineer has only 0 units available (requires 5).",
+    "Constraint: QA Engineer has only 0 units available (requires 10).",
+    "Skill gap: Required skills GenAI, Web Development, Frontend, Backend, QA are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-09."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Security Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 5
+    },
+    {
+      "role": "QA Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 10
+    }
+  ],
+  "skill_gaps": [
+    "GenAI",
+    "Web Development",
+    "Frontend",
+    "Backend",
+    "QA"
+  ]
+}

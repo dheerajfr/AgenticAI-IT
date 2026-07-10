@@ -2,6 +2,7 @@ const DEPENDENCIES_API_BASE = 'http://127.0.0.1:8000/api';
 
 let dependencies = [];
 let selectedDependencyId = null;
+let planToDemandMap = {};
 
 // Expose to window so shell.js can call it
 window.renderDependenciesScreen = function () {
@@ -50,6 +51,19 @@ function clearDependencySidebarSelection() {
 window.fetchDependencies = async function () {
   const container = document.getElementById('dependency-list-container');
   try {
+    try {
+      const pRes = await fetch(`${DEPENDENCIES_API_BASE}/plans`);
+      if (pRes.ok) {
+        const plans = await pRes.json();
+        planToDemandMap = {};
+        plans.forEach(p => {
+          planToDemandMap[p.plan_id] = p.demand_id;
+        });
+      }
+    } catch (e) {
+      console.error("Could not fetch plans for mapping", e);
+    }
+
     const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies`);
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
     dependencies = await res.json();
@@ -107,7 +121,7 @@ function renderDependencyList() {
     return `
       <li class="demand-item ${isActive ? 'active' : ''}" data-id="${dep.dependency_id}" style="position: relative;">
         <div class="demand-item-header">
-          <span class="demand-item-id">${dep.plan_id || dep.dependency_id}</span>
+          <span class="demand-item-id">${planToDemandMap[dep.plan_id] || dep.dependency_id}</span>
           <div style="display: flex; align-items: center; gap: 0.4rem;">
             <span style="font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;" class="${statusClass}">
               ${dep.status}
@@ -358,7 +372,7 @@ function renderDependencyDetails(dep) {
       <!-- ===== HEADER ===== -->
       <div class="wizard-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
         <div>
-          <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${dep.plan_id || dep.dependency_id}</span>
+          <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${planToDemandMap[dep.plan_id] || dep.dependency_id}</span>
           <h2 style="font-family: var(--font-display); font-size: 1.5rem; margin: 0.2rem 0 0 0; color: var(--text-primary);">Dependency Analysis <span style="font-family: monospace; font-size: 0.85rem; color: var(--text-muted); font-weight: 400;">(${dep.dependency_id})</span></h2>
         </div>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
@@ -1362,8 +1376,8 @@ function showAutoSenseForm() {
           select.innerHTML = '<option value="">No active plans found</option>';
         } else {
           select.innerHTML = plansList.map((p, idx) => {
-            const planName = p.release_name || `Plan ${idx + 1}: ${p.plan_id}`;
-            return `<option value="${p.plan_id}">${planName} (${p.plan_id})</option>`;
+            const planName = p.release_name || `Plan ${idx + 1}: ${p.demand_id}`;
+            return `<option value="${p.plan_id}">${planName} (${p.demand_id})</option>`;
           }).join('');
           if (btn) btn.disabled = false;
         }
@@ -1537,8 +1551,8 @@ function showNewEdgeForm() {
           select.innerHTML = '<option value="">No active plans found</option>';
         } else {
           select.innerHTML = plansList.map((p, idx) => {
-            const planName = p.release_name || `Plan ${idx + 1}: ${p.plan_id}`;
-            return `<option value="${p.plan_id}">${planName} (${p.plan_id})</option>`;
+            const planName = p.release_name || `Plan ${idx + 1}: ${p.demand_id}`;
+            return `<option value="${p.plan_id}">${planName} (${p.demand_id})</option>`;
           }).join('');
           if (btn) btn.disabled = false;
         }

@@ -290,7 +290,6 @@ function renderPlanList() {
             <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
           </button>
         </div>
-        <h4 class="demand-item-title" style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 400;">Plan: <span style="font-family: monospace; font-size: 0.75rem;">${plan.plan_id}</span></h4>
         <div class="demand-item-meta">
           <span>End: ${plan.end_date}</span>
           <span>${taskCount} tasks</span>
@@ -387,7 +386,7 @@ async function showNewPlanForm() {
 
   const estimateOptions = availableEstimates.length
     ? `<option value="" disabled selected>— Select an Estimate —</option>` + availableEstimates.map(e =>
-      `<option value="${e.estimate_id}">${e.demand_id} — Est ${e.estimate_id} (${e.confidence} conf, ${e.effort_days}d)</option>`
+      `<option value="${e.estimate_id}">${e.demand_id} (${e.confidence} conf, ${e.effort_days}d)</option>`
     ).join('')
     : `<option value="" disabled selected>No approved estimates found</option>`;
 
@@ -607,7 +606,6 @@ function renderPlanPreview(newPlans, actionsRow) {
       <div class="suggestion-box" style="margin-bottom: 1rem;">
         <h5 class="suggestion-title" style="display: flex; justify-content: space-between; align-items: center;">
           <span>${plan.demand_id}</span>
-          <span style="font-size: 0.75rem; font-weight: 400; color: var(--text-secondary);">Plan: <span style="font-family: monospace;">${plan.plan_id}</span></span>
         </h5>
         <div class="grid-2col" style="margin-bottom: 1rem;">
           <div class="data-item"><div class="data-label">End Date</div><div class="data-value">${plan.end_date}</div></div>
@@ -1142,7 +1140,7 @@ function renderPlanDetail(plan) {
         <div>
           <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${plan.demand_id}</span>
           <h2 style="font-family: var(--font-display); font-size: 1.5rem; margin: 0.2rem 0 0 0; color: var(--text-primary); display: flex; align-items: center; gap: 0.75rem;">
-            Plan <span style="font-family: monospace; font-size: 0.95rem; color: var(--text-muted); font-weight: 400;">(${plan.plan_id})</span>
+            Plan
             <span style="font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: var(--radius-sm); font-weight: 600; text-transform: uppercase; color: ${badgeColor}; background: ${badgeBg}; border: 1px solid ${badgeColor};">
               ${badgeText}
             </span>
