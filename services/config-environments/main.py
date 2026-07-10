@@ -53,21 +53,26 @@ def reconcile_drift(req: ReconcileDriftRequest):
     Accepts expected and deployed state payloads, compares them, flags drift if they don't match,
     and saves/returns the updated record.
     """
-    existing_record = db.get_by_id_and_env(req.component_id, req.environment)
-    
+    record = db.get_by_id_and_env(req.component_id, req.environment)
     drift_status = "in-sync" if req.deployed_version == req.expected_version else "drifted"
     
-    record = EnvironmentStateRecord(
-        component_id=req.component_id,
-        environment=req.environment,
-        deployed_version=req.deployed_version,
-        expected_version=req.expected_version,
-        drift_status=drift_status,
-        last_checked=_get_current_time_iso(),
-        observed_name=existing_record.observed_name if existing_record else None,
-        cmdb_name=existing_record.cmdb_name if existing_record else None
-    )
-    
+    if record:
+        record.deployed_version = req.deployed_version
+        record.expected_version = req.expected_version
+        record.drift_status = drift_status
+        record.last_checked = _get_current_time_iso()
+    else:
+        record = EnvironmentStateRecord(
+            component_id=req.component_id,
+            environment=req.environment,
+            deployed_version=req.deployed_version,
+            expected_version=req.expected_version,
+            drift_status=drift_status,
+            last_checked=_get_current_time_iso(),
+            observed_name=None,
+            cmdb_name=None
+        )
+        
     db.save(record)
     return record
 
@@ -169,14 +174,14 @@ def promote_environment(req: PromoteEnvironmentRequest):
 
 @app.post("/api/environments/verify-readiness")
 def verify_readiness(req: VerifyReadinessRequest):
+    record = db.get_by_id_and_env(req.component_id, req.environment)
+    if not record:
+        raise HTTPException(status_code=404, detail="Environment record not found.")
+
     issues = []
-    # Evaluate the list of requirements for the software version to satisfy
-    for req_item in req.dependent_component_ids:
-        # Simulate missing requirements in specific environments
-        if req.environment == 'test' and 'Schema' in req_item:
-            issues.append(f"Requirement '{req_item}' is not satisfied in {req.environment}.")
-        if req.environment == 'staging' and 'IAM' in req_item:
-            issues.append(f"Requirement '{req_item}' is missing or improperly configured in {req.environment}.")
+    for expected in record.expected_requirements:
+        if expected not in record.observed_requirements:
+            issues.append(f"Requirement '{expected}' is missing or not satisfied in {req.environment}.")
             
     if issues:
         return {"ready": False, "issues": issues}

@@ -419,9 +419,15 @@ window.simulateDrift = async function(component_id, environment) {
     if (!res.ok) throw new Error('API request failed');
     const data = await res.json();
     
-    resultBox.style.background = 'rgba(34, 197, 94, 0.1)';
-    resultBox.style.border = '1px solid rgba(34, 197, 94, 0.3)';
-    resultBox.style.color = '#86efac';
+    if (data.drift_status === 'drifted') {
+      resultBox.style.background = 'rgba(239, 68, 68, 0.1)';
+      resultBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+      resultBox.style.color = '#fca5a5';
+    } else {
+      resultBox.style.background = 'rgba(34, 197, 94, 0.1)';
+      resultBox.style.border = '1px solid rgba(34, 197, 94, 0.3)';
+      resultBox.style.color = '#86efac';
+    }
     resultBox.innerHTML = `Simulation Complete!\nNew Status: ${data.drift_status.toUpperCase()}\n<br/>Refreshing UI...`;
     
     setTimeout(() => {
@@ -459,7 +465,11 @@ window.simulateHygiene = async function(component_id, environment) {
     let html = `Hygiene Check Complete!\nStatus: ${data.status}\nMessage: ${data.message}`;
     
     const record = environments.find(e => e.component_id === component_id && e.environment === environment);
-    html += `\n\nCompared Names:\n- Current CMDB Name: ${record.cmdb_name}\n- Observed Name: ${record.observed_name}`;
+    if (data.status === 'clean') {
+      html += `\n\nCompared Names (Matched Okay):\n- Observed: ${record.observed_name}\n- CMDB: ${record.cmdb_name}`;
+    } else {
+      html += `\n\nCompared Names (Mismatch):\n- Observed: ${record.observed_name}\n- CMDB: ${record.cmdb_name}`;
+    }
     
     if (data.proposed_action) {
       html += `<br/><br/>Proposed CMDB Update:\n`;
@@ -503,14 +513,11 @@ window.verifyReadiness = async function(component_id, environment) {
   resultBox.style.color = '#93c5fd';
   resultBox.innerHTML = 'Verifying readiness...';
   
-  // Dependencies/Requirements for the Baseline Reconcile
-  const deps = ['Database Schema v2.1', 'API Gateway Route', 'IAM Role Permissions', 'Config Variable: DB_URL'];
-  
   try {
     const res = await fetch(`${ENV_API_BASE}/environments/verify-readiness`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ component_id, environment, dependent_component_ids: deps })
+      body: JSON.stringify({ component_id, environment })
     });
     if (!res.ok) throw new Error('API request failed');
     const data = await res.json();
@@ -540,9 +547,12 @@ window.viewDependencies = function(component_id, environment) {
   resultBox.style.border = '1px solid rgba(255, 255, 255, 0.2)';
   resultBox.style.color = '#e2e8f0';
   
-  const deps = ['Database Schema v2.1', 'API Gateway Route', 'IAM Role Permissions', 'Config Variable: DB_URL'];
+  const record = environments.find(e => e.component_id === component_id && e.environment === environment);
   
   resultBox.innerHTML = `<strong>Requirements for ${component_id} in ${environment}:</strong><br/><br/>` + 
-                        deps.map(d => `- ${d}`).join('<br/>') + 
+                        `<strong>Expected:</strong><br/>` +
+                        (record.expected_requirements && record.expected_requirements.length ? record.expected_requirements.map(d => `- ${d}`).join('<br/>') : 'None (Empty)') + 
+                        `<br/><br/><strong>Currently Met:</strong><br/>` +
+                        (record.observed_requirements && record.observed_requirements.length ? record.observed_requirements.map(d => `- ${d}`).join('<br/>') : 'None (Empty)') +
                         `<br/><br/><em>The Baseline Reconcile step will ensure all these conditions are satisfied before proceeding.</em>`;
 }
