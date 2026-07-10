@@ -367,19 +367,23 @@ function showNewIntakeForm() {
   const fileNameSpan = document.getElementById('selected-file-name');
   const removeFileBtn = document.getElementById('btn-remove-file');
 
-  fileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-      selectedFile = e.target.files[0];
-      fileNameSpan.textContent = selectedFile.name;
-      fileInfoDiv.style.display = 'flex';
-    }
-  });
+  if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        selectedFile = e.target.files[0];
+        if (fileNameSpan) fileNameSpan.textContent = selectedFile.name;
+        if (fileInfoDiv) fileInfoDiv.style.display = 'flex';
+      }
+    });
+  }
 
-  removeFileBtn.addEventListener('click', () => {
-    selectedFile = null;
-    fileInput.value = '';
-    fileInfoDiv.style.display = 'none';
-  });
+  if (removeFileBtn) {
+    removeFileBtn.addEventListener('click', () => {
+      selectedFile = null;
+      if (fileInput) fileInput.value = '';
+      if (fileInfoDiv) fileInfoDiv.style.display = 'none';
+    });
+  }
 
   // Attach Form Submit event
   document.getElementById('intake-form').addEventListener('submit', handleIntakeSubmit);
@@ -720,6 +724,21 @@ function renderDemandWizard(demand) {
                   ${renderMarkdown(demand.business_case_summary)}
                 </div>
               </div>
+              <!-- Redo + Next Step CTAs -->
+              <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color); flex-wrap: wrap;">
+                <button type="button" id="btn-redo-business-case" style="display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.9rem; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-secondary); transition: all 0.15s ease;"
+                  onmouseover="this.style.borderColor='var(--color-brand)';this.style.color='var(--color-brand)';"
+                  onmouseout="this.style.borderColor='var(--border-color)';this.style.color='var(--text-secondary)';">
+                  ↺ Re-run Business Case
+                </button>
+                <div style="flex:1;"></div>
+                <button type="button" id="btn-proceed-to-estimate" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1.2rem; border-radius: var(--radius-sm); font-size: 0.88rem; font-weight: 700; cursor: pointer; border: none; background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,0.35); transition: all 0.18s ease;"
+                  onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(16,185,129,0.45)';"
+                  onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(16,185,129,0.35)';">
+                  <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+                  Next: Generate Estimate &nbsp;→
+                </button>
+              </div>
             ` : (demand.business_case_summary ? `
               <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0; margin-bottom: 1rem;">
                 Review and refine your business case draft below. You can save updates as draft or submit for final sign-off.
@@ -786,7 +805,26 @@ function renderDemandWizard(demand) {
     if (demand.business_case_summary) {
       attachBusinessCaseListeners(demand.demand_id);
     } else {
-      document.getElementById('btn-run-business-case').addEventListener('click', () => {
+      const btnRunBusinessCase = document.getElementById('btn-run-business-case');
+      if (btnRunBusinessCase) {
+        btnRunBusinessCase.addEventListener('click', () => {
+          runBusinessCaseFlow(demand.demand_id);
+        });
+      }
+    }
+  }
+
+  if (isAllApproved) {
+    const proceedBtn = document.getElementById('btn-proceed-to-estimate');
+    if (proceedBtn) {
+      proceedBtn.addEventListener('click', () => {
+        sessionStorage.setItem('pendingEstimateDemandId', demand.demand_id);
+        window.switchStage('estimate-shape');
+      });
+    }
+    const redoBtn = document.getElementById('btn-redo-business-case');
+    if (redoBtn) {
+      redoBtn.addEventListener('click', () => {
         runBusinessCaseFlow(demand.demand_id);
       });
     }
@@ -1351,6 +1389,8 @@ async function approveBusinessCase(id) {
     
     if (!res.ok) throw new Error("Approval commit failed.");
     
+    // Pre-set the handoff key so Estimate screen auto-selects this demand
+    sessionStorage.setItem('pendingEstimateDemandId', id);
     await fetchDemands();
   } catch (err) {
     saveDemandScrollPosition(id);

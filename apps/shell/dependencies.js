@@ -55,6 +55,16 @@ window.fetchDependencies = async function () {
     dependencies = await res.json();
     renderDependencyList();
 
+    // Check if we arrived from the Plan module — auto-trigger sense form
+    const pendingAutoSense = sessionStorage.getItem('pendingDepsAutoSense');
+    if (pendingAutoSense) {
+      sessionStorage.removeItem('pendingDepsAutoSense');
+      selectedDependencyId = null;
+      clearDependencySidebarSelection();
+      showAutoSenseForm();
+      return;
+    }
+
     if (dependencies.length > 0 && selectedDependencyId === null) {
       selectDependency(dependencies[0].dependency_id);
     } else if (selectedDependencyId !== null) {
@@ -97,7 +107,7 @@ function renderDependencyList() {
     return `
       <li class="demand-item ${isActive ? 'active' : ''}" data-id="${dep.dependency_id}" style="position: relative;">
         <div class="demand-item-header">
-          <span class="demand-item-id">${dep.dependency_id}</span>
+          <span class="demand-item-id">${dep.plan_id || dep.dependency_id}</span>
           <div style="display: flex; align-items: center; gap: 0.4rem;">
             <span style="font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;" class="${statusClass}">
               ${dep.status}
@@ -107,9 +117,9 @@ function renderDependencyList() {
             </button>
           </div>
         </div>
-        <h4 class="demand-item-title" style="font-size: 0.85rem; font-weight: 700;"><span style="color: var(--color-brand); font-weight: 600;">[${planLabel}]</span> ${dep.source_task_id} &rarr; ${dep.target_task_id}</h4>
+        <h4 class="demand-item-title" style="font-size: 0.85rem; font-weight: 700;">${dep.source_task_id} &rarr; ${dep.target_task_id}</h4>
         <div class="demand-item-meta">
-          <span style="text-transform: capitalize;">Type: ${typeLabel}</span>
+          <span style="font-family: monospace; font-size: 0.72rem; color: var(--text-muted);">${dep.dependency_id}</span>
           <span>Owner: ${dep.owner}</span>
         </div>
       </li>
@@ -278,6 +288,26 @@ function renderDependencyDetails(dep) {
   const step2Class = isChaseCompleted ? 'completed' : 'active';
   const step3Class = isResolveCompleted ? 'completed' : (isChaseCompleted ? 'active' : 'locked');
 
+  // Pipeline completion banner for resolved dependencies
+  const completionBanner = isResolveCompleted ? `
+    <div style="background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.08)); border: 1px solid rgba(16,185,129,0.35); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div style="width: 36px; height: 36px; background: rgba(16,185,129,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:#10b981;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+        </div>
+        <div>
+          <div style="font-size: 0.85rem; font-weight: 700; color: #10b981;">&#x1F389; Pipeline Complete!</div>
+          <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.1rem;">All dependencies for this demand have been resolved.</div>
+        </div>
+      </div>
+      <button id="btn-resense-deps" style="display:flex;align-items:center;gap:0.4rem;padding:0.4rem 0.9rem;border-radius:var(--radius-sm);font-size:0.8rem;font-weight:600;cursor:pointer;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-secondary);transition:all 0.15s ease;"
+        onmouseover="this.style.borderColor='var(--color-brand)';this.style.color='var(--color-brand)';"
+        onmouseout="this.style.borderColor='var(--border-color)';this.style.color='var(--text-secondary)';">
+        &#x21ba; Re-sense Dependencies
+      </button>
+    </div>
+  ` : '';
+
   container.innerHTML = `
     <style>
       .wf-badge { padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
@@ -323,11 +353,13 @@ function renderDependencyDetails(dep) {
 
     <div class="wizard-container">
 
+      ${completionBanner}
+
       <!-- ===== HEADER ===== -->
       <div class="wizard-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
         <div>
-          <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${dep.dependency_id}</span>
-          <h2 style="font-family: var(--font-display); font-size: 1.5rem; margin: 0.2rem 0 0 0; color: var(--text-primary);">Dependency Analysis Pipeline</h2>
+          <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${dep.plan_id || dep.dependency_id}</span>
+          <h2 style="font-family: var(--font-display); font-size: 1.5rem; margin: 0.2rem 0 0 0; color: var(--text-primary);">Dependency Analysis <span style="font-family: monospace; font-size: 0.85rem; color: var(--text-muted); font-weight: 400;">(${dep.dependency_id})</span></h2>
         </div>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
           ${dep.status !== 'resolved' ? `
@@ -929,6 +961,28 @@ function renderDependencyDetails(dep) {
     });
   });
 
+  // Re-sense button (shown in completion banner for resolved deps)
+  const resenseBtn = document.getElementById('btn-resense-deps');
+  if (resenseBtn) {
+    resenseBtn.addEventListener('click', () => {
+      selectedDependencyId = null;
+      clearDependencySidebarSelection();
+      showAutoSenseForm();
+    });
+  }
+
+  // Undo resolved button
+  const undoBtn = document.getElementById('btn-undo-resolved');
+  if (undoBtn) {
+    undoBtn.addEventListener('click', () => undoResolved(dep.dependency_id));
+  }
+
+  // Mark resolved button
+  const markResolvedBtn = document.getElementById('btn-mark-resolved');
+  if (markResolvedBtn) {
+    markResolvedBtn.addEventListener('click', () => markResolved(dep.dependency_id));
+  }
+
   // View sources
   if (document.getElementById('btn-view-sources')) {
     document.getElementById('btn-view-sources').addEventListener('click', () => {
@@ -956,6 +1010,7 @@ function renderDependencyDetails(dep) {
     }
   });
 }
+
 
 async function triggerChaseFlow(id, tone, channel) {
   try {

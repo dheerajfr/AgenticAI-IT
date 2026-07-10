@@ -1,0 +1,28 @@
+{
+  "demand_id": "DEM-2026-0068",
+  "title": "AI News Monitor",
+  "description": "The user wants to create an AI system that monitors news.",
+  "type": "project",
+  "domain": "AI/ML Platform",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-09",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: AI News Monitor (DEM-2026-0068)\n\nExecutive Summary\nThis project will develop an automated AI-powered news monitoring system on our AI/ML Platform. The system will track and analyze global news feeds to deliver real-time, actionable insights.\n\nBusiness Value and Impact\nThe solution will reduce manual monitoring efforts and accelerate strategic decision-making. It delivers a competitive edge by identifying market trends and emerging risks ahead of competitors.\n\nRisk Mitigation\nTo mitigate medium-level project risks, we will establish rigorous data validation to prevent misinformation. Continuous model monitoring and retraining will ensure ongoing accuracy and system reliability.",
+  "status": "approved",
+  "capacity_verdict": "feasible",
+  "capacity_score": 100,
+  "earliest_start_date": "2026-07-09",
+  "capacity_reasoning": [
+    "Medium-risk demand profile checked.",
+    "Delivery team has 54% overall available capacity.",
+    "No resource scheduling conflicts detected.",
+    "All required technical skills are available in the current workforce pool.",
+    "Delivery work can begin immediately."
+  ],
+  "resource_constraints": [],
+  "skill_gaps": []
+}

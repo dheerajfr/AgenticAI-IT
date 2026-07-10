@@ -164,6 +164,25 @@ window.fetchPlans = async function () {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     plans = await res.json();
     renderPlanList();
+
+    // Check if we arrived from Estimate module with a specific estimate pre-selected
+    const pendingEstimateId = sessionStorage.getItem('pendingPlanEstimateId');
+    if (pendingEstimateId) {
+      sessionStorage.removeItem('pendingPlanEstimateId');
+      selectedPlanId = null;
+      clearPlanSidebarSelection();
+      await showNewPlanForm();
+      setTimeout(() => {
+        const selectEl = document.getElementById('select-estimates');
+        if (selectEl) {
+          selectEl.value = pendingEstimateId;
+          selectEl.dispatchEvent(new Event('change'));
+        }
+      }, 80);
+      window.fetchEmployees();
+      return;
+    }
+
     if (plans.length > 0 && selectedPlanId === null) {
       selectPlan(plans[0].plan_id);
     } else if (selectedPlanId !== null) {
@@ -263,7 +282,7 @@ function renderPlanList() {
     return `
       <li class="demand-item ${isActive ? 'active' : ''}" data-id="${plan.plan_id}">
         <div class="demand-item-header">
-          <span class="demand-item-id">${plan.plan_id}</span>
+          <span class="demand-item-id">${plan.demand_id}</span>
           <button type="button" class="btn-queue-delete plan-delete-btn" data-id="${plan.plan_id}"
             style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; opacity: 0.7; transition: opacity 0.2s;"
             title="Delete Plan"
@@ -271,7 +290,7 @@ function renderPlanList() {
             <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
           </button>
         </div>
-        <h4 class="demand-item-title">Demand: ${plan.demand_id}</h4>
+        <h4 class="demand-item-title" style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 400;">Plan: <span style="font-family: monospace; font-size: 0.75rem;">${plan.plan_id}</span></h4>
         <div class="demand-item-meta">
           <span>End: ${plan.end_date}</span>
           <span>${taskCount} tasks</span>
@@ -368,7 +387,7 @@ async function showNewPlanForm() {
 
   const estimateOptions = availableEstimates.length
     ? `<option value="" disabled selected>— Select an Estimate —</option>` + availableEstimates.map(e =>
-      `<option value="${e.estimate_id}">${e.estimate_id} — Demand ${e.demand_id} (${e.confidence} conf, ${e.effort_days}d)</option>`
+      `<option value="${e.estimate_id}">${e.demand_id} — Est ${e.estimate_id} (${e.confidence} conf, ${e.effort_days}d)</option>`
     ).join('')
     : `<option value="" disabled selected>No approved estimates found</option>`;
 
@@ -587,8 +606,8 @@ function renderPlanPreview(newPlans, actionsRow) {
     return `
       <div class="suggestion-box" style="margin-bottom: 1rem;">
         <h5 class="suggestion-title" style="display: flex; justify-content: space-between; align-items: center;">
-          <span>${plan.plan_id}</span>
-          <span style="font-size: 0.75rem; font-weight: 400; color: var(--text-secondary);">Demand: ${plan.demand_id}</span>
+          <span>${plan.demand_id}</span>
+          <span style="font-size: 0.75rem; font-weight: 400; color: var(--text-secondary);">Plan: <span style="font-family: monospace;">${plan.plan_id}</span></span>
         </h5>
         <div class="grid-2col" style="margin-bottom: 1rem;">
           <div class="data-item"><div class="data-label">End Date</div><div class="data-value">${plan.end_date}</div></div>
@@ -867,7 +886,7 @@ function renderPlanPreview(newPlans, actionsRow) {
                     </div>
                   </div>
                 `;
-                // Re-bind the named handler to the restored select
+          // Re-bind the named handler to the restored select
                 const newSel = document.getElementById(`sel-${cellId}`);
                 if (newSel) newSel.addEventListener('change', handleChange);
               });
@@ -900,8 +919,30 @@ function renderPlanPreview(newPlans, actionsRow) {
         if (!res.ok) throw new Error('Failed to save plan.');
       }
 
-      successMsg.textContent = '✓ Plan approved and saved successfully!';
+      successMsg.textContent = '✓ Plan approved and saved!';
       successMsg.style.display = 'block';
+
+      // Show Next Step CTA
+      const reviewSection = document.getElementById('preview-review-section');
+      if (reviewSection) {
+        const nextBanner = document.createElement('div');
+        nextBanner.style.cssText = 'display:flex;gap:0.75rem;align-items:center;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border-color);flex-wrap:wrap;';
+        nextBanner.innerHTML = `
+          <span style="font-size:0.85rem;color:var(--text-secondary);">&#x2713; Plan accepted &mdash; ready for dependency sensing.</span>
+          <div style="flex:1;"></div>
+          <button id="btn-proceed-to-deps-preview" style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.2rem;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(139,92,246,0.35);transition:all 0.18s ease;"
+            onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(139,92,246,0.5)';"
+            onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(139,92,246,0.35)';">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+            Next: Sense Dependencies &nbsp;&rarr;
+          </button>
+        `;
+        reviewSection.appendChild(nextBanner);
+        nextBanner.querySelector('#btn-proceed-to-deps-preview').addEventListener('click', () => {
+          sessionStorage.setItem('pendingDepsAutoSense', '1');
+          window.switchStage('dependencies');
+        });
+      }
 
       await window.fetchPlans();
       if (plansArray.length > 0) {
@@ -1099,9 +1140,9 @@ function renderPlanDetail(plan) {
       <div style="display: flex; justify-content: space-between; align-items: flex-start;
                   border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; flex-shrink: 0;">
         <div>
-          <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${plan.plan_id}</span>
+          <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${plan.demand_id}</span>
           <h2 style="font-family: var(--font-display); font-size: 1.5rem; margin: 0.2rem 0 0 0; color: var(--text-primary); display: flex; align-items: center; gap: 0.75rem;">
-            Demand: ${plan.demand_id}
+            Plan <span style="font-family: monospace; font-size: 0.95rem; color: var(--text-muted); font-weight: 400;">(${plan.plan_id})</span>
             <span style="font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: var(--radius-sm); font-weight: 600; text-transform: uppercase; color: ${badgeColor}; background: ${badgeBg}; border: 1px solid ${badgeColor};">
               ${badgeText}
             </span>
@@ -1512,6 +1553,28 @@ function renderPlanDetail(plan) {
 
         document.getElementById('btn-accept-plan').disabled = true;
         document.getElementById('btn-replan-trigger').disabled = true;
+
+        // Show Next Step CTA
+        const reviewSection = document.getElementById('review-section');
+        if (reviewSection) {
+          const nextBanner = document.createElement('div');
+          nextBanner.style.cssText = 'display:flex;gap:0.75rem;align-items:center;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border-color);flex-wrap:wrap;';
+          nextBanner.innerHTML = `
+            <span style="font-size:0.85rem;color:var(--text-secondary);">Plan accepted — ready for dependency sensing.</span>
+            <div style="flex:1;"></div>
+            <button id="btn-proceed-to-deps-detail" style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.2rem;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(139,92,246,0.35);transition:all 0.18s ease;"
+              onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(139,92,246,0.5)';"
+              onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(139,92,246,0.35)';">
+              <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+              Next: Sense Dependencies &nbsp;&rarr;
+            </button>
+          `;
+          reviewSection.appendChild(nextBanner);
+          nextBanner.querySelector('#btn-proceed-to-deps-detail').addEventListener('click', () => {
+            sessionStorage.setItem('pendingDepsAutoSense', '1');
+            window.switchStage('dependencies');
+          });
+        }
 
         await window.fetchPlans();
         selectPlan(plan.plan_id);
