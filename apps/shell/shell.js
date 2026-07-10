@@ -895,21 +895,23 @@ async function runClassifyRouteFlow(id) {
         <div class="form-group">
           <label for="suggest-domain">Domain</label>
           <input type="text" id="suggest-domain" value="${classificationSuggestions.domain || 'General Platform'}">
+          <details style="margin-top: 0.5rem; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem;">
+            <summary style="font-size: 0.8rem; color: var(--color-brand); cursor: pointer; font-weight: 600; outline: none; user-select: none;">
+              Why was this domain suggested?
+            </summary>
+            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem; font-style: italic; line-height: 1.4;">
+              ${classificationSuggestions.domain_reason || 'Classification domain suggested by AI analysis.'}
+            </div>
+          </details>
         </div>
         
-        <div class="grid-2col" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
           <div class="data-item">
             <div class="data-label">Duplicate Detection Check</div>
             <div class="data-value">
               ${classificationSuggestions.duplicate_of ? 
                 `<strong style="color: var(--color-status-amber-text);">DUPLICATE MATCH: ${classificationSuggestions.duplicate_of}</strong>` : 
                 '<span style="color: var(--color-status-green-text);">Clean (No duplicates found)</span>'}
-            </div>
-          </div>
-          <div class="data-item">
-            <div class="data-label">Routed Queue Owner</div>
-            <div class="data-value" style="font-family: monospace; font-size: 0.85rem;">
-              ${classificationSuggestions.assigned_to || 'General Queue'}
             </div>
           </div>
         </div>
