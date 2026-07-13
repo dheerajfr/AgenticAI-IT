@@ -627,7 +627,7 @@ function renderDemandWizard(demand) {
                             return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
                               <td style="padding: 6px 8px 6px 0; font-weight: 600; color: var(--text-primary);">${role}</td>
                               <td style="padding: 6px 8px; text-align: center;">
-                                <input type="number" class="approved-staffing-req-input" data-role="${role}" value="${req}" min="0" style="width: 55px; text-align: center; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; font-size: 0.8rem; padding: 2px 4px;">
+                                <input type="number" class="approved-staffing-req-input" data-role="${role}" value="${req}" data-original="${req}" min="0" disabled style="width: 55px; text-align: center; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; font-size: 0.8rem; padding: 2px 4px;">
                               </td>
                               <td style="padding: 6px 8px; text-align: center; color: ${isConstrained ? 'var(--color-status-amber-text)' : 'var(--color-status-green-text)'}; font-weight: 600;">${avail}</td>
                               <td style="padding: 6px 8px; text-align: center;">${isConstrained ? '<span style="color: var(--color-status-amber-text); font-size: 0.75rem; font-weight: 700;">⚠ Constrained</span>' : '<span style="color: var(--color-status-green-text); font-size: 0.75rem; font-weight: 700;">✓ OK</span>'}</td>
@@ -635,8 +635,9 @@ function renderDemandWizard(demand) {
                           }).join('')}
                         </tbody>
                       </table>
-                      <div style="display: flex; justify-content: flex-end; margin-top: 0.75rem;">
-                        <button type="button" class="btn-primary" id="btn-save-headcount" style="padding: 4px 10px; font-size: 0.75rem;">Save Headcount</button>
+                      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.75rem;">
+                        <button type="button" class="btn-secondary" id="btn-edit-headcount" style="padding: 4px 10px; font-size: 0.75rem; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">Edit</button>
+                        <button type="button" class="btn-primary" id="btn-save-headcount" style="padding: 4px 10px; font-size: 0.75rem;" disabled>Save Headcount</button>
                       </div>
                     </div>
                   </div>
@@ -804,8 +805,46 @@ function renderDemandWizard(demand) {
   }
 
   if (isCapacityApproved) {
+    const editHeadcountBtn = document.getElementById('btn-edit-headcount');
     const saveHeadcountBtn = document.getElementById('btn-save-headcount');
-    if (saveHeadcountBtn) {
+    const inputs = document.querySelectorAll('.approved-staffing-req-input');
+    
+    if (editHeadcountBtn && saveHeadcountBtn && inputs.length > 0) {
+      editHeadcountBtn.addEventListener('click', () => {
+        const isEditing = editHeadcountBtn.innerText === "Cancel";
+        
+        if (isEditing) {
+          // Cancel: Revert values and disable inputs
+          inputs.forEach(input => {
+            input.value = input.getAttribute('data-original') || "0";
+            input.disabled = true;
+          });
+          editHeadcountBtn.innerText = "Edit";
+          saveHeadcountBtn.disabled = true;
+        } else {
+          // Edit: Enable inputs
+          inputs.forEach(input => {
+            input.disabled = false;
+          });
+          editHeadcountBtn.innerText = "Cancel";
+          inputs[0].focus();
+        }
+      });
+      
+      inputs.forEach(input => {
+        input.addEventListener('input', () => {
+          let hasChanges = false;
+          inputs.forEach(inp => {
+            const originalVal = parseInt(inp.getAttribute('data-original')) || 0;
+            const currentVal = parseInt(inp.value) || 0;
+            if (currentVal !== originalVal) {
+              hasChanges = true;
+            }
+          });
+          saveHeadcountBtn.disabled = !hasChanges;
+        });
+      });
+      
       saveHeadcountBtn.addEventListener('click', () => {
         saveApprovedHeadcountChanges(demand.demand_id);
       });
@@ -1175,6 +1214,7 @@ async function approveCapacity(id) {
 
 async function saveApprovedHeadcountChanges(id) {
   saveDemandScrollPosition(id);
+  const demand = demands.find(d => d.demand_id === id);
   const saveBtn = document.getElementById('btn-save-headcount');
   const originalText = saveBtn.innerText;
   saveBtn.disabled = true;
@@ -1195,7 +1235,7 @@ async function saveApprovedHeadcountChanges(id) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        verdict: demand.capacity_verdict || "feasible",
+        verdict: demand ? (demand.capacity_verdict || "feasible") : "feasible",
         resourceConstraints: resourceConstraints
       })
     });
