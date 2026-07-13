@@ -58,6 +58,7 @@ window.fetchEstimates = async function () {
     estimates = await res.json();
     renderEstimateList();
 
+<<<<<<< HEAD
     // Check if we arrived from the Demand module with a specific demand pre-selected
     const pendingDemandId = sessionStorage.getItem('pendingEstimateDemandId');
     if (pendingDemandId) {
@@ -77,6 +78,8 @@ window.fetchEstimates = async function () {
       return;
     }
 
+=======
+>>>>>>> main
     if (estimates.length > 0 && selectedEstimateId === null) {
       selectEstimate(estimates[0].estimate_id);
     } else if (selectedEstimateId !== null) {
@@ -198,7 +201,11 @@ async function showNewEstimateForm() {
         Generate Estimate
       </h3>
       <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
+<<<<<<< HEAD
         Select an approved demand to estimate effort, cost, and duration.
+=======
+        Select an approved demand to estimate effort, cost, and duration<!from historical data>.
+>>>>>>> main
       </p>
 
       <div class="error-message" id="estimate-error"></div>
@@ -367,7 +374,7 @@ function renderEstimateWizard(est) {
               <div class="data-item"><div class="data-label">Cost</div><div class="data-value">$${est.cost_estimate}</div></div>
               <div class="data-item"><div class="data-label">Duration Weeks</div><div class="data-value">${est.duration_weeks}</div></div>
               <div class="data-item"><div class="data-label">Confidence</div><div class="data-value" style="text-transform: capitalize;">${est.confidence}</div></div>
-              <div class="data-item"><div class="data-label">Methodology</div><div class="data-value">${est.methodology}</div></div>
+              <div class="data-item"><div class="data-label">Methodology</div><div class="data-value">${est.methodology === 'comparable-history' ? 'LLM prediction' : est.methodology}</div></div>
               <div class="data-item"><div class="data-label">ARB Required</div><div class="data-value">${est.requires_arb ? 'Yes' : 'No'}</div></div>
             </div>
             <div style="margin-top: 1rem;">
