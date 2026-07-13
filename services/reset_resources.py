@@ -1,8 +1,9 @@
-import sqlite3
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from shared_db.connection import get_db
 
-RESOURCE_DB = r'c:\Users\2862049\Desktop\ITDELIVERY\AgenticAI-IT\services\resource.db'
-
-with sqlite3.connect(RESOURCE_DB) as conn:
+with get_db() as conn:
     cursor = conn.cursor()
     cursor.execute("""
         UPDATE resources

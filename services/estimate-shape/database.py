@@ -3,14 +3,16 @@ import json
 import sqlite3
 from typing import List, Optional, Dict
 from models import EstimateRecord
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from shared_db.connection import get_db
 
 class EstimateDatabase:
     def __init__(self):
-        self.db_path = os.path.join(os.path.dirname(__file__), "estimate.db")
         self._init_db()
 
     def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS estimates (
@@ -52,14 +54,14 @@ class EstimateDatabase:
         print(f"Initialized SQLite database with {count} records from fixtures.")
 
     def get_all(self) -> List[EstimateRecord]:
-        with sqlite3.connect(self.db_path) as conn:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT data FROM estimates")
             rows = cursor.fetchall()
             return [EstimateRecord.model_validate_json(row[0]) for row in rows]
 
     def get_by_id(self, estimate_id: str) -> Optional[EstimateRecord]:
-        with sqlite3.connect(self.db_path) as conn:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT data FROM estimates WHERE estimate_id = ?", (estimate_id,))
             row = cursor.fetchone()
@@ -68,14 +70,14 @@ class EstimateDatabase:
             return None
 
     def get_by_demand_id(self, demand_id: str) -> List[EstimateRecord]:
-        with sqlite3.connect(self.db_path) as conn:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT data FROM estimates WHERE demand_id = ?", (demand_id,))
             rows = cursor.fetchall()
             return [EstimateRecord.model_validate_json(row[0]) for row in rows]
 
     def save(self, record: EstimateRecord):
-        with sqlite3.connect(self.db_path) as conn:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -88,7 +90,7 @@ class EstimateDatabase:
             conn.commit()
 
     def delete(self, estimate_id: str) -> bool:
-        with sqlite3.connect(self.db_path) as conn:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM estimates WHERE estimate_id = ?", (estimate_id,))
             deleted = cursor.rowcount > 0

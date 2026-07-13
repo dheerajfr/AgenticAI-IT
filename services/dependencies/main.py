@@ -89,18 +89,18 @@ def derive_release_label(plan: Optional["PlanRecord"]) -> str:
 
 def load_demand_by_id(demand_id: str) -> Optional[dict]:
     """Helper to locate demand and load demand record from SQLite or fixtures."""
-    import sqlite3
-    db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "demand-intake", "demand.db"))
-    if os.path.exists(db_path):
-        try:
-            with sqlite3.connect(db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT data FROM demands WHERE demand_id = ?", (demand_id,))
-                row = cursor.fetchone()
-                if row:
-                    return json.loads(row[0])
-        except Exception as e:
-            print(f"Error querying demand.db from dependencies: {e}")
+    import sys
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+    from shared_db.connection import get_db
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT data FROM demands WHERE demand_id = ?", (demand_id,))
+            row = cursor.fetchone()
+            if row:
+                return json.loads(row[0])
+    except Exception as e:
+        print(f"Error querying demands from shared DB: {e}")
 
     fixtures_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "demand-intake", "fixtures"))
     if not os.path.exists(fixtures_dir):

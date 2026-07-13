@@ -3,20 +3,21 @@ import json
 import sqlite3
 from typing import Dict, List, Optional
 from models import DemandRecord
-
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from shared_db.connection import get_db
 
 # ---------------------------------------------------------------------------
-# DemandDatabase — backed by demand.db
+# DemandDatabase — backed by source.db (demands table)
 # ---------------------------------------------------------------------------
 
 class DemandDatabase:
     def __init__(self, fixtures_dir: str):
         self.fixtures_dir = fixtures_dir
-        self.db_path = os.path.join(os.path.dirname(__file__), "demand.db")
         self._init_db()
 
     def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS demands (
@@ -53,17 +54,17 @@ class DemandDatabase:
                 except Exception as e:
                     print(f"Error loading fixture {filename}: {e}")
         conn.commit()
-        print(f"Initialized demand.db with {count} records from fixtures.")
+        print(f"Initialized SQLite database with {count} records from fixtures.")
 
     def get_all(self) -> List[DemandRecord]:
-        with sqlite3.connect(self.db_path) as conn:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT data FROM demands ORDER BY demand_id")
             rows = cursor.fetchall()
             return [DemandRecord.model_validate_json(row[0]) for row in rows]
 
     def get_by_id(self, demand_id: str) -> Optional[DemandRecord]:
-        with sqlite3.connect(self.db_path) as conn:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT data FROM demands WHERE demand_id = ?", (demand_id,))
             row = cursor.fetchone()
@@ -72,7 +73,7 @@ class DemandDatabase:
             return None
 
     def save(self, record: DemandRecord) -> DemandRecord:
-        with sqlite3.connect(self.db_path) as conn:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -86,7 +87,7 @@ class DemandDatabase:
         return record
 
     def delete(self, demand_id: str) -> bool:
-        with sqlite3.connect(self.db_path) as conn:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM demands WHERE demand_id = ?", (demand_id,))
             deleted = cursor.rowcount > 0
@@ -95,28 +96,31 @@ class DemandDatabase:
 
 
 # ---------------------------------------------------------------------------
-# ResourceDatabase — reads directly from resource.db (new employee schema)
+# ResourceDatabase — reads directly from source.db (resources table)
 # ---------------------------------------------------------------------------
 
 class ResourceDatabase:
     def __init__(self, fixtures_dir: str):
         self.fixtures_dir = fixtures_dir
-        self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "resource.db"))
 
     def _conn(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.db_path)
+        return get_db()
 
     def get_all_resources(self) -> List[dict]:
-        """Return all resources from resource.db using the employee schema.
+        """Return all resources from source.db using the employee schema.
 
         Derives total_capacity and allocated_capacity from allocation_percentage
         so that perform_capacity_check() in main.py works without changes.
         Capacity unit = 40 hours/week (standard)
         """
-        if not os.path.exists(self.db_path):
-            return []
         with self._conn() as conn:
             cursor = conn.cursor()
+            # Ensure resources table exists (e.g. if config or resource.db was missing)
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='resources'"
+            )
+            if not cursor.fetchone():
+                return []
             cursor.execute(
                 """
                 SELECT employee_name, role, skills, allocation_percentage, status
@@ -149,16 +153,13 @@ class ResourceDatabase:
         return result
 
     def save_resource(self, resource: dict) -> dict:
-        """Upsert a resource into resource.db using the employee schema.
+        """Upsert a resource into source.db using the employee schema.
 
         - If an employee with the same email already exists: update role, skills,
           allocation_percentage.
         - If the employee is new: insert a full row with a generated employee_id,
           derived email, and Available/unallocated defaults.
         """
-        if not os.path.exists(self.db_path):
-            return resource
-
         name = resource.get("name", "").strip()
         role = resource.get("role", "")
         skills_list = resource.get("skills", [])
@@ -219,8 +220,6 @@ class ResourceDatabase:
 
     def delete_resource(self, name: str) -> bool:
         """Delete a resource by employee_name."""
-        if not os.path.exists(self.db_path):
-            return False
         with self._conn() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM resources WHERE employee_name = ?", (name,))

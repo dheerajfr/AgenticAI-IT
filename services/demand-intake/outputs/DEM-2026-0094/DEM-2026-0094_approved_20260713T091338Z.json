@@ -1,0 +1,45 @@
+{
+  "demand_id": "DEM-2026-0094",
+  "title": "Order to Cash Workflow Automation",
+  "description": "Request to automate the order to cash workflow using Cowork platform.",
+  "type": "project",
+  "domain": "Payments & Checkout",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-13",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Order to Cash Workflow Automation (DEM-2026-0094)\n\nExecutive Summary  \nThis project aims to automate the order to cash workflow using the Cowork platform to streamline operations and improve efficiency. Automation will reduce manual intervention and accelerate processing times.\n\nBusiness Value/Impact  \nImplementing automation will enhance payment accuracy and speed up checkout processes, leading to improved cash flow and customer satisfaction. It will also reduce operational costs by minimizing errors and manual workload.\n\nRisk Mitigation  \nMedium risk will be managed through phased rollout and continuous monitoring to quickly address any system issues. Training and support will be provided to ensure smooth adoption by all stakeholders.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 0,
+  "earliest_start_date": "2026-08-12",
+  "capacity_reasoning": [
+    "Medium-risk demand profile checked.",
+    "Delivery team has 46% overall available capacity.",
+    "Constraint: Security Engineer has only 0 units available (requires 5).",
+    "Constraint: QA Engineer has only 0 units available (requires 10).",
+    "Skill gap: Required skills Workflow Automation, Backend Development, Frontend Development, API Integration are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-12."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Security Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 5
+    },
+    {
+      "role": "QA Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 10
+    }
+  ],
+  "skill_gaps": [
+    "Workflow Automation",
+    "Backend Development",
+    "Frontend Development",
+    "API Integration"
+  ]
+}

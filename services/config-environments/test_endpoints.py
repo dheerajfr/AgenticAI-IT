@@ -138,23 +138,33 @@ def test_promote_environment():
 
 def test_verify_readiness():
     db.save(EnvironmentStateRecord(
-        component_id="dep1",
+        component_id="main-comp",
         environment="staging",
         deployed_version="1.0",
         expected_version="1.0",
         drift_status="in-sync",
-        last_checked="2026-07-06T12:00:00Z"
+        last_checked="2026-07-06T12:00:00Z",
+        expected_requirements=["dep1"],
+        observed_requirements=["dep1"]
     ))
     payload = {
         "component_id": "main-comp",
-        "environment": "staging",
-        "dependent_component_ids": ["dep1"]
+        "environment": "staging"
     }
     response = client.post("/api/environments/verify-readiness", json=payload)
     assert response.status_code == 200
     assert response.json()["ready"] == True
 
-    payload["dependent_component_ids"] = ["dep1", "missing-dep"]
+    db.save(EnvironmentStateRecord(
+        component_id="main-comp",
+        environment="staging",
+        deployed_version="1.0",
+        expected_version="1.0",
+        drift_status="in-sync",
+        last_checked="2026-07-06T12:00:00Z",
+        expected_requirements=["dep1", "missing-dep"],
+        observed_requirements=["dep1"]
+    ))
     response2 = client.post("/api/environments/verify-readiness", json=payload)
     assert response2.status_code == 200
     assert response2.json()["ready"] == False

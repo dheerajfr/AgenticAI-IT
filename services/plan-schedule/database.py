@@ -21,7 +21,11 @@ from typing import List, Optional
 
 class PlanDatabase:
     def __init__(self) -> None:
-        self.db_path = os.path.join(os.path.dirname(__file__), "plan.db")
+        import sys
+        import os
+        sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+        from shared_db.connection import get_db_path
+        self.db_path = get_db_path()
         self._init_db()
 
     # ------------------------------------------------------------------
@@ -29,15 +33,18 @@ class PlanDatabase:
     # ------------------------------------------------------------------
 
     def _get_resource_db_path(self) -> str:
-        return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "resource.db"))
+        from shared_db.connection import get_db_path
+        return get_db_path()
 
     def _resource_conn(self) -> sqlite3.Connection:
-        """Return an open connection to resource.db."""
-        return sqlite3.connect(self._get_resource_db_path())
+        """Return an open connection to the shared DB."""
+        from shared_db.connection import get_db
+        return get_db()
 
     def _plan_conn(self) -> sqlite3.Connection:
-        """Return an open connection to plan.db."""
-        return sqlite3.connect(self.db_path)
+        """Return an open connection to the shared DB."""
+        from shared_db.connection import get_db
+        return get_db()
 
     # ------------------------------------------------------------------
     # Initialisation

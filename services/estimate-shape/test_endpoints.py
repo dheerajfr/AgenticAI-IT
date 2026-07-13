@@ -93,14 +93,8 @@ def test_full_pipeline_flow():
     estimate_id = record["estimate_id"]
     assert record["status"] == "draft"
     
-    # 3. Challenge Estimate
-    resp = client.post(f"/api/estimates/{estimate_id}/challenge")
-    assert resp.status_code == 200
-    challenge_data = resp.json()
-    assert len(challenge_data["risk_factors"]) == 2
-    
-    # 4. Approve Challenge
-    resp = client.post(f"/api/estimates/{estimate_id}/approve-challenge", json={"risk_factors": challenge_data["risk_factors"]})
+    # Finalize the estimate to approved
+    resp = client.post(f"/api/estimates/{estimate_id}/finalize", json={"reason": "Looks good"})
     assert resp.status_code == 200
     assert resp.json()["status"] == "approved"
     
@@ -111,6 +105,6 @@ def test_full_pipeline_flow():
     assert "rebaseline_warranted" in trigger_data
     
     # 6. Rebaseline
-    resp = client.post(f"/api/estimates/{estimate_id}/rebaseline")
+    resp = client.post(f"/api/estimates/{estimate_id}/rebaseline", json={"reason": "Scope change"})
     assert resp.status_code == 200
     assert resp.json()["status"] == "re-baselined"

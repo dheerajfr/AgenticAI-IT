@@ -3,14 +3,16 @@ import json
 import sqlite3
 from typing import List, Optional
 from models import EnvironmentStateRecord
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from shared_db.connection import get_db
 
 class EnvironmentDatabase:
     def __init__(self):
-        self.db_path = os.path.join(os.path.dirname(__file__), "config-env.db")
         self._init_db()
 
     def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS environments (
@@ -21,11 +23,6 @@ class EnvironmentDatabase:
                 )
             ''')
             conn.commit()
-            
-            # Check if empty, then seed
-            # cursor.execute('SELECT COUNT(*) FROM environments')
-            # if cursor.fetchone()[0] == 0:
-            #     self._load_fixtures(conn)
 
     def _load_fixtures(self, conn):
         fixtures_dir = os.path.join(os.path.dirname(__file__), "fixtures")
@@ -53,14 +50,14 @@ class EnvironmentDatabase:
         print(f"Initialized SQLite database with {count} records from fixtures.")
 
     def get_all(self) -> List[EnvironmentStateRecord]:
-        with sqlite3.connect(self.db_path) as conn:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT data FROM environments")
             rows = cursor.fetchall()
             return [EnvironmentStateRecord.model_validate_json(row[0]) for row in rows]
 
     def get_by_id_and_env(self, component_id: str, environment: str) -> Optional[EnvironmentStateRecord]:
-        with sqlite3.connect(self.db_path) as conn:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT data FROM environments WHERE component_id = ? AND environment = ?", (component_id, environment))
             row = cursor.fetchone()
@@ -69,7 +66,7 @@ class EnvironmentDatabase:
             return None
 
     def save(self, record: EnvironmentStateRecord) -> EnvironmentStateRecord:
-        with sqlite3.connect(self.db_path) as conn:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """

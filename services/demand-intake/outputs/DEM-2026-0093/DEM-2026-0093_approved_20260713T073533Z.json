@@ -1,0 +1,45 @@
+{
+  "demand_id": "DEM-2026-0093",
+  "title": "Database Migration",
+  "description": "Request for migrating a database. No additional details provided.",
+  "type": "project",
+  "domain": "Infrastructure",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-13",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Database Migration (DEM-2026-0093)\n\nExecutive Summary:\nThis project involves migrating the existing database to a new environment to improve system performance and reliability. The migration is essential to support ongoing infrastructure needs and future scalability.\n\nBusiness Value/Impact:\nSuccessful migration will enhance data accessibility, reduce downtime, and improve overall operational efficiency. It will also enable better support for business processes dependent on database performance.\n\nRisk Mitigation:\nGiven the medium risk level, careful planning and comprehensive testing will be conducted to ensure data integrity and minimize service disruption during the migration. Contingency plans will be established to address potential issues swiftly.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 0,
+  "earliest_start_date": "2026-08-12",
+  "capacity_reasoning": [
+    "Medium-risk demand profile checked.",
+    "Delivery team has 41% overall available capacity.",
+    "Constraint: QA Engineer has only 0 units available (requires 10).",
+    "Constraint: Security Engineer has only 0 units available (requires 5).",
+    "Skill gap: Required skills Database Migration, SQL, Data Modeling, Backup and Recovery are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-12."
+  ],
+  "resource_constraints": [
+    {
+      "role": "QA Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 10
+    },
+    {
+      "role": "Security Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 5
+    }
+  ],
+  "skill_gaps": [
+    "Database Migration",
+    "SQL",
+    "Data Modeling",
+    "Backup and Recovery"
+  ]
+}
