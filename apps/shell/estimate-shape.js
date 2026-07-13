@@ -6,7 +6,7 @@ let availableDemands = [];
 let selectedEstimateId = null;
 
 // Expose to window so shell.js can call it
-window.renderEstimateScreen = function() {
+window.renderEstimateScreen = function () {
   const viewport = document.getElementById('viewport');
   viewport.innerHTML = `
     <div class="intake-screen">
@@ -41,15 +41,15 @@ function clearEstimateSidebarSelection() {
 
 let allDemands = [];
 
-window.fetchEstimates = async function() {
+window.fetchEstimates = async function () {
   const container = document.getElementById('estimate-list-container');
   try {
     try {
       const dRes = await fetch(`${DEMAND_API_BASE}/demands`);
       if (dRes.ok) {
-          allDemands = await dRes.json();
+        allDemands = await dRes.json();
       }
-    } catch(e) {
+    } catch (e) {
       console.error("Could not fetch demands for title mapping", e);
     }
 
@@ -57,7 +57,7 @@ window.fetchEstimates = async function() {
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
     estimates = await res.json();
     renderEstimateList();
-    
+
     if (estimates.length > 0 && selectedEstimateId === null) {
       selectEstimate(estimates[0].estimate_id);
     } else if (selectedEstimateId !== null) {
@@ -93,10 +93,10 @@ function renderEstimateList() {
     else if (est.status === 'challenged') statusClass = 'amber';
     else if (est.status === 'approved') statusClass = 'green';
     else if (est.status === 're-baselined') statusClass = 'blue';
-    
+
     const demand = allDemands.find(d => d.demand_id === est.demand_id);
     const displayTitle = demand ? demand.title : est.demand_id;
-    
+
     return `
       <li class="demand-item ${isActive ? 'active' : ''}" data-id="${est.estimate_id}">
         <div class="demand-item-header">
@@ -134,7 +134,7 @@ function renderEstimateList() {
           const res = await fetch(`${ESTIMATE_API_BASE}/estimates/${id}`, { method: 'DELETE' });
           if (!res.ok) throw new Error("Failed to delete estimate.");
           if (selectedEstimateId === id) {
-              selectedEstimateId = null;
+            selectedEstimateId = null;
           }
           await window.fetchEstimates();
         } catch (err) {
@@ -159,15 +159,15 @@ function selectEstimate(id) {
 
 async function showNewEstimateForm() {
   const panel = document.getElementById('estimate-panel-container');
-  
+
   // Fetch available approved demands from stage 01
   try {
     const res = await fetch(`${DEMAND_API_BASE}/demands`);
     if (res.ok) {
-        const demands = await res.json();
-        availableDemands = demands.filter(d => d.status === 'approved');
+      const demands = await res.json();
+      availableDemands = demands.filter(d => d.status === 'approved');
     }
-  } catch(e) {
+  } catch (e) {
     console.error("Could not fetch demands", e);
   }
 
@@ -179,7 +179,7 @@ async function showNewEstimateForm() {
         Generate Estimate
       </h3>
       <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
-        Select an approved demand to estimate effort, cost, and duration from historical data.
+        Select an approved demand to estimate effort, cost, and duration<!from historical data>.
       </p>
 
       <div class="error-message" id="estimate-error"></div>
@@ -213,7 +213,7 @@ async function handleGenerateEstimate() {
     showEstimateError("Please select a demand first.");
     return;
   }
-  
+
   const demand = availableDemands.find(d => d.demand_id === demandId);
   const actionRow = document.getElementById('generate-actions-row');
   actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Sizing effort & cost...</span>`;
@@ -226,7 +226,7 @@ async function handleGenerateEstimate() {
   try {
     const res = await fetch(`${ESTIMATE_API_BASE}/estimates/generate`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(reqBody)
     });
     pendingRebaselineReason = null;
@@ -234,7 +234,7 @@ async function handleGenerateEstimate() {
     if (!res.ok) throw new Error("Failed to generate estimate.");
     pendingEstimateData = await res.json();
     pendingDemandId = demandId;
-    
+
     document.getElementById('estimate-suggestion-container').innerHTML = `
       <div class="suggestion-box">
         <h5 class="suggestion-title">Suggested Estimate</h5>
@@ -254,7 +254,7 @@ async function handleGenerateEstimate() {
         </div>
       </div>
     `;
-    
+
     actionRow.innerHTML = `
       <button type="button" class="btn-primary" id="btn-approve-generated">Approve Estimate</button>
     `;
@@ -269,24 +269,24 @@ async function handleGenerateEstimate() {
 async function approveGeneratedEstimate() {
   const actionRow = document.getElementById('generate-actions-row');
   actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Saving...</span>`;
-  
+
   try {
     const payload = {
-        effort_days: pendingEstimateData.effort_days,
-        effort_range_low: pendingEstimateData.effort_range_low,
-        effort_range_high: pendingEstimateData.effort_range_high,
-        cost_estimate: pendingEstimateData.cost_estimate,
-        duration_weeks: pendingEstimateData.duration_weeks,
-        confidence: pendingEstimateData.confidence,
-        methodology: pendingEstimateData.methodology,
-        risk_factors: pendingEstimateData.risk_factors || [],
-        requires_arb: pendingEstimateData.requires_arb || false,
-        status: pendingEstimateData.suggested_status || 'draft'
+      effort_days: pendingEstimateData.effort_days,
+      effort_range_low: pendingEstimateData.effort_range_low,
+      effort_range_high: pendingEstimateData.effort_range_high,
+      cost_estimate: pendingEstimateData.cost_estimate,
+      duration_weeks: pendingEstimateData.duration_weeks,
+      confidence: pendingEstimateData.confidence,
+      methodology: pendingEstimateData.methodology,
+      risk_factors: pendingEstimateData.risk_factors || [],
+      requires_arb: pendingEstimateData.requires_arb || false,
+      status: pendingEstimateData.suggested_status || 'draft'
     };
-    
+
     const res = await fetch(`${ESTIMATE_API_BASE}/estimates/approve?demand_id=${pendingDemandId}`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
@@ -307,7 +307,7 @@ function showEstimateError(msg) {
 
 function renderEstimateWizard(est) {
   const panel = document.getElementById('estimate-panel-container');
-  
+
   const demand = allDemands.find(d => d.demand_id === est.demand_id);
   const displayTitle = demand ? demand.title : est.demand_id;
 
@@ -346,15 +346,15 @@ function renderEstimateWizard(est) {
               <div class="data-item"><div class="data-label">Cost</div><div class="data-value">$${est.cost_estimate}</div></div>
               <div class="data-item"><div class="data-label">Duration Weeks</div><div class="data-value">${est.duration_weeks}</div></div>
               <div class="data-item"><div class="data-label">Confidence</div><div class="data-value" style="text-transform: capitalize;">${est.confidence}</div></div>
-              <div class="data-item"><div class="data-label">Methodology</div><div class="data-value">${est.methodology}</div></div>
+              <div class="data-item"><div class="data-label">Methodology</div><div class="data-value">${est.methodology === 'comparable-history' ? 'LLM prediction' : est.methodology}</div></div>
               <div class="data-item"><div class="data-label">ARB Required</div><div class="data-value">${est.requires_arb ? 'Yes' : 'No'}</div></div>
             </div>
             <div style="margin-top: 1rem;">
               <div class="data-label">Risk Factors Identified</div>
               <div class="data-value">
-                ${est.risk_factors && est.risk_factors.length > 0 ? 
-                  `<ul style="margin:0; padding-left:1rem;">${est.risk_factors.map(r => `<li>${r}</li>`).join('')}</ul>` 
-                  : 'No significant risks identified.'}
+                ${est.risk_factors && est.risk_factors.length > 0 ?
+      `<ul style="margin:0; padding-left:1rem;">${est.risk_factors.map(r => `<li>${r}</li>`).join('')}</ul>`
+      : 'No significant risks identified.'}
               </div>
             </div>
           </div>
@@ -419,53 +419,53 @@ async function runTriggerFlow(id) {
   const container = document.getElementById('trigger-suggestion-container');
   const actionRow = document.getElementById('trigger-actions-row');
   actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Checking anomalies...</span>`;
-  
+
   try {
     const res = await fetch(`${ESTIMATE_API_BASE}/estimates/${id}/trigger-check`, { method: 'POST' });
     if (!res.ok) throw new Error("Trigger check failed.");
     const data = await res.json();
-    
+
     if (data.rebaseline_warranted) {
-        container.innerHTML = `
+      container.innerHTML = `
           <div class="suggestion-box" style="border-color: rgba(239,68,68,0.3)">
             <h5 class="suggestion-title" style="color: var(--color-status-red-text)">Re-baseline Warranted!</h5>
             <p style="font-size:0.85rem; margin:0;">Reason: ${data.rebaseline_reason}</p>
           </div>
         `;
-        actionRow.innerHTML = `
+      actionRow.innerHTML = `
           <button type="button" class="btn-primary" id="btn-approve-rebaseline">Approve Re-baseline</button>
           <button type="button" class="btn-secondary" id="btn-revise-estimate" style="margin-left: 0.5rem; border-color: var(--color-status-amber-text); color: var(--color-status-amber-text);">Revise Estimate</button>
         `;
-        document.getElementById('btn-approve-rebaseline').addEventListener('click', () => approveRebaseline(id, data.rebaseline_reason));
-        document.getElementById('btn-revise-estimate').addEventListener('click', () => {
-           pendingRebaselineReason = data.rebaseline_reason;
-           const est = estimates.find(e => e.estimate_id === id);
-           if (est) {
-              selectedEstimateId = null;
-              clearEstimateSidebarSelection();
-              showNewEstimateForm();
-              setTimeout(() => {
-                 const selectEl = document.getElementById('select-demand');
-                 if (selectEl) selectEl.value = est.demand_id;
-                 const btnGen = document.getElementById('btn-generate-estimate');
-                 if (btnGen) btnGen.click();
-              }, 100);
-           }
-        });
+      document.getElementById('btn-approve-rebaseline').addEventListener('click', () => approveRebaseline(id, data.rebaseline_reason));
+      document.getElementById('btn-revise-estimate').addEventListener('click', () => {
+        pendingRebaselineReason = data.rebaseline_reason;
+        const est = estimates.find(e => e.estimate_id === id);
+        if (est) {
+          selectedEstimateId = null;
+          clearEstimateSidebarSelection();
+          showNewEstimateForm();
+          setTimeout(() => {
+            const selectEl = document.getElementById('select-demand');
+            if (selectEl) selectEl.value = est.demand_id;
+            const btnGen = document.getElementById('btn-generate-estimate');
+            if (btnGen) btnGen.click();
+          }, 100);
+        }
+      });
     } else {
-        container.innerHTML = `
+      container.innerHTML = `
           <div class="suggestion-box" style="border-color: rgba(52,211,153,0.3)">
             <h5 class="suggestion-title" style="color: var(--color-status-green-text)">All Good</h5>
             <p style="font-size:0.85rem; margin:0;">Forecasts stay honest. No anomalies detected.</p>
             <p style="font-size:0.85rem; margin: 0.5rem 0 0 0; color: var(--text-secondary);">Reason: ${data.rebaseline_reason || 'Resource pool is healthy'}</p>
           </div>
         `;
-        actionRow.innerHTML = `
+      actionRow.innerHTML = `
           <button type="button" class="btn-primary" id="btn-final-approve">Final Approve</button>
           <button type="button" class="btn-secondary" id="btn-run-trigger" style="margin-left: 0.5rem;">Check Again</button>
         `;
-        document.getElementById('btn-final-approve').addEventListener('click', () => finalApproveEstimate(id, data.rebaseline_reason));
-        document.getElementById('btn-run-trigger').addEventListener('click', () => runTriggerFlow(id));
+      document.getElementById('btn-final-approve').addEventListener('click', () => finalApproveEstimate(id, data.rebaseline_reason));
+      document.getElementById('btn-run-trigger').addEventListener('click', () => runTriggerFlow(id));
     }
   } catch (err) {
     container.innerHTML = `<div style="color: var(--color-status-red-text);">Error: ${err.message}</div>`;
@@ -476,10 +476,10 @@ async function runTriggerFlow(id) {
 
 async function approveRebaseline(id, reason) {
   try {
-    const res = await fetch(`${ESTIMATE_API_BASE}/estimates/${id}/rebaseline`, { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: reason || "No reason provided" })
+    const res = await fetch(`${ESTIMATE_API_BASE}/estimates/${id}/rebaseline`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: reason || "No reason provided" })
     });
     if (!res.ok) throw new Error("Failed to rebaseline");
     await window.fetchEstimates();
@@ -494,10 +494,10 @@ async function finalApproveEstimate(id, reason) {
     actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Finalizing...</span>`;
   }
   try {
-    const res = await fetch(`${ESTIMATE_API_BASE}/estimates/${id}/finalize`, { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: reason || "No anomalies detected" })
+    const res = await fetch(`${ESTIMATE_API_BASE}/estimates/${id}/finalize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: reason || "No anomalies detected" })
     });
     if (!res.ok) throw new Error("Failed to finalize estimate");
     await window.fetchEstimates();
