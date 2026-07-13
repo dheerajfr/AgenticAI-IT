@@ -635,10 +635,12 @@ function renderDemandWizard(demand) {
                           }).join('')}
                         </tbody>
                       </table>
+                      ${!isAllApproved ? `
                       <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.75rem;">
                         <button type="button" class="btn-secondary" id="btn-edit-headcount" style="padding: 4px 10px; font-size: 0.75rem; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">Edit</button>
                         <button type="button" class="btn-primary" id="btn-save-headcount" style="padding: 4px 10px; font-size: 0.75rem;" disabled>Save Headcount</button>
                       </div>
+                      ` : ''}
                     </div>
                   </div>
                 ` : ''}
@@ -804,7 +806,7 @@ function renderDemandWizard(demand) {
     attachWorkforceListeners();
   }
 
-  if (isCapacityApproved) {
+  if (isCapacityApproved && !isAllApproved) {
     const editHeadcountBtn = document.getElementById('btn-edit-headcount');
     const saveHeadcountBtn = document.getElementById('btn-save-headcount');
     const inputs = document.querySelectorAll('.approved-staffing-req-input');
