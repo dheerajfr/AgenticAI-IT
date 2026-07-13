@@ -601,31 +601,51 @@ function renderDemandWizard(demand) {
                     <div class="data-value"><strong>${demand.capacity_score}/100</strong></div>
                   </div>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                  <div class="data-item">
-                    <div class="data-label">Risk Level</div>
-                    <div class="data-value" style="text-transform: uppercase;">${demand.risk_level}</div>
-                  </div>
-                  <div class="data-item">
-                    <div class="data-label">Earliest Start Date</div>
-                    <div class="data-value"><strong>${demand.earliest_start_date}</strong></div>
-                  </div>
+                <div class="data-item" style="margin-bottom: 1rem;">
+                  <div class="data-label">Risk Level</div>
+                  <div class="data-value" style="text-transform: uppercase;">${demand.risk_level}</div>
                 </div>
+                ${demand.resource_constraints && demand.resource_constraints.length > 0 ? `
+                  <div class="data-item" style="margin-bottom: 1rem;">
+                    <div class="data-label">Staffing Overview</div>
+                    <div class="data-value">
+                      <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.35rem;">
+                        <thead>
+                          <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
+                            <th style="padding: 4px 8px 4px 0; font-weight: 600; text-align: left;">Role</th>
+                            <th style="padding: 4px 8px; font-weight: 600; text-align: center;">Required</th>
+                            <th style="padding: 4px 8px; font-weight: 600; text-align: center;">Available</th>
+                            <th style="padding: 4px 8px; font-weight: 600; text-align: center;">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${demand.resource_constraints.map(c => {
+                            const role = c.role;
+                            const req = c.requiredCapacity ?? 0;
+                            const avail = c.availableCapacity ?? 0;
+                            const isConstrained = avail < req;
+                            return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                              <td style="padding: 6px 8px 6px 0; font-weight: 600; color: var(--text-primary);">${role}</td>
+                              <td style="padding: 6px 8px; text-align: center;">
+                                <input type="number" class="approved-staffing-req-input" data-role="${role}" value="${req}" min="0" style="width: 55px; text-align: center; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; font-size: 0.8rem; padding: 2px 4px;">
+                              </td>
+                              <td style="padding: 6px 8px; text-align: center; color: ${isConstrained ? 'var(--color-status-amber-text)' : 'var(--color-status-green-text)'}; font-weight: 600;">${avail}</td>
+                              <td style="padding: 6px 8px; text-align: center;">${isConstrained ? '<span style="color: var(--color-status-amber-text); font-size: 0.75rem; font-weight: 700;">⚠ Constrained</span>' : '<span style="color: var(--color-status-green-text); font-size: 0.75rem; font-weight: 700;">✓ OK</span>'}</td>
+                            </tr>`;
+                          }).join('')}
+                        </tbody>
+                      </table>
+                      <div style="display: flex; justify-content: flex-end; margin-top: 0.75rem;">
+                        <button type="button" class="btn-primary" id="btn-save-headcount" style="padding: 4px 10px; font-size: 0.75rem;">Save Headcount</button>
+                      </div>
+                    </div>
+                  </div>
+                ` : ''}
                 ${demand.skill_gaps && demand.skill_gaps.length > 0 ? `
                   <div class="data-item" style="margin-bottom: 1rem;">
                     <div class="data-label" style="color: var(--color-status-amber-text);">Skill Gaps Detected</div>
                     <div class="data-value" style="color: var(--color-status-amber-text); font-size: 0.85rem; display: flex; flex-wrap: wrap; gap: 0.25rem;">
                       ${demand.skill_gaps.map(g => `<span class="tag" style="background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); padding: 2px 6px; border-radius: 4px;">${g}</span>`).join('')}
-                    </div>
-                  </div>
-                ` : ''}
-                ${demand.resource_constraints && demand.resource_constraints.length > 0 ? `
-                  <div class="data-item" style="margin-bottom: 1rem;">
-                    <div class="data-label" style="color: var(--color-status-amber-text);">Resource Constraints</div>
-                    <div class="data-value" style="font-size: 0.85rem;">
-                      <ul style="margin: 0; padding-left: 1.2rem; line-height: 1.5;">
-                        ${demand.resource_constraints.map(c => `<li><strong>${c.role}</strong>: Only ${c.availableCapacity} units available (requires ${c.requiredCapacity})</li>`).join('')}
-                      </ul>
                     </div>
                   </div>
                 ` : ''}
@@ -656,11 +676,14 @@ function renderDemandWizard(demand) {
               <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0; margin-bottom: 1rem;">
                 Query resource scheduling stubs to evaluate delivery feasibility guidelines.
               </p>
-              
+
+              <!-- Capacity suggestion results appear here (above the pool) -->
+              <div id="capacity-suggestion-container"></div>
+
               <!-- Workforce capacity pool editor -->
               <div id="workforce-manager-container" style="margin-bottom: 1.5rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem; background: var(--bg-secondary);">
                 <h5 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; font-family: var(--font-display); color: var(--text-primary); display: flex; justify-content: space-between; align-items: center;">
-                  <span>Workforce Capacity & Skills Pool</span>
+                  <span>Workforce Capacity &amp; Skills Pool</span>
                   <button type="button" class="btn-secondary" id="btn-toggle-workforce" style="padding: 2px 8px; font-size: 0.75rem; background: transparent;">Hide Pool</button>
                 </h5>
                 
@@ -691,8 +714,6 @@ function renderDemandWizard(demand) {
                 </div>
               </div>
 
-              <div id="capacity-suggestion-container"></div>
-              
               <div class="submit-row" id="capacity-actions-row">
                 <button type="button" class="btn-primary" id="btn-run-capacity" ${!isClassifyApproved ? 'disabled' : ''}>
                   Verify Capacity
@@ -780,6 +801,15 @@ function renderDemandWizard(demand) {
     // Load and bind workforce pool UI
     loadWorkforcePool();
     attachWorkforceListeners();
+  }
+
+  if (isCapacityApproved) {
+    const saveHeadcountBtn = document.getElementById('btn-save-headcount');
+    if (saveHeadcountBtn) {
+      saveHeadcountBtn.addEventListener('click', () => {
+        saveApprovedHeadcountChanges(demand.demand_id);
+      });
+    }
   }
 
   if (isCapacityApproved && !isAllApproved) {
@@ -969,33 +999,55 @@ async function runCapacityCheckFlow(id) {
           Resource Verdict: ${capacitySuggestion.verdict.toUpperCase()}
         </h5>
         
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;">
+        <div style="display: grid; grid-template-columns: 1fr; gap: 1rem; margin-bottom: 0.75rem;">
           <div class="data-item">
             <div class="data-label">Capacity Score</div>
             <div class="data-value" style="font-size: 1.1rem; font-weight: 700; color: ${isFeasible ? 'var(--color-status-green-text)' : 'var(--color-status-amber-text)'}">${capacitySuggestion.capacityScore}/100</div>
           </div>
-          <div class="data-item">
-            <div class="data-label">Earliest Start Date</div>
-            <div class="data-value" style="font-size: 1.1rem; font-weight: 700;">${capacitySuggestion.earliestStartDate}</div>
-          </div>
         </div>
+
+        ${capacitySuggestion.resourceConstraints && capacitySuggestion.resourceConstraints.length > 0 ? `
+          <div class="data-item" style="margin-bottom: 0.75rem;">
+            <div class="data-label">Staffing Overview</div>
+            <div class="data-value">
+              <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 0.35rem;">
+                <thead>
+                  <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
+                    <th style="padding: 4px 8px 4px 0; font-weight: 600; text-align: left;">Role</th>
+                    <th style="padding: 4px 8px; font-weight: 600; text-align: center;">Required</th>
+                    <th style="padding: 4px 8px; font-weight: 600; text-align: center;">Available</th>
+                    <th style="padding: 4px 8px; font-weight: 600; text-align: center;">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${capacitySuggestion.resourceConstraints.map(c => {
+                    const role = c.role;
+                    const req = c.requiredCapacity ?? 0;
+                    const avail = c.availableCapacity ?? 0;
+                    const isConstrained = avail < req;
+                    return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                      <td style="padding: 6px 8px 6px 0; font-weight: 600; color: var(--text-primary);">${role}</td>
+                      <td style="padding: 6px 8px; text-align: center;">
+                        <input type="number" class="staffing-req-input" data-role="${role}" value="${req}" min="0" style="width: 55px; text-align: center; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; font-size: 0.8rem; padding: 2px 4px;">
+                      </td>
+                      <td style="padding: 6px 8px; text-align: center; color: ${isConstrained ? 'var(--color-status-amber-text)' : 'var(--color-status-green-text)'}; font-weight: 600;">${avail}</td>
+                      <td style="padding: 6px 8px; text-align: center;">${isConstrained ? '<span style="color: var(--color-status-amber-text); font-size: 0.75rem; font-weight: 700;">⚠ Constrained</span>' : '<span style="color: var(--color-status-green-text); font-size: 0.75rem; font-weight: 700;">✓ OK</span>'}</td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+              <div style="display: flex; justify-content: flex-end; margin-top: 0.75rem;">
+                <button type="button" class="btn-primary" id="btn-save-suggestion-headcount" style="padding: 4px 10px; font-size: 0.75rem;">Save Headcount</button>
+              </div>
+            </div>
+          </div>
+        ` : ''}
 
         ${capacitySuggestion.skillGaps && capacitySuggestion.skillGaps.length > 0 ? `
           <div class="data-item" style="margin-bottom: 0.75rem;">
             <div class="data-label" style="color: var(--color-status-amber-text);">Skill Gaps Detected</div>
             <div class="data-value" style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem;">
               ${capacitySuggestion.skillGaps.map(g => `<span class="tag" style="background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">${g}</span>`).join('')}
-            </div>
-          </div>
-        ` : ''}
-
-        ${capacitySuggestion.resourceConstraints && capacitySuggestion.resourceConstraints.length > 0 ? `
-          <div class="data-item" style="margin-bottom: 0.75rem;">
-            <div class="data-label" style="color: var(--color-status-amber-text);">Resource Constraints</div>
-            <div class="data-value">
-              <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.8rem; line-height: 1.4;">
-                ${capacitySuggestion.resourceConstraints.map(c => `<li><strong>${c.role}</strong>: Only ${c.availableCapacity} units available (requires ${c.requiredCapacity})</li>`).join('')}
-              </ul>
             </div>
           </div>
         ` : ''}
@@ -1015,6 +1067,13 @@ async function runCapacityCheckFlow(id) {
       <button type="button" class="btn-primary" id="btn-approve-capacity">Approve Capacity Verdict</button>
     `;
     
+    const saveSuggestionBtn = document.getElementById('btn-save-suggestion-headcount');
+    if (saveSuggestionBtn) {
+      saveSuggestionBtn.addEventListener('click', () => {
+        saveSuggestionHeadcountChanges(id);
+      });
+    }
+
     document.getElementById('btn-approve-capacity').addEventListener('click', () => {
       approveCapacity(id);
     });
@@ -1030,8 +1089,62 @@ async function runCapacityCheckFlow(id) {
   }
 }
 
+async function saveSuggestionHeadcountChanges(id) {
+  saveDemandScrollPosition(id);
+  const saveBtn = document.getElementById('btn-save-suggestion-headcount');
+  const originalText = saveBtn.innerText;
+  saveBtn.disabled = true;
+  saveBtn.innerText = "Saving...";
+  
+  const resourceConstraints = [];
+  document.querySelectorAll('.staffing-req-input').forEach(input => {
+    const role = input.getAttribute('data-role');
+    const val = parseInt(input.value) || 0;
+    resourceConstraints.push({
+      role: role,
+      requiredCapacity: val
+    });
+  });
+  
+  try {
+    const res = await fetch(`${API_BASE}/demands/${id}/save-capacity`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        verdict: capacitySuggestion ? capacitySuggestion.verdict : "feasible",
+        resourceConstraints: resourceConstraints
+      })
+    });
+    if (!res.ok) throw new Error("Failed to save headcount changes.");
+    
+    saveBtn.innerText = "Saved";
+    
+    // Dynamically update demand record list in memory and trigger UI refresh 
+    setTimeout(() => {
+      runCapacityCheckFlow(id);
+    }, 500);
+  } catch (err) {
+    saveDemandScrollPosition(id);
+    alert(err.message);
+    saveBtn.disabled = false;
+    saveBtn.innerText = originalText;
+    restoreDemandScrollPosition(id);
+  }
+}
+
 async function approveCapacity(id) {
   saveDemandScrollPosition(id);
+  
+  const resourceConstraints = [];
+  document.querySelectorAll('.staffing-req-input').forEach(input => {
+    const role = input.getAttribute('data-role');
+    const val = parseInt(input.value) || 0;
+    resourceConstraints.push({
+      role: role,
+      requiredCapacity: val
+    });
+  });
+
   const actionRow = document.getElementById('capacity-actions-row');
   actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Committing capacity sign-off...</span>`;
   restoreDemandScrollPosition(id);
@@ -1040,7 +1153,10 @@ async function approveCapacity(id) {
     const res = await fetch(`${API_BASE}/demands/${id}/approve-capacity`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ verdict: capacitySuggestion ? capacitySuggestion.verdict : "feasible" })
+      body: JSON.stringify({ 
+        verdict: capacitySuggestion ? capacitySuggestion.verdict : "feasible",
+        resourceConstraints: resourceConstraints
+      })
     });
     
     if (!res.ok) throw new Error("Failed to save capacity validation.");
@@ -1053,6 +1169,43 @@ async function approveCapacity(id) {
     document.getElementById('btn-approve-capacity').addEventListener('click', () => {
       approveCapacity(id);
     });
+    restoreDemandScrollPosition(id);
+  }
+}
+
+async function saveApprovedHeadcountChanges(id) {
+  saveDemandScrollPosition(id);
+  const saveBtn = document.getElementById('btn-save-headcount');
+  const originalText = saveBtn.innerText;
+  saveBtn.disabled = true;
+  saveBtn.innerText = "Saving...";
+  
+  const resourceConstraints = [];
+  document.querySelectorAll('.approved-staffing-req-input').forEach(input => {
+    const role = input.getAttribute('data-role');
+    const val = parseInt(input.value) || 0;
+    resourceConstraints.push({
+      role: role,
+      requiredCapacity: val
+    });
+  });
+  
+  try {
+    const res = await fetch(`${API_BASE}/demands/${id}/approve-capacity`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        verdict: demand.capacity_verdict || "feasible",
+        resourceConstraints: resourceConstraints
+      })
+    });
+    if (!res.ok) throw new Error("Failed to save headcount changes.");
+    await fetchDemands();
+  } catch (err) {
+    saveDemandScrollPosition(id);
+    alert(err.message);
+    saveBtn.disabled = false;
+    saveBtn.innerText = originalText;
     restoreDemandScrollPosition(id);
   }
 }

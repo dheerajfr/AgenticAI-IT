@@ -22,3 +22,6 @@ class DemandRecord(BaseModel):
     capacity_reasoning: Optional[List[str]] = Field(None, description="Evidence-based reasoning list")
     resource_constraints: Optional[List[Dict[str, Any]]] = Field(None, description="Resource constraints list")
     skill_gaps: Optional[List[str]] = Field(None, description="Detected skill gaps")
+
+
+

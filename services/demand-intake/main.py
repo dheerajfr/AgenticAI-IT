@@ -61,6 +61,8 @@ class ApproveCapacityRequest(BaseModel):
     resourceConstraints: Optional[List[Dict[str, Any]]] = None
     skillGaps: Optional[List[str]] = None
 
+
+
 class ApproveBusinessCaseRequest(BaseModel):
     business_case_summary: str
 
@@ -263,10 +265,11 @@ def approve_classify(demand_id: str, req: ApproveClassifyRequest):
     return record
 
 
-def perform_capacity_check(record: DemandRecord):
+def perform_capacity_check(record: DemandRecord, custom_required_people: Optional[Dict[str, int]] = None):
     required_skills = []
     required_roles = []
     required_capacity = {}
+    required_people = {}
     
     # 1. Fetch dynamic resources from Resource DB with error handling
     try:
@@ -285,6 +288,7 @@ def perform_capacity_check(record: DemandRecord):
             "earliestStartDate": earliest_start_date,
             "resourceConstraints": [],
             "skillGaps": [],
+            "staffingOverview": {},
             "reasoning": [
                 f"ERROR: Capacity check failed because Resource DB is unreachable or empty: {str(e)}",
                 "Start date has been deferred by 30 days as a placeholder safeguard."
@@ -307,8 +311,9 @@ def perform_capacity_check(record: DemandRecord):
     - requiredSkills: A list of technical skills required to deliver this request (e.g. ["Java", "Cloud", "Payments", "Architecture", "Python", "React", "UI Design", "Security"]).
     - requiredRoles: A list of roles from the Available Roles list needed for this request.
     - requiredCapacity: A dictionary mapping each required role to the weekly effort units needed (integer, e.g. 5, 10, 15, 20).
+    - requiredPeople: A dictionary mapping each required role to the number of people (headcount) needed to staff this demand (integer, e.g. 1, 2, 3). This must represent the total staffing demand regardless of availability.
     
-    Format your response as a valid JSON object with fields: requiredSkills (list of strings), requiredRoles (list of strings), and requiredCapacity (object/dict).
+    Format your response as a valid JSON object with fields: requiredSkills (list of strings), requiredRoles (list of strings), requiredCapacity (object/dict), and requiredPeople (object/dict).
     """
     
     try:
@@ -322,6 +327,7 @@ def perform_capacity_check(record: DemandRecord):
             required_skills = res_json.get("requiredSkills", [])
             required_roles = res_json.get("requiredRoles", [])
             required_capacity = res_json.get("requiredCapacity", {})
+            required_people = res_json.get("requiredPeople", {})
     except Exception as e:
         print(f"Gemini capacity extraction failed, falling back to dynamic rules: {e}")
         
@@ -366,14 +372,45 @@ def perform_capacity_check(record: DemandRecord):
                 required_capacity[role] = 15
             else:
                 required_capacity[role] = 10
+
+    # Derive required_people from required_capacity if not provided by Gemini (ceil of hours/40, minimum 1)
+    if not required_people:
+        required_people = {role: max(1, math.ceil(hrs / 40)) for role, hrs in required_capacity.items()}
+
+    # 3.5 Apply custom headcount overrides if saving customized values from frontend
+    if custom_required_people is not None:
+        required_people = custom_required_people
+        required_roles = list(custom_required_people.keys())
+        required_capacity = {}
+        for role in required_roles:
+            count = required_people.get(role, 1)
+            if "senior" in role.lower() or "architect" in role.lower() or "lead" in role.lower():
+                required_capacity[role] = 15 * count
+            else:
+                required_capacity[role] = 10 * count
+    elif record.resource_constraints:
+        required_people = {c.get("role"): c.get("requiredCapacity", 1) for c in record.resource_constraints if c.get("role")}
+        required_roles = list(required_people.keys())
+        required_capacity = {}
+        for role in required_roles:
+            count = required_people.get(role, 1)
+            if "senior" in role.lower() or "architect" in role.lower() or "lead" in role.lower():
+                required_capacity[role] = 15 * count
+            else:
+                required_capacity[role] = 10 * count
                 
     # Ensure High Risk demands require Senior Architect (if Senior Architect role exists in DB)
     if record.risk_level == "high" and "Senior Architect" in available_roles_list:
         if "Senior Architect" not in required_roles:
             required_roles.append("Senior Architect")
             required_capacity["Senior Architect"] = 15
+            required_people["Senior Architect"] = required_people.get("Senior Architect", 1)
         if "Architecture" not in required_skills:
             required_skills.append("Architecture")
+            
+    # Filter to only keep roles with > 0 required headcount
+    required_people = {role: count for role, count in required_people.items() if count > 0}
+    required_roles = [role for role in required_roles if required_people.get(role, 0) > 0]
             
     # 4. Skill availability check against dynamic workforce pool
     all_workforce_skills = set()
@@ -384,31 +421,31 @@ def perform_capacity_check(record: DemandRecord):
     
     # 5. Resource capacity check against dynamic workforce pool
     role_available_capacity = {}
+    role_available_people = {}   # count of people with any free capacity per role
     for res in resources:
         role = res["role"]
         avail = res["total_capacity"] - res["allocated_capacity"]
         role_available_capacity[role] = role_available_capacity.get(role, 0) + avail
+        if avail > 0:
+            role_available_people[role] = role_available_people.get(role, 0) + 1
         
     resource_constraints = []
     for role in required_roles:
-        req_cap = required_capacity.get(role, 10)
-        avail_cap = role_available_capacity.get(role, 0)
-        if avail_cap < req_cap:
-            resource_constraints.append({
-                "role": role,
-                "availableCapacity": avail_cap,
-                "requiredCapacity": req_cap
-            })
+        resource_constraints.append({
+            "role": role,
+            "requiredCapacity": required_people.get(role, 1),
+            "availableCapacity": role_available_people.get(role, 0)
+        })
             
     # 6. Earliest Start Date calculation
     current_date = datetime.today()
     max_delay_days = 0
     for constraint in resource_constraints:
-        gap = constraint["requiredCapacity"] - constraint["availableCapacity"]
-        delay_weeks = min(12, math.ceil(gap / 5))
-        delay_days = delay_weeks * 7
-        if delay_days > max_delay_days:
-            max_delay_days = delay_days
+        if constraint["availableCapacity"] < constraint["requiredCapacity"]:
+            gap = constraint["requiredCapacity"] - constraint["availableCapacity"]
+            delay_days = min(84, gap * 14)
+            if delay_days > max_delay_days:
+                max_delay_days = delay_days
             
     if skill_gaps:
         max_delay_days = max(max_delay_days, 30)
@@ -417,54 +454,42 @@ def perform_capacity_check(record: DemandRecord):
     
     # 7. Verdict and capacity score
     verdict = "feasible"
-    if record.risk_level == "high" and any(c["role"] == "Senior Architect" for c in resource_constraints):
+    has_constraints = any(c["availableCapacity"] < c["requiredCapacity"] for c in resource_constraints)
+    if record.risk_level == "high" and any(c["role"] == "Senior Architect" and c["availableCapacity"] < c["requiredCapacity"] for c in resource_constraints):
         verdict = "at risk"
     elif skill_gaps:
         verdict = "at risk"
-    elif resource_constraints:
+    elif has_constraints:
         verdict = "at risk"
         
-    score = 100
+    total_req_people = sum(c["requiredCapacity"] for c in resource_constraints)
+    if total_req_people > 0:
+        total_avail_people = sum(min(c["availableCapacity"], c["requiredCapacity"]) for c in resource_constraints)
+        people_ratio = total_avail_people / total_req_people
+        score = int(people_ratio * 100)
+    else:
+        score = 100
+
     if skill_gaps:
-        score -= min(40, 20 * len(skill_gaps))
-    if resource_constraints:
-        for c in resource_constraints:
-            gap = c["requiredCapacity"] - c["availableCapacity"]
-            pct = gap / c["requiredCapacity"]
-            score -= int(30 * pct)
+        score -= min(15, 2 * len(skill_gaps))
     if record.risk_level == "high":
-        score -= 10
+        score -= 5
     capacity_score = max(0, min(100, score))
     
     # 8. Reasoning list
     reasoning = []
-    if record.risk_level == "high":
-        reasoning.append("High-risk demand requires Senior Architect oversight.")
-    else:
-        reasoning.append(f"{record.risk_level.capitalize()}-risk demand profile checked.")
-        
+    unique_skills = set()
+    for res in resources:
+        unique_skills.update(res["skills"])
+    
+    unique_skills_count = len(unique_skills)
     total_total_cap = sum(res["total_capacity"] for res in resources)
     total_alloc_cap = sum(res["allocated_capacity"] for res in resources)
-    total_avail_cap = total_total_cap - total_alloc_cap
-    pct_avail = int((total_avail_cap / total_total_cap) * 100) if total_total_cap > 0 else 0
-    reasoning.append(f"Delivery team has {pct_avail}% overall available capacity.")
     
-    if resource_constraints:
-        for c in resource_constraints:
-            reasoning.append(f"Constraint: {c['role']} has only {c['availableCapacity']} units available (requires {c['requiredCapacity']}).")
-    else:
-        reasoning.append("No resource scheduling conflicts detected.")
-        
-    if skill_gaps:
-        reasoning.append(f"Skill gap: Required skills {', '.join(skill_gaps)} are missing in the available workforce.")
-    else:
-        reasoning.append("All required technical skills are available in the current workforce pool.")
-        
-    if max_delay_days > 0:
-        reasoning.append(f"Earliest available start date is deferred by {max_delay_days} days to {earliest_start_date}.")
-    else:
-        reasoning.append("Delivery work can begin immediately.")
-        
+    reasoning.append(f"Workforce pool database scanning: {len(resources)} total active team members evaluated.")
+    reasoning.append(f"Technical capability profiling: {unique_skills_count} unique validated skills registered in workforce pool.")
+    reasoning.append(f"Global resource utilization: {total_alloc_cap}/{total_total_cap} total weekly effort units currently allocated.")
+    
     return {
         "verdict": verdict,
         "riskLevel": record.risk_level,
@@ -500,8 +525,12 @@ def approve_capacity(demand_id: str, req: ApproveCapacityRequest):
     if not record:
         raise HTTPException(status_code=404, detail="Demand record not found.")
         
-    # Evaluate capacity metrics dynamically to save on the record
-    check_result = perform_capacity_check(record)
+    custom_required_people = None
+    if req.resourceConstraints:
+        custom_required_people = {c.get("role"): c.get("requiredCapacity", 1) for c in req.resourceConstraints}
+        
+    # Evaluate capacity metrics dynamically with custom required headcounts to save on the record
+    check_result = perform_capacity_check(record, custom_required_people)
     
     record.capacity_verdict = check_result["verdict"]
     record.capacity_score = check_result["capacityScore"]
@@ -511,6 +540,32 @@ def approve_capacity(demand_id: str, req: ApproveCapacityRequest):
     record.skill_gaps = check_result["skillGaps"]
     
     record.status = "capacity-checked"
+    db.save(record)
+    return record
+
+
+@app.post("/api/demands/{demand_id}/save-capacity", response_model=DemandRecord)
+def save_capacity(demand_id: str, req: ApproveCapacityRequest):
+    """
+    Saves resource capacity check metrics on the record without advancing lifecycle status.
+    """
+    record = db.get_by_id(demand_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Demand record not found.")
+        
+    custom_required_people = None
+    if req.resourceConstraints:
+        custom_required_people = {c.get("role"): c.get("requiredCapacity", 1) for c in req.resourceConstraints}
+        
+    check_result = perform_capacity_check(record, custom_required_people)
+    
+    record.capacity_verdict = check_result["verdict"]
+    record.capacity_score = check_result["capacityScore"]
+    record.earliest_start_date = check_result["earliestStartDate"]
+    record.capacity_reasoning = check_result["reasoning"]
+    record.resource_constraints = check_result["resourceConstraints"]
+    record.skill_gaps = check_result["skillGaps"]
+    
     db.save(record)
     return record
 
