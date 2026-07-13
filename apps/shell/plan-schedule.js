@@ -373,21 +373,33 @@ async function showNewPlanForm() {
   const panel = document.getElementById('plan-panel-container');
   if (!panel) return;
 
-  // Fetch approved estimates
+  let demandTitleMap = {};
+  // Fetch approved estimates and demands
   try {
-    const res = await fetch(`${ESTIMATE_API_FOR_PLANS}/estimates`);
-    if (res.ok) {
-      const all = await res.json();
+    const [estRes, demRes] = await Promise.all([
+      fetch(`${ESTIMATE_API_FOR_PLANS}/estimates`),
+      fetch(`${ESTIMATE_API_FOR_PLANS}/demands`)
+    ]);
+    if (estRes.ok) {
+      const all = await estRes.json();
       availableEstimates = all.filter(e => e.status === 'approved' || e.status === 're-baselined');
+    }
+    if (demRes.ok) {
+      const allDemands = await demRes.json();
+      allDemands.forEach(d => {
+        demandTitleMap[d.demand_id] = d.title;
+      });
     }
   } catch (e) {
     availableEstimates = [];
   }
 
   const estimateOptions = availableEstimates.length
-    ? `<option value="" disabled selected>— Select an Estimate —</option>` + availableEstimates.map(e =>
-      `<option value="${e.estimate_id}">${e.demand_id} (${e.confidence} conf, ${e.effort_days}d)</option>`
-    ).join('')
+    ? `<option value="" disabled selected>— Select an Estimate —</option>` + availableEstimates.map(e => {
+      const title = demandTitleMap[e.demand_id];
+      const displayLabel = title ? `${e.demand_id} — ${title}` : e.demand_id;
+      return `<option value="${e.estimate_id}">${displayLabel}</option>`;
+    }).join('')
     : `<option value="" disabled selected>No approved estimates found</option>`;
 
   panel.innerHTML = `
@@ -1110,6 +1122,14 @@ function renderPlanDetail(plan) {
             <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; fill: currentColor;"><path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.77-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.78.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/></svg>
             Replan Project
           </button>
+          <div style="flex:1;"></div>
+          <button type="button" id="btn-proceed-to-deps"
+            style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.2rem;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(139,92,246,0.35);transition:all 0.18s ease;"
+            onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(139,92,246,0.5)';"
+            onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(139,92,246,0.35]';">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+            Next: Sense Dependencies &nbsp;&rarr;
+          </button>
         </div>
       </div>
     `;
@@ -1296,6 +1316,15 @@ function renderPlanDetail(plan) {
 
   // Attach Replan Project click listener
   const replanBtn = document.getElementById('btn-replan-project');
+  const proceedToDepsBtn = document.getElementById('btn-proceed-to-deps');
+
+  if (proceedToDepsBtn) {
+    proceedToDepsBtn.addEventListener('click', () => {
+      sessionStorage.setItem('pendingDepsAutoSense', '1');
+      window.switchStage('dependencies');
+    });
+  }
+
   if (replanBtn) {
     replanBtn.addEventListener('click', () => {
       const replanContainer = document.getElementById('replan-section-container');

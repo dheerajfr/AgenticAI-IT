@@ -131,10 +131,10 @@ function renderDependencyList() {
             </button>
           </div>
         </div>
-        <h4 class="demand-item-title" style="font-size: 0.85rem; font-weight: 700;">${dep.source_task_id} &rarr; ${dep.target_task_id}</h4>
+        <h4 class="demand-item-title" style="font-size: 0.85rem; font-weight: 700;">Plan: ${dep.plan_id}</h4>
         <div class="demand-item-meta">
           <span style="font-family: monospace; font-size: 0.72rem; color: var(--text-muted);">${dep.dependency_id}</span>
-          <span>Owner: ${dep.owner}</span>
+          <span>Risk: <b style="text-transform: uppercase; color: ${dep.risk === 'high' ? 'var(--color-status-red-text)' : 'inherit'};">${dep.risk || 'medium'}</b></span>
         </div>
       </li>
     `;
@@ -205,14 +205,18 @@ async function selectDependency(id) {
   }
 }
 
-async function renderDependencyGraph(dependencyId, containerId) {
+async function renderDependencyGraph(dependencyId, containerId, selectedTask = null) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
   container.innerHTML = `<div style="padding: 1rem; text-align: center; color: var(--text-muted);">Loading graph...</div>`;
 
   try {
-    const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/${dependencyId}/graph`);
+    let url = `${DEPENDENCIES_API_BASE}/dependencies/${dependencyId}/graph`;
+    if (selectedTask) {
+      url += `?selected_task=${selectedTask}`;
+    }
+    const res = await fetch(url);
     if (!res.ok) throw new Error("Failed to load graph.");
     const data = await res.json();
 
@@ -284,7 +288,7 @@ function renderDependencyDetails(dep) {
 
   // AI Intelligence computed data
   const confidenceVal = dep.confidence || 85;
-  const threatLevel = dep.threat_level || (dep.status === 'at-risk' ? 'high' : dep.status === 'open' ? 'medium' : 'low');
+  const threatLevel = dep.status === 'resolved' ? 'low' : (dep.threat_level || (dep.status === 'at-risk' ? 'high' : dep.status === 'open' ? 'medium' : 'low'));
   const confidenceReasons = (dep.confidence_reasons && dep.confidence_reasons.length > 0)
     ? dep.confidence_reasons
     : ['Dependency chain analysis complete', 'Owner activity tracked', 'Schedule variance calculated'];
@@ -404,56 +408,42 @@ function renderDependencyDetails(dep) {
             <span class="wf-badge low">Approved</span>
           </div>
           <div class="wizard-step-body">
-            <div class="grid-2col" style="margin-bottom: 1rem;">
-              <div class="data-item">
-                <div class="data-label">Source Task ID (Dependent)</div>
-                <div class="data-value" style="font-family: monospace; font-weight: 700; color: var(--color-brand);">${dep.source_task_id}</div>
-              </div>
-              <div class="data-item">
-                <div class="data-label">Target Task ID (Predecessor)</div>
-                <div class="data-value" style="font-family: monospace; font-weight: 700; color: var(--text-primary);">${dep.target_task_id}</div>
-              </div>
-              <div class="data-item">
-                <div class="data-label">Dependency Type</div>
-                <div class="data-value" style="text-transform: capitalize;">${dep.type.replace('-', ' ')}</div>
-              </div>
-              <div class="data-item">
-                <div class="data-label">Accountable Owner</div>
-                <div class="data-value">${dep.owner}</div>
+            <div style="margin-bottom: 1.25rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem;">
+              <label for="detail-task-select" style="font-weight: 700; color: var(--color-brand); display: block; margin-bottom: 0.4rem;">Select Task</label>
+              <select id="detail-task-select" style="font-size: 0.9rem; padding: 0.4rem; width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-primary); color: var(--text-primary);">
+                ${(dep.task_list || []).map((tId, idx) => `<option value="${tId}" ${idx === 0 ? 'selected' : ''}>${tId.includes('-') ? tId.split('-')[tId.split('-').length - 1] : tId}</option>`).join('')}
+              </select>
+            </div>
+
+            <div id="dynamic-task-details-container">
+              <div class="grid-2col" style="margin-bottom: 1rem;">
+                <div class="data-item">
+                  <div class="data-label">Current Task</div>
+                  <div class="data-value" id="task-detail-current" style="font-weight: 700; color: var(--color-brand);">Loading...</div>
+                </div>
+                <div class="data-item">
+                  <div class="data-label">Owner</div>
+                  <div class="data-value" id="task-detail-owner">Loading...</div>
+                </div>
+                <div class="data-item">
+                  <div class="data-label">Depends On</div>
+                  <div class="data-value" id="task-detail-predecessor" style="font-weight: 700; color: var(--text-primary);">Loading...</div>
+                </div>
+                <div class="data-item">
+                  <div class="data-label">Previous Owner</div>
+                  <div class="data-value" id="task-detail-prev-owner">Loading...</div>
+                </div>
+                <div class="data-item">
+                  <div class="data-label">Dependency Status</div>
+                  <div class="data-value" id="task-detail-status" style="text-transform: capitalize;">Loading...</div>
+                </div>
+                <div class="data-item">
+                  <div class="data-label">Risk</div>
+                  <div class="data-value" id="task-detail-risk" style="text-transform: capitalize;">Loading...</div>
+                </div>
               </div>
             </div>
             
-            <div style="border-top: 1px dashed var(--border-color); padding-top: 0.75rem; margin-top: 0.75rem;">
-              <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 0.4rem;">Sensed Evidence Sources</div>
-              <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.4rem;">
-                <span class="evidence-chip">✓ Plan Schedule DB</span>
-                <span class="evidence-chip">✓ Dependency Graph</span>
-                <span class="evidence-chip">✓ ADO Work Items</span>
-                <span class="evidence-chip">✓ Critical Path Analysis</span>
-              </div>
-            </div>
-
-            <div style="border-top: 1px dashed var(--border-color); padding-top: 0.75rem; margin-top: 0.75rem;">
-              <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 0.4rem;">Business Impact Metrics</div>
-              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;">
-                <div class="kpi-stat">
-                  <div class="kpi-val">12 hrs</div>
-                  <div class="kpi-label">Time Saved</div>
-                </div>
-                <div class="kpi-stat">
-                  <div class="kpi-val">${daysToRelease}d</div>
-                  <div class="kpi-label">Delay Avoided</div>
-                </div>
-                <div class="kpi-stat">
-                  <div class="kpi-val">42%</div>
-                  <div class="kpi-label">Risk Reduction</div>
-                </div>
-                <div class="kpi-stat">
-                  <div class="kpi-val">8</div>
-                  <div class="kpi-label">Emails Saved</div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -675,7 +665,9 @@ function renderDependencyDetails(dep) {
               <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: end;">
                 <div class="form-group" style="margin-bottom: 0;">
                   <label for="impact-task-id">Delayed Task ID</label>
-                  <input type="text" id="impact-task-id" value="${dep.target_task_id}" placeholder="e.g. PLN-0001-BUILD" style="width: 100%;">
+                  <select id="impact-task-id" style="width: 100%;">
+                    ${(dep.task_list || []).map(tId => `<option value="${tId}">${tId}</option>`).join('')}
+                  </select>
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
                   <label for="impact-delay-days">Delay Days</label>
@@ -738,77 +730,7 @@ function renderDependencyDetails(dep) {
               </div>
             ` : ''}
 
-            <!-- Quick Actions -->
-            <div style="margin-bottom: 1.5rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
-              <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">⚡ Quick Actions</h5>
-              <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;" id="quick-actions-panel">
-                <button class="quick-action-btn" data-qaction="risk">🚨 Create Risk</button>
-                <button class="quick-action-btn" data-qaction="ado-bug">🐞 Open ADO Bug</button>
-                <button class="quick-action-btn" data-qaction="meeting">📅 Teams Meeting</button>
-                <button class="quick-action-btn" data-qaction="notify">📢 Notify Manager</button>
-                <button class="quick-action-btn" data-qaction="dashboard">📊 Update Dashboard</button>
-                <button class="quick-action-btn" data-qaction="release-note">📝 Add Release Note</button>
-              </div>
-            </div>
-
-            <!-- Similar Historical Cases -->
-            <div style="margin-bottom: 1.5rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
-              <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">📘 Similar Historical Cases</h5>
-              <div style="display: grid; gap: 0.5rem;">
-                <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-                  <div>
-                    <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">Release 5.1 — API Gateway Dependency</div>
-                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Owner replied after friendly reminder. <span style="color: var(--color-status-green-text); font-weight: 600;">Resolved</span></div>
-                  </div>
-                  <div style="font-size: 0.7rem; color: var(--text-muted); text-align: right;">Recommendation:<br><strong style="color: var(--text-primary);">Friendly reminder sufficient</strong></div>
-                </div>
-                <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-                  <div>
-                    <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">Release 4.8 — DB Migration Block</div>
-                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Required escalation after 3 days. <span style="color: var(--color-status-amber-text); font-weight: 600;">Escalated</span></div>
-                  </div>
-                  <div style="font-size: 0.7rem; color: var(--text-muted); text-align: right;">Recommendation:<br><strong style="color: var(--text-primary);">Escalate early if at-risk</strong></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Agent Coordination -->
-            <div style="margin-bottom: 1.5rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
-              <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">🤖 Agent Coordination</h5>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;">
-                <div class="coord-agent"><div class="agent-dot" style="background: var(--color-status-green-text);"></div><span style="font-weight:600; color: var(--text-primary);">Sense Dependencies</span><span style="font-size:0.65rem; color: var(--text-muted); margin-left: auto;">Active</span></div>
-                <div class="coord-agent"><div class="agent-dot" style="background: var(--color-status-green-text);"></div><span style="font-weight:600; color: var(--text-primary);">Cross-Programme Impact</span><span style="font-size:0.65rem; color: var(--text-muted); margin-left: auto;">Active</span></div>
-                <div class="coord-agent"><div class="agent-dot" style="background: var(--color-status-amber-text);"></div><span style="font-weight:600; color: var(--text-primary);">Status Reporting</span><span style="font-size:0.65rem; color: var(--text-muted); margin-left: auto;">Waiting</span></div>
-                <div class="coord-agent"><div class="agent-dot" style="background: var(--color-status-amber-text);"></div><span style="font-weight:600; color: var(--text-primary);">Risk Agent</span><span style="font-size:0.65rem; color: var(--text-muted); margin-left: auto;">Waiting</span></div>
-              </div>
-            </div>
-
-            <!-- AI Effectiveness Dashboard -->
-            <div style="margin-bottom: 1.5rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
-              <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">📊 AI Effectiveness Dashboard (This Month)</h5>
-              <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem;">
-                <div class="kpi-stat">
-                  <div class="kpi-val">58</div>
-                  <div class="kpi-label">Chased</div>
-                </div>
-                <div class="kpi-stat">
-                  <div class="kpi-val" style="color: var(--color-status-green-text);">51</div>
-                  <div class="kpi-label">Resolved</div>
-                </div>
-                <div class="kpi-stat">
-                  <div class="kpi-val" style="color: var(--color-status-red-text);">7</div>
-                  <div class="kpi-label">Escalated</div>
-                </div>
-                <div class="kpi-stat">
-                  <div class="kpi-val">1.4d</div>
-                  <div class="kpi-label">Avg Response</div>
-                </div>
-                <div class="kpi-stat">
-                  <div class="kpi-val">27h</div>
-                  <div class="kpi-label">Time Saved</div>
-                </div>
-              </div>
-            </div>
+            
 
             <!-- Activity History -->
             <div style="border-top: 1px dashed var(--border-color); padding-top: 1rem;">
@@ -967,13 +889,7 @@ function renderDependencyDetails(dep) {
     });
   });
 
-  // Quick Actions
-  document.querySelectorAll('#quick-actions-panel button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const action = btn.getAttribute('data-qaction');
-      handleQuickAction(action, dep.dependency_id);
-    });
-  });
+  
 
   // Re-sense button (shown in completion banner for resolved deps)
   const resenseBtn = document.getElementById('btn-resense-deps');
@@ -1013,16 +929,55 @@ function renderDependencyDetails(dep) {
         btn.style.background = 'rgba(99,102,241,0.1)';
         const textarea = document.getElementById('chase-message-text');
         if (!textarea) return;
+        const currentTask = window.currentSelectedTaskId || dep.source_task_id || "BUILD";
         if (id === 'btn-compare-v1') {
-          textarea.value = dep.draft_message || nudgeMessage || 'Hi, just a friendly follow-up on this dependency. Could you share an update?';
+          textarea.value = dep.draft_message || nudgeMessage || `Hi, just a friendly follow-up on this dependency. Could you share an update?`;
         } else if (id === 'btn-compare-v2') {
-          textarea.value = `Executive Summary: Dependency ${dep.dependency_id} requires immediate attention. Task ${dep.source_task_id} is blocked by ${dep.target_task_id}. Impact: critical path at risk. Action required: Updated ETA by EOD.`;
+          textarea.value = `Executive Summary: Dependency ${dep.dependency_id} requires immediate attention. Task ${currentTask} requires status check. Impact: critical path at risk. Action required: Updated ETA by EOD.`;
         } else {
-          textarea.value = `Technical Follow-up [${dep.dependency_id}]: ${dep.source_task_id} is blocked on ${dep.target_task_id}. Please confirm completion status, share blockers, deployment logs, or endpoint readiness details.`;
+          textarea.value = `Technical Follow-up [${dep.dependency_id}]: Task ${currentTask} is awaiting predecessor status. Please confirm completion status, share blockers, deployment logs, or endpoint readiness details.`;
         }
       });
     }
   });
+
+  // Task Selector Dynamic Interaction Hook
+  const taskSelect = document.getElementById('detail-task-select');
+  if (taskSelect) {
+    const updateDynamicTaskDetails = async (tId) => {
+      try {
+        const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/${dep.dependency_id}/task-details?task_id=${tId}`);
+        if (!res.ok) throw new Error("Failed to load task details");
+        const data = await res.json();
+        
+        document.getElementById('task-detail-current').textContent = data.selected_task;
+        document.getElementById('task-detail-owner').textContent = data.current_owner;
+        document.getElementById('task-detail-predecessor').textContent = data.depends_on;
+        document.getElementById('task-detail-prev-owner').textContent = data.depends_on_owner;
+        document.getElementById('task-detail-status').textContent = data.status;
+        document.getElementById('task-detail-risk').textContent = data.risk;
+        
+        window.currentSelectedTaskId = data.selected_task;
+        
+        renderDependencyGraph(dep.dependency_id, 'dependency-graph-panel', data.selected_task);
+        
+        const impactInput = document.getElementById('impact-task-id');
+        if (impactInput) {
+          impactInput.value = data.selected_task;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    
+    taskSelect.addEventListener('change', () => {
+      updateDynamicTaskDetails(taskSelect.value);
+    });
+    
+    if (taskSelect.value) {
+      updateDynamicTaskDetails(taskSelect.value);
+    }
+  }
 }
 
 
@@ -1031,6 +986,7 @@ async function triggerChaseFlow(id, tone, channel) {
     const params = new URLSearchParams();
     if (tone) params.append('tone', tone);
     if (channel) params.append('channel', channel);
+    if (window.currentSelectedTaskId) params.append('selected_task', window.currentSelectedTaskId);
     const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/${id}/chase?${params.toString()}`, {
       method: 'POST'
     });
@@ -1481,7 +1437,7 @@ function showNewEdgeForm() {
       <div class="wizard-header">
         <div>
           <span class="wizard-stage-indicator" style="text-transform: uppercase;">Manual Entry</span>
-          <h2 class="wizard-title">New dependency edge</h2>
+          <h2 class="wizard-title">New Plan-Level Dependency</h2>
         </div>
       </div>
 
@@ -1502,38 +1458,25 @@ function showNewEdgeForm() {
               <input type="text" id="edge-id-custom" placeholder="Leave empty to auto-generate (DEP-XXXX)">
             </div>
             <div class="form-group">
-              <label style="font-weight: 700; color: var(--text-primary);" for="edge-source-id">Source Task ID (Dependent)</label>
-              <input type="text" id="edge-source-id" required placeholder="e.g. PLN-0001-BUILD">
-            </div>
-            <div class="form-group">
-              <label style="font-weight: 700; color: var(--text-primary);" for="edge-target-id">Target Task ID (Predecessor)</label>
-              <input type="text" id="edge-target-id" required placeholder="e.g. PLN-0001-DESIGN">
-            </div>
-            <div class="form-group">
-              <label for="edge-type">Dependency Type</label>
-              <select id="edge-type">
-                <option value="technical">Technical Dependency</option>
-                <option value="resource">Resource Dependency</option>
-                <option value="data">Data Dependency</option>
-                <option value="external-vendor">External Vendor Block</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="edge-status">Initial Status</label>
+              <label for="edge-status">Status</label>
               <select id="edge-status">
-                <option value="open">Open / Untracked</option>
+                <option value="open">Open</option>
                 <option value="at-risk">At Risk</option>
                 <option value="resolved">Resolved</option>
               </select>
             </div>
-            <div class="form-group" style="grid-column: span 2;">
-              <label for="edge-owner">Responsible Owner (Email)</label>
-              <input type="text" id="edge-owner" required placeholder="e.g. name@company.com">
+            <div class="form-group">
+              <label for="edge-risk">Risk Level</label>
+              <select id="edge-risk">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+              </select>
             </div>
           </div>
 
           <div id="edge-actions-row" class="submit-row" style="margin-top: 2rem;">
-            <button type="button" class="btn-primary" id="btn-save-edge" disabled>Create Dependency Edge</button>
+            <button type="button" class="btn-primary" id="btn-save-edge" disabled>Create Dependency Record</button>
           </div>
         </form>
       </div>
@@ -1575,11 +1518,9 @@ function showNewEdgeForm() {
 }
 
 async function handleSaveEdge() {
-  const source = document.getElementById('edge-source-id').value.trim();
-  const target = document.getElementById('edge-target-id').value.trim();
-  const type = document.getElementById('edge-type').value;
+  const planId = document.getElementById('edge-plan-id').value;
   const status = document.getElementById('edge-status').value;
-  const owner = document.getElementById('edge-owner').value.trim();
+  const risk = document.getElementById('edge-risk').value;
   let customId = document.getElementById('edge-id-custom').value.trim();
 
   const errorAlert = document.getElementById('edge-error');
@@ -1587,30 +1528,24 @@ async function handleSaveEdge() {
 
   errorAlert.style.display = 'none';
 
-  if (!source || !target || !owner) {
-    errorAlert.textContent = "Please fill in all required fields (Source Task, Target Task, Owner).";
+  if (!planId) {
+    errorAlert.textContent = "Please select a Project Plan.";
     errorAlert.style.display = 'block';
     return;
   }
 
-  // If custom ID is not provided, send empty string so the backend can auto-generate a sequential ID.
   if (!customId) {
     customId = "";
   }
 
-  const selectedPlanId = document.getElementById('edge-plan-id').value;
-
-  actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Creating edge...</span>`;
+  actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Creating dependency record...</span>`;
 
   try {
     const payload = {
       dependency_id: customId,
-      plan_id: selectedPlanId,
-      source_task_id: source,
-      target_task_id: target,
-      type: type,
+      plan_id: planId,
       status: status,
-      owner: owner
+      risk: risk
     };
 
     const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies`, {
@@ -1621,7 +1556,7 @@ async function handleSaveEdge() {
 
     if (!res.ok) {
       const data = await res.json();
-      throw new Error(data.detail || "Failed to create dependency.");
+      throw new Error(data.detail || "Failed to create dependency record.");
     }
     const newRecord = await res.json();
     selectedDependencyId = newRecord.dependency_id;
@@ -1630,7 +1565,7 @@ async function handleSaveEdge() {
   } catch (err) {
     errorAlert.textContent = err.message;
     errorAlert.style.display = 'block';
-    actionRow.innerHTML = `<button type="button" class="btn-primary" id="btn-save-edge">Create Dependency Edge</button>`;
+    actionRow.innerHTML = `<button type="button" class="btn-primary" id="btn-save-edge">Create Dependency Record</button>`;
     document.getElementById('btn-save-edge').addEventListener('click', handleSaveEdge);
   }
 }

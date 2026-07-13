@@ -16,10 +16,67 @@ class DependencyDatabase:
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS dependencies (
                     dependency_id TEXT PRIMARY KEY,
+                    demand_id TEXT,
                     data TEXT
                 )
             ''')
             conn.commit()
+
+            # Migration: check if demand_id column exists
+            cursor.execute("PRAGMA table_info(dependencies)")
+            columns = [info[1] for info in cursor.fetchall()]
+            if "demand_id" not in columns:
+                try:
+                    cursor.execute("ALTER TABLE dependencies ADD COLUMN demand_id TEXT")
+                    conn.commit()
+                    print("Successfully added demand_id column to dependencies table.")
+                except Exception as e:
+                    print(f"Error migrating dependencies table schema: {e}")
+
+            # Migration to populate missing demand_ids
+            cursor.execute("SELECT dependency_id, data FROM dependencies")
+            rows = cursor.fetchall()
+            updated = False
+            for dep_id, json_data in rows:
+                try:
+                    data_dict = json.loads(json_data)
+                    # Check if demand_id is empty/missing in database column or in the JSON
+                    cursor.execute("SELECT demand_id FROM dependencies WHERE dependency_id = ?", (dep_id,))
+                    db_row = cursor.fetchone()
+                    db_demand_id = db_row[0] if db_row else None
+                    
+                    if not db_demand_id or not data_dict.get("demand_id"):
+                        plan_id = data_dict.get("plan_id")
+                        if plan_id:
+                            plan_demand_id = None
+                            plan_db_path = os.path.abspath(
+                                os.path.join(os.path.dirname(__file__), "..", "plan-schedule", "plan.db")
+                            )
+                            if os.path.exists(plan_db_path):
+                                try:
+                                    with sqlite3.connect(plan_db_path) as plan_conn:
+                                        plan_cursor = plan_conn.cursor()
+                                        plan_cursor.execute("SELECT data FROM plans WHERE plan_id = ?", (plan_id,))
+                                        plan_row = plan_cursor.fetchone()
+                                        if plan_row:
+                                            plan_data = json.loads(plan_row[0])
+                                            plan_demand_id = plan_data.get("demand_id")
+                                except Exception as e:
+                                    print(f"Error querying plan.db during migration: {e}")
+                            
+                            if plan_demand_id:
+                                data_dict["demand_id"] = plan_demand_id
+                                updated_json = json.dumps(data_dict)
+                                cursor.execute(
+                                    "UPDATE dependencies SET demand_id = ?, data = ? WHERE dependency_id = ?",
+                                    (plan_demand_id, updated_json, dep_id)
+                                )
+                                updated = True
+                except Exception as e:
+                    print(f"Error migrating dependency record {dep_id}: {e}")
+            if updated:
+                conn.commit()
+                print("Successfully populated missing demand_ids for existing dependencies.")
 
             # Seed from fixtures if table is empty
             cursor.execute('SELECT COUNT(*) FROM dependencies')
@@ -41,8 +98,8 @@ class DependencyDatabase:
                         data = json.load(f)
                         record = DependencyEdge(**data)
                         cursor.execute(
-                            "INSERT INTO dependencies (dependency_id, data) VALUES (?, ?)",
-                            (record.dependency_id, record.model_dump_json())
+                            "INSERT INTO dependencies (dependency_id, demand_id, data) VALUES (?, ?, ?)",
+                            (record.dependency_id, record.demand_id, record.model_dump_json())
                         )
                         count += 1
                 except Exception as e:
@@ -79,11 +136,11 @@ class DependencyDatabase:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT INTO dependencies (dependency_id, data)
-                VALUES (?, ?)
-                ON CONFLICT(dependency_id) DO UPDATE SET data=excluded.data
+                INSERT INTO dependencies (dependency_id, demand_id, data)
+                VALUES (?, ?, ?)
+                ON CONFLICT(dependency_id) DO UPDATE SET demand_id=excluded.demand_id, data=excluded.data
                 """,
-                (record.dependency_id, record.model_dump_json())
+                (record.dependency_id, record.demand_id, record.model_dump_json())
             )
             conn.commit()
 

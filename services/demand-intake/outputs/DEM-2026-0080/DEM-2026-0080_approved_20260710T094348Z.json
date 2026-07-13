@@ -1,0 +1,60 @@
+{
+  "demand_id": "DEM-2026-0080",
+  "title": "Dropbox Clone",
+  "description": "Request to create a Dropbox clone application.",
+  "type": "project",
+  "domain": "Infrastructure",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-10",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Dropbox Clone (DEM-2026-0080)\n\nExecutive Summary  \nThis project aims to develop a secure and scalable Dropbox clone to meet growing internal and client data storage needs. It will enhance data accessibility and collaboration across the organization.\n\nBusiness Value/Impact  \nThe application will reduce reliance on third-party storage solutions, lowering costs and improving data control. It supports infrastructure modernization, boosting operational efficiency and user experience.\n\nRisk Mitigation  \nGiven the high risk level, rigorous security protocols and compliance audits will be integral throughout development. Regular testing and phased deployment will minimize operational disruptions and ensure system reliability.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 0,
+  "earliest_start_date": "2026-08-09",
+  "capacity_reasoning": [
+    "High-risk demand requires Senior Architect oversight.",
+    "Delivery team has 18% overall available capacity.",
+    "Constraint: Senior Architect has only 0 units available (requires 10).",
+    "Constraint: Backend Developer has only 0 units available (requires 20).",
+    "Constraint: Security Engineer has only 0 units available (requires 10).",
+    "Constraint: QA Engineer has only 0 units available (requires 10).",
+    "Skill gap: Required skills Storage, File Synchronization, Backend Development, Frontend Development, API Design, User Interface, Data Encryption are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-09."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Senior Architect",
+      "availableCapacity": 0,
+      "requiredCapacity": 10
+    },
+    {
+      "role": "Backend Developer",
+      "availableCapacity": 0,
+      "requiredCapacity": 20
+    },
+    {
+      "role": "Security Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 10
+    },
+    {
+      "role": "QA Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 10
+    }
+  ],
+  "skill_gaps": [
+    "Storage",
+    "File Synchronization",
+    "Backend Development",
+    "Frontend Development",
+    "API Design",
+    "User Interface",
+    "Data Encryption"
+  ]
+}

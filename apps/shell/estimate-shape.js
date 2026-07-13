@@ -198,7 +198,7 @@ async function showNewEstimateForm() {
         Generate Estimate
       </h3>
       <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
-        Select an approved demand to estimate effort, cost, and duration from historical data.
+        Select an approved demand to estimate effort, cost, and duration.
       </p>
 
       <div class="error-message" id="estimate-error"></div>

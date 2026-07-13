@@ -1,0 +1,50 @@
+{
+  "demand_id": "DEM-2026-0081",
+  "title": "Native Plugin for Antigravity",
+  "description": "Develop a native plugin for antigravity functionality similar to the existing OpenClaw plugin.",
+  "type": "project",
+  "domain": "Infrastructure",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-10",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Native Plugin for Antigravity (DEM-2026-0081)\n\nExecutive Summary  \nThis project aims to develop a native plugin enabling antigravity functionality, modeled after the existing OpenClaw plugin. It will enhance system capabilities within the infrastructure domain.\n\nBusiness Value  \nThe plugin will improve performance and integration efficiency, providing a competitive advantage and supporting advanced operational requirements. It aligns with strategic goals to modernize and optimize infrastructure tools.\n\nRisk Mitigation  \nMedium-level risks include integration challenges and potential technical hurdles, which will be managed through phased development, thorough testing, and close collaboration with stakeholders. Ongoing monitoring will ensure timely issue resolution.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 0,
+  "earliest_start_date": "2026-08-09",
+  "capacity_reasoning": [
+    "Medium-risk demand profile checked.",
+    "Delivery team has 18% overall available capacity.",
+    "Constraint: Backend Developer has only 0 units available (requires 15).",
+    "Constraint: Senior Architect has only 0 units available (requires 10).",
+    "Constraint: QA Engineer has only 0 units available (requires 10).",
+    "Skill gap: Required skills C++, Native Plugin Development, System Integration are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-09."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Backend Developer",
+      "availableCapacity": 0,
+      "requiredCapacity": 15
+    },
+    {
+      "role": "Senior Architect",
+      "availableCapacity": 0,
+      "requiredCapacity": 10
+    },
+    {
+      "role": "QA Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 10
+    }
+  ],
+  "skill_gaps": [
+    "C++",
+    "Native Plugin Development",
+    "System Integration"
+  ]
+}

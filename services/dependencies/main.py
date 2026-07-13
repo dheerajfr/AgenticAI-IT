@@ -8,7 +8,8 @@ from models import (
     DependencySenseResponse,
     ChaseCommitmentResponse,
     CrossProgrammeImpactRequest,
-    CrossProgrammeImpactResponse
+    CrossProgrammeImpactResponse,
+    DependencyTaskDetails
 )
 from database import db, plan_loader
 from orchestration.dependency_graph import dependency_graph
@@ -119,33 +120,64 @@ def load_demand_by_id(demand_id: str) -> Optional[dict]:
 
 @app.post("/api/dependencies", response_model=DependencyEdge)
 def create_dependency(dep: DependencyEdge):
-    """Manually add a dependency edge."""
+    """Manually add a single dependency record per project plan."""
+    import datetime
     if not dep.dependency_id or dep.dependency_id.strip() == "":
         dep.dependency_id = generate_dependency_id()
     elif db.get_by_id(dep.dependency_id):
         raise HTTPException(status_code=400, detail="Dependency ID already exists.")
-    # Validate that source and target task exist in the plans database
-    plans = plan_loader.load_all_plans()
-    all_task_ids = set()
-    for p in plans:
-        for t in p.tasks:
-            all_task_ids.add(t.task_id)
-            
-    if dep.source_task_id not in all_task_ids:
-        raise HTTPException(status_code=400, detail=f"Source task ID '{dep.source_task_id}' does not exist in any project plan.")
-    if dep.target_task_id not in all_task_ids:
-        raise HTTPException(status_code=400, detail=f"Target task ID '{dep.target_task_id}' does not exist in any project plan.")
-
-    # Check for duplicate dependency edge (same source and target task ID in the same plan)
+        
+    # Resolve plan_id if empty using source_task_id lookup
+    if not dep.plan_id or dep.plan_id.strip() == "":
+        plans = plan_loader.load_all_plans()
+        for p in plans:
+            task_ids = [t.task_id for t in p.tasks]
+            if dep.source_task_id in task_ids:
+                dep.plan_id = p.plan_id
+                break
+                
+    # Enforce only one dependency per plan
     for existing in db.get_all():
-        if existing.plan_id == dep.plan_id and existing.source_task_id == dep.source_task_id and existing.target_task_id == dep.target_task_id:
+        if existing.plan_id == dep.plan_id:
+            if existing.dependency_id == dep.dependency_id:
+                continue
             raise HTTPException(
                 status_code=400,
-                detail=f"A dependency edge from {dep.source_task_id} to {dep.target_task_id} already exists for this plan ({existing.dependency_id})."
+                detail=f"A dependency record for plan '{dep.plan_id}' already exists ({existing.dependency_id})."
             )
+            
+    # Load associated plan to fetch tasks
+    plan = plan_loader.load_plan_by_id(dep.plan_id)
+    if not plan:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Plan record with ID '{dep.plan_id}' not found."
+        )
+        
+    dep.demand_id = plan.demand_id
+    dep.created_date = datetime.datetime.now().isoformat()
+    dep.last_updated = dep.created_date
+    dep.task_list = [t.task_id for t in plan.tasks]
+    dep.risk = dep.risk or "medium"
+    
+    # Set compatibility fallback fields
+    if plan.tasks:
+        first_task = plan.tasks[0]
+        if not dep.owner:
+            dep.owner = first_task.owner
+        if not dep.source_task_id:
+            dep.source_task_id = first_task.task_id
+        if not dep.target_task_id:
+            if first_task.predecessor_task_ids:
+                dep.target_task_id = first_task.predecessor_task_ids[0]
+            elif len(plan.tasks) > 1:
+                dep.target_task_id = plan.tasks[1].task_id
+            else:
+                dep.target_task_id = first_task.task_id
+            
     dep.activity_history = [
-        "✓ Dependency edge registered",
-        f"✓ Predecessor mapped to {dep.target_task_id}"
+        "✓ Plan-level dependency registered",
+        f"✓ Task List compiled: {', '.join(dep.task_list)}"
     ]
     dep.draft_message = ""
     db.save(dep)
@@ -156,8 +188,9 @@ def create_dependency(dep: DependencyEdge):
 def sense_dependencies(req: DependencySenseRequest):
     """
     Senses dependencies within a plan.
-    Scans the plan schedule from the plan fixtures and runs LLM detection.
+    Saves exactly one plan-level dependency record.
     """
+    import datetime
     plan = plan_loader.load_plan_by_id(req.plan_id)
     if not plan:
         raise HTTPException(
@@ -165,116 +198,143 @@ def sense_dependencies(req: DependencySenseRequest):
             detail=f"Plan record with ID {req.plan_id} not found."
         )
         
-    # Coordination checkpoint: confirm scope with Classify & Route and Capacity Check stages
+    # Enforce coordination preconditions
     demand = load_demand_by_id(plan.demand_id)
     if demand:
         status = demand.get("status")
-        # Enforce that scope must be confirmed (classified, capacity-checked, or approved)
         if status not in ["classified", "capacity-checked", "approved"]:
             if status == "intake" and plan.tasks:
-                pass # Allow already scheduled/accepted plans to proceed
+                pass
             else:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Precondition failed: Associated demand {plan.demand_id} has status '{status}'. "
                     f"It must be classified and capacity-checked before sensing dependencies."
                 )
-        
-    state_input = {
-        "task": "sense",
-        "plan_id": req.plan_id,
-        "plan": plan,
-        "error": None
-    }
-    
-    try:
-        graph_output = dependency_graph.invoke(state_input)
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"LangGraph execution failed: {str(e)}"
-        )
-        
-    if graph_output.get("error"):
-        raise HTTPException(
-            status_code=422,
-            detail=graph_output["error"]
-        )
-        
-    raw_edges = graph_output.get("detected_dependencies") or []
-    detected_edges = []
-    
-    all_plan_tasks = {t.task_id for t in plan.tasks}
-    
-    for raw in raw_edges:
-        source_task = raw.get("source_task_id") or "UNKNOWN"
-        target_task = raw.get("target_task_id") or "UNKNOWN"
-        
-        # Verify both task IDs exist in the plan tasks
-        if source_task not in all_plan_tasks or target_task not in all_plan_tasks:
-            continue
-        
-        # Verify no duplicate source/target edge already exists in DB for this plan
-        is_duplicate = False
-        for existing in db.get_all():
-            if existing.plan_id == req.plan_id and existing.source_task_id == source_task and existing.target_task_id == target_task:
-                is_duplicate = True
-                break
-        if is_duplicate:
-            continue
 
-        # Construct and validate DependencyEdge records
-        dep_id = raw.get("dependency_id") or generate_dependency_id()
-        # Verify it doesn't already exist
-        if db.get_by_id(dep_id):
-            dep_id = generate_dependency_id()
+    # Check if plan-level dependency already exists
+    existing_dep = None
+    for d in db.get_all():
+        if d.plan_id == req.plan_id:
+            existing_dep = d
+            break
             
-        # Normalize and sanitize type
-        raw_type = raw.get("type") or "technical"
-        if raw_type not in ["technical", "resource", "data", "external-vendor"]:
-            raw_type_lower = str(raw_type).lower()
-            if "tech" in raw_type_lower:
-                raw_type = "technical"
-            elif "resource" in raw_type_lower:
-                raw_type = "resource"
-            elif "data" in raw_type_lower:
-                raw_type = "data"
-            elif "vendor" in raw_type_lower or "external" in raw_type_lower:
-                raw_type = "external-vendor"
-            else:
-                raw_type = "technical"
-
-        # Normalize and sanitize status
-        raw_status = raw.get("status") or "open"
-        if raw_status not in ["open", "at-risk", "resolved"]:
-            raw_status_lower = str(raw_status).lower()
-            if "open" in raw_status_lower:
-                raw_status = "open"
-            elif "risk" in raw_status_lower:
-                raw_status = "at-risk"
-            elif "resolved" in raw_status_lower or "resolve" in raw_status_lower:
-                raw_status = "resolved"
-            else:
-                raw_status = "open"
-
+    now_str = datetime.datetime.now().isoformat()
+    task_ids = [t.task_id for t in plan.tasks]
+    
+    if existing_dep:
+        existing_dep.task_list = task_ids
+        existing_dep.last_updated = now_str
+        existing_dep.demand_id = plan.demand_id
+        db.save(existing_dep)
+        edge = existing_dep
+    else:
+        dep_id = generate_dependency_id()
         edge = DependencyEdge(
             dependency_id=dep_id,
             plan_id=req.plan_id,
-            source_task_id=source_task,
-            target_task_id=target_task,
-            type=raw_type,
-            status=raw_status,
-            owner=raw.get("owner") or "admin@example.com",
+            demand_id=plan.demand_id,
+            status="open",
+            risk="medium",
+            created_date=now_str,
+            last_updated=now_str,
+            task_list=task_ids,
             activity_history=[
-                "✓ Dependency sensed by AI",
-                f"✓ Predecessor mapped to {target_task}"
+                "✓ Plan-level dependency auto-sensed",
+                f"✓ Task List compiled: {', '.join(task_ids)}"
             ],
             draft_message=""
         )
+        # Set compatibility fallback fields
+        if plan.tasks:
+            first_task = plan.tasks[0]
+            edge.owner = first_task.owner
+            edge.source_task_id = first_task.task_id
+            if first_task.predecessor_task_ids:
+                edge.target_task_id = first_task.predecessor_task_ids[0]
+            elif len(plan.tasks) > 1:
+                edge.target_task_id = plan.tasks[1].task_id
+            else:
+                edge.target_task_id = first_task.task_id
         db.save(edge)
-        detected_edges.append(edge)
         
-    return DependencySenseResponse(detected_dependencies=detected_edges)
+    return DependencySenseResponse(detected_dependencies=[edge])
+
+
+@app.get("/api/dependencies/{dependency_id}/task-details", response_model=DependencyTaskDetails)
+def get_dependency_task_details(dependency_id: str, task_id: str):
+    """Resolves dependency details dynamically for a selected task in a plan."""
+    dep = db.get_by_id(dependency_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Dependency not found.")
+        
+    plan_id = dep.plan_id
+    if not plan_id or plan_id.strip() == "":
+        plans = plan_loader.load_all_plans()
+        for p in plans:
+            task_ids = [t.task_id for t in p.tasks]
+            if task_id in task_ids:
+                plan_id = p.plan_id
+                break
+                
+    plan = plan_loader.load_plan_by_id(plan_id)
+    
+    selected_task_rec = None
+    if plan:
+        # Locate the selected task
+        for t in plan.tasks:
+            if t.task_id == task_id:
+                selected_task_rec = t
+                break
+                
+    if not selected_task_rec:
+        # Fallback to legacy fields of dep
+        return DependencyTaskDetails(
+            dependency_id=dependency_id,
+            plan_id=dep.plan_id or "PLN-0001-1",
+            selected_task=task_id,
+            current_owner=dep.owner or "admin@example.com",
+            depends_on=dep.target_task_id or "N/A",
+            depends_on_owner=dep.owner or "admin@example.com",
+            status=dep.status,
+            risk=dep.risk or "medium"
+        )
+        
+    # Resolve predecessor task
+    depends_on = ""
+    depends_on_owner = ""
+    if selected_task_rec.predecessor_task_ids:
+        depends_on = selected_task_rec.predecessor_task_ids[0]
+        # Find predecessor owner
+        for t in plan.tasks:
+            if t.task_id == depends_on:
+                depends_on_owner = t.owner
+                break
+    else:
+        # fallback: find sequential predecessor in plan tasks list
+        idx = -1
+        for i, t in enumerate(plan.tasks):
+            if t.task_id == task_id:
+                idx = i
+                break
+        if idx > 0:
+            pred_t = plan.tasks[idx - 1]
+            depends_on = pred_t.task_id
+            depends_on_owner = pred_t.owner
+        else:
+            depends_on = "N/A"
+            depends_on_owner = "N/A"
+            
+    return DependencyTaskDetails(
+        dependency_id=dependency_id,
+        plan_id=dep.plan_id,
+        selected_task=task_id,
+        current_owner=selected_task_rec.owner,
+        depends_on=depends_on,
+        depends_on_owner=depends_on_owner or "N/A",
+        status=dep.status,
+        risk=dep.risk or "medium"
+    )
 
 
 from pydantic import BaseModel
@@ -290,7 +350,7 @@ class SaveDraftRequest(BaseModel):
 
 
 @app.post("/api/dependencies/{dependency_id}/chase", response_model=ChaseCommitmentResponse)
-def chase_commitment(dependency_id: str, tone: Optional[str] = None):
+def chase_commitment(dependency_id: str, tone: Optional[str] = None, selected_task: Optional[str] = None):
     """
     Triggers chase commitment graph.
     Generates status update nudges and checks critical path escalation.
@@ -308,8 +368,7 @@ def chase_commitment(dependency_id: str, tone: Optional[str] = None):
     associated_plan = None
     all_plans = plan_loader.load_all_plans()
     for p in all_plans:
-        task_ids = [t.task_id for t in p.tasks]
-        if dep.source_task_id in task_ids:
+        if p.plan_id == dep.plan_id:
             associated_plan = p
             break
             
@@ -319,6 +378,7 @@ def chase_commitment(dependency_id: str, tone: Optional[str] = None):
         "dependency": dep,
         "plan": associated_plan,
         "tone": tone,
+        "selected_task": selected_task,
         "error": None
     }
     
@@ -373,6 +433,8 @@ def update_status(dependency_id: str, req: UpdateStatusRequest):
     if not dep:
         raise HTTPException(status_code=404, detail="Dependency not found.")
     dep.status = req.status
+    if req.status == "resolved":
+        dep.threat_level = "low"
     if not dep.activity_history:
         dep.activity_history = []
     dep.activity_history.append(f"✓ Status updated to {req.status.upper()}")
@@ -394,7 +456,7 @@ def save_draft_message(dependency_id: str, req: SaveDraftRequest):
 
 
 @app.get("/api/dependencies/{dependency_id}/graph")
-def get_dependency_graph(dependency_id: str):
+def get_dependency_graph(dependency_id: str, selected_task: Optional[str] = None):
     dep = db.get_by_id(dependency_id)
     if not dep:
         raise HTTPException(status_code=404, detail="Dependency not found.")
@@ -403,27 +465,70 @@ def get_dependency_graph(dependency_id: str):
     associated_plan = None
     all_plans = plan_loader.load_all_plans()
     for p in all_plans:
-        task_ids = [t.task_id for t in p.tasks]
-        if dep.source_task_id in task_ids:
+        if p.plan_id == dep.plan_id:
             associated_plan = p
             break
             
-    # Build graph nodes and links
+    # Fallback default IDs/names
+    pred_id = dep.target_task_id or "Planning"
+    pred_name = pred_id
+    pred_owner = dep.owner or "admin@example.com"
+    
+    dep_id = dep.source_task_id or "Development"
+    dep_name = dep_id
+    dep_owner = dep.owner or "admin@example.com"
+    
+    if associated_plan:
+        if selected_task:
+            selected_task_rec = None
+            for t in associated_plan.tasks:
+                if t.task_id == selected_task:
+                    selected_task_rec = t
+                    break
+            if selected_task_rec:
+                dep_id = selected_task_rec.task_id
+                dep_name = selected_task_rec.name
+                dep_owner = selected_task_rec.owner
+                
+                pred_task_id = None
+                if selected_task_rec.predecessor_task_ids:
+                    pred_task_id = selected_task_rec.predecessor_task_ids[0]
+                else:
+                    idx = -1
+                    for i, t in enumerate(associated_plan.tasks):
+                        if t.task_id == selected_task:
+                            idx = i
+                            break
+                    if idx > 0:
+                        pred_task_id = associated_plan.tasks[idx - 1].task_id
+                
+                if pred_task_id:
+                    for t in associated_plan.tasks:
+                        if t.task_id == pred_task_id:
+                            pred_id = t.task_id
+                            pred_name = t.name
+                            pred_owner = t.owner
+                            break
+                else:
+                    pred_id = "N/A"
+                    pred_name = "No Predecessor"
+                    pred_owner = "N/A"
+        else:
+            # Resolve labels if not selected_task but default task IDs are set
+            for t in associated_plan.tasks:
+                if t.task_id == pred_id:
+                    pred_name = t.name
+                    pred_owner = t.owner
+                if t.task_id == dep_id:
+                    dep_name = t.name
+                    dep_owner = t.owner
+                    
     nodes = []
     links = []
     
     # Predecessor node
-    pred_task = None
-    if associated_plan:
-        for t in associated_plan.tasks:
-            if t.task_id == dep.target_task_id:
-                pred_task = t
-                break
-                
-    pred_name = pred_task.name if pred_task else dep.target_task_id
-    pred_owner = pred_task.owner if pred_task else dep.owner
     nodes.append({
-        "id": dep.target_task_id,
+        "id": pred_id,
         "label": pred_name,
         "type": "predecessor",
         "owner": pred_owner,
@@ -431,17 +536,8 @@ def get_dependency_graph(dependency_id: str):
     })
     
     # Dependent node
-    dep_task = None
-    if associated_plan:
-        for t in associated_plan.tasks:
-            if t.task_id == dep.source_task_id:
-                dep_task = t
-                break
-                
-    dep_name = dep_task.name if dep_task else dep.source_task_id
-    dep_owner = dep_task.owner if dep_task else dep.owner
     nodes.append({
-        "id": dep.source_task_id,
+        "id": dep_id,
         "label": dep_name,
         "type": "dependent",
         "owner": dep_owner,
@@ -449,15 +545,14 @@ def get_dependency_graph(dependency_id: str):
     })
     
     links.append({
-        "source": dep.target_task_id,
-        "target": dep.source_task_id,
-        "type": dep.type
+        "source": pred_id,
+        "target": dep_id,
+        "type": dep.type or "technical"
     })
     
-    # Release node — derive the label from real plan/demand data instead of a
-    # hardcoded plan_id lookup table, so any plan (not just the 3 seeded ones) works.
+    # Release node
     release_label = derive_release_label(associated_plan)
-
+ 
     nodes.append({
         "id": "RELEASE_NODE",
         "label": release_label,
@@ -467,7 +562,7 @@ def get_dependency_graph(dependency_id: str):
     })
     
     links.append({
-        "source": dep.source_task_id,
+        "source": dep_id,
         "target": "RELEASE_NODE",
         "type": "milestone"
     })

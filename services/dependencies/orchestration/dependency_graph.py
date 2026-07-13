@@ -53,82 +53,20 @@ def sense_node(state: DependencyState) -> Dict[str, Any]:
     plan = state.get("plan")
     if not plan:
         return {"error": "Plan record is missing for auto-sensing."}
-    
-    # Format tasks list to pass to LLM
-    tasks_info = []
-    for t in plan.tasks:
-        tasks_info.append({
-            "task_id": t.task_id,
-            "name": t.name,
-            "owner": t.owner,
-            "start_date": t.start_date,
-            "end_date": t.end_date,
-            "predecessor_task_ids": t.predecessor_task_ids
-        })
         
-    prompt = f"""
-    You are an AI Project Management Analyst specializing in Knowledge Graph Analytics, NLP Entity Extraction, and Semantic Retrieval.
-    
-    Your task is to automatically discover dependencies and risk links within this project plan by analyzing:
-    1. The project task metadata list.
-    
-    Plan Details:
-    - Plan ID: {plan.plan_id}
-    - Demand ID: {plan.demand_id}
-    - Committed End Date: {plan.end_date}
-    
-    ---
-    1. Tasks List:
-    {json.dumps(tasks_info, indent=2)}
-    
-    ---
-    Using Knowledge Graph mapping, identify logical/technical dependencies between these tasks (e.g., if one task's work description or predecessor_task_ids indicates it relies on another task being completed first, or if the component architecture requires a database cluster/endpoint setup before API/schema deployment, etc.).
-    Also classify the type of dependency edge as:
-    - "technical"
-    - "resource"
-    - "data"
-    - "external-vendor"
-    
-    For each dependency discovered, output a JSON object with:
-    - dependency_id: string (generate a unique code like DEP-XXXX)
-    - source_task_id: string (task that depends on another)
-    - target_task_id: string (task being depended on)
-    - type: string, one of "technical", "resource", "data", "external-vendor"
-    - status: string, "open"
-    - owner: string (name of the owner responsible, usually the source task owner)
-    
-    Return a valid JSON array containing these dependency objects under the key "detected_dependencies".
-    """
-    
-    try:
-        res = call_gemini(
-            prompt=prompt,
-            system_instruction=(
-                "Discover hidden dependencies in project schedules by performing NLP entity "
-                "extraction and semantic retrieval over task metadata."
-            ),
-            is_json=True
-        )
-        detected = res.get("detected_dependencies") or []
-        print(f"[LangGraph Node: sense] Successfully sensed {len(detected)} dependencies.")
-        return {"detected_dependencies": detected}
-    except Exception as e:
-        print(f"[LangGraph Node: sense] Failed: {e}. Using fallback sensor.")
-        # Fallback sensor: dynamically generate dependencies based on actual task predecessor relationships from DB
-        detected = []
-        dep_counter = 1
-        for t in plan.tasks:
-            for pred_id in (t.predecessor_task_ids or []):
-                detected.append({
-                    "dependency_id": f"DEP-SENSE-{dep_counter:03d}",
-                    "source_task_id": t.task_id,
-                    "target_task_id": pred_id,
-                    "type": "technical",
-                    "status": "open",
-                    "owner": t.owner
-                })
-                dep_counter += 1
-        return {"detected_dependencies": detected}
+    dep_id = f"DEP-{plan.plan_id}"
+    task_ids = [t.task_id for t in plan.tasks]
+    return {
+        "detected_dependencies": [
+            {
+                "dependency_id": dep_id,
+                "plan_id": plan.plan_id,
+                "status": "open",
+                "risk": "medium",
+                "task_list": task_ids
+            }
+        ]
+    }
 
 
 def chase_node(state: DependencyState) -> Dict[str, Any]:
@@ -140,31 +78,68 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
     plan = state.get("plan")
     tone = state.get("tone") or "friendly"
     channel = state.get("channel") or "email"
+    selected_task = state.get("selected_task")
     
     # Gather task info from plan if available
+    source_id = dep.source_task_id
+    target_id = dep.target_task_id
     source_name = dep.source_task_id
     target_name = dep.target_task_id
-    target_owner = dep.owner
-    source_owner = dep.owner
+    source_owner = dep.owner or "admin@example.com"
+    target_owner = dep.owner or "admin@example.com"
     on_critical_path = False
     
     if plan:
-        on_critical_path = dep.source_task_id in plan.critical_path_task_ids or dep.target_task_id in plan.critical_path_task_ids
-        for t in plan.tasks:
-            if t.task_id == dep.source_task_id:
-                source_name = t.name
-                source_owner = t.owner
-            if t.task_id == dep.target_task_id:
-                target_name = t.name
-                target_owner = t.owner
+        if selected_task:
+            sel_rec = None
+            for t in plan.tasks:
+                if t.task_id == selected_task:
+                    sel_rec = t
+                    break
+            if sel_rec:
+                source_id = sel_rec.task_id
+                source_name = sel_rec.name
+                source_owner = sel_rec.owner
+                
+                pred_id = None
+                if sel_rec.predecessor_task_ids:
+                    pred_id = sel_rec.predecessor_task_ids[0]
+                else:
+                    # fallback to sequential predecessor
+                    idx = -1
+                    for i, t in enumerate(plan.tasks):
+                        if t.task_id == selected_task:
+                            idx = i
+                            break
+                    if idx > 0:
+                        pred_id = plan.tasks[idx - 1].task_id
+                
+                if pred_id:
+                    for t in plan.tasks:
+                        if t.task_id == pred_id:
+                            target_id = t.task_id
+                            target_name = t.name
+                            target_owner = t.owner
+                            break
+        else:
+            # Default fallback to legacy fields
+            for t in plan.tasks:
+                if t.task_id == dep.source_task_id:
+                    source_name = t.name
+                    source_owner = t.owner
+                if t.task_id == dep.target_task_id:
+                    target_name = t.name
+                    target_owner = t.owner
+                    
+        on_critical_path = source_id in plan.critical_path_task_ids or target_id in plan.critical_path_task_ids
                 
     prompt = f"""
     You are an Automated Project Manager. You need to write a nudge message to check the status of a dependency.
     
     Dependency Details:
     Dependency ID: {dep.dependency_id}
-    Source Task: {source_name} (ID: {dep.source_task_id}, Owner: {source_owner})
-    Target Task: {target_name} (ID: {dep.target_task_id}, Owner: {target_owner})
+    Source Task: {source_name} (ID: {source_id}, Owner: {source_owner})
+    Target Task: {target_name} (ID: {target_id}, Owner: {target_owner})
     Type: {dep.type}
     Status: {dep.status}
     Is either task on Critical Path? {on_critical_path}
