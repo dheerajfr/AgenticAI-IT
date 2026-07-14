@@ -54,6 +54,7 @@ def sense_node(state: DependencyState) -> Dict[str, Any]:
     if not plan:
         return {"error": "Plan record is missing for auto-sensing."}
         
+<<<<<<< HEAD
     dep_id = f"DEP-{plan.plan_id}"
     task_ids = [t.task_id for t in plan.tasks]
     return {
@@ -66,6 +67,128 @@ def sense_node(state: DependencyState) -> Dict[str, Any]:
                 "task_list": task_ids
             }
         ]
+    }
+=======
+    prompt = f"""
+    You are an AI Project Management Analyst specializing in Knowledge Graph Analytics, NLP Entity Extraction, and Semantic Retrieval.
+    
+    Your task is to automatically discover dependencies and risk links within this project plan by analyzing:
+    1. The project task metadata list.
+    
+    Plan Details:
+    - Plan ID: {plan.plan_id}
+    - Demand ID: {plan.demand_id}
+    - Committed End Date: {plan.end_date}
+    
+    ---
+    1. Tasks List:
+    {json.dumps(tasks_info, indent=2)}
+    
+    ---
+    Using Knowledge Graph mapping, identify logical/technical dependencies between these tasks (e.g., if one task's work description or predecessor_task_ids indicates it relies on another task being completed first, or if the component architecture requires a database cluster/endpoint setup before API/schema deployment, etc.).
+    Also classify the type of dependency edge as:
+    - "technical"
+    - "resource"
+    - "data"
+    - "external-vendor"
+    
+    For each dependency discovered, output a JSON object with:
+    - dependency_id: string (generate a unique code like DEP-XXXX)
+    - source_task_id: string (task that depends on another)
+    - target_task_id: string (task being depended on)
+    - type: string, one of "technical", "resource", "data", "external-vendor"
+    - status: string, "open"
+    - owner: string (name of the owner responsible, usually the source task owner)
+    
+    Return a valid JSON array containing these dependency objects under the key "detected_dependencies".
+    """
+    
+    try:
+        res = call_gemini(
+            prompt=prompt,
+            system_instruction=(
+                "Discover hidden dependencies in project schedules by performing NLP entity "
+                "extraction and semantic retrieval over task metadata."
+            ),
+            is_json=True
+        )
+        detected = res.get("detected_dependencies") or []
+        print(f"[LangGraph Node: sense] Successfully sensed {len(detected)} dependencies.")
+        return {"detected_dependencies": detected}
+    except Exception as e:
+        print(f"[LangGraph Node: sense] Failed: {e}. Using fallback sensor.")
+        # Fallback sensor: dynamically generate dependencies based on actual task predecessor relationships from DB
+        detected = []
+        dep_counter = 1
+        for t in plan.tasks:
+            for pred_id in (t.predecessor_task_ids or []):
+                detected.append({
+                    "dependency_id": f"DETECTED-DEP-{dep_counter:03d}",
+                    "source_task_id": t.task_id,
+                    "target_task_id": pred_id,
+                    "type": "technical",
+                    "status": "open",
+                    "owner": t.owner
+                })
+                dep_counter += 1
+        return {"detected_dependencies": detected}
+>>>>>>> main
+
+
+def calculate_dependency_risk(dep: DependencyEdge, plan: Optional[PlanRecord]) -> Dict[str, Any]:
+    """
+    Deterministically calculates threat level, escalation, critical-path membership,
+    and days-to-release for a dependency, based on backend business rules.
+
+    This keeps risk classification auditable and out of the LLM's hands; the LLM
+    is only responsible for generating the nudge message and explaining the
+    already-calculated risk (confidence + confidence_reasons).
+    """
+
+    on_critical_path = False
+    days_to_release = None
+
+    if plan:
+        on_critical_path = (
+            dep.source_task_id in plan.critical_path_task_ids or
+            dep.target_task_id in plan.critical_path_task_ids
+        )
+
+        try:
+            release_date = datetime.strptime(plan.end_date, "%Y-%m-%d").date()
+            today = datetime.today().date()
+            days_to_release = (release_date - today).days
+        except Exception:
+            days_to_release = None
+
+    # Threat level
+    if dep.status == "resolved":
+        threat_level = "low"
+    elif dep.status == "open":
+        threat_level = "medium" if on_critical_path else "low"
+    elif dep.status == "at-risk":
+        threat_level = "high" if on_critical_path else "medium"
+    else:
+        threat_level = "low"
+
+    # Escalation rules
+    escalation_required = False
+
+    if threat_level == "high":
+        escalation_required = True
+    elif (
+        on_critical_path and
+        days_to_release is not None and
+        days_to_release <= 5 and
+        dep.status != "resolved"
+    ):
+        escalation_required = True
+
+    return {
+        "threat_level": threat_level,
+        "escalation_required": escalation_required,
+        "on_critical_path": on_critical_path,
+        "days_to_release": days_to_release
     }
 
 
@@ -85,6 +208,7 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
     target_id = dep.target_task_id
     source_name = dep.source_task_id
     target_name = dep.target_task_id
+<<<<<<< HEAD
     source_owner = dep.owner or "admin@example.com"
     target_owner = dep.owner or "admin@example.com"
     on_critical_path = False
@@ -133,9 +257,94 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
                     
         on_critical_path = source_id in plan.critical_path_task_ids or target_id in plan.critical_path_task_ids
                 
+=======
+    source_owner = None
+    target_owner = None
+
+    if plan:
+        for t in plan.tasks:
+            if t.task_id == dep.source_task_id:
+                source_name = t.name
+                source_owner = t.owner
+            if t.task_id == dep.target_task_id:
+                target_name = t.name
+                target_owner = t.owner
+
+    # If tasks are in different plans (cross-programme), look up across all portfolio plans
+    if not source_owner or not target_owner:
+        all_plans = plan_loader.load_all_plans()
+        for p in all_plans:
+            for t in p.tasks:
+                if not source_owner and t.task_id == dep.source_task_id:
+                    source_name = t.name
+                    source_owner = t.owner
+                if not target_owner and t.task_id == dep.target_task_id:
+                    target_name = t.name
+                    target_owner = t.owner
+
+    # Fallback to dep.owner if still not found
+    if not source_owner:
+        source_owner = dep.owner
+    if not target_owner:
+        target_owner = dep.owner
+
+    # Risk is calculated deterministically by the backend, not the LLM.
+    risk = calculate_dependency_risk(dep, plan)
+    on_critical_path = risk["on_critical_path"]
+    threat_level = risk["threat_level"]
+    escalation_required = risk["escalation_required"]
+    days_to_release = risk["days_to_release"]
+
+    # Determine self-dependency status
+    is_self_dependency = False
+    if source_owner and target_owner:
+        is_self_dependency = (source_owner.lower().strip() == target_owner.lower().strip())
+
+    # Workflow selection
+    if escalation_required:
+        workflow = "escalation"
+    elif is_self_dependency:
+        workflow = "self_dependency"
+    else:
+        workflow = "owner_chase"
+
+    if workflow == "self_dependency":
+        prompt_instruction = f"""
+        Since both the predecessor task ('{target_name}') and the downstream task ('{source_name}') are owned by the same person ({target_owner}), this is a SELF-DEPENDENCY workflow.
+        
+        Generate a self-action reminder message.
+        - Do NOT address the owner by name (do NOT say "Hi {target_owner}" or use any greetings).
+        - Do NOT say that they are waiting on themselves (do NOT say "{target_owner} is waiting on {target_owner}").
+        - Describe that their task '{target_name}' (ID: {dep.target_task_id}) is currently blocking their downstream task '{source_name}' (ID: {dep.source_task_id}).
+        - Suggest they update the predecessor task's status or expected completion date.
+        """
+    elif workflow == "escalation":
+        prompt_instruction = f"""
+        Since escalation_required is True, this is an ESCALATION workflow.
+        
+        Generate an escalation nudge message addressed to the project manager/release lead.
+        - Highlight that task '{target_name}' (owned by {target_owner}) is currently blocking task '{source_name}' on the project critical path.
+        - Keep it concise, highlighting SLA impact and requesting leadership help to resolve the block.
+        """
+    else:
+        prompt_instruction = f"""
+        This is a normal OWNER-CHASE workflow.
+        
+        Generate a reminder to the target task owner '{target_owner}'.
+        - Address them politely (e.g. "Hi {target_owner.split('@')[0] if '@' in target_owner else target_owner}").
+        - Explain that '{source_owner}' (or downstream task '{source_name}') is waiting on the completion of '{target_name}'.
+        - Request an updated ETA or status.
+        """
+
+>>>>>>> main
     prompt = f"""
     You are an Automated Project Manager. You need to write a nudge message to check the status of a dependency.
-    
+
+    The dependency risk has already been calculated by the project management system.
+    Do NOT determine threat level, escalation, or criticality yourself. Use the values
+    provided below exactly as given, and use them only to explain your confidence and
+    to inform the tone/urgency of the nudge message.
+
     Dependency Details:
     Dependency ID: {dep.dependency_id}
     Source Task: {source_name} (ID: {source_id}, Owner: {source_owner})
@@ -143,7 +352,15 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
     Type: {dep.type}
     Status: {dep.status}
     Is either task on Critical Path? {on_critical_path}
+    Days Until Release: {days_to_release}
+    Threat Level (already calculated - do not change): {threat_level}
+    Escalation Required (already calculated - do not change): {escalation_required}
+    Is Self Dependency: {is_self_dependency}
+    Active Workflow Type: {workflow}
     
+    Instruction for active workflow type ({workflow}):
+    {prompt_instruction}
+
     Communication Channel: {channel}
     Channel formatting guides:
     - email: Formal email format with subject line and professional sign-off.
@@ -159,51 +376,48 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
     - executive: High-level escalation focus, concise, highlights project-wide impact for senior stakeholders.
     - short: Ultra-brief 1-2 sentence direct message suitable for quick nudge.
     
-    Output a JSON object containing:
-    - nudge_message: string (personalized nudge to {target_owner} from the perspective of {source_owner} or project admin, formatted for {channel} channel, matching the {tone} tone)
-    - escalation_required: boolean (True if status is 'at-risk' and on critical path, or 'open' and on critical path)
-    - threat_level: one of "low", "medium", "high"
-    - confidence: integer between 70 and 99 (represents AI risk estimation confidence score based on critical path status and owner history)
-    - confidence_reasons: list of strings (reasons behind the confidence score, e.g. ["Critical path task has zero float", "Predecessor owner has not updated ETA in 3 days", "Resource dependency constraint"])
+    Generate ONLY a JSON object containing:
+    - nudge_message: string (personalized nudge message matching the {workflow} instructions, formatted for {channel} channel, matching the {tone} tone)
+    - confidence: integer between 70 and 99 (how confident you are that the supplied threat level and framing are well-communicated in the message)
+    - confidence_reasons: list of strings (reasons that explain WHY the supplied threat level makes sense, e.g. ["Critical path task has zero float", "Predecessor owner has not updated ETA in 3 days", "Resource dependency constraint"])
+
+    Rules:
+    - Do not change the supplied threat level.
+    - Do not calculate escalation.
+    - Confidence should be between 70 and 99.
+    - Tailor the message to the requested tone, communication channel, and workflow type.
+    - Return ONLY valid JSON.
     """
     
     try:
         res = call_gemini(
             prompt=prompt,
-            system_instruction="Generate project status nudges and risk alerts with confidence metrics, tailored for the specified communication channel and tone.",
+            system_instruction="Generate project status nudges and explain risk confidence, tailored for the specified communication channel, tone, and workflow type.",
             is_json=True
         )
-        print(f"[LangGraph Node: chase] Nudge generated: {res.get('nudge_message')[:50]}... Threat level: {res.get('threat_level')}")
-        threat = res.get("threat_level") or "medium"
-        threat_lower = str(threat).lower()
-        if threat_lower not in ["low", "medium", "high"]:
-            if "low" in threat_lower or "green" in threat_lower:
-                threat = "low"
-            elif "high" in threat_lower or "red" in threat_lower or "critical" in threat_lower:
-                threat = "high"
-            else:
-                threat = "medium"
-        else:
-            threat = threat_lower
-        conf = res.get("confidence")
-        if not isinstance(conf, int):
-            try:
-                conf = int(conf)
-            except Exception:
-                conf = 85
-        
+        print(f"[LangGraph Node: chase] Nudge generated: {res.get('nudge_message', '')[:50]}... Threat level: {threat_level}")
+
+        confidence = res.get("confidence", 85)
+        try:
+            confidence = int(confidence)
+        except Exception:
+            confidence = 85
+        confidence = max(70, min(99, confidence))
+
         reasons = res.get("confidence_reasons") or []
         if not isinstance(reasons, list):
             reasons = [str(reasons)]
-            
         if not reasons:
-            reasons = ["Critical Path Task" if on_critical_path else "Standard Dependency Path", "Awaiting owner feedback"]
+            reasons = [
+                "Critical path dependency." if on_critical_path else "Standard dependency path.",
+                f"Current dependency status is '{dep.status}'."
+            ]
 
         return {
             "nudge_message": res.get("nudge_message") or "Hi, just following up on this task dependency.",
-            "escalation_required": res.get("escalation_required", False),
-            "threat_level": threat,
-            "confidence": conf,
+            "escalation_required": escalation_required,
+            "threat_level": threat_level,
+            "confidence": confidence,
             "confidence_reasons": reasons
         }
     except Exception as e:
@@ -211,57 +425,69 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
         target_display = target_owner.split('@')[0] if '@' in target_owner else target_owner
         source_display = source_owner.split('@')[0] if '@' in source_owner else source_owner
 
-        if tone == "executive":
+        if workflow == "escalation":
             nudge = (
                 f"Escalation Alert: Dependency {dep.dependency_id} is currently blocking '{source_name}' ({dep.source_task_id}). "
                 f"Predecessor task '{target_name}' ({dep.target_task_id}) is past its scheduled timeline, "
                 f"impacting critical path milestones. Immediate attention and updated ETA required."
             )
-        elif tone == "technical":
-            nudge = (
-                f"Technical Follow-up [{dep.dependency_id}]: '{source_name}' ({dep.source_task_id}) is blocked on "
-                f"'{target_name}' ({dep.target_task_id}). "
-                f"Please confirm completion status, share any blockers, logs, or endpoint readiness details."
-            )
-        elif tone == "business":
-            nudge = (
-                f"Business Impact Notice: The dependency {dep.dependency_id} is at risk of impacting delivery timelines. "
-                f"'{source_name}' cannot proceed until '{target_name}' is complete. "
-                f"This has schedule and SLA implications. Please provide an updated ETA at your earliest convenience."
-            )
-        elif tone == "short":
-            nudge = f"Hi {target_display}, quick check — any update on '{target_name}' ({dep.target_task_id})? It's blocking '{source_name}'. Thanks!"
-        else:  # friendly (default)
-            nudge = (
-                f"Hi {target_display}, I'm reaching out regarding dependency {dep.dependency_id}. "
-                f"{source_display} is waiting on the completion of '{target_name}' (ID: {dep.target_task_id}) "
-                f"before they can begin '{source_name}' (ID: {dep.source_task_id}). "
-                f"Could you please provide an updated ETA or let us know if there are any blockers? Thank you!"
-            )
+        elif workflow == "self_dependency":
+            if channel in ["teams", "slack"]:
+                nudge = f"Reminder: Your task '{target_name}' is currently blocking your own task '{source_name}'. Please update the predecessor task status or expected completion date."
+            else:
+                nudge = (
+                    f"Action Required\n\n"
+                    f"You currently own both dependent tasks in this dependency chain.\n\n"
+                    f"Task:\n{dep.target_task_id} – {target_name}\n\nis blocking\n\n"
+                    f"{dep.source_task_id} – {source_name}\n\n"
+                    f"Please update the predecessor task status or ETA before starting the downstream task."
+                )
+        else: # owner_chase
+            if tone == "executive":
+                nudge = (
+                    f"Ref: {dep.dependency_id} | '{source_name}' is blocked by '{target_name}' (owned by {target_owner}). "
+                    f"Critical path block detected. Escalated follow-up requested."
+                )
+            elif tone == "technical":
+                nudge = (
+                    f"Technical Follow-up [{dep.dependency_id}]: '{source_name}' ({dep.source_task_id}) is blocked on "
+                    f"'{target_name}' ({dep.target_task_id}). "
+                    f"Please confirm completion status, share blockers, deployment logs, or endpoint readiness details."
+                )
+            elif tone == "business":
+                nudge = (
+                    f"Business Impact Notice: The dependency {dep.dependency_id} is at risk of impacting delivery timelines. "
+                    f"'{source_name}' cannot proceed until '{target_name}' is complete. "
+                    f"Please provide an updated ETA."
+                )
+            elif tone == "short":
+                nudge = f"Hi {target_display}, quick check — any update on '{target_name}' ({dep.target_task_id})? It's blocking '{source_name}'. Thanks!"
+            else:  # friendly (default)
+                nudge = (
+                    f"Hi {target_display}, I'm reaching out regarding dependency {dep.dependency_id}. "
+                    f"{source_display} is waiting on the completion of '{target_name}' (ID: {dep.target_task_id}) "
+                    f"before they can begin '{source_name}' (ID: {dep.source_task_id}). "
+                    f"Could you please provide an updated ETA or let us know if there are blockers? Thank you!"
+                )
 
         # Format for channel
         if channel == "slack":
             nudge = f":wave: {nudge}"
         elif channel == "teams":
-            nudge = f"@{target_display} — {nudge}"
+            if workflow != "self_dependency":
+                nudge = f"@{target_display} — {nudge}"
         elif channel == "ado":
             nudge = f"[Work Item Comment] Ref: {dep.dependency_id} | {dep.source_task_id} -> {dep.target_task_id}\n{nudge}"
 
-        fallback_threat = "medium"
-        if dep.status == "at-risk":
-            fallback_threat = "high" if on_critical_path else "medium"
-        elif dep.status == "open":
-            fallback_threat = "medium" if on_critical_path else "low"
-
         return {
             "nudge_message": nudge,
-            "escalation_required": on_critical_path and dep.status == "at-risk",
-            "threat_level": fallback_threat,
-            "confidence": 92 if on_critical_path else 85,
+            "threat_level": threat_level,
+            "escalation_required": escalation_required,
+            "confidence": 92 if on_critical_path else 82,
             "confidence_reasons": [
-                "Critical path dependency chain" if on_critical_path else "Standard dependency track",
-                "Owner hasn't updated status recently",
-                "Slack/variance buffer absorbed"
+                "Threat level calculated by project rules.",
+                "Critical path considered." if on_critical_path else "Non-critical dependency.",
+                "Fallback response generated."
             ]
         }
 

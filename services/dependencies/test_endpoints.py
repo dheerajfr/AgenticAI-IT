@@ -18,7 +18,7 @@ def dummy_call_gemini(prompt, system_instruction=None, is_json=False, **kwargs):
                     {
                         "dependency_id": "DEP-TEST-01",
                         "source_task_id": "T-TST-2",
-                        "target_task_id": "T-MIG-1",
+                        "target_task_id": "T-AWS-1",
                         "type": "technical",
                         "status": "open",
                         "owner": "alice.smith@example.com"
@@ -137,24 +137,27 @@ def reset_db_records():
     test_records.update({
         "DEP-0001": DependencyEdge(
             dependency_id="DEP-0001",
-            source_task_id="PLN-0001-BUILD",
-            target_task_id="PLN-0001-DESIGN",
+            plan_id="PLN-0001-1",
+            source_task_id="T-TST-2",
+            target_task_id="T-MIG-1",
             type="technical",
-            status="open",
+            status="at-risk",
             owner="umar.roy@example.com"
         ),
         "DEP-0002": DependencyEdge(
             dependency_id="DEP-0002",
-            source_task_id="PLN-0001-TEST",
-            target_task_id="PLN-0001-BUILD",
+            plan_id="PLN-0001-1",
+            source_task_id="T-TST-2",
+            target_task_id="T-MIG-1",
             type="technical",
             status="resolved",
             owner="ivan.rivera@example.com"
         ),
         "DEP-0003": DependencyEdge(
             dependency_id="DEP-0003",
-            source_task_id="PLN-0001-DEPLOY",
-            target_task_id="PLN-0001-TEST",
+            plan_id="PLN-0001-1",
+            source_task_id="T-MIG-1",
+            target_task_id="T-AWS-1",
             type="technical",
             status="at-risk",
             owner="gabriel.morris1@example.com"
@@ -176,10 +179,10 @@ def test_get_dependencies():
     # Check default fixture DEP-0001
     dep1 = next((x for x in data if x["dependency_id"] == "DEP-0001"), None)
     assert dep1 is not None
-    assert dep1["source_task_id"] == "PLN-0001-BUILD"
-    assert dep1["target_task_id"] == "PLN-0001-DESIGN"
+    assert dep1["source_task_id"] == "T-TST-2"
+    assert dep1["target_task_id"] == "T-MIG-1"
     assert dep1["type"] == "technical"
-    assert dep1["status"] == "open"
+    assert dep1["status"] == "at-risk"
 
 
 def test_create_dependency():
@@ -209,10 +212,10 @@ def test_create_duplicate_dependency():
     """Verify error on creating duplicate dependency ID."""
     duplicate_dep = {
         "dependency_id": "DEP-0001",
-        "source_task_id": "PLN-0001-BUILD",
-        "target_task_id": "PLN-0001-DESIGN",
+        "source_task_id": "T-TST-2",
+        "target_task_id": "T-MIG-1",
         "type": "technical",
-        "status": "open",
+        "status": "at-risk",
         "owner": "bob.jones@example.com"
     }
     response = client.post("/api/dependencies", json=duplicate_dep)
@@ -335,3 +338,41 @@ def test_create_dependency_auto_generate_id():
     response = client.get(f"/api/dependencies/{generated_id}")
     assert response.status_code == 200
     assert response.json()["owner"] == "auto.owner@example.com"
+
+
+def test_cross_programme_dependency_is_self_and_graph_resolution():
+    """Verify cross-programme dependency attributes and graph properties."""
+    # Source task T-TST-2 is in PLN-0001-1 (owner: alice.smith@example.com)
+    # Target task T-PAY-2 is in PLN-0002-1 (owner: bob.jones@example.com)
+    dep_data = {
+        "dependency_id": "DEP-CROSS-TEST",
+        "plan_id": "PLN-0001-1",
+        "source_task_id": "T-TST-2",
+        "target_task_id": "T-PAY-2",
+        "type": "technical",
+        "status": "open",
+        "owner": "alice.smith@example.com"
+    }
+    
+    # Create the dependency edge
+    response = client.post("/api/dependencies", json=dep_data)
+    assert response.status_code == 200
+    
+    # Retrieve it back - is_self_dependency should be False since owners differ
+    response = client.get("/api/dependencies/DEP-CROSS-TEST")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_self_dependency"] is False
+    
+    # Retrieve dependency graph and verify details of target task T-PAY-2 from plan 2 are loaded
+    response = client.get("/api/dependencies/DEP-CROSS-TEST/graph")
+    assert response.status_code == 200
+    graph_data = response.json()
+    
+    # Find predecessor node
+    nodes = graph_data["nodes"]
+    pred_node = next((n for n in nodes if n["id"] == "T-PAY-2"), None)
+    assert pred_node is not None
+    assert pred_node["label"] == "iOS App SDK Integration & Testing"
+    assert pred_node["owner"] == "bob.jones@example.com"
+
