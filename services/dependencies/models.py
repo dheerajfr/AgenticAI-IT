@@ -35,6 +35,7 @@ class DependencyEdge(BaseModel):
     threat_level: Optional[str] = Field(default="", description="AI assessed threat level")
     confidence: Optional[int] = Field(default=None, description="AI confidence score")
     confidence_reasons: Optional[List[str]] = Field(default=[], description="AI confidence reasons")
+    is_self_dependency: Optional[bool] = Field(default=None, description="True if source task and target task have the same owner")
 
 
 class DependencySenseRequest(BaseModel):
@@ -57,6 +58,7 @@ class ChaseCommitmentResponse(BaseModel):
 class CrossProgrammeImpactRequest(BaseModel):
     task_id: str = Field(..., description="Task ID of the task experiencing delays")
     delay_days: int = Field(..., description="Number of days the task is delayed")
+    plan_id: Optional[str] = Field(default=None, description="Optional plan ID to specify the exact plan")
 
 
 class AffectedTaskInfo(BaseModel):
