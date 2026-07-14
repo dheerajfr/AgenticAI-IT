@@ -46,10 +46,57 @@ def generate_dependency_id() -> str:
     return f"DEP-{max_num + 1:04d}"
 
 
+def populate_is_self_dependency(dep: DependencyEdge) -> DependencyEdge:
+    associated_plan = None
+    all_plans = plan_loader.load_all_plans()
+
+    # Prefer the plan whose plan_id matches the dependency's plan_id — this
+    # avoids false negatives when the same task IDs exist in multiple plans
+    # with different owners.
+    if dep.plan_id:
+        for p in all_plans:
+            if p.plan_id == dep.plan_id:
+                associated_plan = p
+                break
+
+    # Fallback: first plan that contains the source task
+    if associated_plan is None:
+        for p in all_plans:
+            task_ids = [t.task_id for t in p.tasks]
+            if dep.source_task_id in task_ids:
+                associated_plan = p
+                break
+
+    source_owner = None
+    target_owner = None
+
+    if associated_plan:
+        for t in associated_plan.tasks:
+            if t.task_id == dep.source_task_id:
+                source_owner = t.owner
+            if t.task_id == dep.target_task_id:
+                target_owner = t.owner
+
+    # Lookup across all portfolio plans if not found in associated plan
+    if not source_owner or not target_owner:
+        for p in all_plans:
+            for t in p.tasks:
+                if not source_owner and t.task_id == dep.source_task_id:
+                    source_owner = t.owner
+                if not target_owner and t.task_id == dep.target_task_id:
+                    target_owner = t.owner
+
+    if source_owner and target_owner:
+        dep.is_self_dependency = (source_owner.lower().strip() == target_owner.lower().strip())
+    else:
+        dep.is_self_dependency = False
+    return dep
+
+
 @app.get("/api/dependencies", response_model=List[DependencyEdge])
 def get_dependencies():
     """List all dependency edges in the system."""
-    return db.get_all()
+    return [populate_is_self_dependency(dep) for dep in db.get_all()]
 
 
 @app.get("/api/dependencies/{dependency_id}", response_model=DependencyEdge)
@@ -58,7 +105,7 @@ def get_dependency(dependency_id: str):
     dep = db.get_by_id(dependency_id)
     if not dep:
         raise HTTPException(status_code=404, detail="Dependency not found.")
-    return dep
+    return populate_is_self_dependency(dep)
 
 
 import os
@@ -307,11 +354,17 @@ def chase_commitment(dependency_id: str, tone: Optional[str] = None):
     # Attempt to locate associated plan
     associated_plan = None
     all_plans = plan_loader.load_all_plans()
-    for p in all_plans:
-        task_ids = [t.task_id for t in p.tasks]
-        if dep.source_task_id in task_ids:
-            associated_plan = p
-            break
+    if dep.plan_id:
+        for p in all_plans:
+            if p.plan_id == dep.plan_id:
+                associated_plan = p
+                break
+    if not associated_plan:
+        for p in all_plans:
+            task_ids = [t.task_id for t in p.tasks]
+            if dep.source_task_id in task_ids:
+                associated_plan = p
+                break
             
     state_input = {
         "task": "chase",
@@ -402,11 +455,17 @@ def get_dependency_graph(dependency_id: str):
     # Find associated plan
     associated_plan = None
     all_plans = plan_loader.load_all_plans()
-    for p in all_plans:
-        task_ids = [t.task_id for t in p.tasks]
-        if dep.source_task_id in task_ids:
-            associated_plan = p
-            break
+    if dep.plan_id:
+        for p in all_plans:
+            if p.plan_id == dep.plan_id:
+                associated_plan = p
+                break
+    if not associated_plan:
+        for p in all_plans:
+            task_ids = [t.task_id for t in p.tasks]
+            if dep.source_task_id in task_ids:
+                associated_plan = p
+                break
             
     # Build graph nodes and links
     nodes = []
@@ -418,6 +477,14 @@ def get_dependency_graph(dependency_id: str):
         for t in associated_plan.tasks:
             if t.task_id == dep.target_task_id:
                 pred_task = t
+                break
+    if not pred_task:
+        for p in all_plans:
+            for t in p.tasks:
+                if t.task_id == dep.target_task_id:
+                    pred_task = t
+                    break
+            if pred_task:
                 break
                 
     pred_name = pred_task.name if pred_task else dep.target_task_id
@@ -436,6 +503,14 @@ def get_dependency_graph(dependency_id: str):
         for t in associated_plan.tasks:
             if t.task_id == dep.source_task_id:
                 dep_task = t
+                break
+    if not dep_task:
+        for p in all_plans:
+            for t in p.tasks:
+                if t.task_id == dep.source_task_id:
+                    dep_task = t
+                    break
+            if dep_task:
                 break
                 
     dep_name = dep_task.name if dep_task else dep.source_task_id
@@ -486,11 +561,17 @@ def check_cross_programme_impact(req: CrossProgrammeImpactRequest):
     # Locate plan containing the task
     associated_plan = None
     all_plans = plan_loader.load_all_plans()
-    for p in all_plans:
-        task_ids = [t.task_id for t in p.tasks]
-        if req.task_id in task_ids:
-            associated_plan = p
-            break
+    if req.plan_id:
+        for p in all_plans:
+            if p.plan_id == req.plan_id:
+                associated_plan = p
+                break
+    if not associated_plan:
+        for p in all_plans:
+            task_ids = [t.task_id for t in p.tasks]
+            if req.task_id in task_ids:
+                associated_plan = p
+                break
             
     if not associated_plan:
         raise HTTPException(
