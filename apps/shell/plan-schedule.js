@@ -550,6 +550,9 @@ function inferSkillFromTask(taskName) {
 
 function getEmployeeDisplayName(owner) {
   if (!owner) return 'unassigned';
+  if (owner.includes(',')) {
+    return owner.split(',').map(o => getEmployeeDisplayName(o.trim())).join(', ');
+  }
   if (window.allEmployees) {
     const emp = window.allEmployees.find(e => (e.email || '').toLowerCase() === owner.toLowerCase() || (e.name || '').toLowerCase() === owner.toLowerCase());
     if (emp && emp.name) return emp.name;
@@ -642,12 +645,18 @@ function renderPlanPreview(newPlans, actionsRow) {
       const cellId = `avail-cell-${plan.plan_id}-${ti}`.replace(/[^a-zA-Z0-9-]/g, '-');
 
       let hasConflict = false;
+      let conflictingOwner = '';
       if (!isOwnerNotAvailable && window.allEmployees) {
-        const emp = window.allEmployees.find(e => (e.email || '').toLowerCase() === t.owner.toLowerCase() || (e.name || '').toLowerCase() === t.owner.toLowerCase());
-        if (emp) {
-          const check = getAvailabilityStatusForTask(emp, t);
-          if (check.tooLong) {
-            hasConflict = true;
+        const ownersList = t.owner.split(',').map(o => o.trim());
+        for (const owner of ownersList) {
+          const emp = window.allEmployees.find(e => (e.email || '').toLowerCase() === owner.toLowerCase() || (e.name || '').toLowerCase() === owner.toLowerCase());
+          if (emp) {
+            const check = getAvailabilityStatusForTask(emp, t);
+            if (check.tooLong) {
+              hasConflict = true;
+              conflictingOwner = emp.name || owner;
+              break;
+            }
           }
         }
       }
@@ -657,20 +666,26 @@ function renderPlanPreview(newPlans, actionsRow) {
         pendingAvailability.push({ cellId, skill, taskName: t.name, taskObj: t, planObj: plan, originalOwner: t.owner });
       }
 
-      const displayName = getEmployeeDisplayName(t.owner);
-
-      const ownerCell = (isOwnerNotAvailable || hasConflict)
-        ? `<td id="${cellId}" style="padding: 0.35rem 0.5rem;">
+      let ownerCell = '';
+      if (isOwnerNotAvailable || hasConflict) {
+        ownerCell = `<td id="${cellId}" style="padding: 0.35rem 0.5rem;">
             <div style="display: flex; flex-direction: column; gap: 0.2rem;">
               <span style="color: var(--color-status-red-text); font-weight: 600; font-size: 0.72rem;">
-                ⚠ Not Available — loading options…
+                ⚠ ${isOwnerNotAvailable && t.owner.includes(',') ? 'Shortage: Some positions Unfilled' : 'Not Available — loading options…'}
               </span>
               <span style="font-size: 0.72rem; color: var(--color-status-red-text); font-weight: 700;">
                 hire a new employee with the skills for this task
               </span>
             </div>
-           </td>`
-        : `<td style="padding: 0.35rem 0.5rem; color: var(--color-brand);">${displayName}</td>`;
+           </td>`;
+      } else {
+        const ownersList = t.owner.split(',').map(o => o.trim());
+        const chips = ownersList.map(o => {
+          const name = getEmployeeDisplayName(o);
+          return `<span style="display: inline-block; background-color: var(--color-brand-light, #e0f2fe); color: var(--color-brand, #0369a1); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.75rem; margin-right: 0.25rem; font-weight: 500; border: 1px solid var(--color-brand-border, #bae6fd);">${name}</span>`;
+        }).join('');
+        ownerCell = `<td style="padding: 0.35rem 0.5rem;">${chips}</td>`;
+      }
 
       return `
                 <tr style="border-bottom: 1px solid rgba(46,60,84,0.5);">
@@ -1242,12 +1257,18 @@ function renderPlanDetail(plan) {
 
     const isOwnerNotAvailable = !t.owner || t.owner === 'unassigned' || t.owner.includes('default') || t.owner.includes('unassigned');
     let hasConflict = false;
+    let conflictingOwner = '';
     if (!isOwnerNotAvailable && window.allEmployees) {
-      const emp = window.allEmployees.find(e => (e.email || '').toLowerCase() === t.owner.toLowerCase() || (e.name || '').toLowerCase() === t.owner.toLowerCase());
-      if (emp) {
-        const check = getAvailabilityStatusForTask(emp, t);
-        if (check.tooLong) {
-          hasConflict = true;
+      const ownersList = t.owner.split(',').map(o => o.trim());
+      for (const owner of ownersList) {
+        const emp = window.allEmployees.find(e => (e.email || '').toLowerCase() === owner.toLowerCase() || (e.name || '').toLowerCase() === owner.toLowerCase());
+        if (emp) {
+          const check = getAvailabilityStatusForTask(emp, t);
+          if (check.tooLong) {
+            hasConflict = true;
+            conflictingOwner = emp.name || owner;
+            break;
+          }
         }
       }
     }
@@ -1259,7 +1280,7 @@ function renderPlanDetail(plan) {
       ownerDisplay = `
         <div style="display: flex; flex-direction: column; gap: 0.2rem; background: rgba(239, 68, 68, 0.08); padding: 6px; border-radius: var(--radius-sm); border: 1px solid var(--color-status-red-text); line-height: 1.25;">
           <span style="color: var(--color-status-red-text); font-weight: 600; font-size: 0.78rem;">
-            ⚠ ${isOwnerNotAvailable ? 'employee for this task is currently is not available' : displayName + ' is currently not available'}
+            ⚠ ${isOwnerNotAvailable ? 'employee for this task is currently not available' : conflictingOwner + ' is currently not available'}
           </span>
           <span style="font-size: 0.75rem; color: var(--color-status-red-text); font-weight: 700; display: block;">
             hire a new employee with the skills for this task
@@ -1267,7 +1288,11 @@ function renderPlanDetail(plan) {
         </div>
       `;
     } else {
-      ownerDisplay = `<span style="color: var(--color-brand); font-weight: 500;">${displayName}</span>`;
+      const ownersList = t.owner.split(',').map(o => o.trim());
+      ownerDisplay = ownersList.map(o => {
+        const name = getEmployeeDisplayName(o);
+        return `<span class="employee-chip" style="display: inline-block; background-color: var(--color-brand-light, #e0f2fe); color: var(--color-brand, #0369a1); padding: 0.15rem 0.45rem; border-radius: 12px; font-size: 0.75rem; margin-right: 0.25rem; font-weight: 600; border: 1px solid var(--color-brand-border, #bae6fd);">${name}</span>`;
+      }).join('');
     }
 
     return `
@@ -1767,23 +1792,23 @@ function renderTimelineBars(plan) {
         <div style="width: 130px; flex-shrink: 0; font-size: 0.75rem; color: var(--text-secondary); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
           ${t.name}
         </div>
-        <div style="flex: 1; position: relative; height: 22px; background: rgba(30,41,59,0.5); border-radius: 4px; overflow: hidden;">
+        <div style="flex: 1; position: relative; height: 22px; background: rgba(30,41,59,0.5); border-radius: 4px;">
           <div style="
             position: absolute;
             left: ${leftPct}%;
             width: ${widthPct}%;
             height: 100%;
             background: ${color};
-            opacity: ${isCritical ? '1' : '0.6'};
+            opacity: ${isCritical ? '1' : '0.8'};
             border-radius: 3px;
             display: flex;
             align-items: center;
             padding-left: 6px;
-            font-size: 0.65rem;
-            color: #0b0f19;
+            font-size: 0.68rem;
+            color: #ffffff;
+            text-shadow: 0px 1px 3px rgba(0,0,0,0.9);
             font-weight: 700;
             white-space: nowrap;
-            overflow: hidden;
           ">${displayName}</div>
         </div>
         <div style="width: 80px; flex-shrink: 0; font-size: 0.7rem; color: var(--text-muted); font-family: monospace;">${t.end_date}</div>

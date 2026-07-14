@@ -103,8 +103,17 @@ class Task(BaseModel):
     start_date: date
     end_date: date
     owner: str
+    owners: List[str] = Field(default_factory=list)
     predecessor_task_ids: List[str] = Field(default_factory=list)
     status: str = "pending"
+
+    @model_validator(mode="after")
+    def _initialize_owners(self) -> "Task":
+        if not self.owners and self.owner:
+            self.owners = [o.strip() for o in self.owner.split(",") if o.strip()]
+        elif self.owners and not self.owner:
+            self.owner = ", ".join(self.owners)
+        return self
 
     @model_validator(mode="after")
     def _date_ordering(self) -> "Task":

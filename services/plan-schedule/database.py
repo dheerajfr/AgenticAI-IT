@@ -65,6 +65,16 @@ class PlanDatabase:
             )
             cursor.execute(
                 """
+                CREATE TABLE IF NOT EXISTS task_employee_assignments (
+                    plan_id         TEXT,
+                    task_id         TEXT,
+                    employee_email  TEXT,
+                    PRIMARY KEY (plan_id, task_id, employee_email)
+                )
+                """
+            )
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS plan_history (
                     id          INTEGER PRIMARY KEY AUTOINCREMENT,
                     plan_id     TEXT,
@@ -145,6 +155,22 @@ class PlanDatabase:
                 """,
                 (plan_dict["plan_id"], plan_dict["demand_id"], json.dumps(plan_dict)),
             )
+            
+            # Sync many-to-many task employee assignments
+            cursor.execute("DELETE FROM task_employee_assignments WHERE plan_id = ?", (plan_dict["plan_id"],))
+            for task in plan_dict.get("tasks", []):
+                task_id = task.get("task_id")
+                owner_str = task.get("owner", "")
+                if owner_str and owner_str != "unassigned":
+                    owners = [o.strip() for o in owner_str.split(",") if o.strip()]
+                    for owner in owners:
+                        cursor.execute(
+                            """
+                            INSERT OR REPLACE INTO task_employee_assignments (plan_id, task_id, employee_email)
+                            VALUES (?, ?, ?)
+                            """,
+                            (plan_dict["plan_id"], task_id, owner),
+                        )
             conn.commit()
         self.sync_employee_allocations()
 
@@ -154,6 +180,7 @@ class PlanDatabase:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM plans WHERE plan_id = ?", (plan_id,))
             deleted = cursor.rowcount > 0
+            cursor.execute("DELETE FROM task_employee_assignments WHERE plan_id = ?", (plan_id,))
             conn.commit()
         if deleted:
             self.sync_employee_allocations()
@@ -501,8 +528,8 @@ class PlanDatabase:
             plan_end_str = max(plan_dates).isoformat() if plan_dates else None
 
             for t in tasks:
-                owner = t.get("owner")
-                if not owner or owner == "unassigned":
+                owner_str = t.get("owner")
+                if not owner_str or owner_str == "unassigned":
                     continue
                 if t.get("status") == "completed":
                     continue
@@ -515,16 +542,19 @@ class PlanDatabase:
                     except ValueError:
                         pass
 
-                assignments.setdefault(owner, []).append({
-                    "plan_id": plan_id,
-                    "demand_id": demand_id,
-                    "plan_start": plan_start_str,
-                    "plan_end": plan_end_str,
-                    "task_id": t.get("task_id"),
-                    "task_name": t.get("name"),
-                    "start_date": t.get("start_date"),
-                    "end_date": t.get("end_date"),
-                })
+                # Split owner string to assign to all owners
+                owners = [o.strip() for o in owner_str.split(",") if o.strip()]
+                for owner in owners:
+                    assignments.setdefault(owner, []).append({
+                        "plan_id": plan_id,
+                        "demand_id": demand_id,
+                        "plan_start": plan_start_str,
+                        "plan_end": plan_end_str,
+                        "task_id": t.get("task_id"),
+                        "task_name": t.get("name"),
+                        "start_date": t.get("start_date"),
+                        "end_date": t.get("end_date"),
+                    })
 
         # 4. Write updated state back to resource.db
         with self._resource_conn() as rconn:
@@ -549,8 +579,17 @@ class PlanDatabase:
                     emp_assignments = assignments.get(name, [])
 
                 if emp_assignments and not on_leave:
-                    emp_assignments.sort(key=lambda x: x.get("start_date") or "")
-                    primary = emp_assignments[0]
+                    # Find active assignment first, fallback to next sorted by start date
+                    active_assignments = [
+                        a for a in emp_assignments
+                        if a.get("start_date") and a.get("end_date")
+                        and a["start_date"] <= today_str <= a["end_date"]
+                    ]
+                    if active_assignments:
+                        primary = active_assignments[0]
+                    else:
+                        emp_assignments.sort(key=lambda x: x.get("start_date") or "")
+                        primary = emp_assignments[0]
                     allocated = 1
                     status = "Allocated"
                     current_project = primary["demand_id"]

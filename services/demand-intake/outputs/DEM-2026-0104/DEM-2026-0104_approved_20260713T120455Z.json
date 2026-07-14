@@ -1,0 +1,44 @@
+{
+  "demand_id": "DEM-2026-0104",
+  "title": "Automation of Ball Tracking in Cricket Using GenAI",
+  "description": "Develop an automated system for tracking the ball in cricket matches using Generative AI technologies to enhance accuracy and efficiency.",
+  "type": "project",
+  "domain": "Sports Analytics & AI",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-13",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Automation of Ball Tracking in Cricket Using GenAI (DEM-2026-0104)\n\nExecutive Summary\nThis project aims to develop an automated ball tracking system for cricket using Generative AI to improve match analysis accuracy and operational efficiency.\n\nBusiness Value/Impact\nThe solution will enhance real-time decision-making, reduce human error, and provide valuable insights for broadcasters and teams, driving engagement and performance. Automation will also lower monitoring costs during matches.\n\nRisk Mitigation\nMedium risks associated with AI accuracy and system integration will be managed through rigorous testing, phased deployment, and continuous model training with real match data to ensure reliability and robustness.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 88,
+  "earliest_start_date": "2026-08-12",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 13 total active team members evaluated.",
+    "Technical capability profiling: 29 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 400/520 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Frontend Developer",
+      "requiredCapacity": 2,
+      "availableCapacity": 2
+    }
+  ],
+  "skill_gaps": [
+    "Generative AI",
+    "Computer Vision",
+    "Machine Learning",
+    "Backend Development",
+    "Frontend Development",
+    "Quality Assurance"
+  ]
+}

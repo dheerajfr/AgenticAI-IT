@@ -58,7 +58,6 @@ window.fetchEstimates = async function () {
     estimates = await res.json();
     renderEstimateList();
 
-<<<<<<< HEAD
     // Check if we arrived from the Demand module with a specific demand pre-selected
     const pendingDemandId = sessionStorage.getItem('pendingEstimateDemandId');
     if (pendingDemandId) {
@@ -77,9 +76,6 @@ window.fetchEstimates = async function () {
       }, 80);
       return;
     }
-
-=======
->>>>>>> main
     if (estimates.length > 0 && selectedEstimateId === null) {
       selectEstimate(estimates[0].estimate_id);
     } else if (selectedEstimateId !== null) {
@@ -201,11 +197,7 @@ async function showNewEstimateForm() {
         Generate Estimate
       </h3>
       <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
-<<<<<<< HEAD
         Select an approved demand to estimate effort, cost, and duration.
-=======
-        Select an approved demand to estimate effort, cost, and duration<!from historical data>.
->>>>>>> main
       </p>
 
       <div class="error-message" id="estimate-error"></div>

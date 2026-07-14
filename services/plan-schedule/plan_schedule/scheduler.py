@@ -20,11 +20,20 @@ If a required role has no members configured, falls back to "unassigned".
 from __future__ import annotations
 
 import math
+import logging
+import warnings
 from datetime import date, timedelta
 from typing import Dict, Iterator, List, Tuple
 
 from plan_schedule.models import SprintConstraints, Task, TeamConfig
 from plan_schedule.wbs import PHASE_DEPLOY, PHASE_BUILD, PHASE_DESIGN, PHASE_TEST, PhaseAllocation
+
+log = logging.getLogger(__name__)
+
+try:
+    from database import db
+except ImportError:
+    db = None
 
 # ---------------------------------------------------------------------------
 # Phase → role mapping
@@ -41,6 +50,15 @@ _PHASE_DISPLAY_NAMES: Dict[str, str] = {
     PHASE_BUILD:  "Build",
     PHASE_TEST:   "Test & QA",
     PHASE_DEPLOY: "Deploy & Release",
+}
+
+# Mapping from WBS phase → list of exact demand role names that feed that phase.
+# These match the `role` field stored in resource_constraints from the demand module.
+_PHASE_DEMAND_ROLES: Dict[str, List[str]] = {
+    PHASE_DESIGN: ["Senior Architect", "Backend Developer", "Frontend Developer"],
+    PHASE_BUILD:  ["Backend Developer", "Frontend Developer", "Senior Architect"],
+    PHASE_TEST:   ["QA Engineer", "Security Engineer"],
+    PHASE_DEPLOY: ["Security Engineer", "QA Engineer", "Backend Developer"],
 }
 
 
@@ -81,85 +99,242 @@ def _add_working_days(start: date, n_days: int, working_days_per_week: int) -> d
 
 
 # ---------------------------------------------------------------------------
-# Owner round-robin
+# Required headcount helper (demand-driven)
+# ---------------------------------------------------------------------------
+
+def get_required_count_for_role(phase: str, constraints: list) -> int:
+    """
+    Sum the `requiredCapacity` values from the demand resource_constraints
+    for all roles that belong to the given WBS phase.
+
+    Matching is done by exact role name against _PHASE_DEMAND_ROLES[phase].
+    If no constraints match, returns 1 (default single-assignee).
+
+    Example:
+        demand has: Backend Developer: required=2, QA Engineer: required=1
+        Phase 'build'  → demand roles = [Backend Developer, Frontend Developer, Senior Architect]
+                       → matches Backend Developer (2) → returns 2
+        Phase 'test'   → demand roles = [QA Engineer, Security Engineer]
+                       → matches QA Engineer (1) → returns 1
+    """
+    demand_roles_for_phase = _PHASE_DEMAND_ROLES.get(phase, [])
+    if not demand_roles_for_phase or not constraints:
+        return 1
+
+    total = 0
+    found = False
+    for c in constraints:
+        role_name = (c.get("role") or "").strip()
+        headcount = c.get("requiredCapacity", 0)
+        if role_name in demand_roles_for_phase and headcount > 0:
+            total += headcount
+            found = True
+
+    return total if found else 1
+
+
+# ---------------------------------------------------------------------------
+# Timeline and capacity aware resource allocator
 # ---------------------------------------------------------------------------
 
 class _RoundRobinOwner:
-    """Stateful capacity-aware and round-robin owner iterator per role."""
+    """Stateful capacity-aware and timeline-aware resource allocator."""
 
     def __init__(self, team: TeamConfig, accepted_plans: List[dict] | None = None) -> None:
         self.team = team
-        self._counters: Dict[str, int] = {}
-        self._members: Dict[str, List[str]] = {}
+        self.assignments: List[Tuple[str, date, date]] = []
+        
+        # Load all employees from database — these are the authoritative roster
+        self._all_db_employees: List[dict] = []
+        if db is not None:
+            try:
+                self._all_db_employees = db.get_employees()
+            except Exception as e:
+                log.warning("Could not load employees from database: %s", e)
+
+        # Build self.employees from team config (for round-robin / test-compat fallback)
+        # Map configured members to database employees or create virtual ones
+        self.employees = []
+        seen_emails: set = set()
         for role_cfg in team.roles:
-            self._members[role_cfg.role] = role_cfg.members
-            self._counters[role_cfg.role] = 0
+            for member in role_cfg.members:
+                matched_emp = None
+                for emp in self._all_db_employees:
+                    if emp["email"].lower() == member.lower() or emp["employee_name"].lower() == member.lower() or emp["email"].split("@")[0].lower() == member.lower():
+                        matched_emp = emp
+                        break
+                
+                if matched_emp:
+                    if matched_emp["email"] not in seen_emails:
+                        self.employees.append(matched_emp)
+                        seen_emails.add(matched_emp["email"])
+                else:
+                    if member not in seen_emails:
+                        self.employees.append({
+                            "employee_id": f"VIRT-{member}",
+                            "employee_name": member,
+                            "email": member,
+                            "role": role_cfg.role,
+                            "skills": "",
+                            "status": "Available",
+                            "allocated": False,
+                            "leave_start_date": None,
+                            "leave_end_date": None
+                        })
+                        seen_emails.add(member)
 
         # Track existing assignments to avoid overlaps
-        self.assignments: List[Tuple[str, date, date]] = []
         if accepted_plans:
             for plan in accepted_plans:
-                if plan.get("status") == "accepted":
+                if plan.get("status") in ("accepted", "approved"):
                     for t in plan.get("tasks", []):
-                        owner = t.get("owner")
+                        owner_str = t.get("owner")
                         t_start = t.get("start_date")
                         t_end = t.get("end_date")
-                        if owner and owner != "unassigned" and t_start and t_end:
+                        if owner_str and owner_str != "unassigned" and t_start and t_end:
                             try:
-                                self.assignments.append((
-                                    owner,
-                                    date.fromisoformat(t_start),
-                                    date.fromisoformat(t_end)
-                                ))
+                                s_date = date.fromisoformat(t_start)
+                                e_date = date.fromisoformat(t_end)
+                                owners = [o.strip() for o in owner_str.split(",") if o.strip()]
+                                for owner in owners:
+                                    self.assignments.append((owner, s_date, e_date))
                             except ValueError:
                                 pass
 
     def next_owner(self, role: str, start_date: date | None = None, end_date: date | None = None) -> str:
-        members = self._members.get(role, [])
-        if not members:
-            return "unassigned"
+        """Backward-compatible single-owner allocator."""
+        owners = self.next_owners(role, start_date or date.min, end_date or date.max, 1)
+        return owners[0] if owners else "unassigned"
 
-        # If start/end dates are provided, filter members who are available (no overlaps)
-        if start_date and end_date:
-            available_members = []
-            for m in members:
-                has_overlap = False
-                for owner, s_date, e_date in self.assignments:
-                    # Check if assignee matches member name/email (case-insensitive)
-                    if owner.lower() == m.lower() or owner.lower().split("@")[0] == m.lower().split("@")[0]:
-                        if max(start_date, s_date) <= min(end_date, e_date):
-                            has_overlap = True
-                            break
-                if not has_overlap:
-                    available_members.append(m)
+    def next_owners(
+        self,
+        role: str,
+        start_date: date,
+        end_date: date,
+        count: int,
+        demand_constraints: List[dict] | None = None,
+        phase: str | None = None,
+    ) -> List[str]:
+        """
+        Assign exactly `count` employees to this task.
 
-            if available_members:
-                idx = self._counters.get(role, 0)
-                owner = available_members[idx % len(available_members)]
-                self._counters[role] = idx + 1
+        When `demand_constraints` (from the demand module) are provided:
+          - Find all demand constraint entries whose `role` maps to this WBS phase.
+          - Collect all DB employees whose `role` exactly matches one of those demand roles.
+          - Sort them by current utilization (total assigned days), ascending.
+          - Assign the top `count` employees — ignoring leave and schedule overlap,
+            because the demand module's headcount is the source of truth.
+          - If the pool is smaller than `count`, cycle/duplicate the least-utilized.
+
+        When demand_constraints is None/empty, falls back to the original fuzzy
+        phase-role matching (needed for test compatibility).
+        """
+        import json
+
+        def get_utilization_days(email: str) -> int:
+            total_days = 0
+            norm = email.lower()
+            for assigned_email, s_date, e_date in self.assignments:
+                ae = assigned_email.lower()
+                if ae == norm or ae.split("@")[0] == norm.split("@")[0]:
+                    total_days += (e_date - s_date).days + 1
+            return total_days
+
+        # ─── DEMAND-DRIVEN PATH ──────────────────────────────────────────────
+        if demand_constraints and phase is not None:
+            demand_roles_for_phase = _PHASE_DEMAND_ROLES.get(phase, [])
+
+            # Collect all DB employees whose role exactly matches a demand role for this phase
+            demand_candidates: List[dict] = []
+            seen_in_demand: set = set()
+            for emp in self._all_db_employees:
+                emp_role = (emp.get("role") or "").strip()
+                if emp_role in demand_roles_for_phase and emp["email"] not in seen_in_demand:
+                    demand_candidates.append(emp)
+                    seen_in_demand.add(emp["email"])
+
+            # Also include virtual team members whose role matches demand roles
+            for emp in self.employees:
+                emp_role = (emp.get("role") or "").strip()
+                if emp_role in demand_roles_for_phase and emp["email"] not in seen_in_demand:
+                    demand_candidates.append(emp)
+                    seen_in_demand.add(emp["email"])
+
+            if not demand_candidates:
+                # No employees in DB match demand roles — fall through to fuzzy path
+                log.warning(
+                    "[scheduler] No employees match demand roles %s for phase '%s'. Falling back.",
+                    demand_roles_for_phase, phase
+                )
             else:
-                # If everyone is busy, assign to the one who is free earliest
-                member_earliest_free: Dict[str, date] = {}
-                for m in members:
-                    max_end = None
-                    for owner, s_date, e_date in self.assignments:
-                        if owner.lower() == m.lower() or owner.lower().split("@")[0] == m.lower().split("@")[0]:
-                            if max_end is None or e_date > max_end:
-                                max_end = e_date
-                    member_earliest_free[m] = max_end if max_end else date.min
+                # Sort by utilization (least busy first)
+                demand_candidates.sort(key=lambda e: get_utilization_days(e["email"]))
 
-                sorted_members = sorted(members, key=lambda m: member_earliest_free[m])
-                owner = sorted_members[0]
-        else:
-            # Traditional round-robin fallback
-            idx = self._counters.get(role, 0)
-            owner = members[idx % len(members)]
-            self._counters[role] = idx + 1
+                allocated_emails: List[str] = []
+                pool_size = len(demand_candidates)
+                for i in range(count):
+                    emp = demand_candidates[i % pool_size]
+                    email = emp["email"]
+                    allocated_emails.append(email)
+                    self.assignments.append((email, start_date, end_date))
 
-        # Record this assignment
-        if start_date and end_date:
-            self.assignments.append((owner, start_date, end_date))
-        return owner
+                return allocated_emails
+
+        # ─── LEGACY / TEST ROUND-ROBIN PATH ─────────────────────────────────
+        # Filter candidate employees who match the role using fuzzy WBS mapping
+        candidates = []
+        role_lower = role.lower()
+        
+        for emp in self.employees:
+            emp_role = (emp.get("role") or "").lower()
+            emp_skills = (emp.get("skills") or "").lower()
+            
+            match = False
+            if role_lower == "backend":
+                if "developer" in emp_role or "architect" in emp_role or "backend" in emp_role or "backend" in emp_skills:
+                    if "frontend" not in emp_role and "frontend" not in emp_skills:
+                        match = True
+            elif role_lower == "frontend":
+                if "frontend" in emp_role or "frontend" in emp_skills or "ui" in emp_role or "ux" in emp_role:
+                    match = True
+            elif role_lower == "qa":
+                if "qa" in emp_role or "qa" in emp_skills or "test" in emp_role or "test" in emp_skills:
+                    match = True
+            elif role_lower == "devops":
+                if "devops" in emp_role or "devops" in emp_skills or "security" in emp_role or "security" in emp_skills or "infra" in emp_role or "cloud" in emp_role:
+                    match = True
+                    
+            if match:
+                candidates.append(emp)
+
+        if not candidates:
+            return ["unassigned"] * count
+
+        # Test round-robin mode (start_date is date.min and end_date is date.max)
+        if start_date == date.min and end_date == date.max:
+            if not hasattr(self, "_counters"):
+                self._counters = {}
+            self._counters.setdefault(role, 0)
+            allocated_emails = []
+            for _ in range(count):
+                idx = self._counters[role] % len(candidates)
+                allocated_emails.append(candidates[idx]["email"])
+                self._counters[role] += 1
+            return allocated_emails
+
+        # Sort all candidates by utilization
+        all_sorted = sorted(candidates, key=lambda emp: get_utilization_days(emp["email"]))
+
+        # Assign count employees, cycling if pool is smaller
+        allocated_emails = []
+        pool_size = len(all_sorted)
+        for i in range(count):
+            emp = all_sorted[i % pool_size]
+            email = emp["email"]
+            allocated_emails.append(email)
+            self.assignments.append((email, start_date, end_date))
+
+        return allocated_emails
 
 
 # ---------------------------------------------------------------------------
@@ -171,30 +346,20 @@ def _phase_duration_working_days(
     role: str,
     team: TeamConfig,
     constraints: SprintConstraints,
+    assigned_count: int | None = None,
 ) -> int:
     """
     Convert phase effort (person-days) into calendar working days for
     a given role, respecting the utilization cap.
-
-    Formula:
-        daily_capacity = count * hours_per_day_per_person * (utilization / 100)
-        # normalise to "person-days" at 8 h/person-day
-        effective_persons_per_day = daily_capacity / 8
-        calendar_days = ceil(phase_effort_days / effective_persons_per_day)
-
-    If the role doesn't exist in the team, treat as 1 person at 8 h/day.
     """
     util = constraints.max_daily_utilization_percentage / 100.0
 
-    role_cfg = next((r for r in team.roles if r.role == role), None)
-    if role_cfg is None:
-        # Fallback: single person at 8 h/day
-        daily_capacity_person_days = 1.0 * util
-    else:
-        # total available hours today across role members
-        daily_hours = role_cfg.count * role_cfg.hours_per_day_per_person * util
-        # convert to person-days (normalised at 8 h)
-        daily_capacity_person_days = daily_hours / 8.0
+    if assigned_count is None:
+        role_cfg = next((r for r in team.roles if r.role == role), None)
+        assigned_count = role_cfg.count if role_cfg is not None else 1
+
+    daily_hours = assigned_count * 8.0 * util
+    daily_capacity_person_days = daily_hours / 8.0
 
     if daily_capacity_person_days <= 0:
         daily_capacity_person_days = 1.0
@@ -218,32 +383,23 @@ def schedule_phases(
 ) -> Tuple[List[Task], List[str]]:
     """
     Convert phase allocations into a sequenced list of Tasks.
-
-    Parameters
-    ----------
-    estimate_id:
-        Used to derive task_id prefixes.
-    demand_id:
-        Propagated into Task metadata (used by planner for plan_id naming).
-    plan_seq:
-        Sequential index of this plan in the batch (1-based), used for task_id uniqueness.
-    allocations:
-        Ordered list of PhaseAllocation objects (output of wbs.compute_phase_allocations).
-    team:
-        TeamConfig for role lookup and member assignment.
-    constraints:
-        SprintConstraints for calendar rules.
-    global_owner_state:
-        Shared _RoundRobinOwner across all plans in a batch, so owners distribute
-        across plans. Pass None to create a fresh state for a single plan.
-
-    Returns
-    -------
-    (tasks, critical_path_task_ids)
-        tasks: scheduled Task objects in phase order
-        critical_path_task_ids: all task_ids (fully sequential = all critical)
     """
     owner_rr = global_owner_state or _RoundRobinOwner(team)
+
+    # Fetch demand resource constraints from source.db
+    demand_constraints = []
+    if db is not None:
+        try:
+            with db._plan_conn() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT data FROM demands WHERE demand_id = ?", (demand_id,))
+                row = cursor.fetchone()
+                if row:
+                    import json
+                    demand_data = json.loads(row[0])
+                    demand_constraints = demand_data.get("resource_constraints") or []
+        except Exception as e:
+            print(f"[scheduler] Error loading demand resource constraints: {e}")
 
     tasks: List[Task] = []
     predecessor_ids: List[str] = []
@@ -253,23 +409,40 @@ def schedule_phases(
     )
 
     for alloc in allocations:
-        role = _PHASE_ROLE[alloc.phase]
+        phase_role = _PHASE_ROLE[alloc.phase]
+        
+        # Determine required headcount directly from demand constraints.
+        # requiredCapacity is the literal number of employees to assign (e.g. 2 means assign 2 people).
+        required_count = get_required_count_for_role(alloc.phase, demand_constraints)
+
+        # Compute duration working days based on the required count
         duration_days = _phase_duration_working_days(
-            alloc.effort_days, role, team, constraints
+            alloc.effort_days, phase_role, team, constraints, required_count
         )
         end = _add_working_days(current_start, duration_days, constraints.working_days_per_week)
 
-        # Build a compact task_id:  PLN-<seq>-<PHASE>
+        # Allocate owners — pass demand_constraints + phase so next_owners can use
+        # the exact demand roles as the source of truth for employee selection.
+        owners = owner_rr.next_owners(
+            phase_role, current_start, end, required_count,
+            demand_constraints=demand_constraints or None,
+            phase=alloc.phase,
+        )
+
+        # Build task_id: PLN-<seq>-<PHASE>
         task_id = f"PLN-{plan_seq:04d}-{alloc.phase.upper()}"
-        owner = owner_rr.next_owner(role, current_start, end)
         display_name = _PHASE_DISPLAY_NAMES[alloc.phase]
+
+        # owner is a comma-separated list of owners for backward compatibility
+        owner_str = ", ".join(owners)
 
         task = Task(
             task_id=task_id,
             name=display_name,
             start_date=current_start,
             end_date=end,
-            owner=owner,
+            owner=owner_str,
+            owners=owners,
             predecessor_task_ids=list(predecessor_ids),
         )
         tasks.append(task)
