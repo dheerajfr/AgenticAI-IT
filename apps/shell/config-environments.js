@@ -1,7 +1,8 @@
 const ENV_API_BASE = 'http://127.0.0.1:8000/api';
 
 let environments = [];
-let selectedEnvKey = null; // This will now just be component_id
+let demandTitles = {}; // demand_id -> title
+let selectedEnvKey = null; // demand_id of the selected demand
 
 // Expose to window so shell.js can call it
 window.renderConfigEnvironmentsScreen = function() {
@@ -187,7 +188,7 @@ window.renderConfigEnvironmentsScreen = function() {
     <div class="intake-screen">
       <aside class="sidebar">
         <div class="sidebar-header">
-          <h3 class="sidebar-title">Components</h3>
+          <h3 class="sidebar-title">Demands</h3>
           <div style="display:flex; gap:0.5rem;">
             <button class="btn-new" id="btn-refresh-envs" style="padding: 0.4rem; border-radius: 4px;">↻ Refresh</button>
             <button class="btn-new" id="btn-export-json" style="padding: 0.4rem; border-radius: 4px; background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.4);">Export JSON</button>
@@ -227,6 +228,18 @@ window.renderConfigEnvironmentsScreen = function() {
 window.fetchEnvironments = async function() {
   const container = document.getElementById('env-list-container');
   try {
+    // Fetch demand titles for display
+    try {
+      const dRes = await fetch(`${ENV_API_BASE.replace('/api', '')}/api/demands`);
+      if (dRes.ok) {
+        const demands = await dRes.json();
+        demandTitles = {};
+        demands.forEach(d => { demandTitles[d.demand_id] = d.title; });
+      }
+    } catch(e) {
+      console.warn('Could not fetch demand titles', e);
+    }
+
     const res = await fetch(`${ENV_API_BASE}/environments`);
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
     environments = await res.json();
@@ -237,7 +250,7 @@ window.fetchEnvironments = async function() {
     }
     
     if (environments.length > 0 && selectedEnvKey === null) {
-      selectEnvironment(environments[0].component_id);
+      selectEnvironment(environments[0].demand_id);
     } else if (selectedEnvKey !== null) {
       selectEnvironment(selectedEnvKey);
     } else {
@@ -268,13 +281,13 @@ function renderEnvironmentList() {
   }
   
   // Extract unique components
-  const components = [...new Set(environments.map(e => e.component_id))];
+  const demands = [...new Set(environments.map(e => e.demand_id))];
 
-  container.innerHTML = components.map(compId => {
+  container.innerHTML = demands.map(compId => {
     const isActive = compId === selectedEnvKey;
     
-    // Check if any env is drifted for this component
-    const hasDrift = environments.some(e => e.component_id === compId && e.drift_status !== 'in-sync');
+    // Check if any env is drifted for this demand
+    const hasDrift = environments.some(e => e.demand_id === compId && e.drift_status !== 'in-sync');
     const statusIndicator = hasDrift ? 
       '<span style="color: #f87171;">●</span>' : 
       '<span style="color: #4ade80;">●</span>';
@@ -282,10 +295,11 @@ function renderEnvironmentList() {
     return `
       <li class="demand-item ${isActive ? 'active' : ''}" data-key="${compId}">
         <div class="demand-item-header">
-          <span class="demand-item-id" style="font-size: 0.75rem;">COMPONENT</span>
+          <span class="demand-item-id" style="font-size: 0.75rem;">DEMAND</span>
           ${statusIndicator}
         </div>
         <h4 class="demand-item-title">${compId}</h4>
+        ${demandTitles[compId] ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${demandTitles[compId]}</div>` : ''}
       </li>
     `;
   }).join('');
@@ -297,8 +311,8 @@ function renderEnvironmentList() {
   });
 }
 
-function selectEnvironment(component_id) {
-  selectedEnvKey = component_id;
+function selectEnvironment(demand_id) {
+  selectedEnvKey = demand_id;
   
   // Update sidebar active state
   document.querySelectorAll('#env-list-container .demand-item').forEach(item => {
@@ -308,10 +322,10 @@ function selectEnvironment(component_id) {
     }
   });
 
-  renderPipelineDetails(component_id);
+  renderPipelineDetails(demand_id);
 }
 
-function renderPipelineDetails(component_id) {
+function renderPipelineDetails(demand_id) {
   const panel = document.getElementById('env-panel-container');
   const existingPipeline = panel.querySelector('.pipeline-container');
   const scrollPos = existingPipeline ? existingPipeline.scrollLeft : 0;
@@ -321,18 +335,18 @@ function renderPipelineDetails(component_id) {
   
   const envOrder = ['dev', 'test', 'staging', 'prod'];
   
-  const componentEnvs = environments.filter(e => e.component_id === component_id);
+  const demandEnvs = environments.filter(e => e.demand_id === demand_id);
   
   let html = `
     <div style="padding: 2rem; max-width: 1400px;">
-      <h2 class="env-title" style="margin-bottom: 1rem; font-size: 2rem;">${component_id} Pipeline</h2>
-      <div style="color: var(--text-muted); margin-bottom: 2rem;">Track and manage this component across all environments.</div>
+      <h2 class="env-title" style="margin-bottom: 1rem; font-size: 2rem;">${demand_id} Pipeline</h2>
+      <div style="color: var(--text-muted); margin-bottom: 2rem;">Track and manage this demand across all environments.</div>
       
       <div class="pipeline-container">
   `;
   
   envOrder.forEach((envName, index) => {
-    const record = componentEnvs.find(e => e.environment === envName);
+    const record = demandEnvs.find(e => e.environment === envName);
     
     html += `<div class="pipeline-stage">
       <div style="margin-bottom: 1rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); text-align: center; letter-spacing: 0.1em;">${envName}</div>`;
@@ -362,10 +376,10 @@ function renderPipelineDetails(component_id) {
           </div>
           
           <div class="action-row">
-            <button class="btn-secondary" title="View the list of requirements for this release" onclick="window.viewDependencies('${record.component_id}', '${record.environment}')">View Requirements</button>
-            <button class="btn-secondary" title="Reconciles records against what is actually deployed and flags drift" onclick="window.simulateDrift('${record.component_id}', '${record.environment}')">Drift Detection</button>
-            <button class="btn-secondary" title="Maintains release baselines and verifies the right versions are bundled" onclick="window.verifyReadiness('${record.component_id}', '${record.environment}')">Baseline Reconcile</button>
-            <button class="btn-secondary" title="Proposes configuration-record updates from observed reality" onclick="window.simulateHygiene('${record.component_id}', '${record.environment}')">Records Hygiene</button>
+            <button class="btn-secondary" title="View the list of requirements for this release" onclick="window.viewDependencies('${record.demand_id}', '${record.environment}')">View Requirements</button>
+            <button class="btn-secondary" title="Reconciles records against what is actually deployed and flags drift" onclick="window.simulateDrift('${record.demand_id}', '${record.environment}')">Drift Detection</button>
+            <button class="btn-secondary" title="Maintains release baselines and verifies the right versions are bundled" onclick="window.verifyReadiness('${record.demand_id}', '${record.environment}')">Baseline Reconcile</button>
+            <button class="btn-secondary" title="Proposes configuration-record updates from observed reality" onclick="window.simulateHygiene('${record.demand_id}', '${record.environment}')">Records Hygiene</button>
           </div>
         </div>
       `;
@@ -392,7 +406,7 @@ function renderPipelineDetails(component_id) {
   }
 }
 
-window.simulateDrift = async function(component_id, environment) {
+window.simulateDrift = async function(demand_id, environment) {
   const resultBox = document.getElementById('action-result');
   resultBox.style.display = 'block';
   resultBox.style.background = 'rgba(59, 130, 246, 0.1)';
@@ -400,10 +414,10 @@ window.simulateDrift = async function(component_id, environment) {
   resultBox.style.color = '#93c5fd';
   resultBox.innerHTML = 'Sending simulation payload...';
   
-  const record = environments.find(e => e.component_id === component_id && e.environment === environment);
+  const record = environments.find(e => e.demand_id === demand_id && e.environment === environment);
   
   const payload = {
-    component_id: record.component_id,
+    demand_id: record.demand_id,
     environment: record.environment,
     deployed_version: record.deployed_version,
     expected_version: record.expected_version
@@ -442,7 +456,7 @@ window.simulateDrift = async function(component_id, environment) {
   }
 }
 
-window.simulateHygiene = async function(component_id, environment) {
+window.simulateHygiene = async function(demand_id, environment) {
   const resultBox = document.getElementById('action-result');
   resultBox.style.display = 'block';
   resultBox.style.background = 'rgba(245, 158, 11, 0.1)';
@@ -450,7 +464,7 @@ window.simulateHygiene = async function(component_id, environment) {
   resultBox.style.color = '#fcd34d';
   resultBox.innerHTML = 'Running hygiene check against CMDB...';
   
-  const payload = { component_id, environment };
+  const payload = { demand_id, environment };
   
   try {
     const res = await fetch(`${ENV_API_BASE}/environments/records-hygiene`, {
@@ -464,7 +478,7 @@ window.simulateHygiene = async function(component_id, environment) {
     
     let html = `Hygiene Check Complete!\nStatus: ${data.status}\nMessage: ${data.message}`;
     
-    const record = environments.find(e => e.component_id === component_id && e.environment === environment);
+    const record = environments.find(e => e.demand_id === demand_id && e.environment === environment);
     if (data.status === 'clean') {
       html += `\n\nCompared Names (Matched Okay):\n- Observed: ${record.observed_name}\n- CMDB: ${record.cmdb_name}`;
     } else {
@@ -474,7 +488,7 @@ window.simulateHygiene = async function(component_id, environment) {
     if (data.proposed_action) {
       html += `<br/><br/>Proposed CMDB Update:\n`;
       html += `<pre style="margin-top:0.5rem; background:rgba(0,0,0,0.3); padding:0.5rem; border-radius:4px;">${JSON.stringify(data.proposed_action, null, 2)}</pre>`;
-      html += `<button class="btn-premium" style="margin-top: 1rem;" onclick="window.applyHygieneFix('${component_id}', '${environment}', '${data.proposed_action.update_cmdb_name_to}')">Apply Fix</button>`;
+      html += `<button class="btn-premium" style="margin-top: 1rem;" onclick="window.applyHygieneFix('${demand_id}', '${environment}', '${data.proposed_action.update_cmdb_name_to}')">Apply Fix</button>`;
     }
     
     resultBox.innerHTML = html.replace(/\n/g, '<br/>');
@@ -487,14 +501,14 @@ window.simulateHygiene = async function(component_id, environment) {
   }
 }
 
-window.applyHygieneFix = async function(component_id, environment, new_cmdb_name) {
+window.applyHygieneFix = async function(demand_id, environment, new_cmdb_name) {
   const resultBox = document.getElementById('action-result');
   resultBox.innerHTML = 'Applying fix...';
   try {
     const res = await fetch(`${ENV_API_BASE}/environments/apply-hygiene-fix`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ component_id, environment, new_cmdb_name })
+      body: JSON.stringify({ demand_id, environment, new_cmdb_name })
     });
     if (!res.ok) throw new Error('API request failed');
     resultBox.innerHTML = 'Fix Applied successfully! Refreshing...';
@@ -505,7 +519,7 @@ window.applyHygieneFix = async function(component_id, environment, new_cmdb_name
 }
 
 
-window.verifyReadiness = async function(component_id, environment) {
+window.verifyReadiness = async function(demand_id, environment) {
   const resultBox = document.getElementById('action-result');
   resultBox.style.display = 'block';
   resultBox.style.background = 'rgba(59, 130, 246, 0.1)';
@@ -517,7 +531,7 @@ window.verifyReadiness = async function(component_id, environment) {
     const res = await fetch(`${ENV_API_BASE}/environments/verify-readiness`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ component_id, environment })
+      body: JSON.stringify({ demand_id, environment })
     });
     if (!res.ok) throw new Error('API request failed');
     const data = await res.json();
@@ -540,16 +554,16 @@ window.verifyReadiness = async function(component_id, environment) {
   }
 }
 
-window.viewDependencies = function(component_id, environment) {
+window.viewDependencies = function(demand_id, environment) {
   const resultBox = document.getElementById('action-result');
   resultBox.style.display = 'block';
   resultBox.style.background = 'rgba(255, 255, 255, 0.05)';
   resultBox.style.border = '1px solid rgba(255, 255, 255, 0.2)';
   resultBox.style.color = '#e2e8f0';
   
-  const record = environments.find(e => e.component_id === component_id && e.environment === environment);
+  const record = environments.find(e => e.demand_id === demand_id && e.environment === environment);
   
-  resultBox.innerHTML = `<strong>Requirements for ${component_id} in ${environment}:</strong><br/><br/>` + 
+  resultBox.innerHTML = `<strong>Requirements for ${demand_id} in ${environment}:</strong><br/><br/>` + 
                         `<strong>Expected:</strong><br/>` +
                         (record.expected_requirements && record.expected_requirements.length ? record.expected_requirements.map(d => `- ${d}`).join('<br/>') : 'None (Empty)') + 
                         `<br/><br/><strong>Currently Met:</strong><br/>` +

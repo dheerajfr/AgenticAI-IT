@@ -1,6 +1,6 @@
 {
-  "component_id": "main-api-service",
-  "environment": "dev",
+  "demand_id": "DEM-2026-0003",
+  "environment": "staging",
   "deployed_version": "1.0.4-beta",
   "expected_version": "1.0.4-beta",
   "drift_status": "in-sync",

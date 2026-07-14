@@ -1,5 +1,5 @@
 {
-  "component_id": "svc-loyalty-portal",
+  "demand_id": "DEM-2026-0001",
   "environment": "prod",
   "deployed_version": "2.5.0",
   "expected_version": "2.5.0",

@@ -1,5 +1,5 @@
 {
-  "component_id": "svc-sast-scanner",
+  "demand_id": "DEM-2026-0003",
   "environment": "dev",
   "deployed_version": "0.8.0",
   "expected_version": "0.8.0",
