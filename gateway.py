@@ -33,6 +33,8 @@ print("Loading plan-schedule service...")
 plan_app = load_service("plan-schedule")
 print("Loading dependencies service...")
 dependencies_app = load_service("dependencies")
+print("Loading release-change service...")
+release_change_app = load_service("release-change")
 print("Gateway ready.")
 
 from starlette.staticfiles import StaticFiles
@@ -58,6 +60,9 @@ async def app(scope, receive, send):
             return
         elif path.startswith("/api/dependencies"):
             await dependencies_app(scope, receive, send)
+            return
+        elif path.startswith("/api/release-change"):
+            await release_change_app(scope, receive, send)
             return
             
         # 2. Route UI

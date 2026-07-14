@@ -111,6 +111,11 @@ function switchStage(stageId) {
       window.renderDependenciesScreen();
       window.fetchDependencies();
     }
+  } else if (stageId === 'release-change') {
+    if (window.renderReleaseChangeScreen) {
+      window.renderReleaseChangeScreen();
+      window.fetchReleaseChange();
+    }
   } else {
     // Render the placeholder web component for other stages
     viewport.innerHTML = `<module-placeholder module-id="${stageId}"></module-placeholder>`;

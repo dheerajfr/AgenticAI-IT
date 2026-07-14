@@ -54,21 +54,18 @@ def sense_node(state: DependencyState) -> Dict[str, Any]:
     if not plan:
         return {"error": "Plan record is missing for auto-sensing."}
         
-<<<<<<< HEAD
-    dep_id = f"DEP-{plan.plan_id}"
-    task_ids = [t.task_id for t in plan.tasks]
-    return {
-        "detected_dependencies": [
-            {
-                "dependency_id": dep_id,
-                "plan_id": plan.plan_id,
-                "status": "open",
-                "risk": "medium",
-                "task_list": task_ids
-            }
-        ]
-    }
-=======
+    tasks_info = [
+        {
+            "task_id": t.task_id,
+            "name": t.name,
+            "owner": t.owner,
+            "start_date": str(t.start_date),
+            "end_date": str(t.end_date),
+            "predecessor_task_ids": t.predecessor_task_ids
+        }
+        for t in plan.tasks
+    ]
+
     prompt = f"""
     You are an AI Project Management Analyst specializing in Knowledge Graph Analytics, NLP Entity Extraction, and Semantic Retrieval.
     
@@ -132,7 +129,6 @@ def sense_node(state: DependencyState) -> Dict[str, Any]:
                 })
                 dep_counter += 1
         return {"detected_dependencies": detected}
->>>>>>> main
 
 
 def calculate_dependency_risk(dep: DependencyEdge, plan: Optional[PlanRecord]) -> Dict[str, Any]:
@@ -208,45 +204,43 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
     target_id = dep.target_task_id
     source_name = dep.source_task_id
     target_name = dep.target_task_id
-<<<<<<< HEAD
-    source_owner = dep.owner or "admin@example.com"
-    target_owner = dep.owner or "admin@example.com"
-    on_critical_path = False
-    
-    if plan:
-        if selected_task:
-            sel_rec = None
-            for t in plan.tasks:
-                if t.task_id == selected_task:
-                    sel_rec = t
-                    break
-            if sel_rec:
-                source_id = sel_rec.task_id
-                source_name = sel_rec.name
-                source_owner = sel_rec.owner
-                
-                pred_id = None
-                if sel_rec.predecessor_task_ids:
-                    pred_id = sel_rec.predecessor_task_ids[0]
-                else:
-                    # fallback to sequential predecessor
-                    idx = -1
-                    for i, t in enumerate(plan.tasks):
-                        if t.task_id == selected_task:
-                            idx = i
-                            break
-                    if idx > 0:
-                        pred_id = plan.tasks[idx - 1].task_id
-                
-                if pred_id:
-                    for t in plan.tasks:
-                        if t.task_id == pred_id:
-                            target_id = t.task_id
-                            target_name = t.name
-                            target_owner = t.owner
-                            break
-        else:
-            # Default fallback to legacy fields
+    source_owner = None
+    target_owner = None
+
+    if plan and selected_task:
+        sel_rec = None
+        for t in plan.tasks:
+            if t.task_id == selected_task:
+                sel_rec = t
+                break
+        if sel_rec:
+            source_id = sel_rec.task_id
+            source_name = sel_rec.name
+            source_owner = sel_rec.owner
+            
+            pred_id = None
+            if sel_rec.predecessor_task_ids:
+                pred_id = sel_rec.predecessor_task_ids[0]
+            else:
+                idx = -1
+                for i, t in enumerate(plan.tasks):
+                    if t.task_id == selected_task:
+                        idx = i
+                        break
+                if idx > 0:
+                    pred_id = plan.tasks[idx - 1].task_id
+            
+            if pred_id:
+                for t in plan.tasks:
+                    if t.task_id == pred_id:
+                        target_id = t.task_id
+                        target_name = t.name
+                        target_owner = t.owner
+                        break
+
+    # If not resolved via selected_task, resolve via dependency source/target task IDs
+    if not source_owner or not target_owner:
+        if plan:
             for t in plan.tasks:
                 if t.task_id == dep.source_task_id:
                     source_name = t.name
@@ -254,43 +248,31 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
                 if t.task_id == dep.target_task_id:
                     target_name = t.name
                     target_owner = t.owner
-                    
-        on_critical_path = source_id in plan.critical_path_task_ids or target_id in plan.critical_path_task_ids
-                
-=======
-    source_owner = None
-    target_owner = None
 
-    if plan:
-        for t in plan.tasks:
-            if t.task_id == dep.source_task_id:
-                source_name = t.name
-                source_owner = t.owner
-            if t.task_id == dep.target_task_id:
-                target_name = t.name
-                target_owner = t.owner
-
-    # If tasks are in different plans (cross-programme), look up across all portfolio plans
-    if not source_owner or not target_owner:
-        all_plans = plan_loader.load_all_plans()
-        for p in all_plans:
-            for t in p.tasks:
-                if not source_owner and t.task_id == dep.source_task_id:
-                    source_name = t.name
-                    source_owner = t.owner
-                if not target_owner and t.task_id == dep.target_task_id:
-                    target_name = t.name
-                    target_owner = t.owner
+        # If tasks are in different plans (cross-programme), look up across all portfolio plans
+        if not source_owner or not target_owner:
+            all_plans = plan_loader.load_all_plans()
+            for p in all_plans:
+                for t in p.tasks:
+                    if not source_owner and t.task_id == dep.source_task_id:
+                        source_name = t.name
+                        source_owner = t.owner
+                    if not target_owner and t.task_id == dep.target_task_id:
+                        target_name = t.name
+                        target_owner = t.owner
 
     # Fallback to dep.owner if still not found
     if not source_owner:
-        source_owner = dep.owner
+        source_owner = dep.owner or "admin@example.com"
     if not target_owner:
-        target_owner = dep.owner
+        target_owner = dep.owner or "admin@example.com"
 
     # Risk is calculated deterministically by the backend, not the LLM.
     risk = calculate_dependency_risk(dep, plan)
     on_critical_path = risk["on_critical_path"]
+    if plan and selected_task:
+        on_critical_path = source_id in plan.critical_path_task_ids or target_id in plan.critical_path_task_ids
+        
     threat_level = risk["threat_level"]
     escalation_required = risk["escalation_required"]
     days_to_release = risk["days_to_release"]
@@ -335,8 +317,6 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
         - Explain that '{source_owner}' (or downstream task '{source_name}') is waiting on the completion of '{target_name}'.
         - Request an updated ETA or status.
         """
-
->>>>>>> main
     prompt = f"""
     You are an Automated Project Manager. You need to write a nudge message to check the status of a dependency.
 

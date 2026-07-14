@@ -414,12 +414,6 @@ def chase_commitment(dependency_id: str, tone: Optional[str] = None, selected_ta
     # Attempt to locate associated plan
     associated_plan = None
     all_plans = plan_loader.load_all_plans()
-<<<<<<< HEAD
-    for p in all_plans:
-        if p.plan_id == dep.plan_id:
-            associated_plan = p
-            break
-=======
     if dep.plan_id:
         for p in all_plans:
             if p.plan_id == dep.plan_id:
@@ -431,7 +425,6 @@ def chase_commitment(dependency_id: str, tone: Optional[str] = None, selected_ta
             if dep.source_task_id in task_ids:
                 associated_plan = p
                 break
->>>>>>> main
             
     state_input = {
         "task": "chase",
@@ -525,12 +518,6 @@ def get_dependency_graph(dependency_id: str, selected_task: Optional[str] = None
     # Find associated plan
     associated_plan = None
     all_plans = plan_loader.load_all_plans()
-<<<<<<< HEAD
-    for p in all_plans:
-        if p.plan_id == dep.plan_id:
-            associated_plan = p
-            break
-=======
     if dep.plan_id:
         for p in all_plans:
             if p.plan_id == dep.plan_id:
@@ -542,7 +529,6 @@ def get_dependency_graph(dependency_id: str, selected_task: Optional[str] = None
             if dep.source_task_id in task_ids:
                 associated_plan = p
                 break
->>>>>>> main
             
     # Fallback default IDs/names
     pred_id = dep.target_task_id or "Planning"
@@ -602,8 +588,6 @@ def get_dependency_graph(dependency_id: str, selected_task: Optional[str] = None
     links = []
     
     # Predecessor node
-<<<<<<< HEAD
-=======
     pred_task = None
     if associated_plan:
         for t in associated_plan.tasks:
@@ -621,7 +605,6 @@ def get_dependency_graph(dependency_id: str, selected_task: Optional[str] = None
                 
     pred_name = pred_task.name if pred_task else dep.target_task_id
     pred_owner = pred_task.owner if pred_task else dep.owner
->>>>>>> main
     nodes.append({
         "id": pred_id,
         "label": pred_name,
@@ -631,8 +614,6 @@ def get_dependency_graph(dependency_id: str, selected_task: Optional[str] = None
     })
     
     # Dependent node
-<<<<<<< HEAD
-=======
     dep_task = None
     if associated_plan:
         for t in associated_plan.tasks:
@@ -650,7 +631,6 @@ def get_dependency_graph(dependency_id: str, selected_task: Optional[str] = None
                 
     dep_name = dep_task.name if dep_task else dep.source_task_id
     dep_owner = dep_task.owner if dep_task else dep.owner
->>>>>>> main
     nodes.append({
         "id": dep_id,
         "label": dep_name,

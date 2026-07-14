@@ -437,14 +437,6 @@ function renderDependencyDetails(dep) {
   let activityLogs = dep.activity_history || [];
   const nudgeMessage = dep.draft_message || '';
 
-<<<<<<< HEAD
-  // AI Intelligence computed data
-  const confidenceVal = dep.confidence || 85;
-  const threatLevel = dep.status === 'resolved' ? 'low' : (dep.threat_level || (dep.status === 'at-risk' ? 'high' : dep.status === 'open' ? 'medium' : 'low'));
-  const confidenceReasons = (dep.confidence_reasons && dep.confidence_reasons.length > 0)
-    ? dep.confidence_reasons
-    : ['Dependency chain analysis complete', 'Owner activity tracked', 'Schedule variance calculated'];
-=======
   // AI Intelligence computed data — now driven by computeDynamicRisk() instead of
   // a static snapshot, so it reflects real elapsed time since the last nudge and
   // how close the deadline is. Recomputed on every render (naturally "daily").
@@ -456,7 +448,6 @@ function renderDependencyDetails(dep) {
     : (dep.confidence_reasons && dep.confidence_reasons.length > 0
         ? dep.confidence_reasons
         : ['Dependency chain analysis complete', 'Owner activity tracked', 'Schedule variance calculated']);
->>>>>>> main
   const threatEmoji = threatLevel === 'high' ? '\u{1F534}' : threatLevel === 'medium' ? '\u{1F7E1}' : '\u{1F7E2}';
   const threatColorVar = threatLevel === 'high' ? 'red' : threatLevel === 'medium' ? 'amber' : 'green';
   const daysSinceUpdate = risk.daysSinceContact !== null
@@ -527,54 +518,6 @@ function renderDependencyDetails(dep) {
         <button class="dep-tab" data-tab="activity">📜 Activity</button>
       </div>
 
-<<<<<<< HEAD
-        <!-- STEP 1: SENSE DEPENDENCIES -->
-        <div class="wizard-step ${step1Class}">
-          <div class="wizard-step-header">
-            <h4 class="wizard-step-title">
-              <span class="wizard-step-num">1</span>
-              Sense Dependencies
-            </h4>
-            <span class="wf-badge low">Approved</span>
-          </div>
-          <div class="wizard-step-body">
-            <div style="margin-bottom: 1.25rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem;">
-              <label for="detail-task-select" style="font-weight: 700; color: var(--color-brand); display: block; margin-bottom: 0.4rem;">Select Task</label>
-              <select id="detail-task-select" style="font-size: 0.9rem; padding: 0.4rem; width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-primary); color: var(--text-primary);">
-                ${(dep.task_list || []).map((tId, idx) => `<option value="${tId}" ${idx === 0 ? 'selected' : ''}>${tId.includes('-') ? tId.split('-')[tId.split('-').length - 1] : tId}</option>`).join('')}
-              </select>
-            </div>
-
-            <div id="dynamic-task-details-container">
-              <div class="grid-2col" style="margin-bottom: 1rem;">
-                <div class="data-item">
-                  <div class="data-label">Current Task</div>
-                  <div class="data-value" id="task-detail-current" style="font-weight: 700; color: var(--color-brand);">Loading...</div>
-                </div>
-                <div class="data-item">
-                  <div class="data-label">Owner</div>
-                  <div class="data-value" id="task-detail-owner">Loading...</div>
-                </div>
-                <div class="data-item">
-                  <div class="data-label">Depends On</div>
-                  <div class="data-value" id="task-detail-predecessor" style="font-weight: 700; color: var(--text-primary);">Loading...</div>
-                </div>
-                <div class="data-item">
-                  <div class="data-label">Previous Owner</div>
-                  <div class="data-value" id="task-detail-prev-owner">Loading...</div>
-                </div>
-                <div class="data-item">
-                  <div class="data-label">Dependency Status</div>
-                  <div class="data-value" id="task-detail-status" style="text-transform: capitalize;">Loading...</div>
-                </div>
-                <div class="data-item">
-                  <div class="data-label">Risk</div>
-                  <div class="data-value" id="task-detail-risk" style="text-transform: capitalize;">Loading...</div>
-                </div>
-              </div>
-            </div>
-            
-=======
       <!-- ================================================================
            TAB 1 — OVERVIEW
            ================================================================ -->
@@ -601,24 +544,63 @@ function renderDependencyDetails(dep) {
                   </p>
                 </div>
               ` : ''}
-              <div class="grid-2col" style="margin-bottom: 1rem;">
-                <div class="data-item">
-                  <div class="data-label">Source Task ID (Dependent)</div>
-                  <div class="data-value" style="font-family: monospace; font-weight: 700; color: var(--color-brand);">${dep.source_task_id}</div>
+
+              ${dep.task_list && dep.task_list.length > 0 ? `
+                <div style="margin-bottom: 1.25rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem;">
+                  <label for="detail-task-select" style="font-weight: 700; color: var(--color-brand); display: block; margin-bottom: 0.4rem;">Select Task</label>
+                  <select id="detail-task-select" style="font-size: 0.9rem; padding: 0.4rem; width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-primary); color: var(--text-primary);">
+                    ${(dep.task_list || []).map((tId, idx) => `<option value="${tId}" ${idx === 0 ? 'selected' : ''}>${tId.includes('-') ? tId.split('-')[tId.split('-').length - 1] : tId}</option>`).join('')}
+                  </select>
                 </div>
-                <div class="data-item">
-                  <div class="data-label">Target Task ID (Predecessor)</div>
-                  <div class="data-value" style="font-family: monospace; font-weight: 700; color: var(--text-primary);">${dep.target_task_id}</div>
+
+                <div id="dynamic-task-details-container">
+                  <div class="grid-2col" style="margin-bottom: 1rem;">
+                    <div class="data-item">
+                      <div class="data-label">Current Task</div>
+                      <div class="data-value" id="task-detail-current" style="font-weight: 700; color: var(--color-brand);">Loading...</div>
+                    </div>
+                    <div class="data-item">
+                      <div class="data-label">Owner</div>
+                      <div class="data-value" id="task-detail-owner">Loading...</div>
+                    </div>
+                    <div class="data-item">
+                      <div class="data-label">Depends On</div>
+                      <div class="data-value" id="task-detail-predecessor" style="font-weight: 700; color: var(--text-primary);">Loading...</div>
+                    </div>
+                    <div class="data-item">
+                      <div class="data-label">Previous Owner</div>
+                      <div class="data-value" id="task-detail-prev-owner">Loading...</div>
+                    </div>
+                    <div class="data-item">
+                      <div class="data-label">Dependency Status</div>
+                      <div class="data-value" id="task-detail-status" style="text-transform: capitalize;">Loading...</div>
+                    </div>
+                    <div class="data-item">
+                      <div class="data-label">Risk</div>
+                      <div class="data-value" id="task-detail-risk" style="text-transform: capitalize;">Loading...</div>
+                    </div>
+                  </div>
                 </div>
-                <div class="data-item">
-                  <div class="data-label">Dependency Type</div>
-                  <div class="data-value" style="text-transform: capitalize;">${dep.type.replace('-', ' ')}</div>
+              ` : `
+                <div class="grid-2col" style="margin-bottom: 1rem;">
+                  <div class="data-item">
+                    <div class="data-label">Source Task ID (Dependent)</div>
+                    <div class="data-value" style="font-family: monospace; font-weight: 700; color: var(--color-brand);">${dep.source_task_id}</div>
+                  </div>
+                  <div class="data-item">
+                    <div class="data-label">Target Task ID (Predecessor)</div>
+                    <div class="data-value" style="font-family: monospace; font-weight: 700; color: var(--text-primary);">${dep.target_task_id}</div>
+                  </div>
+                  <div class="data-item">
+                    <div class="data-label">Dependency Type</div>
+                    <div class="data-value" style="text-transform: capitalize;">${dep.type.replace('-', ' ')}</div>
+                  </div>
+                  <div class="data-item">
+                    <div class="data-label">Accountable Owner</div>
+                    <div class="data-value">${dep.owner}</div>
+                  </div>
                 </div>
-                <div class="data-item">
-                  <div class="data-label">Accountable Owner</div>
-                  <div class="data-value">${dep.owner}</div>
-                </div>
-              </div>
+              `}
 
               <!-- Dependency Chain Graph -->
               <div style="border-top: 1px dashed var(--border-color); padding-top: 1rem; margin-top: 0.75rem; margin-bottom: 1.5rem;">
@@ -626,7 +608,6 @@ function renderDependencyDetails(dep) {
                 <div id="dependency-graph-panel" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; min-height: 150px;"></div>
               </div>
             </div>
->>>>>>> main
           </div>
 
           <!-- STEP 2: CHASE COMMITMENTS -->
@@ -888,17 +869,6 @@ function renderDependencyDetails(dep) {
             </ul>
           </div>
 
-<<<<<<< HEAD
-            
-
-            <!-- Activity History -->
-            <div style="border-top: 1px dashed var(--border-color); padding-top: 1rem;">
-              <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">Activity History</h5>
-              <ul class="wf-history-list" id="wf-history-container">
-                ${activityLogs.map(log => `<li class="wf-history-item">${log}</li>`).join('')}
-                ${activityLogs.length === 0 ? `<li style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1rem 0;">No activities logged yet.</li>` : ''}
-              </ul>
-=======
           <!-- Live tracking controls: these are what actually drive the numbers above,
                recomputed from real timestamps every time this panel renders. -->
           <div class="risk-deadline-row">
@@ -932,7 +902,6 @@ function renderDependencyDetails(dep) {
               <span class="agent-dot" style="background: ${isChaseCompleted ? 'var(--color-status-green-text)' : 'var(--color-status-amber-text)'};"></span>
               <span class="agent-name" style="flex: 1;">Commitment Chase</span>
               <span class="agent-status" style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">${isChaseCompleted ? 'Complete' : 'Pending'}</span>
->>>>>>> main
             </div>
           </div>
         </div>
@@ -1280,8 +1249,6 @@ function renderDependencyDetails(dep) {
   }
 }
 
-<<<<<<< HEAD
-=======
 async function selectDependencyAndRestoreScroll(id) {
   const viewport = document.querySelector('.screen-viewport');
   const scrollTop = viewport ? viewport.scrollTop : 0;
@@ -1290,7 +1257,6 @@ async function selectDependencyAndRestoreScroll(id) {
     viewport.scrollTop = scrollTop;
   }
 }
->>>>>>> main
 
 async function triggerChaseFlow(id, tone, channel) {
   try {

@@ -8,7 +8,8 @@ class StageRail extends HTMLElement {
       { id: 'estimate-shape', label: 'Estimate & shape', status: 'live' },
       { id: 'plan-schedule', label: 'Plan & schedule', status: 'live' },
       { id: 'dependencies', label: 'Dependencies', status: 'live' },
-      { id: 'config-environments', label: 'Config & environments', status: 'live' }
+      { id: 'config-environments', label: 'Config & environments', status: 'live' },
+      { id: 'release-change', label: 'Release & Change', status: 'live' }
     ];
   }
 
