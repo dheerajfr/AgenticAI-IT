@@ -16,13 +16,18 @@ class EnvironmentDatabase:
             cursor = conn.cursor()
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS environments (
-                    component_id TEXT,
+                    demand_id TEXT,
                     environment TEXT,
                     data TEXT,
-                    PRIMARY KEY (component_id, environment)
+                    PRIMARY KEY (demand_id, environment)
                 )
             ''')
             conn.commit()
+
+            # Check if empty, then seed
+            cursor.execute('SELECT COUNT(*) FROM environments')
+            if cursor.fetchone()[0] == 0:
+                self._load_fixtures(conn)
 
     def _load_fixtures(self, conn):
         fixtures_dir = os.path.join(os.path.dirname(__file__), "fixtures")
@@ -40,8 +45,8 @@ class EnvironmentDatabase:
                         data = json.load(f)
                         record = EnvironmentStateRecord(**data)
                         cursor.execute(
-                            "INSERT INTO environments (component_id, environment, data) VALUES (?, ?, ?)",
-                            (record.component_id, record.environment, record.model_dump_json())
+                            "INSERT INTO environments (demand_id, environment, data) VALUES (?, ?, ?)",
+                            (record.demand_id, record.environment, record.model_dump_json())
                         )
                         count += 1
                 except Exception as e:
@@ -56,28 +61,43 @@ class EnvironmentDatabase:
             rows = cursor.fetchall()
             return [EnvironmentStateRecord.model_validate_json(row[0]) for row in rows]
 
-    def get_by_id_and_env(self, component_id: str, environment: str) -> Optional[EnvironmentStateRecord]:
+    def get_by_demand_and_env(self, demand_id: str, environment: str) -> Optional[EnvironmentStateRecord]:
         with get_db() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT data FROM environments WHERE component_id = ? AND environment = ?", (component_id, environment))
+            cursor.execute("SELECT data FROM environments WHERE demand_id = ? AND environment = ?", (demand_id, environment))
             row = cursor.fetchone()
             if row:
                 return EnvironmentStateRecord.model_validate_json(row[0])
             return None
+
+    def get_by_demand_id(self, demand_id: str) -> List[EnvironmentStateRecord]:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT data FROM environments WHERE demand_id = ?", (demand_id,))
+            rows = cursor.fetchall()
+            return [EnvironmentStateRecord.model_validate_json(row[0]) for row in rows]
 
     def save(self, record: EnvironmentStateRecord) -> EnvironmentStateRecord:
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT INTO environments (component_id, environment, data) 
+                INSERT INTO environments (demand_id, environment, data) 
                 VALUES (?, ?, ?) 
-                ON CONFLICT(component_id, environment) DO UPDATE SET data=excluded.data
+                ON CONFLICT(demand_id, environment) DO UPDATE SET data=excluded.data
                 """,
-                (record.component_id, record.environment, record.model_dump_json())
+                (record.demand_id, record.environment, record.model_dump_json())
             )
             conn.commit()
         return record
+
+    def delete_by_demand_id(self, demand_id: str) -> int:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM environments WHERE demand_id = ?", (demand_id,))
+            conn.commit()
+            return cursor.rowcount
+
 
 # Initialize the global repository singleton
 db = EnvironmentDatabase()

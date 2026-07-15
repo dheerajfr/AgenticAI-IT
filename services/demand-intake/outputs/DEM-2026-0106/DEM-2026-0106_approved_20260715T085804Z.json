@@ -1,0 +1,56 @@
+{
+  "demand_id": "DEM-2026-0106",
+  "title": "GTA 6",
+  "description": "Request related to GTA 6.",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-15",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: GTA 6 (DEM-2026-0106)\n\nExecutive Summary  \nThis project focuses on the development and launch of GTA 6, aimed at enhancing customer digital engagement. It seeks to deliver innovative features that set a new standard in interactive entertainment.\n\nBusiness Value  \nGTA 6 is expected to drive significant revenue growth and expand the customer base by leveraging cutting-edge technology and an improved user experience. This project will strengthen market position within the digital entertainment domain.\n\nRisk Mitigation  \nHigh-risk elements will be managed through rigorous testing, phased deployment, and continuous monitoring to ensure quality and minimize disruptions. Contingency plans are in place to address potential technical and operational issues promptly.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 0,
+  "earliest_start_date": "2026-08-26",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 13 total active team members evaluated.",
+    "Technical capability profiling: 29 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 480/520 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Senior Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    },
+    {
+      "role": "Security Engineer",
+      "requiredCapacity": 2,
+      "availableCapacity": 0
+    },
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 3,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Frontend Developer",
+      "requiredCapacity": 3,
+      "availableCapacity": 0
+    },
+    {
+      "role": "QA Engineer",
+      "requiredCapacity": 2,
+      "availableCapacity": 0
+    }
+  ],
+  "skill_gaps": [
+    "QA Testing",
+    "Backend Development",
+    "Frontend Development"
+  ]
+}

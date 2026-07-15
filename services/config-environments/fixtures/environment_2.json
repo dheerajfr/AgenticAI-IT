@@ -1,5 +1,5 @@
 {
-  "component_id": "svc-payments-checkout",
+  "demand_id": "DEM-2026-0002",
   "environment": "staging",
   "deployed_version": "2.4.1",
   "expected_version": "2.4.2",
