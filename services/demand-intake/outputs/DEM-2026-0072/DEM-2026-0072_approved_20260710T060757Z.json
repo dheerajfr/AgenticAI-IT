@@ -1,0 +1,42 @@
+{
+  "demand_id": "DEM-2026-0072",
+  "title": "GenAI Team Tracker Website",
+  "description": "The request is to build a team tracker website utilizing Generative AI technologies.",
+  "type": "project",
+  "domain": "Generative AI & Workforce Management",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-10",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: GenAI Team Tracker Website (DEM-2026-0072)\n\nExecutive Summary\nThis project proposes developing a GenAI Team Tracker Website to revolutionize workforce management by providing dynamic, AI-powered insights into team activities and progress.\n\nDirect Business Value/Impact\nThis will significantly improve operational efficiency, optimize resource allocation, and enable data-driven decision-making, leading to substantial operational improvements and strategic advantages.\n\nPotential Risk Mitigation\nGiven the high risk, mitigation includes a phased development approach, robust data governance, and expert AI ethics consultation to manage complexities effectively.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 20,
+  "earliest_start_date": "2026-08-09",
+  "capacity_reasoning": [
+    "High-risk demand requires Senior Architect oversight.",
+    "Delivery team has 90% overall available capacity.",
+    "Constraint: Security Engineer has only 0 units available (requires 10).",
+    "Skill gap: Required skills Generative AI, API Development, Database Management, System Design, Cloud Deployment, Security Principles, Testing & QA are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-09."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Security Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 10
+    }
+  ],
+  "skill_gaps": [
+    "Generative AI",
+    "API Development",
+    "Database Management",
+    "System Design",
+    "Cloud Deployment",
+    "Security Principles",
+    "Testing & QA"
+  ]
+}

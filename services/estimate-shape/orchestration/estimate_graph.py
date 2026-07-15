@@ -117,31 +117,29 @@ import sqlite3
 import json
 
 def fetch_live_resources_from_db(demand_id: str) -> List[Dict[str, Any]]:
-    # Connect to the real resource.db
-    db_path = os.path.join(os.path.dirname(__file__), "..", "..", "resource.db")
-    db_path = os.path.abspath(db_path)
+    # Connect to the shared database
+    import sys
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+    from shared_db.connection import get_db
     
     resources = []
-    if os.path.exists(db_path):
-        try:
-            with sqlite3.connect(db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                cursor.execute("SELECT * FROM resources")
-                rows = cursor.fetchall()
-                for row in rows:
-                    res_dict = dict(row)
-                    # Parse the JSON string skills into a list
-                    if "skills" in res_dict and isinstance(res_dict["skills"], str):
-                        try:
-                            res_dict["skills"] = json.loads(res_dict["skills"])
-                        except Exception:
-                            res_dict["skills"] = []
-                    resources.append(res_dict)
-        except Exception as e:
-            print(f"Error reading resource.db: {e}")
-    else:
-        print(f"resource.db not found at {db_path}")
+    try:
+        with get_db() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM resources")
+            rows = cursor.fetchall()
+            for row in rows:
+                res_dict = dict(row)
+                # Parse the JSON string skills into a list
+                if "skills" in res_dict and isinstance(res_dict["skills"], str):
+                    try:
+                        res_dict["skills"] = json.loads(res_dict["skills"])
+                    except Exception:
+                        res_dict["skills"] = []
+                resources.append(res_dict)
+    except Exception as e:
+        print(f"Error reading shared database resources: {e}")
     
     return resources
 

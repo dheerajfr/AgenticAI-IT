@@ -25,16 +25,43 @@ class PlanRecord(BaseModel):
 class DependencyEdge(BaseModel):
     dependency_id: Optional[str] = Field(default="", description="Stable unique ID for the dependency")
     plan_id: Optional[str] = Field(default="", description="ID of the plan this dependency belongs to")
-    source_task_id: str = Field(..., description="Task ID of the task that depends on another task (references task_id in plan)")
-    target_task_id: str = Field(..., description="Task ID of the task being depended on (may be in a different plan)")
-    type: Literal["technical", "resource", "data", "external-vendor"] = Field(..., description="Type of dependency")
-    status: Literal["open", "at-risk", "resolved"] = Field(..., description="Current status of the dependency")
-    owner: str = Field(..., description="Accountable person for managing and resolving this dependency")
+    demand_id: Optional[str] = Field(default="", description="ID of the associated demand record")
+    source_task_id: Optional[str] = Field(default="", description="Task ID of the task that depends on another task (references task_id in plan)")
+    target_task_id: Optional[str] = Field(default="", description="Task ID of the task being depended on (may be in a different plan)")
+    type: str = Field(default="Phase Dependency", description="Type of dependency")
+    status: Literal["open", "at-risk", "resolved"] = Field(default="open", description="Current status of the dependency")
+    owner: Optional[str] = Field(default="", description="Accountable person for managing and resolving this dependency")
+    
+    # Phase-based fields
+    phase: Optional[str] = Field(default="", description="Current Phase (e.g. Development)")
+    phase_owner: Optional[str] = Field(default="", description="Owner of current phase")
+    depends_on_phase: Optional[str] = Field(default="", description="Previous Phase (e.g. Planning)")
+    depends_on_owner: Optional[str] = Field(default="", description="Owner of previous phase")
+    risk_level: Optional[str] = Field(default="medium", description="Risk level (e.g. low, medium, high)")
+    last_updated: Optional[str] = Field(default="", description="ISO 8601 timestamp of last update")
+    
+    # Plan-level dependency fields
+    created_date: Optional[str] = Field(default="", description="Created timestamp")
+    risk: Optional[str] = Field(default="medium", description="Risk level")
+    task_list: Optional[List[str]] = Field(default=[], description="List of tasks in the plan")
+
     activity_history: List[str] = Field(default=[], description="History of actions taken on this dependency")
     draft_message: Optional[str] = Field(default="", description="Draft follow-up message text")
     threat_level: Optional[str] = Field(default="", description="AI assessed threat level")
     confidence: Optional[int] = Field(default=None, description="AI confidence score")
     confidence_reasons: Optional[List[str]] = Field(default=[], description="AI confidence reasons")
+    is_self_dependency: Optional[bool] = Field(default=None, description="True if source task and target task have the same owner")
+
+
+class DependencyTaskDetails(BaseModel):
+    dependency_id: str = Field(..., description="Stable unique ID for the dependency")
+    plan_id: str = Field(..., description="ID of the plan")
+    selected_task: str = Field(..., description="Currently selected task ID")
+    current_owner: str = Field(..., description="Owner of the selected task")
+    depends_on: str = Field(..., description="Predecessor task ID")
+    depends_on_owner: str = Field(..., description="Owner of predecessor task")
+    status: str = Field(..., description="Status of the dependency")
+    risk: str = Field(..., description="Risk level of the dependency")
 
 
 class DependencySenseRequest(BaseModel):
@@ -57,6 +84,7 @@ class ChaseCommitmentResponse(BaseModel):
 class CrossProgrammeImpactRequest(BaseModel):
     task_id: str = Field(..., description="Task ID of the task experiencing delays")
     delay_days: int = Field(..., description="Number of days the task is delayed")
+    plan_id: Optional[str] = Field(default=None, description="Optional plan ID to specify the exact plan")
 
 
 class AffectedTaskInfo(BaseModel):

@@ -1,0 +1,52 @@
+{
+  "demand_id": "DEM-2026-0082",
+  "title": "Native Plugin Development for Antigravity",
+  "description": "Develop a native plugin for the antigravity application similar to the existing OpenClaw plugin.",
+  "type": "enhancement",
+  "domain": "Infrastructure",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-10",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": "DEM-2026-0081",
+  "business_case_summary": "Business Case Summary: Native Plugin Development for Antigravity (DEM-2026-0082)\n\nExecutive Summary  \nThis project aims to develop a native plugin for the Antigravity application, modeled after the existing OpenClaw plugin. The enhancement will improve application performance and integration within our infrastructure.\n\nBusiness Value  \nBy creating a native plugin, we expect increased efficiency, reduced latency, and better user experience, directly supporting operational goals. This will also enable smoother maintenance and future scalability.\n\nRisk Mitigation  \nMedium risks related to development complexity will be managed through phased implementation and rigorous testing. Close collaboration with the existing OpenClaw plugin team will ensure knowledge transfer and minimize integration issues.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 0,
+  "earliest_start_date": "2026-08-09",
+  "capacity_reasoning": [
+    "Medium-risk demand profile checked.",
+    "Delivery team has 18% overall available capacity.",
+    "Constraint: Backend Developer has only 0 units available (requires 15).",
+    "Constraint: Senior Architect has only 0 units available (requires 10).",
+    "Constraint: QA Engineer has only 0 units available (requires 10).",
+    "Skill gap: Required skills Native Development, Plugin Architecture, Backend Development, Code Integration, Debugging are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-09."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Backend Developer",
+      "availableCapacity": 0,
+      "requiredCapacity": 15
+    },
+    {
+      "role": "Senior Architect",
+      "availableCapacity": 0,
+      "requiredCapacity": 10
+    },
+    {
+      "role": "QA Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 10
+    }
+  ],
+  "skill_gaps": [
+    "Native Development",
+    "Plugin Architecture",
+    "Backend Development",
+    "Code Integration",
+    "Debugging"
+  ]
+}

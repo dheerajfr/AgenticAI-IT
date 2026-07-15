@@ -9,15 +9,18 @@ is migrated into the new employee schema columns with sensible defaults.
 A backup of the original table is preserved as 'resources_backup'.
 """
 
-import sqlite3
-import json
+import sys
 import os
+import json
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from shared_db.connection import get_db, get_db_path
 
-RESOURCE_DB = r'c:\Users\2862049\Desktop\ITDELIVERY\AgenticAI-IT\services\resource.db'
+RESOURCE_DB = get_db_path()
 
 # ── Read existing resources ──────────────────────────────────────────────────
+# Using shared connection to check resources
 print("Reading existing resources...")
-with sqlite3.connect(RESOURCE_DB) as conn:
+with get_db() as conn:
     cursor = conn.cursor()
 
     # Backup original table
@@ -32,7 +35,7 @@ with sqlite3.connect(RESOURCE_DB) as conn:
 
 # ── Rebuild with new schema ───────────────────────────────────────────────────
 print("\nRebuilding 'resources' table with employee schema...")
-with sqlite3.connect(RESOURCE_DB) as conn:
+with get_db() as conn:
     cursor = conn.cursor()
 
     # Drop old table
@@ -105,7 +108,7 @@ with sqlite3.connect(RESOURCE_DB) as conn:
 
 # ── Verify ───────────────────────────────────────────────────────────────────
 print("\nVerifying migrated data...")
-with sqlite3.connect(RESOURCE_DB) as conn:
+with get_db() as conn:
     cursor = conn.cursor()
     cursor.execute("PRAGMA table_info(resources)")
     cols = cursor.fetchall()

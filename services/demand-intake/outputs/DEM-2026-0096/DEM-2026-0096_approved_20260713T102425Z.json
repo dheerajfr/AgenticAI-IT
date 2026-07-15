@@ -1,0 +1,47 @@
+{
+  "demand_id": "DEM-2026-0096",
+  "title": "Automation of system files management using Gen AI",
+  "description": "Implement an automated system for managing system files leveraging Generative AI technology to enhance efficiency and accuracy.",
+  "type": "project",
+  "domain": "Infrastructure",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-13",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": "DEM-2026-0095",
+  "business_case_summary": "Business Case Summary: Automation of system files management using Gen AI (DEM-2026-0096)\n\nExecutive Summary  \nThis project aims to implement Generative AI to automate system files management, improving operational efficiency and reducing manual errors. The solution will streamline file handling processes across infrastructure systems.\n\nBusiness Value/Impact  \nAutomation will enhance accuracy and speed, leading to cost savings and better resource allocation. It will also improve system reliability by minimizing human intervention in routine file management tasks.\n\nRisk Mitigation  \nMedium-level risks will be addressed through phased deployment and continuous monitoring. Comprehensive testing and fallback mechanisms will ensure system stability during implementation.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 42,
+  "earliest_start_date": "2026-08-12",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 13 total active team members evaluated.",
+    "Technical capability profiling: 29 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 320/520 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Senior Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 2
+    },
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 2,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Security Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    }
+  ],
+  "skill_gaps": [
+    "Generative AI",
+    "Automation",
+    "System Files Management",
+    "Backend Development"
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "demand_id": "DEM-2026-0105",
+  "title": "chrome clone",
+  "description": "Request to create a clone of the Chrome browser.",
+  "type": "project",
+  "domain": "Infrastructure",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-14",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: chrome clone (DEM-2026-0105)\n\nExecutive Summary  \nThis project aims to develop a functional clone of the Chrome browser to enhance internal control over browser capabilities and customization. It addresses the need for a tailored web browsing solution aligned with company infrastructure requirements.\n\nBusiness Value/Impact  \nCreating a Chrome clone will enable improved security, performance optimization, and feature customization, driving efficiency and reducing reliance on third-party software. This strategic move supports long-term technological independence and potential cost savings.\n\nRisk Mitigation  \nGiven the high-risk level, thorough code reviews, rigorous testing, and iterative development cycles will be implemented. Additionally, compliance with security standards and continuous monitoring will reduce vulnerabilities and operational risks.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 31,
+  "earliest_start_date": "2026-08-13",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 13 total active team members evaluated.",
+    "Technical capability profiling: 29 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 480/520 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Senior Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    }
+  ],
+  "skill_gaps": [
+    "C++",
+    "JavaScript",
+    "Browser Architecture",
+    "Networking",
+    "Frontend Development",
+    "Backend Development",
+    "Performance Optimization"
+  ]
+}

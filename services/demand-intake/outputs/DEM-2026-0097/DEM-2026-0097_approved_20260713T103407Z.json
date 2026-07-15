@@ -1,0 +1,60 @@
+{
+  "demand_id": "DEM-2026-0097",
+  "title": "Voice Integration for Chat Application",
+  "description": "Request to integrate voice capabilities into an existing chat-based application to enhance user interaction.",
+  "type": "enhancement",
+  "domain": "Customer Digital",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-13",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Voice Integration for Chat Application (DEM-2026-0097)\n\nExecutive Summary  \nThis project proposes adding voice capabilities to an existing chat application to improve user engagement and interaction. Enhancing communication modalities aims to create a more intuitive and accessible user experience.\n\nBusiness Value/Impact  \nIntegrating voice features will increase customer satisfaction and retention by offering a convenient alternative to text communication. It supports competitive differentiation and broadens the application's appeal to a wider user base.\n\nRisk Mitigation  \nTo address medium risk factors, the project will implement phased testing and user feedback loops. Security and privacy concerns will be managed through strict compliance with relevant data protection standards.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 36,
+  "earliest_start_date": "2026-08-12",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 13 total active team members evaluated.",
+    "Technical capability profiling: 29 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 320/520 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Senior Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 2
+    },
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 2,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Frontend Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 2
+    },
+    {
+      "role": "QA Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    },
+    {
+      "role": "Security Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    }
+  ],
+  "skill_gaps": [
+    "Voice Integration",
+    "Real-Time Communication",
+    "Audio Processing",
+    "Backend Development",
+    "Frontend Development",
+    "API Design",
+    "QA Testing"
+  ]
+}

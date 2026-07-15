@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
 
@@ -179,3 +180,8 @@ class GoNoGoRequest(BaseModel):
     decision: Literal["go", "no-go"]
     decided_by: str
     stakeholders: List[str] = Field(default_factory=list, description="Passed through to Cutover comms if decision is 'go'")
+=======
+from pydantic import BaseModel
+
+# Add Stage 06 specific data models here
+>>>>>>> 27116e2abf6d950cedfd0216ecf646e6131de94f

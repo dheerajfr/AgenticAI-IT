@@ -9,7 +9,11 @@ class StageRail extends HTMLElement {
       { id: 'plan-schedule', label: 'Plan & schedule', status: 'live' },
       { id: 'dependencies', label: 'Dependencies', status: 'live' },
       { id: 'config-environments', label: 'Config & environments', status: 'live' },
+<<<<<<< HEAD
       { id: 'build-deploy', label: 'Build & deploy', status: 'live' }
+=======
+      { id: 'release-change', label: 'Release & Change', status: 'live' }
+>>>>>>> 27116e2abf6d950cedfd0216ecf646e6131de94f
     ];
   }
 

@@ -1,0 +1,46 @@
+{
+  "demand_id": "DEM-2026-0071",
+  "title": "TCS Global Desk Support",
+  "description": "An intake request regarding the TCS Global Desk.",
+  "type": "project",
+  "domain": "Infrastructure",
+  "risk_level": "low",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-09",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: TCS Global Desk Support (DEM-2026-0071)\n\nExecutive Summary\nThis project addresses the intake request to establish and optimize the TCS Global Desk Support infrastructure. It aims to streamline global service desk operations and improve overall infrastructure support efficiency.\n\nBusiness Value\nImplementing this support desk will enhance operational uptime and provide consistent global IT service delivery. It reduces resolution times for technical issues, directly boosting employee productivity across all regions.\n\nRisk Mitigation\nAs a low-risk infrastructure project, potential service transition disruptions will be mitigated through phased rollouts and comprehensive support staff training.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 0,
+  "earliest_start_date": "2026-08-08",
+  "capacity_reasoning": [
+    "Low-risk demand profile checked.",
+    "Delivery team has 45% overall available capacity.",
+    "Constraint: Security Engineer has only 0 units available (requires 10).",
+    "Constraint: QA Engineer has only 0 units available (requires 15).",
+    "Skill gap: Required skills Technical Support, IT Infrastructure, Security Operations, Troubleshooting, System Administration are missing in the available workforce.",
+    "Earliest available start date is deferred by 30 days to 2026-08-08."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Security Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 10
+    },
+    {
+      "role": "QA Engineer",
+      "availableCapacity": 0,
+      "requiredCapacity": 15
+    }
+  ],
+  "skill_gaps": [
+    "Technical Support",
+    "IT Infrastructure",
+    "Security Operations",
+    "Troubleshooting",
+    "System Administration"
+  ]
+}

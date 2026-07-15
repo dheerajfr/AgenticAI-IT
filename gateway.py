@@ -33,8 +33,13 @@ print("Loading plan-schedule service...")
 plan_app = load_service("plan-schedule")
 print("Loading dependencies service...")
 dependencies_app = load_service("dependencies")
+<<<<<<< HEAD
 print("Loading build-deploy service...")
 build_deploy_app = load_service("build-deploy")
+=======
+print("Loading release-change service...")
+release_change_app = load_service("release-change")
+>>>>>>> 27116e2abf6d950cedfd0216ecf646e6131de94f
 print("Gateway ready.")
 
 from starlette.staticfiles import StaticFiles
@@ -61,8 +66,13 @@ async def app(scope, receive, send):
         elif path.startswith("/api/dependencies"):
             await dependencies_app(scope, receive, send)
             return
+<<<<<<< HEAD
         elif path.startswith("/api/deployments"):
             await build_deploy_app(scope, receive, send)
+=======
+        elif path.startswith("/api/release-change"):
+            await release_change_app(scope, receive, send)
+>>>>>>> 27116e2abf6d950cedfd0216ecf646e6131de94f
             return
             
         # 2. Route UI

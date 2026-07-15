@@ -111,10 +111,17 @@ function switchStage(stageId) {
       window.renderDependenciesScreen();
       window.fetchDependencies();
     }
+<<<<<<< HEAD
   } else if (stageId === 'build-deploy') {
     if (window.renderBuildDeployScreen) {
       window.renderBuildDeployScreen();
       window.fetchBuildDeployData();
+=======
+  } else if (stageId === 'release-change') {
+    if (window.renderReleaseChangeScreen) {
+      window.renderReleaseChangeScreen();
+      window.fetchReleaseChange();
+>>>>>>> 27116e2abf6d950cedfd0216ecf646e6131de94f
     }
   } else {
     // Render the placeholder web component for other stages
@@ -372,19 +379,23 @@ function showNewIntakeForm() {
   const fileNameSpan = document.getElementById('selected-file-name');
   const removeFileBtn = document.getElementById('btn-remove-file');
 
-  fileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-      selectedFile = e.target.files[0];
-      fileNameSpan.textContent = selectedFile.name;
-      fileInfoDiv.style.display = 'flex';
-    }
-  });
+  if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        selectedFile = e.target.files[0];
+        if (fileNameSpan) fileNameSpan.textContent = selectedFile.name;
+        if (fileInfoDiv) fileInfoDiv.style.display = 'flex';
+      }
+    });
+  }
 
-  removeFileBtn.addEventListener('click', () => {
-    selectedFile = null;
-    fileInput.value = '';
-    fileInfoDiv.style.display = 'none';
-  });
+  if (removeFileBtn) {
+    removeFileBtn.addEventListener('click', () => {
+      selectedFile = null;
+      if (fileInput) fileInput.value = '';
+      if (fileInfoDiv) fileInfoDiv.style.display = 'none';
+    });
+  }
 
   // Attach Form Submit event
   document.getElementById('intake-form').addEventListener('submit', handleIntakeSubmit);
@@ -632,7 +643,7 @@ function renderDemandWizard(demand) {
                             return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
                               <td style="padding: 6px 8px 6px 0; font-weight: 600; color: var(--text-primary);">${role}</td>
                               <td style="padding: 6px 8px; text-align: center;">
-                                <input type="number" class="approved-staffing-req-input" data-role="${role}" value="${req}" min="0" style="width: 55px; text-align: center; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; font-size: 0.8rem; padding: 2px 4px;">
+                                <input type="number" class="approved-staffing-req-input" data-role="${role}" value="${req}" data-original="${req}" min="0" disabled style="width: 55px; text-align: center; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; font-size: 0.8rem; padding: 2px 4px;">
                               </td>
                               <td style="padding: 6px 8px; text-align: center; color: ${isConstrained ? 'var(--color-status-amber-text)' : 'var(--color-status-green-text)'}; font-weight: 600;">${avail}</td>
                               <td style="padding: 6px 8px; text-align: center;">${isConstrained ? '<span style="color: var(--color-status-amber-text); font-size: 0.75rem; font-weight: 700;">⚠ Constrained</span>' : '<span style="color: var(--color-status-green-text); font-size: 0.75rem; font-weight: 700;">✓ OK</span>'}</td>
@@ -640,9 +651,12 @@ function renderDemandWizard(demand) {
                           }).join('')}
                         </tbody>
                       </table>
-                      <div style="display: flex; justify-content: flex-end; margin-top: 0.75rem;">
-                        <button type="button" class="btn-primary" id="btn-save-headcount" style="padding: 4px 10px; font-size: 0.75rem;">Save Headcount</button>
+                      ${!isAllApproved ? `
+                      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.75rem;">
+                        <button type="button" class="btn-secondary" id="btn-edit-headcount" style="padding: 4px 10px; font-size: 0.75rem; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">Edit</button>
+                        <button type="button" class="btn-primary" id="btn-save-headcount" style="padding: 4px 10px; font-size: 0.75rem;" disabled>Save Headcount</button>
                       </div>
+                      ` : ''}
                     </div>
                   </div>
                 ` : ''}
@@ -746,6 +760,21 @@ function renderDemandWizard(demand) {
                   ${renderMarkdown(demand.business_case_summary)}
                 </div>
               </div>
+              <!-- Redo + Next Step CTAs -->
+              <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color); flex-wrap: wrap;">
+                <button type="button" id="btn-redo-business-case" style="display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.9rem; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-secondary); transition: all 0.15s ease;"
+                  onmouseover="this.style.borderColor='var(--color-brand)';this.style.color='var(--color-brand)';"
+                  onmouseout="this.style.borderColor='var(--border-color)';this.style.color='var(--text-secondary)';">
+                  ↺ Re-run Business Case
+                </button>
+                <div style="flex:1;"></div>
+                <button type="button" id="btn-proceed-to-estimate" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1.2rem; border-radius: var(--radius-sm); font-size: 0.88rem; font-weight: 700; cursor: pointer; border: none; background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,0.35); transition: all 0.18s ease;"
+                  onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(16,185,129,0.45)';"
+                  onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(16,185,129,0.35)';">
+                  <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+                  Next: Generate Estimate &nbsp;→
+                </button>
+              </div>
             ` : (demand.business_case_summary ? `
               <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0; margin-bottom: 1rem;">
                 Review and refine your business case draft below. You can save updates as draft or submit for final sign-off.
@@ -808,9 +837,47 @@ function renderDemandWizard(demand) {
     attachWorkforceListeners();
   }
 
-  if (isCapacityApproved) {
+  if (isCapacityApproved && !isAllApproved) {
+    const editHeadcountBtn = document.getElementById('btn-edit-headcount');
     const saveHeadcountBtn = document.getElementById('btn-save-headcount');
-    if (saveHeadcountBtn) {
+    const inputs = document.querySelectorAll('.approved-staffing-req-input');
+    
+    if (editHeadcountBtn && saveHeadcountBtn && inputs.length > 0) {
+      editHeadcountBtn.addEventListener('click', () => {
+        const isEditing = editHeadcountBtn.innerText === "Cancel";
+        
+        if (isEditing) {
+          // Cancel: Revert values and disable inputs
+          inputs.forEach(input => {
+            input.value = input.getAttribute('data-original') || "0";
+            input.disabled = true;
+          });
+          editHeadcountBtn.innerText = "Edit";
+          saveHeadcountBtn.disabled = true;
+        } else {
+          // Edit: Enable inputs
+          inputs.forEach(input => {
+            input.disabled = false;
+          });
+          editHeadcountBtn.innerText = "Cancel";
+          inputs[0].focus();
+        }
+      });
+      
+      inputs.forEach(input => {
+        input.addEventListener('input', () => {
+          let hasChanges = false;
+          inputs.forEach(inp => {
+            const originalVal = parseInt(inp.getAttribute('data-original')) || 0;
+            const currentVal = parseInt(inp.value) || 0;
+            if (currentVal !== originalVal) {
+              hasChanges = true;
+            }
+          });
+          saveHeadcountBtn.disabled = !hasChanges;
+        });
+      });
+      
       saveHeadcountBtn.addEventListener('click', () => {
         saveApprovedHeadcountChanges(demand.demand_id);
       });
@@ -821,7 +888,26 @@ function renderDemandWizard(demand) {
     if (demand.business_case_summary) {
       attachBusinessCaseListeners(demand.demand_id);
     } else {
-      document.getElementById('btn-run-business-case').addEventListener('click', () => {
+      const btnRunBusinessCase = document.getElementById('btn-run-business-case');
+      if (btnRunBusinessCase) {
+        btnRunBusinessCase.addEventListener('click', () => {
+          runBusinessCaseFlow(demand.demand_id);
+        });
+      }
+    }
+  }
+
+  if (isAllApproved) {
+    const proceedBtn = document.getElementById('btn-proceed-to-estimate');
+    if (proceedBtn) {
+      proceedBtn.addEventListener('click', () => {
+        sessionStorage.setItem('pendingEstimateDemandId', demand.demand_id);
+        window.switchStage('estimate-shape');
+      });
+    }
+    const redoBtn = document.getElementById('btn-redo-business-case');
+    if (redoBtn) {
+      redoBtn.addEventListener('click', () => {
         runBusinessCaseFlow(demand.demand_id);
       });
     }
@@ -1180,6 +1266,7 @@ async function approveCapacity(id) {
 
 async function saveApprovedHeadcountChanges(id) {
   saveDemandScrollPosition(id);
+  const demand = demands.find(d => d.demand_id === id);
   const saveBtn = document.getElementById('btn-save-headcount');
   const originalText = saveBtn.innerText;
   saveBtn.disabled = true;
@@ -1200,7 +1287,7 @@ async function saveApprovedHeadcountChanges(id) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        verdict: demand.capacity_verdict || "feasible",
+        verdict: demand ? (demand.capacity_verdict || "feasible") : "feasible",
         resourceConstraints: resourceConstraints
       })
     });
@@ -1511,6 +1598,8 @@ async function approveBusinessCase(id) {
     
     if (!res.ok) throw new Error("Approval commit failed.");
     
+    // Pre-set the handoff key so Estimate screen auto-selects this demand
+    sessionStorage.setItem('pendingEstimateDemandId', id);
     await fetchDemands();
   } catch (err) {
     saveDemandScrollPosition(id);

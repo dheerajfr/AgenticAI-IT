@@ -58,6 +58,24 @@ window.fetchEstimates = async function () {
     estimates = await res.json();
     renderEstimateList();
 
+    // Check if we arrived from the Demand module with a specific demand pre-selected
+    const pendingDemandId = sessionStorage.getItem('pendingEstimateDemandId');
+    if (pendingDemandId) {
+      sessionStorage.removeItem('pendingEstimateDemandId');
+      selectedEstimateId = null;
+      clearEstimateSidebarSelection();
+      // Open new estimate form and auto-select the demand
+      await showNewEstimateForm();
+      setTimeout(() => {
+        const selectEl = document.getElementById('select-demand');
+        if (selectEl) {
+          selectEl.value = pendingDemandId;
+          // Trigger change event to show any associated UI
+          selectEl.dispatchEvent(new Event('change'));
+        }
+      }, 80);
+      return;
+    }
     if (estimates.length > 0 && selectedEstimateId === null) {
       selectEstimate(estimates[0].estimate_id);
     } else if (selectedEstimateId !== null) {
@@ -100,7 +118,7 @@ function renderEstimateList() {
     return `
       <li class="demand-item ${isActive ? 'active' : ''}" data-id="${est.estimate_id}">
         <div class="demand-item-header">
-          <span class="demand-item-id">${est.estimate_id}</span>
+          <span class="demand-item-id">${est.demand_id}</span>
           <div style="display: flex; gap: 0.5rem; align-items: center;">
             <span style="font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;" class="${statusClass}">
               ${est.status}
@@ -179,7 +197,7 @@ async function showNewEstimateForm() {
         Generate Estimate
       </h3>
       <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
-        Select an approved demand to estimate effort, cost, and duration<!from historical data>.
+        Select an approved demand to estimate effort, cost, and duration.
       </p>
 
       <div class="error-message" id="estimate-error"></div>
@@ -293,6 +311,8 @@ async function approveGeneratedEstimate() {
     if (!res.ok) throw new Error("Approval failed.");
     const newRecord = await res.json();
     selectedEstimateId = newRecord.estimate_id;
+    // Handoff to Plan module
+    sessionStorage.setItem('pendingPlanEstimateId', newRecord.estimate_id);
     await window.fetchEstimates();
   } catch (err) {
     showEstimateError(err.message);
@@ -320,7 +340,7 @@ function renderEstimateWizard(est) {
     <div class="panel-card" style="padding-top: 1rem;">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
         <div>
-          <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${est.estimate_id}</span>
+          <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${est.demand_id}</span>
           <h2 style="font-family: var(--font-display); font-size: 1.5rem; margin: 0.2rem 0 0 0; color: var(--text-primary);">Demand: ${displayTitle}</h2>
         </div>
         <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
@@ -389,11 +409,54 @@ function renderEstimateWizard(est) {
         </div>
 
       </div>
+
+      ${(isApproved || isRebaselined) ? `
+        <!-- Next Step + Redo CTAs for approved estimates -->
+        <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color); flex-wrap: wrap;">
+          <button type="button" id="btn-redo-estimate"
+            style="display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.9rem; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-secondary); transition: all 0.15s ease;"
+            onmouseover="this.style.borderColor='var(--color-brand)';this.style.color='var(--color-brand)';"
+            onmouseout="this.style.borderColor='var(--border-color)';this.style.color='var(--text-secondary)';"
+          >&#x21ba; Re-estimate</button>
+          <div style="flex:1;"></div>
+          <button type="button" id="btn-proceed-to-plan"
+            style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1.2rem; border-radius: var(--radius-sm); font-size: 0.88rem; font-weight: 700; cursor: pointer; border: none; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; box-shadow: 0 2px 8px rgba(99,102,241,0.35); transition: all 0.18s ease;"
+            onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(99,102,241,0.5)';"
+            onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(99,102,241,0.35)';"
+          >
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+            Next: Create Plan &nbsp;→
+          </button>
+        </div>
+      ` : ''}
     </div>
   `;
 
   if (isApproved && !isRebaselined && !isFinalized) {
     document.getElementById('btn-run-trigger').addEventListener('click', () => runTriggerFlow(est.estimate_id));
+  }
+
+  if (isApproved || isRebaselined) {
+    const proceedBtn = document.getElementById('btn-proceed-to-plan');
+    if (proceedBtn) {
+      proceedBtn.addEventListener('click', () => {
+        sessionStorage.setItem('pendingPlanEstimateId', est.estimate_id);
+        window.switchStage('plan-schedule');
+      });
+    }
+    const redoBtn = document.getElementById('btn-redo-estimate');
+    if (redoBtn) {
+      redoBtn.addEventListener('click', () => {
+        selectedEstimateId = null;
+        clearEstimateSidebarSelection();
+        showNewEstimateForm().then(() => {
+          setTimeout(() => {
+            const selectEl = document.getElementById('select-demand');
+            if (selectEl) selectEl.value = est.demand_id;
+          }, 80);
+        });
+      });
+    }
   }
 
   const deleteBtn = document.getElementById('btn-delete-estimate');
