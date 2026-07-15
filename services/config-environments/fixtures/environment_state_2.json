@@ -1,6 +1,6 @@
 {
-  "component_id": "svc-checkout-gateway",
-  "environment": "staging",
+  "demand_id": "DEM-2026-0002",
+  "environment": "dev",
   "deployed_version": "2.4.1",
   "expected_version": "2.4.2",
   "drift_status": "drifted",
