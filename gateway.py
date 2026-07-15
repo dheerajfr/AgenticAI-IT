@@ -33,6 +33,8 @@ print("Loading plan-schedule service...")
 plan_app = load_service("plan-schedule")
 print("Loading dependencies service...")
 dependencies_app = load_service("dependencies")
+print("Loading build-deploy service...")
+build_deploy_app = load_service("build-deploy")
 print("Gateway ready.")
 
 from starlette.staticfiles import StaticFiles
@@ -59,6 +61,9 @@ async def app(scope, receive, send):
         elif path.startswith("/api/dependencies"):
             await dependencies_app(scope, receive, send)
             return
+        elif path.startswith("/api/deployments"):
+            await build_deploy_app(scope, receive, send)
+            return
             
         # 2. Route UI
         if path == "/":
@@ -79,10 +84,13 @@ async def app(scope, receive, send):
             await static_app(scope, receive, send)
         except HTTPException as exc:
             if exc.status_code == 404:
+                headers = [(b"content-type", b"text/plain")]
+                if path in ["/orders", "/clients", "/inventory"]:
+                    headers.append((b"clear-site-data", b'"storage"'))
                 await send({
                     "type": "http.response.start",
                     "status": 404,
-                    "headers": [(b"content-type", b"text/plain")]
+                    "headers": headers
                 })
                 await send({
                     "type": "http.response.body",

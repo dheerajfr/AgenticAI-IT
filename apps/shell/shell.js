@@ -111,6 +111,11 @@ function switchStage(stageId) {
       window.renderDependenciesScreen();
       window.fetchDependencies();
     }
+  } else if (stageId === 'build-deploy') {
+    if (window.renderBuildDeployScreen) {
+      window.renderBuildDeployScreen();
+      window.fetchBuildDeployData();
+    }
   } else {
     // Render the placeholder web component for other stages
     viewport.innerHTML = `<module-placeholder module-id="${stageId}"></module-placeholder>`;
