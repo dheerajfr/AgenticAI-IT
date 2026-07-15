@@ -77,6 +77,43 @@ class ModulePlaceholder extends HTMLElement {
             'last_checked: datetime'
           ]
         }
+      },
+      'build-deploy': {
+        title: '06 Build & deploy',
+        owner: 'Person 6',
+        status: 'not started',
+        description: 'Orchestrates build triggers, artifact creation, and automated deployment pipelines across Dev, Staging, and Production environments.',
+        contract: {
+          produces: 'Build Artifact / Release baseline',
+          consumes: 'Environment State Record',
+          fields: [
+            'build_id: string',
+            'component_id: string',
+            'version: string',
+            'commit_sha: string',
+            'status: "success" | "failed" | "running"',
+            'built_at: datetime'
+          ]
+        }
+      },
+      'test-quality': {
+        title: '07 Test & quality',
+        owner: 'Person 7',
+        status: 'not started',
+        description: 'Executes continuous test suites, analyzes code coverage, and enforces quality gates before production release.',
+        contract: {
+          produces: 'Test execution reports / Quality gate status',
+          consumes: 'Build Artifact / Release baseline',
+          fields: [
+            'test_run_id: string',
+            'build_id: string',
+            'passed_count: number',
+            'failed_count: number',
+            'coverage_percentage: number',
+            'quality_gate_passed: boolean',
+            'tested_at: datetime'
+          ]
+        }
       }
     };
   }
