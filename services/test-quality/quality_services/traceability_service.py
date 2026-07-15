@@ -58,6 +58,12 @@ class TraceabilityService:
             data=matrix_record
         )
 
+        db.update_consolidated_stage(
+            demand_id=req.demand_id,
+            step_key="traceability",
+            data=matrix_record
+        )
+
         return matrix_record
 
 

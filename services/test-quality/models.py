@@ -56,7 +56,8 @@ class UpstreamDependencyEdge(BaseModel):
     threat_level: Optional[str] = "low"
 
 class UpstreamEnvironmentStateRecord(BaseModel):
-    component_id: str
+    component_id: Optional[str] = None
+    demand_id: Optional[str] = None
     environment: str
     deployed_version: str
     expected_version: str

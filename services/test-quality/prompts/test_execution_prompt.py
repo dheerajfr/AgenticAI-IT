@@ -41,7 +41,7 @@ The output must match the TestRunRecord JSON contract:
 }}
 
 Rules:
-- Generate a BUG-<N> defect ID for each unique failure cluster (not per test).
+- Generate a unique BUG-<N> defect ID for each failed test case (e.g., if 2 tests fail, you must generate two separate defect IDs like "BUG-1" and "BUG-2").
 - pass_rate_pct = (passed / total) * 100, rounded to 1 decimal.
 - Execution mode is "{execution_mode}". For impact-based mode, focus tests on impact_scope components.
 

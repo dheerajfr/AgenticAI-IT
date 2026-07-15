@@ -36,6 +36,12 @@ class SecurityTestingService:
             data=security_record
         )
 
+        db.update_consolidated_stage(
+            demand_id=req.demand_id,
+            step_key="security_testing",
+            data=security_record
+        )
+
         return security_record
 
 security_testing_service = SecurityTestingService()

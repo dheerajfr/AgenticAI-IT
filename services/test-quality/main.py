@@ -204,3 +204,28 @@ def evaluate_quality_gate(req: QualityGateRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Quality gate evaluation failed: {str(e)}")
+
+# ==========================================
+# Consolidated Stage Tracker Endpoint
+# ==========================================
+
+@app.get("/api/test-quality/consolidated/{demand_id}")
+def get_consolidated_state(demand_id: str):
+    try:
+        return db._get_consolidated(demand_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/test-quality/consolidated")
+def get_all_consolidated_states():
+    import json
+    try:
+        with db._conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT data FROM test_and_quality")
+            rows = cursor.fetchall()
+            return [json.loads(r[0]) for r in rows]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+

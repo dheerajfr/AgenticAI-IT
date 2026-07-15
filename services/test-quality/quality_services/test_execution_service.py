@@ -53,6 +53,12 @@ class TestExecutionService:
             data=run_record
         )
 
+        db.update_consolidated_stage(
+            demand_id=req.demand_id,
+            step_key="test_execution",
+            data=run_record
+        )
+
         return run_record
 
 

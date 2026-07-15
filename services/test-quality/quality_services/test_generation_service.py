@@ -35,6 +35,12 @@ class TestGenerationService:
             data=suite_record
         )
 
+        db.update_consolidated_stage(
+            demand_id=req.demand_id,
+            step_key="test_generation",
+            data=suite_record
+        )
+
         return suite_record
 
 test_generation_service = TestGenerationService()

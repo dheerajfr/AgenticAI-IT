@@ -81,8 +81,8 @@ class DeliveryContextBuilder:
                 except Exception as e:
                     print(f"Error parsing dependency data: {e}")
 
-            # 5. Fetch Environments
-            cursor.execute("SELECT data FROM environments")
+            # 5. Fetch Environments matching the active demand ID
+            cursor.execute("SELECT data FROM environments WHERE demand_id = ?", (demand_id,))
             rows = cursor.fetchall()
             for r in rows:
                 try:

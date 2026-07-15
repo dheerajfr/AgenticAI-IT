@@ -61,6 +61,12 @@ class QualityGateService:
             data=gate_record
         )
 
+        db.update_consolidated_stage(
+            demand_id=req.demand_id,
+            step_key="quality_gate",
+            data=gate_record
+        )
+
         return gate_record
 
 

@@ -34,6 +34,12 @@ class DefectTriageService:
             data=triage_record
         )
 
+        db.update_consolidated_stage(
+            demand_id=req.demand_id,
+            step_key="defect_triage",
+            data=triage_record
+        )
+
         return triage_record
 
 defect_triage_service = DefectTriageService()

@@ -18,15 +18,28 @@ window.renderTestQualityScreen = function() {
   const viewport = document.getElementById('viewport');
   viewport.innerHTML = `
     <div class="intake-screen">
-      <!-- Left Sidebar: Demands Queue -->
-      <aside class="sidebar" style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 100%; overflow: hidden;">
-        <div class="panel-card" style="flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-          <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h3 class="sidebar-title" style="margin: 0; font-size: 1rem;">Demands Queue</h3>
+      <!-- Left Sidebar: Demands Queue & Test & Quality Queue -->
+      <aside class="sidebar" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 100%; overflow: hidden; width: 300px;">
+        <!-- Demands Queue -->
+        <div class="panel-card" style="flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+          <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <h3 class="sidebar-title" style="margin: 0; font-size: 0.85rem;">Demands Queue</h3>
           </div>
-          <ul class="demand-list" id="tq-demand-list-container" style="flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;">
-            <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+          <ul class="demand-list" id="tq-demand-list-container" style="flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.35rem;">
+            <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 1rem;">
               Loading demands...
+            </li>
+          </ul>
+        </div>
+        
+        <!-- Test and Quality Queue -->
+        <div class="panel-card" style="flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+          <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <h3 class="sidebar-title" style="margin: 0; font-size: 0.85rem; color: #818cf8; text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-display); font-weight: bold;">Test and Quality Queue</h3>
+          </div>
+          <ul class="demand-list" id="tq-active-queue-list" style="flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.35rem;">
+            <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 1rem;">
+              Loading active queue...
             </li>
           </ul>
         </div>
@@ -178,29 +191,43 @@ window.renderTestQualityScreen = function() {
       .badge-priority.high { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
       .badge-priority.medium { background: rgba(59, 130, 246, 0.15); color: #93c5fd; }
       .badge-priority.low { background: rgba(75, 85, 99, 0.15); color: #d1d5db; }
+      .demand-item.active { background: rgba(99, 102, 241, 0.15); border-left: 3px solid var(--color-brand); }
     `;
     document.head.appendChild(style);
   }
 }
 
 window.fetchTestQualityData = async function() {
-  const container = document.getElementById('tq-demand-list-container');
   try {
-    const res = await fetch(`${TQ_API_BASE}/demands`);
-    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-    tqDemands = await res.json();
-    renderTQDemandList();
+    const resDemands = await fetch(`${TQ_API_BASE}/demands`);
+    if (!resDemands.ok) throw new Error(`HTTP Error: ${resDemands.status}`);
+    tqDemands = await resDemands.json();
 
-    if (tqDemands.length > 0 && tqSelectedDemandId === null) {
-      selectTQDemand(tqDemands[0].demand_id);
-    } else if (tqSelectedDemandId !== null) {
-      selectTQDemand(tqSelectedDemandId);
+    const resConsolidated = await fetch(`${TQ_API_BASE}/test-quality/consolidated`);
+    if (!resConsolidated.ok) throw new Error(`HTTP Error: ${resConsolidated.status}`);
+    const consolidatedStates = await resConsolidated.json();
+
+    const activeDemandIds = consolidatedStates.map(record => record.demand_id);
+    renderTQQueues(activeDemandIds);
+
+    const approvedDemands = tqDemands.filter(d => d.status === 'approved');
+    const pendingApproved = approvedDemands.filter(d => !activeDemandIds.includes(d.demand_id));
+    const activeDemands = approvedDemands.filter(d => activeDemandIds.includes(d.demand_id));
+
+    if (tqSelectedDemandId === null) {
+      if (activeDemands.length > 0) {
+        selectTQDemand(activeDemands[0].demand_id);
+      } else if (pendingApproved.length > 0) {
+        selectTQDemand(pendingApproved[0].demand_id);
+      } else {
+        renderEmptyTQDetails();
+      }
     } else {
-      renderEmptyTQDetails();
+      selectTQDemand(tqSelectedDemandId);
     }
   } catch (err) {
     console.error("Failed to fetch demands for Test & Quality:", err);
-    container.innerHTML = `
+    document.getElementById('tq-demand-list-container').innerHTML = `
       <li style="padding: 1.5rem; text-align: center; color: var(--color-status-red-text);">
         Failed to load demands queue.
       </li>
@@ -208,27 +235,54 @@ window.fetchTestQualityData = async function() {
   }
 }
 
-function renderTQDemandList() {
-  const container = document.getElementById('tq-demand-list-container');
-  if (tqDemands.length === 0) {
-    container.innerHTML = `<li style="padding: 1.5rem; text-align: center; color: var(--text-muted);">No demands available.</li>`;
-    return;
+function renderTQQueues(activeDemandIds) {
+  const pendingContainer = document.getElementById('tq-demand-list-container');
+  const activeContainer = document.getElementById('tq-active-queue-list');
+  if (!pendingContainer || !activeContainer) return;
+
+  const approvedDemands = tqDemands.filter(d => d.status === 'approved');
+  const pendingDemands = approvedDemands.filter(d => !activeDemandIds.includes(d.demand_id));
+  const activeDemands = approvedDemands.filter(d => activeDemandIds.includes(d.demand_id));
+
+  // Render pending demands
+  if (pendingDemands.length === 0) {
+    pendingContainer.innerHTML = `<li style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">No pending demands.</li>`;
+  } else {
+    pendingContainer.innerHTML = pendingDemands.map(d => {
+      const isActive = d.demand_id === tqSelectedDemandId;
+      return `
+        <li class="demand-item pending-item ${isActive ? 'active' : ''}" data-id="${d.demand_id}" style="padding: 0.75rem 1rem; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;">
+          <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.25rem;">${d.title}</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: var(--text-secondary);">
+            <span>${d.demand_id}</span>
+            <span class="badge-priority ${d.risk_level}">${d.risk_level}</span>
+          </div>
+        </li>
+      `;
+    }).join('');
   }
 
-  container.innerHTML = tqDemands.map(d => {
-    const isActive = d.demand_id === tqSelectedDemandId;
-    return `
-      <li class="demand-item ${isActive ? 'active' : ''}" data-id="${d.demand_id}" style="padding: 0.75rem 1rem; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;">
-        <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.25rem;">${d.title}</div>
-        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: var(--text-secondary);">
-          <span>${d.demand_id}</span>
-          <span class="badge-priority ${d.risk_level}">${d.risk_level}</span>
-        </div>
-      </li>
-    `;
-  }).join('');
+  // Render active demands
+  if (activeDemands.length === 0) {
+    activeContainer.innerHTML = `<li style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">No active test runs.</li>`;
+  } else {
+    activeContainer.innerHTML = activeDemands.map(d => {
+      const isActive = d.demand_id === tqSelectedDemandId;
+      return `
+        <li class="demand-item active-item ${isActive ? 'active' : ''}" data-id="${d.demand_id}" style="padding: 0.75rem 1rem; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;">
+          <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.25rem;">${d.title}</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: var(--text-secondary);">
+            <span>${d.demand_id}</span>
+            <span class="badge-priority ${d.risk_level}">${d.risk_level}</span>
+          </div>
+        </li>
+      `;
+    }).join('');
+  }
 
-  container.querySelectorAll('.demand-item').forEach(item => {
+  // Attach event handlers
+  const allItems = [...pendingContainer.querySelectorAll('.demand-item'), ...activeContainer.querySelectorAll('.demand-item')];
+  allItems.forEach(item => {
     item.addEventListener('click', () => {
       selectTQDemand(item.getAttribute('data-id'));
     });
@@ -237,7 +291,12 @@ function renderTQDemandList() {
 
 function selectTQDemand(id) {
   tqSelectedDemandId = id;
-  renderTQDemandList();
+  // Re-fetch consolidated list dynamically to rebuild sidebar queues highlighting
+  fetch(`${TQ_API_BASE}/test-quality/consolidated`)
+    .then(res => res.json())
+    .then(states => {
+      renderTQQueues(states.map(s => s.demand_id));
+    });
   
   // Reset outputs on switching demand
   generatedSuite = null;
@@ -248,7 +307,9 @@ function selectTQDemand(id) {
   traceabilityMatrix = null;
   qualityGate = null;
 
-  renderTQDetailsPanel();
+  loadConsolidatedTQState(id).then(() => {
+    renderTQDetailsPanel();
+  });
 }
 
 function renderEmptyTQDetails() {
@@ -256,7 +317,7 @@ function renderEmptyTQDetails() {
   panel.innerHTML = `
     <div style="text-align: center; color: var(--text-muted); padding: 4rem 2rem;">
       <h3>No Demand Selected</h3>
-      <p>Please select a demand from the left sidebar queue to run capability scans.</p>
+      <p>Please select a demand from the left sidebar queues to run capability scans.</p>
     </div>
   `;
 }
@@ -271,12 +332,19 @@ function renderTQDetailsPanel() {
 
   panel.innerHTML = `
     <!-- Top Header -->
-    <div style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
-      <h2 style="margin: 0 0 0.25rem 0; font-size: 1.25rem; font-family: var(--font-display);">${demand.title}</h2>
-      <div style="font-size: 0.8rem; color: var(--text-secondary);">
-        <span>ID: <strong>${demand.demand_id}</strong></span> &bull; 
-        <span>Domain: <strong>${demand.domain}</strong></span> &bull; 
-        <span>Status: <strong style="color: var(--color-status-green-text);">${demand.status}</strong></span>
+    <div style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
+      <div>
+        <h2 style="margin: 0 0 0.25rem 0; font-size: 1.25rem; font-family: var(--font-display);">${demand.title}</h2>
+        <div style="font-size: 0.8rem; color: var(--text-secondary);">
+          <span>ID: <strong>${demand.demand_id}</strong></span> &bull; 
+          <span>Domain: <strong>${demand.domain}</strong></span> &bull; 
+          <span>Status: <strong style="color: var(--color-status-green-text);">${demand.status}</strong></span>
+        </div>
+      </div>
+      
+      <!-- Horizontal DevSecOps Pipeline Checklist -->
+      <div id="tq-horizontal-audit-tracker" style="display: flex; gap: 0.4rem; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.5rem 0.75rem; font-size: 0.72rem; flex-wrap: wrap;">
+        <!-- Hydrated dynamically -->
       </div>
     </div>
 
@@ -284,9 +352,9 @@ function renderTQDetailsPanel() {
     <div class="tq-tab-header" style="flex-wrap: wrap;">
       <button class="tq-tab-btn ${tqActiveTab === 'generation' ? 'active' : ''}" data-tab="generation">1. Test Generation</button>
       <button class="tq-tab-btn ${tqActiveTab === 'data' ? 'active' : ''}" data-tab="data">2. Test Data</button>
-      <button class="tq-tab-btn ${tqActiveTab === 'triage' ? 'active' : ''}" data-tab="triage">3. Defect Triage</button>
-      <button class="tq-tab-btn ${tqActiveTab === 'security' ? 'active' : ''}" data-tab="security">4. Security Scanner</button>
-      <button class="tq-tab-btn ${tqActiveTab === 'execution' ? 'active' : ''}" data-tab="execution">5. Test Execution</button>
+      <button class="tq-tab-btn ${tqActiveTab === 'execution' ? 'active' : ''}" data-tab="execution">3. Test Execution</button>
+      <button class="tq-tab-btn ${tqActiveTab === 'triage' ? 'active' : ''}" data-tab="triage">4. Defect Triage</button>
+      <button class="tq-tab-btn ${tqActiveTab === 'security' ? 'active' : ''}" data-tab="security">5. Security Scanner</button>
       <button class="tq-tab-btn ${tqActiveTab === 'traceability' ? 'active' : ''}" data-tab="traceability">6. Traceability</button>
       <button class="tq-tab-btn ${tqActiveTab === 'quality-gate' ? 'active' : ''}" data-tab="quality-gate">7. Quality Gate</button>
     </div>
@@ -304,6 +372,7 @@ function renderTQDetailsPanel() {
   });
 
   renderActiveTabContent(demand);
+  renderTQSidebarAudit();
 }
 
 function renderActiveTabContent(demand) {
@@ -377,6 +446,8 @@ function renderTestGenerationTab(container, demand) {
       
       if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
       generatedSuite = await res.json();
+      renderTQSidebarAudit();
+      refreshTQSidebar();
       displaySuiteResults(resultsArea);
     } catch (err) {
       console.error(err);
@@ -444,6 +515,8 @@ function displaySuiteResults(container) {
 // Capability 2: Test Data UI
 // -------------------------------------------------------------
 function renderTestDataTab(container, demand) {
+  const suiteId = generatedSuite ? generatedSuite.suite_id : '';
+
   container.innerHTML = `
     <div class="tq-card">
       <h4 class="tq-card-title">Test Data Provisioning Agent</h4>
@@ -451,7 +524,11 @@ function renderTestDataTab(container, demand) {
         Synthesizes / provisions privacy-compliant, masked datasets bound to the generated test suite requirements and database schemas.
       </p>
 
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem;">
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1rem;">
+        <div class="tq-form-group">
+          <label>Suite ID</label>
+          <input type="text" class="tq-input" id="tq-data-suite-id" value="${suiteId}" placeholder="e.g. TST-0001-1 (from Tab 1)">
+        </div>
         <div class="tq-form-group">
           <label>Target Environment</label>
           <select class="tq-input" id="tq-data-env">
@@ -495,9 +572,9 @@ function renderTestDataTab(container, demand) {
     resultsArea.innerHTML = `<div style="text-align: center; padding: 2rem;"><span class="loader" style="width: 32px; height: 32px;"></span><p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">AI is analyzing schema definitions and generating data...</p></div>`;
 
     try {
-      const suiteIdVal = generatedSuite ? generatedSuite.suite_id : '';
+      const suiteIdVal = document.getElementById('tq-data-suite-id').value.trim();
       if (!suiteIdVal) {
-        throw new Error('No test suite found. Run Test Generation (Tab 1) first.');
+        throw new Error('Please enter a Suite ID. Run Test Generation (Tab 1) first.');
       }
       const schemaRaw = document.getElementById('tq-data-schemas').value.trim();
       const schemaRefs = schemaRaw ? schemaRaw.split(',').map(s => s.trim()).filter(s => s) : [];
@@ -515,9 +592,12 @@ function renderTestDataTab(container, demand) {
           expiry_hours: 48
         })
       });
+
       
       if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
       testDataProvision = await res.json();
+      renderTQSidebarAudit();
+      refreshTQSidebar();
       displayDataResults(resultsArea);
     } catch (err) {
       console.error(err);
@@ -589,11 +669,6 @@ function renderDefectTriageTab(container, demand) {
         <input type="text" class="tq-input" id="tq-triage-ids" value="${prefillDefects}" placeholder="e.g. BUG-001, BUG-002 (auto-filled from Tab 5)">
       </div>
 
-      <div class="tq-form-group">
-        <label>Code Ownership Mapping (JSON format, optional)</label>
-        <textarea class="tq-input" id="tq-triage-ownership" rows="3" style="font-family: monospace; resize: vertical;" placeholder='{ "component-name": "owner.username" }'></textarea>
-      </div>
-
       <button class="tq-btn" id="btn-run-tq-triage">
         <span>Run Defect Triage</span>
       </button>
@@ -610,13 +685,6 @@ function renderDefectTriageTab(container, demand) {
     resultsArea.innerHTML = `<div style="text-align: center; padding: 2rem;"><span class="loader" style="width: 32px; height: 32px;"></span><p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">AI is clustering defects and parsing log stacks...</p></div>`;
 
     try {
-      let codeMap = {};
-      try {
-        codeMap = JSON.parse(document.getElementById('tq-triage-ownership').value);
-      } catch (e) {
-        throw new Error("Invalid Code Ownership JSON format");
-      }
-
       const runIdVal = document.getElementById('tq-triage-run-id').value.trim();
       const defectIdsRaw = document.getElementById('tq-triage-ids').value.trim();
       const defectIds = defectIdsRaw ? defectIdsRaw.split(',').map(s => s.trim()).filter(s => s) : [];
@@ -628,12 +696,14 @@ function renderDefectTriageTab(container, demand) {
           test_run_id: runIdVal,
           demand_id: demand.demand_id,
           defect_ids: defectIds,
-          code_ownership_map: codeMap
+          code_ownership_map: {}
         })
       });
       
       if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
       defectTriage = await res.json();
+      renderTQSidebarAudit();
+      refreshTQSidebar();
       displayTriageResults(resultsArea);
     } catch (err) {
       console.error(err);
@@ -700,25 +770,27 @@ function renderSecurityScanningTab(container, demand) {
         Executes pipeline scan triggers (SAST/DAST, secrets, vulnerabilities) and leverages LLM AppSec knowledge to triage findings and draft remediation PR code fixes.
       </p>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-        <div class="tq-form-group">
-          <label>Components to Scan (comma separated)</label>
-          <input type="text" class="tq-input" id="tq-sec-components" value="" placeholder="e.g. svc-auth, svc-payments-api">
-        </div>
-        <div class="tq-form-group">
-          <label>Pipeline Run ID</label>
-          <input type="text" class="tq-input" id="tq-sec-pipeline" value="" placeholder="e.g. CI-RUN-1234">
-        </div>
+      <div class="tq-form-group" style="margin-bottom: 1rem;">
+        <label>Components to Scan (comma separated)</label>
+        <input type="text" class="tq-input" id="tq-sec-components" value="" placeholder="e.g. svc-auth, svc-payments-api">
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-        <div class="tq-form-group">
+      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem; align-items: flex-end;">
+        <div class="tq-form-group" style="margin-bottom: 0;">
           <label>Scan Types (comma separated)</label>
           <input type="text" class="tq-input" id="tq-sec-types" value="SAST, DAST, Secrets" placeholder="e.g. SAST, DAST, Secrets">
         </div>
-        <div class="tq-form-group">
-          <label>Vulnerability DB Version</label>
-          <input type="text" class="tq-input" id="tq-sec-db-version" value="" placeholder="e.g. CVE-2026-07-01">
+        <div class="tq-form-group" style="margin-bottom: 0;">
+          <label>Add Additional Scan</label>
+          <select class="tq-input" id="tq-sec-types-dropdown" style="cursor: pointer;">
+            <option value="" disabled selected>-- Select Scan Type --</option>
+            <option value="SCA">Software Composition Analysis (SCA)</option>
+            <option value="Container">Container Vulnerability Scan</option>
+            <option value="Compliance">License Compliance Scan</option>
+            <option value="IaC">Infrastructure as Code (IaC) Scan</option>
+            <option value="API">API Security Scan</option>
+            <option value="PenTest">Automated Pen Testing</option>
+          </select>
         </div>
       </div>
 
@@ -729,6 +801,22 @@ function renderSecurityScanningTab(container, demand) {
 
     <div id="tq-sec-results-area"></div>
   `;
+
+  // Attach event listener for scan types dropdown helper
+  const typesDropdown = document.getElementById('tq-sec-types-dropdown');
+  const typesInput = document.getElementById('tq-sec-types');
+  typesDropdown.addEventListener('change', () => {
+    const selected = typesDropdown.value;
+    if (!selected) return;
+    
+    let current = typesInput.value.split(',').map(s => s.trim()).filter(s => s);
+    if (!current.includes(selected)) {
+      current.push(selected);
+      typesInput.value = current.join(', ');
+    }
+    // Reset dropdown selector back to placeholder option
+    typesDropdown.selectedIndex = 0;
+  });
 
   const runBtn = document.getElementById('btn-run-tq-sec');
   runBtn.addEventListener('click', async () => {
@@ -743,7 +831,9 @@ function renderSecurityScanningTab(container, demand) {
       const componentIds = componentRaw ? componentRaw.split(',').map(s => s.trim()).filter(s => s) : [];
       const scanTypesRaw = document.getElementById('tq-sec-types').value.trim();
       const scanTypes = scanTypesRaw ? scanTypesRaw.split(',').map(s => s.trim()).filter(s => s) : [];
-      const vulnDbVal = document.getElementById('tq-sec-db-version').value.trim();
+      
+      // Auto-generate a pipeline run ID matching context requirement
+      const generatedPipelineId = "CI-RUN-" + demand.demand_id.split('-').pop() + "-1";
 
       const res = await fetch(`${TQ_API_BASE}/test-quality/security-testing`, {
         method: 'POST',
@@ -752,14 +842,16 @@ function renderSecurityScanningTab(container, demand) {
           demand_id: demand.demand_id,
           plan_id: planIdVal,
           component_ids: componentIds,
-          pipeline_run_id: document.getElementById('tq-sec-pipeline').value.trim(),
+          pipeline_run_id: generatedPipelineId,
           scan_types: scanTypes,
-          vulnerability_db_version: vulnDbVal || undefined
+          vulnerability_db_version: undefined
         })
       });
       
       if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
       securityScan = await res.json();
+      renderTQSidebarAudit();
+      refreshTQSidebar();
       displaySecurityResults(resultsArea);
     } catch (err) {
       console.error(err);
@@ -897,6 +989,8 @@ function renderTestExecutionTab(container, demand) {
       });
       if (!res.ok) throw new Error((await res.json()).detail || `HTTP ${res.status}`);
       testRun = await res.json();
+      renderTQSidebarAudit();
+      refreshTQSidebar();
       displayTestRunResults(resultsArea);
     } catch (err) {
       console.error(err);
@@ -1058,6 +1152,8 @@ function renderTraceabilityTab(container, demand) {
       });
       if (!res.ok) throw new Error((await res.json()).detail || `HTTP ${res.status}`);
       traceabilityMatrix = await res.json();
+      renderTQSidebarAudit();
+      refreshTQSidebar();
       displayTraceabilityResults(resultsArea);
     } catch (err) {
       console.error(err);
@@ -1229,6 +1325,8 @@ function renderQualityGateTab(container, demand) {
       });
       if (!res.ok) throw new Error((await res.json()).detail || `HTTP ${res.status}`);
       qualityGate = await res.json();
+      renderTQSidebarAudit();
+      refreshTQSidebar();
       displayQualityGateResults(resultsArea);
     } catch (err) {
       console.error(err);
@@ -1307,4 +1405,48 @@ function displayQualityGateResults(container) {
       <pre class="tq-json-viewer">${JSON.stringify(qg, null, 2)}</pre>
     </div>
   `;
+}
+
+// -------------------------------------------------------------
+// Left Sidebar Saved Quality Audit Dashboard Logic
+// -------------------------------------------------------------
+
+async function refreshTQSidebar() {
+  try {
+    const resDemands = await fetch(`${TQ_API_BASE}/demands`);
+    if (!resDemands.ok) return;
+    tqDemands = await resDemands.json();
+
+    const resConsolidated = await fetch(`${TQ_API_BASE}/test-quality/consolidated`);
+    if (!resConsolidated.ok) return;
+    const consolidatedStates = await resConsolidated.json();
+
+    const activeDemandIds = consolidatedStates.map(record => record.demand_id);
+    renderTQQueues(activeDemandIds);
+  } catch (err) {
+    console.error("Error refreshing sidebar queues:", err);
+  }
+}
+
+async function loadConsolidatedTQState(demandId) {
+  try {
+    const res = await fetch(`${TQ_API_BASE}/test-quality/consolidated/${demandId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const record = await res.json();
+
+    // Set memory state from consolidated record
+    generatedSuite = record.test_generation;
+    testDataProvision = record.test_data;
+    testRun = record.test_execution;
+    defectTriage = record.defect_triage;
+    securityScan = record.security_testing;
+    traceabilityMatrix = record.traceability;
+    qualityGate = record.quality_gate;
+  } catch (err) {
+    console.error("Error loading consolidated TQ state:", err);
+  }
+}
+
+function renderTQSidebarAudit() {
+  // Checklist completely removed from UI
 }

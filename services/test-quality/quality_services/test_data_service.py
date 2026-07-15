@@ -42,6 +42,12 @@ class TestDataService:
             data=provision_record
         )
 
+        db.update_consolidated_stage(
+            demand_id=req.demand_id,
+            step_key="test_data",
+            data=provision_record
+        )
+
         return provision_record
 
 test_data_service = TestDataService()
