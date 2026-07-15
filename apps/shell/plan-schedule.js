@@ -8,6 +8,7 @@ let plans = [];
 let availableEstimates = [];
 let selectedPlanId = null;
 let uploadedTeamConfig = null; // Dynamically parsed workforce directory
+let demandTitleMap = {}; // Map demand_id -> title
 
 // Auto-accept confirm dialogs in webdriver/automation environments to allow testing
 if (window.navigator.webdriver) {
@@ -160,6 +161,19 @@ window.fetchPlans = async function () {
   const container = document.getElementById('plan-list-container');
   if (!container) return;
   try {
+    // Pre-fetch demands to populate project titles in sidebar
+    try {
+      const demRes = await fetch(`${ESTIMATE_API_FOR_PLANS}/demands`);
+      if (demRes.ok) {
+        const allDemands = await demRes.json();
+        allDemands.forEach(d => {
+          demandTitleMap[d.demand_id] = d.title;
+        });
+      }
+    } catch (e) {
+      console.error('Failed to pre-fetch demands for sidebar titles:', e);
+    }
+
     const res = await fetch(`${PLAN_API_BASE}/plans`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     plans = await res.json();
@@ -183,7 +197,11 @@ window.fetchPlans = async function () {
       return;
     }
 
-    if (plans.length > 0 && selectedPlanId === null) {
+    const activeDemandId = sessionStorage.getItem('selectedDemandId');
+    const matchedPlan = activeDemandId ? plans.find(p => p.demand_id === activeDemandId) : null;
+    if (matchedPlan && selectedPlanId === null) {
+      selectPlan(matchedPlan.plan_id);
+    } else if (plans.length > 0 && selectedPlanId === null) {
       selectPlan(plans[0].plan_id);
     } else if (selectedPlanId !== null) {
       selectPlan(selectedPlanId);
@@ -279,6 +297,7 @@ function renderPlanList() {
   container.innerHTML = plans.map(plan => {
     const isActive = plan.plan_id === selectedPlanId;
     const taskCount = plan.tasks ? plan.tasks.length : 0;
+    const projectTitle = demandTitleMap[plan.demand_id] || 'Loading Title...';
     return `
       <li class="demand-item ${isActive ? 'active' : ''}" data-id="${plan.plan_id}">
         <div class="demand-item-header">
@@ -290,6 +309,7 @@ function renderPlanList() {
             <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
           </button>
         </div>
+        <h4 class="demand-item-title" style="margin: 0.2rem 0 0.4rem 0;" title="${projectTitle}">${projectTitle}</h4>
         <div class="demand-item-meta">
           <span>End: ${plan.end_date}</span>
           <span>${taskCount} tasks</span>
@@ -373,7 +393,7 @@ async function showNewPlanForm() {
   const panel = document.getElementById('plan-panel-container');
   if (!panel) return;
 
-  let demandTitleMap = {};
+  demandTitleMap = {};
   // Fetch approved estimates and demands
   try {
     const [estRes, demRes] = await Promise.all([
@@ -965,6 +985,9 @@ function renderPlanPreview(newPlans, actionsRow) {
         reviewSection.appendChild(nextBanner);
         nextBanner.querySelector('#btn-proceed-to-deps-preview').addEventListener('click', () => {
           sessionStorage.setItem('pendingDepsAutoSense', '1');
+          if (selectedPlanId) {
+            sessionStorage.setItem('dependencies_selected_plan_id', selectedPlanId);
+          }
           window.switchStage('dependencies');
         });
       }
@@ -1346,6 +1369,9 @@ function renderPlanDetail(plan) {
   if (proceedToDepsBtn) {
     proceedToDepsBtn.addEventListener('click', () => {
       sessionStorage.setItem('pendingDepsAutoSense', '1');
+      if (selectedPlanId) {
+        sessionStorage.setItem('dependencies_selected_plan_id', selectedPlanId);
+      }
       window.switchStage('dependencies');
     });
   }
@@ -1624,6 +1650,9 @@ function renderPlanDetail(plan) {
           reviewSection.appendChild(nextBanner);
           nextBanner.querySelector('#btn-proceed-to-deps-detail').addEventListener('click', () => {
             sessionStorage.setItem('pendingDepsAutoSense', '1');
+            if (selectedPlanId) {
+              sessionStorage.setItem('dependencies_selected_plan_id', selectedPlanId);
+            }
             window.switchStage('dependencies');
           });
         }

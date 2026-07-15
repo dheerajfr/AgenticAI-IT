@@ -214,3 +214,37 @@ def test_generate_audit_trail():
     get_resp = client.get(f"/api/release-change/audit/{data['audit_id']}")
     assert get_resp.status_code == 200
     assert get_resp.json()["audit_id"] == "AUD-0068-1"
+
+
+def test_create_release():
+    # Insert a dummy plan into plans table to test auto-resolution
+    try:
+        from shared_db.connection import get_db
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT OR REPLACE INTO plans (plan_id, demand_id, data) VALUES (?, ?, ?)",
+                ("PLN-0068-1", "DEM-2026-0068", '{"plan_id":"PLN-0068-1","demand_id":"DEM-2026-0068","end_date":"2026-07-21"}')
+            )
+            conn.commit()
+    except Exception as e:
+        print(f"Setup error for test_create_release: {e}")
+
+    # Create release with only project_id
+    payload = {
+        "project_id": "DEM-2026-0068"
+    }
+    response = client.post("/api/release-change/releases", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "created"
+    assert data["release_id"] == "REL-0068-1"
+
+    # Get release and verify auto-resolved details
+    get_resp = client.get(f"/api/release-change/releases/{data['release_id']}")
+    assert get_resp.status_code == 200
+    res_data = get_resp.json()
+    assert res_data["release"]["project_id"] == "DEM-2026-0068"
+    assert res_data["release"]["plan_id"] == "PLN-0068-1"
+    assert res_data["release"]["build_id"] == "BLD-0068-1"
+    assert res_data["release"]["planned_release_date"] == "2026-07-21T22:00:00Z"

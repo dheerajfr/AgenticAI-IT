@@ -63,12 +63,12 @@ def get_real_ids():
     suffix = demand_id.split("-")[-1]
 
     chg_rows = query_db(
-        "SELECT change_record_id FROM change_records WHERE demand_id = ? LIMIT 1", (demand_id,)
+        "SELECT id FROM release_change WHERE demand_id = ? AND type = 'change_record' LIMIT 1", (demand_id,)
     )
     change_record_id = chg_rows[0][0] if chg_rows else f"CHG-{suffix}-1"
 
     rsk_rows = query_db(
-        "SELECT risk_score_id FROM change_risk_scores WHERE demand_id = ? LIMIT 1", (demand_id,)
+        "SELECT id FROM release_change WHERE demand_id = ? AND type = 'risk_score' LIMIT 1", (demand_id,)
     )
     risk_score_id = rsk_rows[0][0] if rsk_rows else f"RSK-{suffix}-1"
 

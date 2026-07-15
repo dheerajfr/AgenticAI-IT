@@ -201,6 +201,158 @@ class _RoundRobinOwner:
                             except ValueError:
                                 pass
 
+    def get_utilization_days(self, email: str) -> int:
+        total_days = 0
+        norm = email.lower()
+        for assigned_email, s_date, e_date in self.assignments:
+            ae = assigned_email.lower()
+            if ae == norm or ae.split("@")[0] == norm.split("@")[0]:
+                total_days += (e_date - s_date).days + 1
+        return total_days
+
+    def _init_selected_teams(self, demand_constraints: List[dict] | None) -> None:
+        if hasattr(self, "_selected_teams_initialized") and self._selected_teams_initialized:
+            return
+        
+        self._selected_teams = {}
+        self._selected_teams_initialized = True
+        
+        if not demand_constraints:
+            return
+            
+        for c in demand_constraints:
+            role_name = c.get("role")
+            if not role_name:
+                continue
+            required_count = c.get("requiredCapacity", 1)
+            
+            candidates = []
+            seen_emails = set()
+            
+            def is_match(emp):
+                emp_role = (emp.get("role") or "").strip().lower()
+                emp_skills = (emp.get("skills") or emp.get("skill") or "").strip().lower()
+                req_lower = role_name.strip().lower()
+                
+                if emp_role == req_lower:
+                    return True
+                norm_req = req_lower.replace("engineer", "").replace("developer", "").strip()
+                if norm_req in emp_role or norm_req in emp_skills:
+                    return True
+                if "developer" in req_lower or "dev" in req_lower:
+                    if "developer" in emp_role or "dev" in emp_role or "architect" in emp_role:
+                        return True
+                return False
+                
+            # Filter from DB employees
+            for emp in self._all_db_employees:
+                if is_match(emp) and emp["email"] not in seen_emails:
+                    candidates.append(emp)
+                    seen_emails.add(emp["email"])
+                    
+            # Filter from config employees
+            for emp in self.employees:
+                if is_match(emp) and emp["email"] not in seen_emails:
+                    candidates.append(emp)
+                    seen_emails.add(emp["email"])
+                    
+            if not candidates:
+                candidates = self._all_db_employees or self.employees
+                
+            def get_score(emp):
+                status_avail = 1 if emp.get("status", "Available") == "Available" else 0
+                skill_match = 1 if (role_name.lower() in (emp.get("skill") or "").lower() or role_name.lower() in (emp.get("skills") or "").lower()) else 0
+                exp = emp.get("experience", 0) or 0
+                workload = -self.get_utilization_days(emp["email"])
+                return (status_avail, skill_match, exp, workload)
+                
+            candidates.sort(key=get_score, reverse=True)
+            self._selected_teams[role_name] = candidates[:required_count]
+
+    def get_assigned_team_for_phase(self, phase: str) -> List[dict]:
+        phase_lower = phase.lower()
+        category = ""
+        if "design" in phase_lower or "build" in phase_lower:
+            category = "developer"
+        elif "test" in phase_lower:
+            category = "qa"
+        elif "deploy" in phase_lower:
+            category = "devops"
+            
+        combined_team = []
+        seen_emails = set()
+        
+        for role_name, emps in self._selected_teams.items():
+            norm_role = role_name.lower()
+            is_match = False
+            if category == "developer" and ("developer" in norm_role or "architect" in norm_role or "backend" in norm_role or "frontend" in norm_role):
+                is_match = True
+            elif category == "qa" and ("qa" in norm_role or "test" in norm_role):
+                is_match = True
+            elif category == "devops" and ("devops" in norm_role or "security" in norm_role or "ops" in norm_role or "infra" in norm_role or "cloud" in norm_role):
+                is_match = True
+                
+            if is_match:
+                for emp in emps:
+                    if emp["email"] not in seen_emails:
+                        combined_team.append(emp)
+                        seen_emails.add(emp["email"])
+                        
+        if combined_team:
+            return combined_team
+            
+        for emps in self._selected_teams.values():
+            for emp in emps:
+                if emp["email"] not in seen_emails:
+                    combined_team.append(emp)
+                    seen_emails.add(emp["email"])
+                    
+        return combined_team
+
+    def get_adjusted_window(
+        self,
+        phase: str,
+        start_date: date,
+        duration_days: int,
+        required_count: int,
+        working_days_per_week: int,
+        demand_constraints: List[dict] | None
+    ) -> Tuple[date, date]:
+        self._init_selected_teams(demand_constraints)
+        assigned_team = self.get_assigned_team_for_phase(phase)
+        
+        if not assigned_team:
+            end = _add_working_days(start_date, duration_days, working_days_per_week)
+            return start_date, end
+            
+        current_start = start_date
+        pool_size = len(assigned_team)
+        effective_req_count = min(required_count, pool_size)
+        
+        for _ in range(365):
+            current_start = _next_working_day(current_start, working_days_per_week)
+            current_end = _add_working_days(current_start, duration_days, working_days_per_week)
+            
+            free_candidates = []
+            for emp in assigned_team:
+                email = emp["email"]
+                has_overlap = False
+                for assigned_email, s_date, e_date in self.assignments:
+                    if assigned_email.lower() == email.lower():
+                        if max(current_start, s_date) <= min(current_end, e_date):
+                            has_overlap = True
+                            break
+                if not has_overlap:
+                    free_candidates.append(emp)
+                    
+            if len(free_candidates) >= effective_req_count:
+                return current_start, current_end
+                
+            current_start += timedelta(days=1)
+            
+        end = _add_working_days(start_date, duration_days, working_days_per_week)
+        return start_date, end
+
     def next_owner(self, role: str, start_date: date | None = None, end_date: date | None = None) -> str:
         """Backward-compatible single-owner allocator."""
         owners = self.next_owners(role, start_date or date.min, end_date or date.max, 1)
@@ -215,73 +367,31 @@ class _RoundRobinOwner:
         demand_constraints: List[dict] | None = None,
         phase: str | None = None,
     ) -> List[str]:
-        """
-        Assign exactly `count` employees to this task.
-
-        When `demand_constraints` (from the demand module) are provided:
-          - Find all demand constraint entries whose `role` maps to this WBS phase.
-          - Collect all DB employees whose `role` exactly matches one of those demand roles.
-          - Sort them by current utilization (total assigned days), ascending.
-          - Assign the top `count` employees — ignoring leave and schedule overlap,
-            because the demand module's headcount is the source of truth.
-          - If the pool is smaller than `count`, cycle/duplicate the least-utilized.
-
-        When demand_constraints is None/empty, falls back to the original fuzzy
-        phase-role matching (needed for test compatibility).
-        """
-        import json
-
-        def get_utilization_days(email: str) -> int:
-            total_days = 0
-            norm = email.lower()
-            for assigned_email, s_date, e_date in self.assignments:
-                ae = assigned_email.lower()
-                if ae == norm or ae.split("@")[0] == norm.split("@")[0]:
-                    total_days += (e_date - s_date).days + 1
-            return total_days
-
+        """Assign exactly `count` employees to this task."""
+        
         # ─── DEMAND-DRIVEN PATH ──────────────────────────────────────────────
         if demand_constraints and phase is not None:
-            demand_roles_for_phase = _PHASE_DEMAND_ROLES.get(phase, [])
-
-            # Collect all DB employees whose role exactly matches a demand role for this phase
-            demand_candidates: List[dict] = []
-            seen_in_demand: set = set()
-            for emp in self._all_db_employees:
-                emp_role = (emp.get("role") or "").strip()
-                if emp_role in demand_roles_for_phase and emp["email"] not in seen_in_demand:
-                    demand_candidates.append(emp)
-                    seen_in_demand.add(emp["email"])
-
-            # Also include virtual team members whose role matches demand roles
-            for emp in self.employees:
-                emp_role = (emp.get("role") or "").strip()
-                if emp_role in demand_roles_for_phase and emp["email"] not in seen_in_demand:
-                    demand_candidates.append(emp)
-                    seen_in_demand.add(emp["email"])
-
-            if not demand_candidates:
-                # No employees in DB match demand roles — fall through to fuzzy path
+            self._init_selected_teams(demand_constraints)
+            assigned_team = self.get_assigned_team_for_phase(phase)
+            
+            if not assigned_team:
                 log.warning(
-                    "[scheduler] No employees match demand roles %s for phase '%s'. Falling back.",
-                    demand_roles_for_phase, phase
+                    "[scheduler] No pre-selected team members for phase '%s'. Falling back.",
+                    phase
                 )
             else:
-                # Sort by utilization (least busy first)
-                demand_candidates.sort(key=lambda e: get_utilization_days(e["email"]))
-
+                assigned_team_sorted = sorted(assigned_team, key=lambda e: self.get_utilization_days(e["email"]))
                 allocated_emails: List[str] = []
-                pool_size = len(demand_candidates)
+                pool_size = len(assigned_team_sorted)
                 for i in range(count):
-                    emp = demand_candidates[i % pool_size]
+                    emp = assigned_team_sorted[i % pool_size]
                     email = emp["email"]
                     allocated_emails.append(email)
                     self.assignments.append((email, start_date, end_date))
-
+                    
                 return allocated_emails
 
         # ─── LEGACY / TEST ROUND-ROBIN PATH ─────────────────────────────────
-        # Filter candidate employees who match the role using fuzzy WBS mapping
         candidates = []
         role_lower = role.lower()
         
@@ -323,7 +433,7 @@ class _RoundRobinOwner:
             return allocated_emails
 
         # Sort all candidates by utilization
-        all_sorted = sorted(candidates, key=lambda emp: get_utilization_days(emp["email"]))
+        all_sorted = sorted(candidates, key=lambda emp: self.get_utilization_days(emp["email"]))
 
         # Assign count employees, cycling if pool is smaller
         allocated_emails = []
@@ -415,16 +525,30 @@ def schedule_phases(
         # requiredCapacity is the literal number of employees to assign (e.g. 2 means assign 2 people).
         required_count = get_required_count_for_role(alloc.phase, demand_constraints)
 
-        # Compute duration working days based on the required count
+        # The allocation of multiple persons for a task depends on the time/effort taking for completion.
+        # If the task takes less time (effort_days < 10.0), allocate a single person.
+        # If it takes more time (effort_days >= 10.0), multiple employees are allocated.
+        if alloc.effort_days < 10.0:
+            allocated_count = 1
+        else:
+            allocated_count = required_count
+
+        # Compute duration working days based on the allocated count
         duration_days = _phase_duration_working_days(
-            alloc.effort_days, phase_role, team, constraints, required_count
+            alloc.effort_days, phase_role, team, constraints, allocated_count
         )
-        end = _add_working_days(current_start, duration_days, constraints.working_days_per_week)
+        if demand_constraints:
+            current_start, end = owner_rr.get_adjusted_window(
+                alloc.phase, current_start, duration_days, allocated_count,
+                constraints.working_days_per_week, demand_constraints
+            )
+        else:
+            end = _add_working_days(current_start, duration_days, constraints.working_days_per_week)
 
         # Allocate owners — pass demand_constraints + phase so next_owners can use
         # the exact demand roles as the source of truth for employee selection.
         owners = owner_rr.next_owners(
-            phase_role, current_start, end, required_count,
+            phase_role, current_start, end, allocated_count,
             demand_constraints=demand_constraints or None,
             phase=alloc.phase,
         )

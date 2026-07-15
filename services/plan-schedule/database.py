@@ -5,9 +5,9 @@ Mirrors the pattern used by services/estimate-shape/database.py and
 services/demand-intake/database.py so that PlanRecords survive gateway
 restarts.
 
-Resource/employee data is read and written directly from
-services/resource.db (resources table) — no local copy is kept in plan.db.
-plan.db only contains: plans, plan_history.
+# Resource/employee data is read and written directly from the shared
+# source.db (resources table) — no local copy is kept.
+# source.db also contains: plans, plan_history.
 """
 
 from __future__ import annotations
@@ -95,15 +95,15 @@ class PlanDatabase:
         self.sync_employee_allocations()
 
     def _reset_all_allocations(self) -> None:
-        """Reset every resource to unallocated/Available in resource.db.
+        """Reset every resource to unallocated/Available in source.db.
 
         This is a clean-slate step — must always be followed by
         sync_employee_allocations() to restore correct statuses from active
         plans.  Leave date fields are preserved so on-leave windows survive
         service restarts.
         """
-        resource_db = self._get_resource_db_path()
-        if not os.path.exists(resource_db):
+        db_path = self._get_resource_db_path()
+        if not os.path.exists(db_path):
             return
         with self._resource_conn() as conn:
             cursor = conn.cursor()
@@ -187,9 +187,9 @@ class PlanDatabase:
         return deleted
 
     def _read_resources(self) -> List[dict]:
-        """Read all rows from resource.db.resources and return as list of dicts."""
-        resource_db = self._get_resource_db_path()
-        if not os.path.exists(resource_db):
+        """Read all rows from the resources table in source.db and return as list of dicts."""
+        db_path = self._get_resource_db_path()
+        if not os.path.exists(db_path):
             return []
         with self._resource_conn() as conn:
             cursor = conn.cursor()
@@ -230,7 +230,7 @@ class PlanDatabase:
         ]
 
     def get_employees(self) -> List[dict]:
-        """Return all resources from resource.db with up-to-date allocation state."""
+        """Return all resources from source.db with up-to-date allocation state."""
         self.sync_employee_allocations()
         return self._read_resources()
 
@@ -310,14 +310,14 @@ class PlanDatabase:
 
 
     def update_employee_status(self, email: str, status: str) -> bool:
-        """Update a resource's status directly in resource.db."""
+        """Update a resource's status directly in source.db."""
         if status == "free":
             status = "Available"
         elif status == "working":
             status = "Allocated"
         allocated = 1 if status == "Allocated" else 0
-        resource_db = self._get_resource_db_path()
-        if not os.path.exists(resource_db):
+        db_path = self._get_resource_db_path()
+        if not os.path.exists(db_path):
             return False
         with self._resource_conn() as conn:
             cursor = conn.cursor()
@@ -336,8 +336,8 @@ class PlanDatabase:
         self.sync_employee_allocations()
         today = datetime.date.today()
 
-        resource_db = self._get_resource_db_path()
-        if not os.path.exists(resource_db):
+        db_path = self._get_resource_db_path()
+        if not os.path.exists(db_path):
             return []
 
         with self._resource_conn() as conn:
@@ -416,9 +416,9 @@ class PlanDatabase:
         return employees
 
     def set_employee_leave(self, email: str, start_date: str, end_date: str) -> bool:
-        """Mark a resource on leave in resource.db."""
-        resource_db = self._get_resource_db_path()
-        if not os.path.exists(resource_db):
+        """Mark a resource on leave in source.db."""
+        db_path = self._get_resource_db_path()
+        if not os.path.exists(db_path):
             return False
         with self._resource_conn() as conn:
             cursor = conn.cursor()
@@ -474,22 +474,22 @@ class PlanDatabase:
             conn.commit()
 
     def sync_employee_allocations(self) -> None:
-        """Re-derive resource allocation state from accepted plans in plan.db.
+        """Re-derive resource allocation state from accepted plans in source.db.
 
-        Reads:  plan.db      -> plans table
-        Writes: resource.db  -> resources table
+        Reads:  source.db    -> plans table
+        Writes: source.db    -> resources table
                 (allocated, status, current_project, current_task,
                  project_start_date, project_end_date, allocation_percentage,
                  leave_start_date, leave_end_date)
         """
-        resource_db = self._get_resource_db_path()
-        if not os.path.exists(resource_db):
+        db_path = self._get_resource_db_path()
+        if not os.path.exists(db_path):
             return
 
         today = datetime.date.today()
         today_str = today.isoformat()
 
-        # 1. Load all resources from resource.db
+        # 1. Load all resources from source.db
         with self._resource_conn() as rconn:
             rcursor = rconn.cursor()
             rcursor.execute(
@@ -497,7 +497,7 @@ class PlanDatabase:
             )
             db_resources = rcursor.fetchall()
 
-        # 2. Load all accepted plans from plan.db
+        # 2. Load all accepted plans from source.db
         with self._plan_conn() as pconn:
             pcursor = pconn.cursor()
             pcursor.execute("SELECT data FROM plans")
@@ -556,7 +556,7 @@ class PlanDatabase:
                         "end_date": t.get("end_date"),
                     })
 
-        # 4. Write updated state back to resource.db
+        # 4. Write updated state back to source.db
         with self._resource_conn() as rconn:
             rcursor = rconn.cursor()
 

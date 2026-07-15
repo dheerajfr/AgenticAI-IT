@@ -1302,7 +1302,7 @@ async function loadWorkforcePool() {
   const workforceScrollTop = container.scrollTop;
   
   try {
-    const res = await fetch(`${API_BASE}/demands/resources`);
+    const res = await fetch(`${API_BASE}/demands/resources?t=${Date.now()}`);
     if (!res.ok) throw new Error("Failed to fetch workforce pool");
     const pool = await res.json();
     

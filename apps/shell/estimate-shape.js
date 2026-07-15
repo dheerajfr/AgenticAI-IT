@@ -76,7 +76,11 @@ window.fetchEstimates = async function () {
       }, 80);
       return;
     }
-    if (estimates.length > 0 && selectedEstimateId === null) {
+    const activeDemandId = sessionStorage.getItem('selectedDemandId');
+    const matchedEst = activeDemandId ? estimates.find(e => e.demand_id === activeDemandId) : null;
+    if (matchedEst && selectedEstimateId === null) {
+      selectEstimate(matchedEst.estimate_id);
+    } else if (estimates.length > 0 && selectedEstimateId === null) {
       selectEstimate(estimates[0].estimate_id);
     } else if (selectedEstimateId !== null) {
       selectEstimate(selectedEstimateId);

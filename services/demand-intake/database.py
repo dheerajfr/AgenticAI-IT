@@ -115,7 +115,7 @@ class ResourceDatabase:
         """
         with self._conn() as conn:
             cursor = conn.cursor()
-            # Ensure resources table exists (e.g. if config or resource.db was missing)
+            # Ensure resources table exists (e.g. if config or source.db was missing)
             cursor.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='resources'"
             )
@@ -174,6 +174,9 @@ class ResourceDatabase:
         # Generate a deterministic email from the name
         email = name.lower().replace(" ", ".") + "@example.com"
 
+        status = "Allocated" if alloc_pct > 0 else "Available"
+        allocated = 1 if status == "Allocated" else 0
+
         with self._conn() as conn:
             cursor = conn.cursor()
 
@@ -185,14 +188,15 @@ class ResourceDatabase:
             exists = cursor.fetchone()[0] > 0
 
             if exists:
-                # Update mutable fields only — preserve allocation/leave state
+                # Update mutable fields including status and allocated
                 cursor.execute(
                     """
                     UPDATE resources
-                    SET role = ?, skill = ?, skills = ?, allocation_percentage = ?
+                    SET role = ?, skill = ?, skills = ?, allocation_percentage = ?,
+                        status = ?, allocated = ?
                     WHERE email = ? OR employee_name = ?
                     """,
-                    (role, skill, skills_str, alloc_pct, email, name),
+                    (role, skill, skills_str, alloc_pct, status, allocated, email, name),
                 )
             else:
                 # Generate next employee_id
@@ -209,11 +213,11 @@ class ResourceDatabase:
                         project_start_date, project_end_date,
                         allocation_percentage,
                         leave_start_date, leave_end_date
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Available', 0,
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                               NULL, NULL, NULL, NULL, ?, NULL, NULL)
                     """,
                     (emp_id, name, email, role, skill, skills_str,
-                     5, "Engineering", alloc_pct),
+                     5, "Engineering", status, allocated, alloc_pct),
                 )
             conn.commit()
         return resource

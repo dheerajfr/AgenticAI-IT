@@ -1,0 +1,60 @@
+{
+  "demand_id": "DEM-2026-0106",
+  "title": "Real Time Chatbot for Retail Store",
+  "description": "Development of a real-time chatbot designed to assist customers in a retail store environment. The chatbot should be capable of handling customer inquiries, providing product information, and facilitating sales interactions in real time.",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-14",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Real Time Chatbot for Retail Store (DEM-2026-0106)\n\nExecutive Summary\nThis project aims to develop a real-time chatbot to enhance customer service in retail stores by providing instant assistance, product information, and sales support. The solution will improve customer engagement and streamline in-store interactions.\n\nBusiness Value/Impact\nImplementing the chatbot will increase customer satisfaction and drive higher sales conversion rates by offering timely, accurate responses. It will also reduce staff workload, allowing employees to focus on complex customer needs.\n\nRisk Mitigation\nTo address medium risks, the project will include thorough testing, user training, and ongoing monitoring to ensure chatbot accuracy and reliability. Contingency plans will be established to handle technical issues promptly.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 0,
+  "earliest_start_date": "2026-08-13",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 13 total active team members evaluated.",
+    "Technical capability profiling: 29 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 480/520 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 2,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Frontend Developer",
+      "requiredCapacity": 2,
+      "availableCapacity": 0
+    },
+    {
+      "role": "QA Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    },
+    {
+      "role": "Senior Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    },
+    {
+      "role": "Security Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    }
+  ],
+  "skill_gaps": [
+    "Real-time Systems",
+    "Chatbot Development",
+    "Natural Language Processing",
+    "Backend Development",
+    "Frontend Development",
+    "API Integration",
+    "Quality Assurance"
+  ]
+}
