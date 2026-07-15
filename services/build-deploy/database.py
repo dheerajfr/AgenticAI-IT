@@ -131,20 +131,23 @@ deployments_db.load_fixtures(os.path.join(FIXTURES_ROOT, "deployments"))
 # ---------------------------------------------------------------------------
 
 def read_environment_state(component_id: str, environment: str) -> Optional[dict]:
-    config_env_db_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "config-environments", "config-env.db")
-    )
-    if not os.path.exists(config_env_db_path):
-        return None
+    import sys
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     try:
-        with sqlite3.connect(config_env_db_path) as conn:
+        from shared_db.connection import get_db
+    except ImportError:
+        print("Error: Could not import shared_db.connection")
+        return None
+
+    try:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT data FROM environments WHERE component_id = ? AND environment = ?",
+                "SELECT data FROM environments WHERE demand_id = ? AND environment = ?",
                 (component_id, environment)
             )
             row = cursor.fetchone()
             return json.loads(row[0]) if row else None
     except Exception as e:
-        print(f"Error reading config-env.db for {component_id}/{environment}: {e}")
+        print(f"Error reading shared DB for environments of {component_id}/{environment}: {e}")
         return None

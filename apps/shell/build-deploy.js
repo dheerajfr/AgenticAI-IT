@@ -187,9 +187,31 @@ function renderDeployList() {
 // Runbook drafting
 // ---------------------------------------------------------------------------
 
-function showNewRunbookForm() {
+async function showNewRunbookForm() {
   const panel = document.getElementById('deploy-panel-container');
+  panel.innerHTML = `
+    <div class="panel-card" style="text-align: center; padding: 2rem;">
+      <span class="loader"><span class="spinner"></span> Loading database records...</span>
+    </div>
+  `;
+
+  let demandsList = [];
+  let changeRecordsList = [];
+  try {
+    const [dRes, cRes] = await Promise.all([
+      fetch('/api/demands'),
+      fetch('/api/deployments/change-records')
+    ]);
+    if (dRes.ok) demandsList = await dRes.json();
+    if (cRes.ok) changeRecordsList = await cRes.json();
+  } catch (err) {
+    console.error('Failed to pre-fetch metadata:', err);
+  }
+
+  const demandOptions = demandsList.map(d => `<option value="${d.demand_id}">${d.demand_id} — ${d.title}</option>`).join('');
+  const changeOptions = changeRecordsList.map(c => `<option value="${c.change_record_id}">${c.change_record_id} (Demand: ${c.demand_id})</option>`).join('');
   const priorOptions = runbooks.map(r => `<option value="${r.runbook_id}">${r.runbook_id} — ${r.title}</option>`).join('');
+
   panel.innerHTML = `
     <div class="panel-card">
       <h3 style="font-family: var(--font-display); font-size: 1.5rem; margin-top: 0;">Draft a Runbook</h3>
@@ -197,8 +219,11 @@ function showNewRunbookForm() {
         Drafts and maintains deployment runbooks from the change and prior runbooks.
       </p>
       <div class="form-group">
-        <label for="rbk-component">Component ID *</label>
-        <input type="text" id="rbk-component" placeholder="e.g. svc-payments-api">
+        <label for="rbk-component">Component ID (Demand ID) *</label>
+        <select id="rbk-component">
+          <option value="">Select a Component / Demand</option>
+          ${demandOptions}
+        </select>
       </div>
       <div class="form-group">
         <label for="rbk-change-summary">Change Summary *</label>
@@ -211,7 +236,10 @@ function showNewRunbookForm() {
       <div class="grid-2col">
         <div class="form-group">
           <label for="rbk-change-ref">Change Record Ref</label>
-          <input type="text" id="rbk-change-ref" placeholder="e.g. CHG-2026-0091">
+          <select id="rbk-change-ref">
+            <option value="">Select a Change Record (Optional)</option>
+            ${changeOptions}
+          </select>
         </div>
         <div class="form-group">
           <label for="rbk-prior">Prior Runbook (reuse steps)</label>
@@ -227,6 +255,28 @@ function showNewRunbookForm() {
       </div>
     </div>
   `;
+
+  // Auto-populate Change Summary and Component ID when a Change Record is selected
+  document.getElementById('rbk-change-ref').addEventListener('change', async (e) => {
+    const changeId = e.target.value;
+    if (!changeId) return;
+    try {
+      const res = await fetch(`/api/release-change/draft/${changeId}`);
+      if (res.ok) {
+        const changeData = await res.json();
+        if (changeData) {
+          if (changeData.summary) {
+            document.getElementById('rbk-change-summary').value = changeData.summary;
+          }
+          if (changeData.demand_id) {
+            document.getElementById('rbk-component').value = changeData.demand_id;
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch change record detail:", err);
+    }
+  });
 
   document.getElementById('btn-draft-runbook').addEventListener('click', async () => {
     const component_id = document.getElementById('rbk-component').value.trim();
@@ -572,8 +622,23 @@ function renderCutoverDetails(record) {
 // Deployment orchestration
 // ---------------------------------------------------------------------------
 
-function showNewDeploymentForm(prefillRunbookId) {
+async function showNewDeploymentForm(prefillRunbookId) {
   const panel = document.getElementById('deploy-panel-container');
+  panel.innerHTML = `
+    <div class="panel-card" style="text-align: center; padding: 2rem;">
+      <span class="loader"><span class="spinner"></span> Loading database records...</span>
+    </div>
+  `;
+
+  let demandsList = [];
+  try {
+    const dRes = await fetch('/api/demands');
+    if (dRes.ok) demandsList = await dRes.json();
+  } catch (err) {
+    console.error('Failed to pre-fetch demands:', err);
+  }
+
+  const demandOptions = demandsList.map(d => `<option value="${d.demand_id}">${d.demand_id} — ${d.title}</option>`).join('');
   const approvedRunbooks = runbooks.filter(r => r.status === 'approved');
   const runbookOptions = approvedRunbooks.map(r =>
     `<option value="${r.runbook_id}" ${r.runbook_id === prefillRunbookId ? 'selected' : ''}>${r.runbook_id} — ${r.title}</option>`
@@ -586,8 +651,11 @@ function showNewDeploymentForm(prefillRunbookId) {
         Drives the deployment runbook across environments and teams; checks pre-conditions and holds go/no-go on production steps.
       </p>
       <div class="form-group">
-        <label for="dep-component">Component ID *</label>
-        <input type="text" id="dep-component" placeholder="e.g. svc-payments-api">
+        <label for="dep-component">Component ID (Demand ID) *</label>
+        <select id="dep-component">
+          <option value="">Select a Component / Demand</option>
+          ${demandOptions}
+        </select>
       </div>
       <div class="grid-2col">
         <div class="form-group">
@@ -613,6 +681,15 @@ function showNewDeploymentForm(prefillRunbookId) {
       </div>
     </div>
   `;
+
+  // Auto-select Component ID if an approved runbook is chosen
+  document.getElementById('dep-runbook').addEventListener('change', (e) => {
+    const runbookId = e.target.value;
+    const chosenRunbook = approvedRunbooks.find(r => r.runbook_id === runbookId);
+    if (chosenRunbook) {
+      document.getElementById('dep-component').value = chosenRunbook.component_id;
+    }
+  });
 
   document.getElementById('btn-start-deployment').addEventListener('click', async () => {
     const component_id = document.getElementById('dep-component').value.trim();
