@@ -91,5 +91,13 @@ class EnvironmentDatabase:
             conn.commit()
         return record
 
+    def delete_by_demand_id(self, demand_id: str) -> int:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM environments WHERE demand_id = ?", (demand_id,))
+            conn.commit()
+            return cursor.rowcount
+
+
 # Initialize the global repository singleton
 db = EnvironmentDatabase()

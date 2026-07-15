@@ -9,7 +9,9 @@ from models import (
     ApplyHygieneFixRequest,
     AutoRemediateRequest,
     PromoteEnvironmentRequest,
-    VerifyReadinessRequest
+    VerifyReadinessRequest,
+    SeedEnvironmentRequest,
+    UpdateEnvironmentRequest
 )
 from database import db
 import sys
@@ -39,6 +41,13 @@ def get_environments():
     """List all environment state records."""
     return db.get_all()
 
+@app.get("/api/environments/demand-ids")
+def get_demand_ids():
+    """Return unique demand IDs that have environment records."""
+    records = db.get_all()
+    ids = sorted(list({r.demand_id for r in records}))
+    return {"demand_ids": ids}
+
 @app.get("/api/environments/{demand_id}", response_model=List[EnvironmentStateRecord])
 def get_environments_by_demand(demand_id: str):
     """Get all environment records for a given demand ID."""
@@ -54,6 +63,153 @@ def get_environment(demand_id: str, environment: str):
     if not record:
         raise HTTPException(status_code=404, detail="Environment record not found.")
     return record
+
+@app.put("/api/environments/{demand_id}/{environment}", response_model=EnvironmentStateRecord)
+def update_environment(demand_id: str, environment: str, req: UpdateEnvironmentRequest):
+    """Update a specific environment record (human-configured edits)."""
+    record = db.get_by_demand_and_env(demand_id, environment)
+    if not record:
+        raise HTTPException(status_code=404, detail="Environment record not found.")
+    if req.deployed_version is not None:
+        record.deployed_version = req.deployed_version
+    if req.expected_version is not None:
+        record.expected_version = req.expected_version
+    if req.observed_name is not None:
+        record.observed_name = req.observed_name
+    if req.cmdb_name is not None:
+        record.cmdb_name = req.cmdb_name
+    if req.expected_requirements is not None:
+        record.expected_requirements = req.expected_requirements
+    if req.observed_requirements is not None:
+        record.observed_requirements = req.observed_requirements
+    # Recompute drift status after edits
+    if record.deployed_version == record.expected_version:
+        record.drift_status = "in-sync"
+    else:
+        record.drift_status = "drifted"
+    record.last_checked = _get_current_time_iso()
+    db.save(record)
+    return record
+
+@app.post("/api/environments/seed", response_model=List[EnvironmentStateRecord])
+def seed_environments(req: SeedEnvironmentRequest):
+    """
+    One-time LLM-driven generation of environment config records for a demand ID.
+    Fetches the business_case_summary from demand-intake and uses the LLM to derive
+    realistic expected versions, CMDB names, and requirements.
+    Raises 409 if records already exist for this demand.
+    """
+    existing = db.get_by_demand_id(req.demand_id)
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Environment records already exist for {req.demand_id}. Use the edit (✎) controls to update individual fields."
+        )
+
+    # Try to fetch business summary from demand-intake
+    business_summary = None
+    demand_title = req.demand_id
+    try:
+        import urllib.request
+        url = "http://127.0.0.1:8000/api/demands"
+        with urllib.request.urlopen(url, timeout=3) as resp:
+            import json as _json
+            demands = _json.loads(resp.read())
+            for d in demands:
+                if d.get("demand_id") == req.demand_id:
+                    business_summary = d.get("business_case_summary") or d.get("description")
+                    demand_title = d.get("title", req.demand_id)
+                    break
+    except Exception:
+        pass  # Gracefully fall back if demand service unavailable
+
+    context = f"Demand ID: {req.demand_id}\nTitle: {demand_title}"
+    if business_summary:
+        context += f"\nBusiness Summary: {business_summary}"
+
+    prompt = f"""
+You are an IT configuration management expert. Based on the following demand, generate realistic environment baseline configuration data for a software delivery pipeline.
+
+{context}
+
+Generate expected (baseline) configuration data for these 4 environments: dev, test, staging, prod.
+
+Rules:
+- Use realistic semantic versioning (e.g. 1.x.y). Prod should be the most stable (lowest version). Dev should have the latest target version.
+- Do NOT include deployed versions — we only know what the baseline EXPECTS, not what has been deployed yet.
+- Generate 2-4 realistic expected_requirements based on what this kind of system would need (e.g. databases, caches, auth services, message queues, external APIs, etc.).
+- Generate realistic CMDB server names based on the demand title (short kebab-case, e.g. svc-loyalty-api-prod-svr-01).
+
+Respond STRICTLY in JSON with this structure:
+{{
+  "service_name": "short-kebab-name",
+  "environments": {{
+    "dev": {{
+      "expected_version": "...",
+      "cmdb_name": "...",
+      "expected_requirements": ["...", "..."]
+    }},
+    "test": {{
+      "expected_version": "...",
+      "cmdb_name": "...",
+      "expected_requirements": ["...", "..."]
+    }},
+    "staging": {{
+      "expected_version": "...",
+      "cmdb_name": "...",
+      "expected_requirements": ["...", "..."]
+    }},
+    "prod": {{
+      "expected_version": "...",
+      "cmdb_name": "...",
+      "expected_requirements": ["...", "..."]
+    }}
+  }}
+}}
+"""
+
+    try:
+        llm_result = call_gemini(prompt=prompt, is_json=True)
+        env_data = llm_result.get("environments", {})
+    except Exception as e:
+        # Fallback to deterministic defaults if LLM fails
+        svc = req.demand_id.lower().replace("-", "_")
+        env_data = {
+            "dev":     {"expected_version": "2.0.0", "cmdb_name": f"svc-{svc}-dev-svr-01",     "expected_requirements": ["db-dev", "cache-dev", "auth-service"]},
+            "test":    {"expected_version": "2.0.0", "cmdb_name": f"svc-{svc}-test-svr-01",    "expected_requirements": ["db-test", "cache-test", "auth-service"]},
+            "staging": {"expected_version": "1.8.0", "cmdb_name": f"svc-{svc}-staging-svr-01", "expected_requirements": ["db-staging", "cache-staging", "auth-service"]},
+            "prod":    {"expected_version": "1.7.3", "cmdb_name": f"svc-{svc}-prod-svr-01",    "expected_requirements": ["db-prod", "cache-prod", "auth-service"]},
+        }
+
+    created = []
+    for env in ["dev", "test", "staging", "prod"]:
+        cfg = env_data.get(env, {})
+        expected = cfg.get("expected_version", "1.0.0")
+        record = EnvironmentStateRecord(
+            demand_id=req.demand_id,
+            environment=env,
+            # Nothing deployed yet — we only know the expected baseline
+            deployed_version="none",
+            expected_version=expected,
+            drift_status="drifted",          # Always drifted until build-deploy confirms
+            last_checked=_get_current_time_iso(),
+            observed_name=cfg.get("cmdb_name", f"svc-{req.demand_id.lower()}-{env}-svr-01"),
+            cmdb_name=cfg.get("cmdb_name", f"svc-{req.demand_id.lower()}-{env}-svr-01"),
+            expected_requirements=cfg.get("expected_requirements", []),
+            observed_requirements=[]         # Empty until build-deploy populates this
+        )
+        db.save(record)
+        created.append(record)
+    return created
+
+
+@app.delete("/api/environments/{demand_id}")
+def delete_demand_environments(demand_id: str):
+    """Delete all environment records for a demand ID."""
+    db.delete_by_demand_id(demand_id)
+    return {"message": f"All environment records for {demand_id} deleted."}
+
+
 
 @app.post("/api/environments/reconcile-drift", response_model=EnvironmentStateRecord)
 def reconcile_drift(req: ReconcileDriftRequest):

@@ -39,3 +39,14 @@ class PromoteEnvironmentRequest(BaseModel):
 class VerifyReadinessRequest(BaseModel):
     demand_id: str
     environment: Literal["dev", "test", "staging", "prod"]
+
+class SeedEnvironmentRequest(BaseModel):
+    demand_id: str
+
+class UpdateEnvironmentRequest(BaseModel):
+    deployed_version: Optional[str] = None
+    expected_version: Optional[str] = None
+    observed_name: Optional[str] = None
+    cmdb_name: Optional[str] = None
+    expected_requirements: Optional[List[str]] = None
+    observed_requirements: Optional[List[str]] = None
