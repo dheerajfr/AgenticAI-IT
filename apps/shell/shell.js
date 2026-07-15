@@ -111,17 +111,15 @@ function switchStage(stageId) {
       window.renderDependenciesScreen();
       window.fetchDependencies();
     }
-<<<<<<< HEAD
   } else if (stageId === 'build-deploy') {
     if (window.renderBuildDeployScreen) {
       window.renderBuildDeployScreen();
       window.fetchBuildDeployData();
-=======
+    }
   } else if (stageId === 'release-change') {
     if (window.renderReleaseChangeScreen) {
       window.renderReleaseChangeScreen();
       window.fetchReleaseChange();
->>>>>>> 27116e2abf6d950cedfd0216ecf646e6131de94f
     }
   } else {
     // Render the placeholder web component for other stages
