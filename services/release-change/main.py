@@ -358,7 +358,7 @@ def create_release(req: ReleaseCreateRequest):
     environment = req.environment or "prod"
     
     release_id = f"REL-{suffix}-1"
-    created_at = datetime.datetime.now(datetime.timezone.utc).isoformat() + "Z"
+    created_at = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     
     db.save_release(
         release_id=release_id,
@@ -530,7 +530,7 @@ def submit_release_change(release_id: str):
         cab_required=1 if cab_req else 0,
         cab_status="pending-cab" if cab_req else "not-required",
         created_at=rel["created_at"],
-        updated_at=datetime.datetime.now(datetime.timezone.utc).isoformat() + "Z"
+        updated_at=datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     )
     
     # Run audit agent
@@ -552,7 +552,7 @@ def cab_review_release(release_id: str, req: CABReviewSubmit):
         raise HTTPException(status_code=404, detail="Release not found.")
         
     cab_id = f"CAB-{release_id.split('-')[-1]}-1"
-    approval_time = datetime.datetime.now(datetime.timezone.utc).isoformat() + "Z"
+    approval_time = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     
     db.save_cab(
         cab_id=cab_id,

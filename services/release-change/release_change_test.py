@@ -63,14 +63,28 @@ def get_real_ids():
     suffix = demand_id.split("-")[-1]
 
     chg_rows = query_db(
-        "SELECT id FROM release_change WHERE demand_id = ? AND type = 'change_record' LIMIT 1", (demand_id,)
+        "SELECT change_record FROM release_change WHERE demand_id = ? AND change_record IS NOT NULL LIMIT 1", (demand_id,)
     )
-    change_record_id = chg_rows[0][0] if chg_rows else f"CHG-{suffix}-1"
+    change_record_id = None
+    if chg_rows and chg_rows[0][0]:
+        try:
+            change_record_id = json.loads(chg_rows[0][0]).get("change_id")
+        except Exception:
+            pass
+    if not change_record_id:
+        change_record_id = f"CHG-{suffix}-1"
 
     rsk_rows = query_db(
-        "SELECT id FROM release_change WHERE demand_id = ? AND type = 'risk_score' LIMIT 1", (demand_id,)
+        "SELECT risk_score FROM release_change WHERE demand_id = ? AND risk_score IS NOT NULL LIMIT 1", (demand_id,)
     )
-    risk_score_id = rsk_rows[0][0] if rsk_rows else f"RSK-{suffix}-1"
+    risk_score_id = None
+    if rsk_rows and rsk_rows[0][0]:
+        try:
+            risk_score_id = json.loads(rsk_rows[0][0]).get("risk_score_id") or json.loads(rsk_rows[0][0]).get("score_id")
+        except Exception:
+            pass
+    if not risk_score_id:
+        risk_score_id = f"RSK-{suffix}-1"
 
     return {
         "demand_id":         demand_id,
@@ -186,7 +200,13 @@ def main():
         print(f"    [{k}] {label}")
     print()
 
-    choice = input("  Enter choice (default = 6 for ALL): ").strip() or "6"
+    if len(sys.argv) > 1:
+        choice = sys.argv[1]
+    else:
+        try:
+            choice = input("  Enter choice (default = 6 for ALL): ").strip() or "6"
+        except EOFError:
+            choice = "6"
     print()
 
     if choice == "6":

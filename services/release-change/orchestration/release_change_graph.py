@@ -512,7 +512,7 @@ def run_change_record_agent(release_id: str, project_id: str, plan_id: str, db) 
         print(f"[Agent: Change Record] Gemini failed, using defaults: {e}")
 
     change_id = f"CR-{release_id.split('-')[-1]}-1"
-    created_at = datetime.datetime.now(datetime.timezone.utc).isoformat() + "Z"
+    created_at = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     
     db.save_change_request(
         change_id=change_id,
@@ -653,7 +653,7 @@ def run_risk_assessment_agent(release_id: str, db) -> dict:
         recommendation = f"Calculated via rules engine. CAB Review required." if risk_level == "high" else "Pre-approved release path."
 
     risk_id = f"RA-{release_id.split('-')[-1]}-1"
-    generated_at = datetime.datetime.now(datetime.timezone.utc).isoformat() + "Z"
+    generated_at = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     
     db.save_risk_assessment(
         risk_id=risk_id,

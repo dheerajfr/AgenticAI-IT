@@ -1228,7 +1228,7 @@ function renderAuditTab() {
                 <strong>${log.event}</strong>
                 <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.5rem;">[${log.module_name}]</span>
               </div>
-              <span style="font-size: 0.75rem; color: var(--text-secondary);">${new Date(log.timestamp).toLocaleString()}</span>
+              <span style="font-size: 0.75rem; color: var(--text-secondary);">${new Date(log.timestamp && typeof log.timestamp === 'string' ? log.timestamp.replace(/\+00:00Z$/, 'Z') : log.timestamp).toLocaleString()}</span>
             </div>
             <div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.2rem;">
               Performed by: <strong>${log.performed_by}</strong> | Evidence: <a href="${log.evidence_link}" target="_blank" style="color: var(--color-brand); text-decoration: underline;">Open Link</a>
