@@ -33,12 +33,20 @@ print("Loading plan-schedule service...")
 plan_app = load_service("plan-schedule")
 print("Loading dependencies service...")
 dependencies_app = load_service("dependencies")
+<<<<<<< HEAD
+print("Loading build-deploy service...")
+build_deploy_app = load_service("build-deploy")
+=======
 print("Loading release-change service...")
 release_change_app = load_service("release-change")
+<<<<<<< HEAD
 print("Loading build-deploy service...")
 build_deploy_app = load_service("build-deploy")
 print("Loading test-quality service...")
 test_quality_app = load_service("test-quality")
+=======
+>>>>>>> 27116e2abf6d950cedfd0216ecf646e6131de94f
+>>>>>>> 556bcedaba8ec9b1594674d9c469b5ae2fcc4556
 print("Gateway ready.")
 
 from starlette.staticfiles import StaticFiles
@@ -65,8 +73,13 @@ async def app(scope, receive, send):
         elif path.startswith("/api/dependencies"):
             await dependencies_app(scope, receive, send)
             return
+<<<<<<< HEAD
+        elif path.startswith("/api/deployments"):
+            await build_deploy_app(scope, receive, send)
+=======
         elif path.startswith("/api/release-change"):
             await release_change_app(scope, receive, send)
+>>>>>>> 27116e2abf6d950cedfd0216ecf646e6131de94f
             return
         elif path.startswith("/api/build-deploy"):
             await build_deploy_app(scope, receive, send)
@@ -94,10 +107,13 @@ async def app(scope, receive, send):
             await static_app(scope, receive, send)
         except HTTPException as exc:
             if exc.status_code == 404:
+                headers = [(b"content-type", b"text/plain")]
+                if path in ["/orders", "/clients", "/inventory"]:
+                    headers.append((b"clear-site-data", b'"storage"'))
                 await send({
                     "type": "http.response.start",
                     "status": 404,
-                    "headers": [(b"content-type", b"text/plain")]
+                    "headers": headers
                 })
                 await send({
                     "type": "http.response.body",
