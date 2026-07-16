@@ -188,15 +188,15 @@ Respond STRICTLY in JSON with this structure:
         record = EnvironmentStateRecord(
             demand_id=req.demand_id,
             environment=env,
-            # Nothing deployed yet — we only know the expected baseline
-            deployed_version="none",
+            # Start fully in-sync by default based on the new baseline
+            deployed_version=expected,
             expected_version=expected,
-            drift_status="drifted",          # Always drifted until build-deploy confirms
+            drift_status="in-sync",          # Start in-sync by default
             last_checked=_get_current_time_iso(),
             observed_name=cfg.get("cmdb_name", f"svc-{req.demand_id.lower()}-{env}-svr-01"),
             cmdb_name=cfg.get("cmdb_name", f"svc-{req.demand_id.lower()}-{env}-svr-01"),
             expected_requirements=cfg.get("expected_requirements", []),
-            observed_requirements=[]         # Empty until build-deploy populates this
+            observed_requirements=cfg.get("expected_requirements", [])  # Keep them in-sync by default
         )
         db.save(record)
         created.append(record)

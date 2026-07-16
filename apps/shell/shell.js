@@ -111,6 +111,11 @@ function switchStage(stageId) {
       window.renderDependenciesScreen();
       window.fetchDependencies();
     }
+  } else if (stageId === 'build-deploy') {
+    if (window.renderBuildDeployScreen) {
+      window.renderBuildDeployScreen();
+      window.fetchBuildDeployData();
+    }
   } else if (stageId === 'release-change') {
     if (window.renderReleaseChangeScreen) {
       window.renderReleaseChangeScreen();
