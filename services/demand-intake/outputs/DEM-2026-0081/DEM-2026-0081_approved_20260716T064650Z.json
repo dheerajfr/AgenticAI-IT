@@ -1,0 +1,37 @@
+{
+  "demand_id": "DEM-2026-0081",
+  "title": "HR Chatbot",
+  "description": "Development of a chatbot designed to assist with HR-related queries and tasks.",
+  "type": "project",
+  "domain": "Human Resources & Employee Experience",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-16",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: HR Chatbot (DEM-2026-0081)\n\nExecutive Summary  \nThis project aims to develop an HR chatbot to streamline responses to employee queries and improve task efficiency within Human Resources. The chatbot will provide 24/7 support, enhancing the overall employee experience.\n\nBusiness Value  \nThe chatbot will reduce HR workload by automating routine inquiries, enabling faster resolution times and allowing HR staff to focus on strategic initiatives. This improvement will contribute to greater employee satisfaction and operational productivity.\n\nRisk Mitigation  \nTo address medium risk concerns, thorough testing and phased implementation will be conducted to ensure system reliability and user acceptance. Regular feedback loops will be established to promptly resolve any issues post-deployment.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 92,
+  "earliest_start_date": "2026-08-15",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 13 total active team members evaluated.",
+    "Technical capability profiling: 29 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 480/520 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    }
+  ],
+  "skill_gaps": [
+    "NLP",
+    "Backend Development",
+    "Frontend Development",
+    "QA Testing"
+  ]
+}

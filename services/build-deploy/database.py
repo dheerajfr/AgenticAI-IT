@@ -132,7 +132,7 @@ deployments_db.load_fixtures(os.path.join(FIXTURES_ROOT, "deployments"))
 
 def read_environment_state(component_id: str, environment: str) -> Optional[dict]:
     config_env_db_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "config-environments", "config-env.db")
+        os.path.join(os.path.dirname(__file__), "..", "source.db")
     )
     if not os.path.exists(config_env_db_path):
         return None
@@ -140,11 +140,14 @@ def read_environment_state(component_id: str, environment: str) -> Optional[dict
         with sqlite3.connect(config_env_db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT data FROM environments WHERE component_id = ? AND environment = ?",
-                (component_id, environment)
+                "SELECT data FROM environments WHERE environment = ?",
+                (environment,)
             )
-            row = cursor.fetchone()
-            return json.loads(row[0]) if row else None
+            for row in cursor.fetchall():
+                data = json.loads(row[0])
+                if component_id in (data.get("demand_id"), data.get("cmdb_name"), data.get("observed_name")):
+                    return data
+            return None
     except Exception as e:
         print(f"Error reading config-env.db for {component_id}/{environment}: {e}")
         return None

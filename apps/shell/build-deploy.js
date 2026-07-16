@@ -1,12 +1,19 @@
 const DEPLOY_API_BASE = 'http://127.0.0.1:8000/api/deployments';
+const DEMAND_API_BASE = 'http://127.0.0.1:8000/api/demands';
+const ENV_API_BASE = 'http://127.0.0.1:8000/api/environments';
 
 let runbooks = [];
 let cutoverSessions = [];
 let deployments = [];
+let demands = [];              // Stage 1 demand records
+let envRecords = [];           // All Stage 5 environment records
+let envRecordsForDemand = []; // Stage 5 environment records for the selected demand
 let activeDeployTab = 'runbooks'; // 'runbooks' | 'cutover' | 'orchestration'
 let selectedRunbookId = null;
 let selectedCutoverId = null;
 let selectedDeploymentId = null;
+let selectedRunbookDemandId = null; // tracks which demand is selected in the runbook form
+let selectedDemandId = null; // tracks the globally selected demand from the sidebar
 
 window.renderBuildDeployScreen = function () {
   const viewport = document.getElementById('viewport');
@@ -96,30 +103,43 @@ function switchDeployTab(tab) {
 window.fetchBuildDeployData = async function () {
   const container = document.getElementById('deploy-list-container');
   try {
-    const [rbRes, cutRes, depRes] = await Promise.all([
+    const [rbRes, cutRes, depRes, demandRes, envRes] = await Promise.all([
       fetch(`${DEPLOY_API_BASE}/runbooks`),
       fetch(`${DEPLOY_API_BASE}/cutover`),
-      fetch(`${DEPLOY_API_BASE}/orchestration`)
+      fetch(`${DEPLOY_API_BASE}/orchestration`),
+      fetch(DEMAND_API_BASE),
+      fetch(ENV_API_BASE)
     ]);
     if (!rbRes.ok || !cutRes.ok || !depRes.ok) throw new Error(`HTTP Error`);
     runbooks = await rbRes.json();
     cutoverSessions = await cutRes.json();
     deployments = await depRes.json();
+    demands = demandRes.ok ? await demandRes.json() : [];
+    envRecords = envRes.ok ? await envRes.json() : [];
 
     renderDeployList();
 
+    const activeItems = activeDeployTab === 'runbooks' ? runbooks : activeDeployTab === 'cutover' ? cutoverSessions : deployments;
+    
     if (activeDeployTab === 'runbooks') {
       if (selectedRunbookId && !runbooks.some(r => r.runbook_id === selectedRunbookId)) selectedRunbookId = null;
-      if (!selectedRunbookId) showNewRunbookForm();
-      else selectRunbook(selectedRunbookId);
     } else if (activeDeployTab === 'cutover') {
       if (selectedCutoverId && !cutoverSessions.some(c => c.cutover_id === selectedCutoverId)) selectedCutoverId = null;
-      if (!selectedCutoverId) showNewCutoverForm();
-      else selectCutover(selectedCutoverId);
     } else {
       if (selectedDeploymentId && !deployments.some(d => d.deployment_id === selectedDeploymentId)) selectedDeploymentId = null;
-      if (!selectedDeploymentId) showNewDeploymentForm();
-      else selectDeployment(selectedDeploymentId);
+    }
+    
+    if (selectedDemandId) {
+      const hasItems = activeItems.some(i => (i.demand_id || 'Unknown') === selectedDemandId);
+      if (!hasItems) selectedDemandId = null;
+    }
+    
+    if (selectedDemandId) {
+      renderDeployContent();
+    } else {
+      if (activeDeployTab === 'runbooks') showNewRunbookForm();
+      else if (activeDeployTab === 'cutover') showNewCutoverForm();
+      else showNewDeploymentForm();
     }
   } catch (err) {
     console.error('Failed to fetch build-deploy data:', err);
@@ -146,72 +166,143 @@ function renderDeployList() {
   if (items.length === 0) {
     html += `<li style="padding: 2rem; text-align: center; color: var(--text-muted);">No records yet.</li>`;
   } else {
-    html += items.map(item => {
-      const isActive = item[idField] === selectedId;
-      const title = activeDeployTab === 'runbooks' ? item.title
-        : activeDeployTab === 'cutover' ? `Cutover — ${item.component_id}`
-        : `Deployment — ${item.component_id} (${item.environment})`;
-      return `
-        <li class="demand-item ${isActive ? 'active' : ''}" data-id="${item[idField]}">
+    const grouped = {};
+    items.forEach(item => {
+      const dId = item.demand_id || 'Unknown Demand';
+      if (!grouped[dId]) grouped[dId] = [];
+      grouped[dId].push(item);
+    });
+
+    for (const dId of Object.keys(grouped)) {
+      const isActive = dId === selectedDemandId;
+      html += `
+        <li class="demand-item ${isActive ? 'active' : ''}" data-did="${dId}" style="cursor:pointer;">
           <div class="demand-item-header">
-            <span class="demand-item-id">${item[idField]}</span>
-            <status-pill status="${item.status}"></status-pill>
+            <span class="demand-item-id" style="font-size: 0.85rem; font-weight: 600;">Demand: ${dId}</span>
           </div>
-          <h4 class="demand-item-title">${title}</h4>
-          <div class="demand-item-meta"><span>${item.component_id}</span></div>
+          <h4 class="demand-item-title" style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal; margin-top: 0.2rem;">${grouped[dId].length} record(s)</h4>
         </li>
       `;
-    }).join('');
+    }
   }
 
   container.innerHTML = html;
 
   document.getElementById('btn-new-deploy-item').addEventListener('click', () => {
+    selectedDemandId = null;
     if (activeDeployTab === 'runbooks') { selectedRunbookId = null; showNewRunbookForm(); }
     else if (activeDeployTab === 'cutover') { selectedCutoverId = null; showNewCutoverForm(); }
     else { selectedDeploymentId = null; showNewDeploymentForm(); }
     renderDeployList();
   });
 
-  container.querySelectorAll('.demand-item[data-id]').forEach(el => {
+  container.querySelectorAll('.demand-item[data-did]').forEach(el => {
     el.addEventListener('click', () => {
-      const id = el.getAttribute('data-id');
-      if (activeDeployTab === 'runbooks') selectRunbook(id);
-      else if (activeDeployTab === 'cutover') selectCutover(id);
-      else selectDeployment(id);
+      selectedDemandId = el.getAttribute('data-did');
+      renderDeployList();
+      renderDeployContent();
     });
   });
 }
 
 // ---------------------------------------------------------------------------
-// Runbook drafting
+// Runbook drafting — smart form pre-populated from upstream stages
 // ---------------------------------------------------------------------------
+
+
+
+function _buildArchNotes() {
+  return '';
+}
+
+function _buildChangeSummary(demand) {
+  let summary = '';
+  if (demand) {
+    summary += `Demand: ${demand.demand_id} — ${demand.title}\n`;
+    if (demand.business_case_summary) summary += `Business case: ${demand.business_case_summary}\n`;
+    summary += `Risk: ${demand.risk_level} | Domain: ${demand.domain} | Type: ${demand.type}\n`;
+  }
+  return summary.trim();
+}
+
+async function _loadEnvRecordsForDemand(demandId) {
+  try {
+    const res = await fetch(`${ENV_API_BASE}/${demandId}`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (_) { return []; }
+}
 
 function showNewRunbookForm() {
   const panel = document.getElementById('deploy-panel-container');
   const priorOptions = runbooks.map(r => `<option value="${r.runbook_id}">${r.runbook_id} — ${r.title}</option>`).join('');
+
+  // Build component options from distinct component_ids in runbooks and envRecords
+  const rawComponentIds = [
+    ...runbooks.map(r => r.component_id),
+    ...envRecords.map(e => e.cmdb_name || e.observed_name || e.demand_id)
+  ].filter(Boolean);
+  const componentIds = [...new Set(rawComponentIds)].sort();
+  const componentOptions = componentIds.map(c =>
+    `<option value="${c}">${c}</option>`
+  ).join('');
+
+  // Build demand options grouped by status
+  const approvedDemands = demands.filter(d => d.status === 'approved' || d.status === 'capacity-checked');
+  const otherDemands = demands.filter(d => d.status !== 'approved' && d.status !== 'capacity-checked');
+  const demandOptions = [
+    approvedDemands.length ? `<optgroup label="Approved / Capacity-checked">${approvedDemands.map(d => `<option value="${d.demand_id}">${d.demand_id} — ${d.title}</option>`).join('')}</optgroup>` : '',
+    otherDemands.length ? `<optgroup label="Other Demands">${otherDemands.map(d => `<option value="${d.demand_id}">${d.demand_id} — ${d.title}</option>`).join('')}</optgroup>` : ''
+  ].join('');
+
   panel.innerHTML = `
     <div class="panel-card">
       <h3 style="font-family: var(--font-display); font-size: 1.5rem; margin-top: 0;">Draft a Runbook</h3>
       <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
-        Drafts and maintains deployment runbooks from the change and prior runbooks.
+        Select a demand to auto-populate the form from upstream stage outputs, then review and submit to generate AI-powered runbook steps.
       </p>
+
+      <!-- Step 1: Demand picker -->
+      <div class="form-group" style="border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:1rem;margin-bottom:1.25rem;background:var(--bg-secondary);">
+        <label for="rbk-demand-pick" style="font-size:0.8rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.35rem;display:block;">① Select Demand <span style="font-weight:400;text-transform:none;">(auto-fills form from Stages 1–4)</span></label>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <select id="rbk-demand-pick" style="flex:1;">
+            <option value="">— choose a demand —</option>
+            ${demandOptions}
+          </select>
+          <button type="button" class="btn-secondary" id="btn-load-demand" style="white-space:nowrap;">Load ↓</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Form fields (pre-populated) -->
+      <div style="border-left:3px solid var(--color-brand);padding-left:0.9rem;margin-bottom:1rem;">
+        <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);">② Review &amp; Edit — then Draft</span>
+      </div>
+
       <div class="form-group">
         <label for="rbk-component">Component ID *</label>
-        <input type="text" id="rbk-component" placeholder="e.g. svc-payments-api">
+        <select id="rbk-component">
+          <option value="">— select a component —</option>
+          ${componentOptions}
+        </select>
       </div>
       <div class="form-group">
-        <label for="rbk-change-summary">Change Summary *</label>
-        <textarea id="rbk-change-summary" placeholder="What is being deployed and why..."></textarea>
+        <label for="rbk-change-summary">Change Summary * <span style="font-weight:400;font-size:0.78rem;color:var(--text-muted);">(auto-filled from Stage 1)</span></label>
+        <textarea id="rbk-change-summary" style="min-height:110px;" placeholder="Select a demand above to auto-populate..."></textarea>
       </div>
       <div class="form-group">
-        <label for="rbk-arch-notes">Architecture Notes</label>
-        <textarea id="rbk-arch-notes" placeholder="Relevant architecture context (optional)"></textarea>
+        <label for="rbk-arch-notes">Architecture Notes <span style="font-weight:400;font-size:0.78rem;color:var(--text-muted);">(manual entry)</span></label>
+        <textarea id="rbk-arch-notes" style="min-height:90px;" placeholder="Select a demand above or enter architecture notes manually..."></textarea>
       </div>
       <div class="grid-2col">
         <div class="form-group">
-          <label for="rbk-change-ref">Change Record Ref</label>
-          <input type="text" id="rbk-change-ref" placeholder="e.g. CHG-2026-0091">
+          <label for="rbk-environment">Target Environment * <span style="font-weight:400;font-size:0.78rem;color:var(--text-muted);">(auto-filled from component drift)</span></label>
+          <select id="rbk-environment" disabled style="background:var(--bg-tertiary);cursor:not-allowed;">
+            <option value="dev">Development (dev)</option>
+            <option value="test">Test (test)</option>
+            <option value="staging">Staging (staging)</option>
+            <option value="prod" selected>Production (prod)</option>
+          </select>
         </div>
         <div class="form-group">
           <label for="rbk-prior">Prior Runbook (reuse steps)</label>
@@ -221,15 +312,90 @@ function showNewRunbookForm() {
           </select>
         </div>
       </div>
+      <div class="form-group">
+        <label for="rbk-change-ref">Change Record Ref</label>
+        <input type="text" id="rbk-change-ref" placeholder="e.g. CHG-2026-0091">
+      </div>
       <div class="error-message" id="rbk-error"></div>
       <div class="submit-row">
-        <button type="button" class="btn-primary" id="btn-draft-runbook">Draft Runbook</button>
+        <button type="button" class="btn-primary" id="btn-draft-runbook">✦ Draft Runbook with AI</button>
       </div>
     </div>
   `;
 
+  // Restore previously selected demand if any
+  if (selectedRunbookDemandId) {
+    const sel = document.getElementById('rbk-demand-pick');
+    if (sel) sel.value = selectedRunbookDemandId;
+  }
+
+  // "Load" button — fetch demand + env data and populate form
+  document.getElementById('btn-load-demand').addEventListener('click', async () => {
+    const demandId = document.getElementById('rbk-demand-pick').value;
+    if (!demandId) return;
+    selectedRunbookDemandId = demandId;
+
+    const btn = document.getElementById('btn-load-demand');
+    btn.disabled = true;
+    btn.textContent = 'Loading…';
+
+    const demand = demands.find(d => d.demand_id === demandId);
+    envRecordsForDemand = await _loadEnvRecordsForDemand(demandId);
+
+    // Derive component ID from Stage 5 prod CMDB name, or fall back to demand_id
+    const prodEnv = envRecordsForDemand.find(r => r.environment === 'prod');
+    const componentId = prodEnv ? (prodEnv.cmdb_name || prodEnv.observed_name || demandId) : demandId;
+
+    // Filter component options based on this demand
+    const compSelect = document.getElementById('rbk-component');
+    
+    let relatedComps = [];
+    for (const r of envRecordsForDemand) {
+      if (r.cmdb_name) relatedComps.push(r.cmdb_name);
+      if (r.observed_name) relatedComps.push(r.observed_name);
+    }
+    relatedComps = [...new Set(relatedComps)].filter(Boolean).sort();
+    
+    // Replace options in dropdown
+    compSelect.innerHTML = relatedComps.map(c => `<option value="${c}">${c}</option>`).join('');
+
+    if (componentId && relatedComps.includes(componentId)) {
+      compSelect.value = componentId;
+    } else {
+      compSelect.value = relatedComps[0] || '';
+    }
+    
+    function updateTargetEnv() {
+      const currentCompId = compSelect.value;
+      const envOrder = ['dev', 'test', 'staging', 'prod'];
+      let targetEnv = 'dev'; // fallback
+      for (const env of envOrder) {
+        const rec = envRecordsForDemand.find(r => r.environment === env && (r.cmdb_name === currentCompId || r.observed_name === currentCompId));
+        if (rec) {
+          targetEnv = env;
+          break;
+        }
+      }
+      const envSelect = document.getElementById('rbk-environment');
+      if (envSelect) {
+        envSelect.value = targetEnv;
+      }
+    }
+    
+    compSelect.addEventListener('change', updateTargetEnv);
+    updateTargetEnv();
+    
+    document.getElementById('rbk-change-summary').value = _buildChangeSummary(demand);
+    document.getElementById('rbk-arch-notes').value = _buildArchNotes();
+
+    btn.disabled = false;
+    btn.textContent = '↺ Reload';
+  });
+
+  // Draft button — POST to backend
   document.getElementById('btn-draft-runbook').addEventListener('click', async () => {
     const component_id = document.getElementById('rbk-component').value.trim();
+    const environment = document.getElementById('rbk-environment').value.trim();
     const change_summary = document.getElementById('rbk-change-summary').value.trim();
     const architecture_notes = document.getElementById('rbk-arch-notes').value.trim() || null;
     const change_record_ref = document.getElementById('rbk-change-ref').value.trim() || null;
@@ -237,21 +403,22 @@ function showNewRunbookForm() {
     const errorBox = document.getElementById('rbk-error');
     errorBox.style.display = 'none';
 
-    if (!component_id || !change_summary) {
-      errorBox.textContent = 'Component ID and Change Summary are required.';
+    if (!component_id || !change_summary || !environment) {
+      errorBox.textContent = 'Component ID, Environment, and Change Summary are required.';
       errorBox.style.display = 'block';
       return;
     }
 
     const btn = document.getElementById('btn-draft-runbook');
     btn.disabled = true;
-    btn.innerHTML = `<span class="loader"><span class="spinner"></span> Drafting...</span>`;
+    btn.innerHTML = `<div class="loader" style="display: flex; align-items: center; justify-content: center;"><div class="spinner" style="display: block;"></div> Drafting with AI…</div>`;
 
     try {
+      const demand_id = document.getElementById('rbk-demand-pick').value;
       const res = await fetch(`${DEPLOY_API_BASE}/runbooks/draft`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ component_id, change_summary, architecture_notes, change_record_ref, prior_runbook_id })
+        body: JSON.stringify({ demand_id, component_id, environment, change_summary, architecture_notes, change_record_ref, prior_runbook_id })
       });
       if (!res.ok) throw new Error('Failed to draft runbook.');
       const record = await res.json();
@@ -261,28 +428,91 @@ function showNewRunbookForm() {
       errorBox.textContent = err.message;
       errorBox.style.display = 'block';
       btn.disabled = false;
-      btn.textContent = 'Draft Runbook';
+      btn.innerHTML = '✦ Draft Runbook with AI';
     }
   });
 }
 
-function selectRunbook(id) {
-  selectedRunbookId = id;
-  document.querySelectorAll('#deploy-list-container .demand-item').forEach(el => {
-    el.classList.toggle('active', el.getAttribute('data-id') === id);
-  });
-  const record = runbooks.find(r => r.runbook_id === id);
-  if (!record) return;
-  renderRunbookDetails(record);
-}
 
 function renderRunbookDetails(record) {
   const panel = document.getElementById('deploy-panel-container');
   const totalMinutes = record.steps.reduce((sum, s) => sum + (s.estimated_minutes || 0), 0);
+  const isSmeReview = record.status === 'sme-review';
+
+  const stepTypeColor = { 'pre-check': '#818cf8', 'execute': '#60a5fa', 'verify': '#34d399', 'rollback-trigger': '#f87171' };
+
+  // Build steps — unified view: all steps in one card, no step-by-step wizard
+  const stepsHtml = record.steps.map((s, i) => `
+    <li class="step-row" style="position:relative;">
+      <div style="width:26px;height:26px;border-radius:50%;background:${stepTypeColor[s.step_type] || '#6366f1'}22;border:1.5px solid ${stepTypeColor[s.step_type] || '#6366f1'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <span style="font-size:0.68rem;font-weight:800;color:${stepTypeColor[s.step_type] || '#6366f1'};">${i + 1}</span>
+      </div>
+      <div style="flex:1;">
+        <div class="step-desc" style="font-weight:500;">${s.description}</div>
+        <div class="step-meta" style="margin-top:0.2rem;">
+          <span style="background:${stepTypeColor[s.step_type] || '#6366f1'}22;color:${stepTypeColor[s.step_type] || '#6366f1'};padding:1px 6px;border-radius:8px;font-size:0.68rem;font-weight:700;text-transform:uppercase;">${s.step_type}</span>
+          &nbsp;${s.environment} &nbsp;·&nbsp; ${s.owner} &nbsp;·&nbsp; ~${s.estimated_minutes}min
+        </div>
+      </div>
+    </li>
+  `).join('');
+
+  // Inline edit form for SME Review — allows editing title + each step
+  const editFormHtml = isSmeReview ? `
+    <div id="rbk-edit-section" style="display:none;margin-top:1.5rem;border-top:1px solid var(--border-color);padding-top:1.25rem;">
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
+        <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);">✏ Edit Runbook</span>
+        <span style="font-size:0.75rem;color:var(--text-muted);">— SME Review Mode</span>
+      </div>
+      <div class="form-group">
+        <label for="rbk-edit-title">Runbook Title</label>
+        <input type="text" id="rbk-edit-title" value="${record.title.replace(/"/g, '&quot;')}">
+      </div>
+      <div class="data-label" style="margin-bottom:0.5rem;margin-top:0.75rem;">Steps</div>
+      <div id="rbk-edit-steps">
+        ${record.steps.map((s, i) => `
+          <div class="panel-card" style="padding:0.75rem;margin-bottom:0.75rem;background:var(--bg-secondary);">
+            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.5rem;">Step ${i + 1} — ${s.step_id}</div>
+            <div class="form-group" style="margin-bottom:0.4rem;">
+              <label style="font-size:0.72rem;">Description</label>
+              <input type="text" class="edit-step-desc" data-idx="${i}" value="${s.description.replace(/"/g, '&quot;')}">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 80px;gap:0.4rem;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.72rem;">Owner</label>
+                <input type="text" class="edit-step-owner" data-idx="${i}" value="${s.owner.replace(/"/g, '&quot;')}">
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.72rem;">Environment</label>
+                <select class="edit-step-env" data-idx="${i}">
+                  ${['dev','test','staging','prod'].map(e => `<option value="${e}" ${s.environment === e ? 'selected' : ''}>${e}</option>`).join('')}
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.72rem;">Type</label>
+                <select class="edit-step-type" data-idx="${i}">
+                  ${['pre-check','execute','verify','rollback-trigger'].map(t => `<option value="${t}" ${s.step_type === t ? 'selected' : ''}>${t}</option>`).join('')}
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.72rem;">Minutes</label>
+                <input type="number" class="edit-step-mins" data-idx="${i}" value="${s.estimated_minutes}" min="1" style="width:100%;">
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="error-message" id="rbk-edit-error"></div>
+      <div class="submit-row" style="margin-top:1rem;">
+        <button type="button" class="btn-secondary" id="btn-cancel-edit">Cancel</button>
+        <button type="button" class="btn-primary" id="btn-save-edit">Save Changes</button>
+      </div>
+    </div>
+  ` : '';
 
   panel.innerHTML = `
     <div class="panel-card">
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
         <div>
           <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${record.runbook_id}</span>
           <h2 style="font-family: var(--font-display); font-size: 1.5rem; margin: 0.2rem 0 0 0;">${record.title}</h2>
@@ -299,24 +529,18 @@ function renderRunbookDetails(record) {
         <div class="data-value">${totalMinutes} minutes across ${record.steps.length} steps</div>
       </div>
 
-      <div class="data-label" style="margin-bottom: 0.5rem;">Steps</div>
-      <ul class="step-track">
-        ${record.steps.map(s => `
-          <li class="step-row">
-            <div style="flex: 1;">
-              <div class="step-desc">${s.description}</div>
-              <div class="step-meta">${s.step_type} · ${s.environment} · ${s.owner} · ~${s.estimated_minutes}min</div>
-            </div>
-          </li>
-        `).join('')}
-      </ul>
+      <div class="data-label" style="margin-bottom: 0.6rem;">All Steps</div>
+      <ul class="step-track">${stepsHtml}</ul>
 
-      <div class="submit-row" style="margin-top: 1.5rem;">
+      <div class="submit-row" style="margin-top: 1.5rem; flex-wrap: wrap;">
         ${record.status === 'draft' ? `<button type="button" class="btn-secondary" id="btn-submit-review">Submit for SME Review</button>` : ''}
+        ${isSmeReview ? `<button type="button" class="btn-secondary" id="btn-toggle-edit">✏ Edit Runbook</button>` : ''}
         ${record.status !== 'approved' ? `<button type="button" class="btn-primary" id="btn-approve-runbook">Approve Runbook</button>` : ''}
         ${record.status === 'approved' ? `<button type="button" class="btn-secondary" id="btn-start-cutover-from-runbook">Start Cutover Directly</button>` : ''}
         ${record.status === 'approved' ? `<button type="button" class="btn-primary" id="btn-start-deployment-from-runbook">Start Deployment (Orchestration)</button>` : ''}
       </div>
+
+      ${editFormHtml}
     </div>
   `;
 
@@ -333,6 +557,65 @@ function renderRunbookDetails(record) {
     approveBtn.addEventListener('click', async () => {
       await fetch(`${DEPLOY_API_BASE}/runbooks/${record.runbook_id}/approve`, { method: 'POST' });
       await window.fetchBuildDeployData();
+    });
+  }
+
+  // SME Review edit toggle
+  const toggleEditBtn = document.getElementById('btn-toggle-edit');
+  if (toggleEditBtn) {
+    toggleEditBtn.addEventListener('click', () => {
+      const editSection = document.getElementById('rbk-edit-section');
+      const isOpen = editSection.style.display !== 'none';
+      editSection.style.display = isOpen ? 'none' : 'block';
+      toggleEditBtn.textContent = isOpen ? '✏ Edit Runbook' : '✕ Close Editor';
+    });
+  }
+
+  // Cancel edit
+  const cancelEditBtn = document.getElementById('btn-cancel-edit');
+  if (cancelEditBtn) {
+    cancelEditBtn.addEventListener('click', () => {
+      document.getElementById('rbk-edit-section').style.display = 'none';
+      if (toggleEditBtn) toggleEditBtn.textContent = '✏ Edit Runbook';
+    });
+  }
+
+  // Save edited steps
+  const saveEditBtn = document.getElementById('btn-save-edit');
+  if (saveEditBtn) {
+    saveEditBtn.addEventListener('click', async () => {
+      const errorBox = document.getElementById('rbk-edit-error');
+      errorBox.style.display = 'none';
+
+      const newTitle = document.getElementById('rbk-edit-title').value.trim();
+      if (!newTitle) { errorBox.textContent = 'Title cannot be empty.'; errorBox.style.display = 'block'; return; }
+
+      // Rebuild steps from edit form
+      const updatedSteps = record.steps.map((s, i) => ({
+        step_id: s.step_id,
+        description: document.querySelector(`.edit-step-desc[data-idx="${i}"]`).value.trim() || s.description,
+        owner: document.querySelector(`.edit-step-owner[data-idx="${i}"]`).value.trim() || s.owner,
+        environment: document.querySelector(`.edit-step-env[data-idx="${i}"]`).value,
+        step_type: document.querySelector(`.edit-step-type[data-idx="${i}"]`).value,
+        estimated_minutes: parseInt(document.querySelector(`.edit-step-mins[data-idx="${i}"]`).value, 10) || s.estimated_minutes,
+      }));
+
+      saveEditBtn.disabled = true;
+      saveEditBtn.textContent = 'Saving…';
+      try {
+        const res = await fetch(`${DEPLOY_API_BASE}/runbooks/${record.runbook_id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: newTitle, steps: updatedSteps })
+        });
+        if (!res.ok) throw new Error('Failed to save changes.');
+        await window.fetchBuildDeployData();
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.style.display = 'block';
+        saveEditBtn.disabled = false;
+        saveEditBtn.textContent = 'Save Changes';
+      }
     });
   }
 
@@ -378,7 +661,10 @@ function showNewCutoverForm(prefillRunbookId) {
       </p>
       <div class="form-group">
         <label for="cut-component">Component ID *</label>
-        <input type="text" id="cut-component" placeholder="e.g. svc-payments-api">
+        <select id="cut-component">
+          <option value="">— select a component —</option>
+          ${[...new Set(runbooks.map(r => r.component_id).filter(Boolean))].sort().map(c => `<option value="${c}">${c}</option>`).join('')}
+        </select>
       </div>
       <div class="form-group">
         <label for="cut-runbook">Runbook (approved only)</label>
@@ -387,10 +673,7 @@ function showNewCutoverForm(prefillRunbookId) {
           ${runbookOptions}
         </select>
       </div>
-      <div class="form-group">
-        <label for="cut-stakeholders">Stakeholders (comma separated)</label>
-        <input type="text" id="cut-stakeholders" placeholder="e.g. release-manager, qa-lead">
-      </div>
+
       <div class="error-message" id="cut-error"></div>
       <div class="submit-row">
         <button type="button" class="btn-primary" id="btn-start-cutover">Open Cutover Bridge</button>
@@ -398,11 +681,27 @@ function showNewCutoverForm(prefillRunbookId) {
     </div>
   `;
 
+  const cutRunbookSelect = document.getElementById('cut-runbook');
+  const cutComponentSelect = document.getElementById('cut-component');
+  
+  cutRunbookSelect.addEventListener('change', () => {
+    const selectedRbkId = cutRunbookSelect.value;
+    if (selectedRbkId) {
+      const rb = approvedRunbooks.find(r => r.runbook_id === selectedRbkId);
+      if (rb && rb.component_id) {
+        cutComponentSelect.value = rb.component_id;
+      }
+    }
+  });
+
+  if (prefillRunbookId) {
+    cutRunbookSelect.dispatchEvent(new Event('change'));
+  }
+
   document.getElementById('btn-start-cutover').addEventListener('click', async () => {
     const component_id = document.getElementById('cut-component').value.trim();
     const runbook_id = document.getElementById('cut-runbook').value || null;
-    const stakeholders = document.getElementById('cut-stakeholders').value
-      .split(',').map(s => s.trim()).filter(Boolean);
+    const stakeholders = [];
     const errorBox = document.getElementById('cut-error');
     errorBox.style.display = 'none';
 
@@ -417,10 +716,12 @@ function showNewCutoverForm(prefillRunbookId) {
     btn.innerHTML = `<span class="loader"><span class="spinner"></span> Opening bridge...</span>`;
 
     try {
+      const runbook = approvedRunbooks.find(r => r.runbook_id === runbook_id);
+      const demand_id = runbook ? runbook.demand_id : (component_id.split('-').slice(0, 2).join('-')); // fallback guess
       const res = await fetch(`${DEPLOY_API_BASE}/cutover/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ component_id, runbook_id, stakeholders })
+        body: JSON.stringify({ demand_id, component_id, runbook_id, stakeholders })
       });
       if (!res.ok) throw new Error('Failed to start cutover.');
       const record = await res.json();
@@ -435,15 +736,6 @@ function showNewCutoverForm(prefillRunbookId) {
   });
 }
 
-function selectCutover(id) {
-  selectedCutoverId = id;
-  document.querySelectorAll('#deploy-list-container .demand-item').forEach(el => {
-    el.classList.toggle('active', el.getAttribute('data-id') === id);
-  });
-  const record = cutoverSessions.find(c => c.cutover_id === id);
-  if (!record) return;
-  renderCutoverDetails(record);
-}
 
 function renderCutoverDetails(record) {
   const panel = document.getElementById('deploy-panel-container');
@@ -575,9 +867,21 @@ function renderCutoverDetails(record) {
 function showNewDeploymentForm(prefillRunbookId) {
   const panel = document.getElementById('deploy-panel-container');
   const approvedRunbooks = runbooks.filter(r => r.status === 'approved');
-  const runbookOptions = approvedRunbooks.map(r =>
-    `<option value="${r.runbook_id}" ${r.runbook_id === prefillRunbookId ? 'selected' : ''}>${r.runbook_id} — ${r.title}</option>`
+
+  // Build component options from distinct component_ids in approved runbooks
+  const componentIds = [...new Set(approvedRunbooks.map(r => r.component_id))].sort();
+  const componentOptions = componentIds.map(c =>
+    `<option value="${c}">${c}</option>`
   ).join('');
+
+  // Build runbook options — optionally pre-select one
+  const runbookOptions = approvedRunbooks.map(r =>
+    `<option value="${r.runbook_id}" data-component="${r.component_id}" ${r.runbook_id === prefillRunbookId ? 'selected' : ''}>${r.runbook_id} — ${r.title} (${r.component_id})</option>`
+  ).join('');
+
+  // Derive initial component ID from prefilled runbook (if any)
+  const prefillRunbook = prefillRunbookId ? approvedRunbooks.find(r => r.runbook_id === prefillRunbookId) : null;
+  const prefillComponent = prefillRunbook ? prefillRunbook.component_id : '';
 
   panel.innerHTML = `
     <div class="panel-card">
@@ -585,10 +889,9 @@ function showNewDeploymentForm(prefillRunbookId) {
       <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
         Drives the deployment runbook across environments and teams; checks pre-conditions and holds go/no-go on production steps.
       </p>
-      <div class="form-group">
-        <label for="dep-component">Component ID *</label>
-        <input type="text" id="dep-component" placeholder="e.g. svc-payments-api">
-      </div>
+
+
+
       <div class="grid-2col">
         <div class="form-group">
           <label for="dep-runbook">Approved Runbook *</label>
@@ -598,15 +901,28 @@ function showNewDeploymentForm(prefillRunbookId) {
           </select>
         </div>
         <div class="form-group">
-          <label for="dep-environment">Environment</label>
-          <select id="dep-environment">
-            <option value="dev">dev</option>
-            <option value="test">test</option>
-            <option value="staging">staging</option>
-            <option value="prod" selected>prod</option>
-          </select>
+          <label for="dep-environment">Environment <span style="font-weight:400;font-size:0.78rem;color:var(--text-muted);">(auto-filled from runbook)</span></label>
+          <input type="text" id="dep-environment" readonly style="background:var(--bg-tertiary);cursor:not-allowed;" placeholder="e.g. prod">
         </div>
       </div>
+      <input type="hidden" id="dep-component" value="">
+      
+      <div class="form-group" style="margin-top:1rem;">
+        <label for="dep-version">Version to Deploy <span style="font-weight:400;font-size:0.78rem;color:var(--text-muted);">(auto-filled from Stage 5 baseline, but editable)</span></label>
+        <input type="text" id="dep-version" placeholder="e.g. 1.2.0" value="">
+      </div>
+      
+      <div class="preconditions-list" style="margin-top:1.5rem; background:var(--bg-tertiary); border-radius:var(--radius-sm); padding:1rem; border:1px solid var(--border-color);">
+        <span style="font-weight:700;font-size:0.75rem;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:0.5rem;letter-spacing:0.04em;">Automated Preconditions to be Checked</span>
+        <ul style="margin:0;padding-left:1.2rem;font-size:0.75rem;color:var(--text-secondary);list-style-type:disc;line-height:1.6;">
+          <li><strong>Version check:</strong> Target version matches Stage 5 environment baseline</li>
+          <li><strong>Requirements check:</strong> All upstream release requirements are met</li>
+          <li><strong>Runbook check:</strong> Runbook is SME approved &amp; contains a rollback trigger</li>
+          <li><strong>Test execution:</strong> Pre-deployment test suites have passed</li>
+          <li><strong>Rollback readiness:</strong> Target environment is in-sync and backups verified</li>
+        </ul>
+      </div>
+
       <div class="error-message" id="dep-error"></div>
       <div class="submit-row">
         <button type="button" class="btn-primary" id="btn-start-deployment">Start Deployment</button>
@@ -614,15 +930,73 @@ function showNewDeploymentForm(prefillRunbookId) {
     </div>
   `;
 
+  const runbookSelect = document.getElementById('dep-runbook');
+  
+  async function updateFromRunbook() {
+    const runbookId = runbookSelect.value;
+    const compSelect = document.getElementById('dep-component');
+    const envInput = document.getElementById('dep-environment');
+    const verInput = document.getElementById('dep-version');
+    
+    if (!runbookId) {
+      compSelect.value = '';
+      envInput.value = '';
+      verInput.value = '';
+      return;
+    }
+
+    const runbook = approvedRunbooks.find(r => r.runbook_id === runbookId);
+    if (!runbook) return;
+
+    // Auto-fill component
+    const compId = runbook.component_id;
+    document.getElementById('dep-component').value = compId || '';
+    
+    // Auto-fill environment based on runbook steps (highest priority: prod > staging > test > dev)
+    const envOrder = ['dev', 'test', 'staging', 'prod'];
+    let targetEnv = 'dev';
+    for (const step of (runbook.steps || [])) {
+      if (envOrder.indexOf(step.environment) > envOrder.indexOf(targetEnv)) {
+        targetEnv = step.environment;
+      }
+    }
+    envInput.value = targetEnv;
+    
+    // Auto-fill version from Stage 5 by fetching it live
+    try {
+      const res = await fetch('/api/environments');
+      if (res.ok) {
+        const allEnvs = await res.json();
+        const rec = allEnvs.find(r => r.environment === targetEnv && (r.cmdb_name === compId || r.observed_name === compId || r.demand_id === compId));
+        if (rec && rec.expected_version) {
+          verInput.value = rec.expected_version;
+          return;
+        }
+      }
+    } catch(err) {
+      console.warn("Failed to fetch environment state for version fallback", err);
+    }
+    verInput.value = '1.0.0'; // Fallback
+  }
+
+  runbookSelect.addEventListener('change', updateFromRunbook);
+
+  // Set initial component ID if we have a prefill
+  if (prefillComponent) {
+    document.getElementById('dep-component').value = prefillComponent;
+    updateFromRunbook();
+  }
+
   document.getElementById('btn-start-deployment').addEventListener('click', async () => {
     const component_id = document.getElementById('dep-component').value.trim();
+    const version = document.getElementById('dep-version').value.trim();
     const runbook_id = document.getElementById('dep-runbook').value;
     const environment = document.getElementById('dep-environment').value;
     const errorBox = document.getElementById('dep-error');
     errorBox.style.display = 'none';
 
-    if (!component_id || !runbook_id) {
-      errorBox.textContent = 'Component ID and an approved Runbook are required.';
+    if (!component_id || !runbook_id || !version) {
+      errorBox.textContent = 'Component ID, Version, and an approved Runbook are required.';
       errorBox.style.display = 'block';
       return;
     }
@@ -632,10 +1006,12 @@ function showNewDeploymentForm(prefillRunbookId) {
     btn.innerHTML = `<span class="loader"><span class="spinner"></span> Starting...</span>`;
 
     try {
+      const runbook = approvedRunbooks.find(r => r.runbook_id === runbook_id);
+      const demand_id = runbook ? runbook.demand_id : null;
       const res = await fetch(`${DEPLOY_API_BASE}/orchestration/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ component_id, runbook_id, environment })
+        body: JSON.stringify({ demand_id, component_id, version, runbook_id, environment })
       });
       if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.detail || 'Failed to start deployment.'); }
       const record = await res.json();
@@ -650,15 +1026,7 @@ function showNewDeploymentForm(prefillRunbookId) {
   });
 }
 
-function selectDeployment(id) {
-  selectedDeploymentId = id;
-  document.querySelectorAll('#deploy-list-container .demand-item').forEach(el => {
-    el.classList.toggle('active', el.getAttribute('data-id') === id);
-  });
-  const record = deployments.find(d => d.deployment_id === id);
-  if (!record) return;
-  renderDeploymentDetails(record);
-}
+
 
 function renderDeploymentDetails(record) {
   const panel = document.getElementById('deploy-panel-container');
@@ -679,6 +1047,10 @@ function renderDeploymentDetails(record) {
       <div class="grid-2col">
         <div class="data-item"><div class="data-label">Environment</div><div class="data-value">${record.environment}</div></div>
         <div class="data-item"><div class="data-label">Runbook</div><div class="data-value">${record.runbook_id || 'N/A'}</div></div>
+      </div>
+      <div class="data-item" style="margin-bottom: 1rem;">
+        <div class="data-label">Version Deployed</div>
+        <div class="data-value" style="font-family: monospace; font-size: 1rem;">${record.version || 'unknown'}</div>
       </div>
       ${record.decided_by ? `<div class="data-item" style="margin-bottom: 1rem;"><div class="data-label">Decided By</div><div class="data-value">${record.decided_by}</div></div>` : ''}
 
@@ -776,5 +1148,94 @@ function renderDeploymentDetails(record) {
         errorBox.style.display = 'block';
       }
     });
+  }
+}
+
+
+function renderDeployContent() {
+  const panel = document.getElementById('deploy-panel-container');
+  if (!selectedDemandId) {
+    panel.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text-muted);">Select a Demand from the left sidebar or create a new record.</div>`;
+    return;
+  }
+
+  const items = activeDeployTab === 'runbooks' ? runbooks : activeDeployTab === 'cutover' ? cutoverSessions : deployments;
+  const idField = activeDeployTab === 'runbooks' ? 'runbook_id' : activeDeployTab === 'cutover' ? 'cutover_id' : 'deployment_id';
+  const demandItems = items.filter(i => (i.demand_id || 'Unknown') === selectedDemandId);
+  
+  if (demandItems.length === 0) {
+    panel.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text-muted);">No records found for this demand.</div>`;
+    return;
+  }
+  
+  const currentSelectedId = activeDeployTab === 'runbooks' ? selectedRunbookId : activeDeployTab === 'cutover' ? selectedCutoverId : selectedDeploymentId;
+  let activeItem = demandItems.find(i => i[idField] === currentSelectedId);
+  if (!activeItem) {
+    activeItem = demandItems[0];
+    if (activeDeployTab === 'runbooks') selectedRunbookId = activeItem.runbook_id;
+    else if (activeDeployTab === 'cutover') selectedCutoverId = activeItem.cutover_id;
+    else selectedDeploymentId = activeItem.deployment_id;
+  }
+  
+  const typeLabel = activeDeployTab === 'runbooks' ? 'Runbook' : activeDeployTab === 'cutover' ? 'Cutover' : 'Deployment';
+  
+  panel.innerHTML = `
+    <div style="background:var(--bg-tertiary); padding:1rem; border-bottom:1px solid var(--border-color); display:flex; align-items:center; gap:1rem;">
+      <label for="demand-component-select" style="font-weight:600;font-size:0.9rem;">Select ${typeLabel}:</label>
+      <select id="demand-component-select" style="flex:1;max-width:400px;padding:0.4rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);background:var(--bg-primary);">
+        ${demandItems.map(i => {
+           const label = activeDeployTab === 'runbooks' ? (i.environment ? `${i.title} (${i.environment})` : i.title) : activeDeployTab === 'cutover' ? `${i.component_id}` : `${i.component_id} (${i.environment || 'N/A'})`;
+           return `<option value="${i[idField]}" ${i[idField] === activeItem[idField] ? 'selected' : ''}>${label}</option>`;
+        }).join('')}
+      </select>
+      <button id="btn-delete-active-item" class="btn-secondary" style="color:var(--color-status-red-text); border-color:var(--color-status-red-text);">Delete Active ${typeLabel}</button>
+    </div>
+    <div id="deploy-content-inner" style="flex:1; display:flex; flex-direction:column; min-height:0; overflow:hidden; padding-top:1rem;"></div>
+  `;
+  
+  document.getElementById('demand-component-select').addEventListener('change', (e) => {
+    const newId = e.target.value;
+    if (activeDeployTab === 'runbooks') selectedRunbookId = newId;
+    else if (activeDeployTab === 'cutover') selectedCutoverId = newId;
+    else selectedDeploymentId = newId;
+    renderDeployContent();
+  });
+  
+  document.getElementById('btn-delete-active-item').addEventListener('click', async () => {
+    if(!confirm(`Delete this ${typeLabel}?`)) return;
+    try {
+      const apiPath = activeDeployTab === 'runbooks' ? 'runbooks' : activeDeployTab === 'cutover' ? 'cutover' : 'orchestration';
+      const res = await fetch(`${DEPLOY_API_BASE}/${apiPath}/${encodeURIComponent(activeItem[idField])}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Delete failed');
+      
+      if (activeDeployTab === 'runbooks') selectedRunbookId = null;
+      else if (activeDeployTab === 'cutover') selectedCutoverId = null;
+      else selectedDeploymentId = null;
+      
+      await window.fetchBuildDeployData();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+  
+  const innerContainer = document.getElementById('deploy-content-inner');
+  const tempPanel = Object.defineProperty({}, 'innerHTML', {
+    set(html) { innerContainer.innerHTML = html; },
+    get() { return innerContainer.innerHTML; }
+  });
+  
+  // Actually, a better way is to redefine them to return the inner wrapper.
+  const originalGetElementById = document.getElementById.bind(document);
+  document.getElementById = function(id) {
+    if (id === 'deploy-panel-container') return innerContainer;
+    return originalGetElementById(id);
+  };
+  
+  try {
+    if (activeDeployTab === 'runbooks') renderRunbookDetails(activeItem);
+    else if (activeDeployTab === 'cutover') renderCutoverDetails(activeItem);
+    else renderDeploymentDetails(activeItem);
+  } finally {
+    document.getElementById = originalGetElementById;
   }
 }
