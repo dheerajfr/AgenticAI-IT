@@ -118,8 +118,9 @@ def mock_gemini_global_cleanup():
     llm_client.call_gemini = original_call_gemini
 
 # Clear cached local modules
-for m in ['main', 'models', 'database', 'repositories.test_quality_repository', 'quality_services.test_generation_service']:
-    sys.modules.pop(m, None)
+for m in list(sys.modules.keys()):
+    if m.startswith("agents.") or m.startswith("quality_services.") or m.startswith("context.") or m in ['main', 'models', 'database']:
+        sys.modules.pop(m, None)
 
 from main import app
 from context.delivery_context_builder import DeliveryContextBuilder

@@ -1,0 +1,160 @@
+{
+  "demand_id": "DEM-2026-0097",
+  "updated_at": "2026-07-16T09:04:54Z",
+  "test_generation": {
+    "suite_id": "TST-2026-0097-001",
+    "demand_id": "DEM-2026-0097",
+    "plan_id": "test-reassign-plan",
+    "generated_at": "2024-06-21T12:00:00Z",
+    "test_cases": [
+      {
+        "test_id": "TC-001",
+        "story_id": "DEM-2026-0097",
+        "title": "Verify voice input capture and processing in chat application",
+        "steps": [
+          "Open the chat application",
+          "Activate voice input feature",
+          "Speak a message into the microphone",
+          "Verify that the spoken message is correctly captured and converted to text",
+          "Send the voice-transcribed message"
+        ],
+        "expected_result": "The voice input is accurately transcribed to text and sent as a chat message without errors.",
+        "priority": "critical",
+        "type": "functional"
+      },
+      {
+        "test_id": "TC-002",
+        "story_id": "DEM-2026-0097",
+        "title": "Validate audio playback quality and synchronization in chat responses",
+        "steps": [
+          "Receive a voice message in the chat application",
+          "Play the voice message",
+          "Evaluate audio clarity and synchronization with UI indicators"
+        ],
+        "expected_result": "Audio playback is clear, correctly synchronized with the UI, and free from distortion or lag.",
+        "priority": "high",
+        "type": "functional"
+      },
+      {
+        "test_id": "TC-003",
+        "story_id": "DEM-2026-0097",
+        "title": "Ensure security and privacy compliance for voice data",
+        "steps": [
+          "Transmit a voice message through the chat application",
+          "Monitor data transmission for encryption and compliance with data protection standards",
+          "Attempt unauthorized access to voice data"
+        ],
+        "expected_result": "Voice data is encrypted during transmission and storage; unauthorized access attempts are blocked and logged.",
+        "priority": "critical",
+        "type": "security"
+      },
+      {
+        "test_id": "TC-004",
+        "story_id": "DEM-2026-0097",
+        "title": "Confirm voice feature availability and fallback behavior on unsupported devices",
+        "steps": [
+          "Launch the chat application on a device that does not support voice input",
+          "Attempt to activate the voice feature",
+          "Observe system response"
+        ],
+        "expected_result": "Voice feature is disabled and the application gracefully informs the user or falls back to text input.",
+        "priority": "medium",
+        "type": "usability"
+      },
+      {
+        "test_id": "TC-005",
+        "story_id": "DEM-2026-0097",
+        "title": "Test integration between voice module and existing chat messaging backend",
+        "steps": [
+          "Trigger voice message send",
+          "Verify backend receives and processes the message correctly",
+          "Check database entries and message delivery"
+        ],
+        "expected_result": "Voice messages are successfully processed and delivered via the existing backend without errors or data loss.",
+        "priority": "high",
+        "type": "integration"
+      }
+    ],
+    "coverage_summary": {
+      "total_stories": 1,
+      "stories_covered": 1,
+      "total_test_cases": 5,
+      "critical_path_coverage_pct": 100.0
+    },
+    "status": "draft"
+  },
+  "test_data": {
+    "data_provision_id": "TDP-2026-0097-1",
+    "suite_id": "TST-2026-0097-001",
+    "demand_id": "DEM-2026-0097",
+    "environment": "test",
+    "datasets": [
+      {
+        "schema": "voice_chat_application_data",
+        "record_count": 250,
+        "masking_applied": true,
+        "location": "secure-test-data-repository/DEM-2026-0097"
+      }
+    ],
+    "privacy_sign_off": null,
+    "signed_off_by": null,
+    "expires_at": "2024-06-23T12:00:00Z",
+    "status": "pending-approval"
+  },
+  "test_execution": {
+    "test_run_id": "TR-2026-0097-1",
+    "suite_id": "TST-2026-0097-001",
+    "demand_id": "DEM-2026-0097",
+    "environment": "test",
+    "executed_at": "2024-06-21T14:30:00Z",
+    "results": [
+      {
+        "test_id": "TC-001",
+        "status": "failed",
+        "duration_ms": 12500,
+        "failure_analysis": "Voice input capture intermittently fails due to incomplete microphone hardware integration; transcription service times out leading to incorrect or missing text conversion."
+      },
+      {
+        "test_id": "TC-002",
+        "status": "passed",
+        "duration_ms": 9000,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-003",
+        "status": "failed",
+        "duration_ms": 11000,
+        "failure_analysis": "Encryption applied on voice data is missing a critical certificate update resulting in non-compliance; unauthorized access attempts detected but some logs were incomplete."
+      },
+      {
+        "test_id": "TC-004",
+        "status": "passed",
+        "duration_ms": 7000,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-005",
+        "status": "skipped",
+        "duration_ms": 0,
+        "failure_analysis": null
+      }
+    ],
+    "summary": {
+      "total": 5,
+      "passed": 2,
+      "failed": 2,
+      "skipped": 1,
+      "pass_rate_pct": 40.0
+    },
+    "defect_ids_raised": [
+      "BUG-1",
+      "BUG-2"
+    ],
+    "human_acceptance": null,
+    "status": "pending-approval"
+  },
+  "defect_triage": null,
+  "security_testing": null,
+  "traceability": null,
+  "quality_gate": null
+}

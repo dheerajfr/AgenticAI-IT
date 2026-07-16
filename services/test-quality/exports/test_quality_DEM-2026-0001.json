@@ -1,0 +1,100 @@
+{
+  "demand_id": "DEM-2026-0001",
+  "updated_at": "2026-07-16T09:33:56Z",
+  "test_generation": {
+    "suite_id": "TST-0068-1",
+    "demand_id": "DEM-2026-0001",
+    "plan_id": "PLN-0001-1",
+    "generated_at": "2026-07-13T10:00:00Z",
+    "test_cases": [
+      {
+        "test_id": "TC-001",
+        "story_id": "US-101",
+        "title": "Successful payment with valid card",
+        "steps": [
+          "POST /api/payments with valid card",
+          "Assert 200 and transaction_id returned"
+        ],
+        "expected_result": "Payment accepted, transaction recorded",
+        "priority": "critical",
+        "type": "functional"
+      }
+    ],
+    "coverage_summary": {
+      "total_stories": 1,
+      "stories_covered": 1,
+      "total_test_cases": 1,
+      "critical_path_coverage_pct": 100.0
+    },
+    "status": "draft"
+  },
+  "test_data": {
+    "data_provision_id": "TDP-0068-1",
+    "suite_id": "TST-0068-1",
+    "demand_id": "DEM-2026-0001",
+    "environment": "test",
+    "datasets": [
+      {
+        "schema": "db://payments/transactions",
+        "record_count": 100,
+        "masking_applied": true,
+        "location": "test-db://payments/synthetic_20260714"
+      }
+    ],
+    "privacy_sign_off": null,
+    "signed_off_by": null,
+    "expires_at": "2026-07-16T10:00:00Z",
+    "status": "pending-approval"
+  },
+  "test_execution": null,
+  "defect_triage": {
+    "triage_id": "TRG-0068-1",
+    "test_run_id": "TR-0068-1",
+    "demand_id": "DEM-2026-0001",
+    "triaged_defects": [
+      {
+        "defect_id": "BUG-4421",
+        "severity": "critical",
+        "priority": 1,
+        "cluster": "payments-timeout",
+        "duplicate_of": null,
+        "root_cause_hint": "Connection pool exhausted",
+        "assigned_to": "d.chen",
+        "recommended_action": "fix-before-release"
+      }
+    ],
+    "release_risk_summary": "1 critical defect blocks release",
+    "human_confirmed": false,
+    "status": "pending-approval"
+  },
+  "security_testing": {
+    "security_test_id": "SEC-0068-1",
+    "demand_id": "DEM-2026-0001",
+    "plan_id": "PLN-0001-1",
+    "pipeline_run_id": "CI-RUN-9901",
+    "scanned_at": "2026-07-13T08:00:00Z",
+    "findings": [
+      {
+        "finding_id": "FND-001",
+        "component_id": "svc-payments-api",
+        "severity": "high",
+        "category": "SQL Injection",
+        "location": "src/routes/payments.py:L88",
+        "exploitable": true,
+        "draft_fix": "Use parameterised query",
+        "status": "open"
+      }
+    ],
+    "summary": {
+      "critical": 0,
+      "high": 1,
+      "medium": 0,
+      "low": 0
+    },
+    "exploitable_confirmed": false,
+    "signed_off_by": null,
+    "status": "pending-approval"
+  },
+  "traceability": null,
+  "quality_gate": null
+}

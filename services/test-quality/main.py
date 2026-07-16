@@ -16,7 +16,8 @@ from models import (
     TraceabilityUpdateRequest,
     TraceabilityMatrixRecord,
     QualityGateRequest,
-    QualityGateRecord
+    QualityGateRecord,
+    DeliveryContext
 )
 from repositories.test_quality_repository import db
 from quality_services.test_generation_service import test_generation_service
@@ -225,6 +226,104 @@ def get_all_consolidated_states():
             cursor.execute("SELECT data FROM test_and_quality")
             rows = cursor.fetchall()
             return [json.loads(r[0]) for r in rows]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/test-quality/delivery-context/{demand_id}", response_model=DeliveryContext)
+def get_delivery_context_endpoint(demand_id: str):
+    try:
+        from context.delivery_context_builder import DeliveryContextBuilder
+        return DeliveryContextBuilder.get_delivery_context(demand_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/test-quality/relational/{table}/{demand_id}")
+def get_relational_records(table: str, demand_id: str):
+    try:
+        return db.get_records_by_demand(table, demand_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/test-quality/relational/{table}/{demand_id}/{record_id}")
+def save_relational_record(table: str, demand_id: str, record_id: str, data: Dict[str, Any]):
+    try:
+        db.save_relational_record(table, record_id, demand_id, data, data.get("status", "active"))
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/test-quality/relational/{table}/{record_id}")
+def delete_relational_record(table: str, record_id: str):
+    try:
+        db.delete_relational_record(table, record_id)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/test-quality/dashboard-stats/{demand_id}")
+def get_dashboard_stats(demand_id: str):
+    try:
+        test_cases = db.get_records_by_demand("test_cases", demand_id)
+        test_data = db.get_records_by_demand("test_data", demand_id)
+        executions = db.get_records_by_demand("test_execution", demand_id)
+        defects = db.get_records_by_demand("defects", demand_id)
+        security_findings = db.get_records_by_demand("security_findings", demand_id)
+        traceability = db.get_records_by_demand("traceability", demand_id)
+        quality_gates = db.get_records_by_demand("quality_gate", demand_id)
+
+        # Execution stats
+        total_runs = len(executions)
+        passed_runs = sum(1 for e in executions if e.get("status", "").lower() == "passed")
+        failed_runs = sum(1 for e in executions if e.get("status", "").lower() == "failed")
+        blocked_runs = sum(1 for e in executions if e.get("status", "").lower() == "blocked")
+        skipped_runs = sum(1 for e in executions if e.get("status", "").lower() == "skipped")
+        pass_rate = (passed_runs / total_runs * 100) if total_runs > 0 else 0.0
+
+        # Defect stats
+        open_defects = sum(1 for d in defects if d.get("status", "").lower() in ["open", "assigned", "in progress", "in-progress"])
+        closed_defects = sum(1 for d in defects if d.get("status", "").lower() in ["closed", "resolved"])
+
+        # Security Findings stats
+        critical_findings = sum(1 for f in security_findings if f.get("severity", "").lower() == "critical")
+        high_findings = sum(1 for f in security_findings if f.get("severity", "").lower() == "high")
+        medium_findings = sum(1 for f in security_findings if f.get("severity", "").lower() == "medium")
+        low_findings = sum(1 for f in security_findings if f.get("severity", "").lower() == "low")
+        info_findings = sum(1 for f in security_findings if f.get("severity", "").lower() == "informational")
+
+        # Quality Gate latest status
+        latest_gate = quality_gates[-1] if len(quality_gates) > 0 else {}
+        gate_verdict = latest_gate.get("verdict", "N/A")
+        quality_score = latest_gate.get("quality_score", 0)
+
+        # Traceability coverage
+        coverage_pct = 0.0
+        if len(traceability) > 0:
+            coverage_pct = traceability[-1].get("coverage_percentage", 100.0)
+
+        return {
+            "total_test_cases": len(test_cases),
+            "total_datasets": len(test_data),
+            "executed_tests": total_runs,
+            "passed_tests": passed_runs,
+            "failed_tests": failed_runs,
+            "blocked_tests": blocked_runs,
+            "skipped_tests": skipped_runs,
+            "pass_rate_pct": round(pass_rate, 2),
+            "open_defects": open_defects,
+            "closed_defects": closed_defects,
+            "security_findings": {
+                "critical": critical_findings,
+                "high": high_findings,
+                "medium": medium_findings,
+                "low": low_findings,
+                "informational": info_findings,
+                "total": len(security_findings)
+            },
+            "traceability_coverage_pct": round(coverage_pct, 2),
+            "quality_gate_status": gate_verdict,
+            "quality_score": quality_score,
+            "release_readiness": "Ready" if gate_verdict == "PASS" else "Not Ready"
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

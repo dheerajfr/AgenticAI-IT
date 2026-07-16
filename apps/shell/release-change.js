@@ -727,10 +727,39 @@ function renderBuildTab() {
 
 function renderQualityTab() {
   const q = currentReleaseDetail.upstream.quality || {};
-  const statusColor = q.quality_gate === 'Passed' ? 'green' : 'red';
+  const openIssues = Array.isArray(q.open_issues) ? q.open_issues : [];
+  const gateStatus = q.quality_gate || 'Not Evaluated';
+  const statusColor = gateStatus === 'Passed' ? 'green' : (gateStatus === 'Not Evaluated' ? 'amber' : 'red');
+  const isLiveData = q.source && q.source.includes('Stage 07');
   return `
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-      <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: white;">Quality Gate & Test Summary (Stage 07)</h3>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: white;">Quality Gate &amp; Test Summary (Stage 07)</h3>
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          ${isLiveData ? `<span style="font-size: 0.7rem; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); color: #10b981; padding: 0.2rem 0.6rem; border-radius: 999px; font-weight: 700;">● LIVE DATA</span>` : ''}
+          <span style="font-size: 0.75rem; color: var(--text-secondary);">Source: <strong>${q.source || 'Test &amp; Quality Module'}</strong></span>
+        </div>
+      </div>
+
+      <!-- Summary Counters Row -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;">
+        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem; text-align: center;">
+          <div style="font-size: 1.5rem; font-weight: 800; color: white;">${q.total_executions ?? '—'}</div>
+          <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.25rem;">Test Runs</div>
+        </div>
+        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem; text-align: center;">
+          <div style="font-size: 1.5rem; font-weight: 800; color: var(--color-status-green-text);">${q.total_executions != null ? (q.total_executions === 0 ? '—' : q.test_results.split(',')[1]?.trim().split(' ')[0] ?? '—') : '—'}</div>
+          <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.25rem;">Passed</div>
+        </div>
+        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem; text-align: center;">
+          <div style="font-size: 1.5rem; font-weight: 800; color: ${q.total_defects > 0 ? 'var(--color-status-red-text)' : 'var(--color-status-green-text)'};">${q.total_defects ?? '—'}</div>
+          <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.25rem;">Open Defects</div>
+        </div>
+        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem; text-align: center;">
+          <div style="font-size: 1.5rem; font-weight: 800; color: ${q.total_security_findings > 0 ? 'var(--color-status-amber-text)' : 'var(--color-status-green-text)'};">${q.total_security_findings ?? '—'}</div>
+          <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.25rem;">Sec Findings</div>
+        </div>
+      </div>
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
         <div style="display: flex; flex-direction: column; gap: 1rem;">
@@ -738,16 +767,16 @@ function renderQualityTab() {
           <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-md); display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.85rem;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <strong>Quality Gate Status:</strong>
-              <span class="status-pill status-${statusColor}" style="padding: 0.25rem 0.5rem; border-radius: var(--radius-sm); font-size:0.75rem; font-weight:700; text-transform:uppercase;">${q.quality_gate}</span>
+              <span class="status-pill status-${statusColor}" style="padding: 0.25rem 0.5rem; border-radius: var(--radius-sm); font-size:0.75rem; font-weight:700; text-transform:uppercase;">${gateStatus}</span>
             </div>
-            <div><strong>Code Coverage:</strong> ${q.code_coverage}</div>
-            <div><strong>Test Execution:</strong> ${q.test_results}</div>
-            <div><strong>Performance Score:</strong> ${q.performance_results}</div>
+            <div><strong>Code Coverage:</strong> ${q.code_coverage || 'N/A'}</div>
+            <div><strong>Test Execution:</strong> ${q.test_results || 'No executions recorded'}</div>
+            <div><strong>Pass Rate:</strong> ${q.performance_results || 'N/A'}</div>
           </div>
 
           <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-md); font-size: 0.8rem; border-left: 3px solid var(--color-status-${statusColor}-border);">
             <strong>Defect Verdict Summary:</strong>
-            <p style="margin: 0.4rem 0 0 0; color: var(--text-secondary); line-height: 1.4;">${q.defect_summary}</p>
+            <p style="margin: 0.4rem 0 0 0; color: var(--text-secondary); line-height: 1.4;">${q.defect_summary || '0 open critical defects'}</p>
           </div>
         </div>
 
@@ -755,18 +784,22 @@ function renderQualityTab() {
           <div style="font-weight: 700; font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Vulnerability Scan Report</div>
           <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-md); font-size: 0.8rem; color: var(--text-primary); line-height: 1.5;">
             <strong>SAST/DAST Scan Summary:</strong>
-            <div style="color: var(--text-secondary); margin-top: 0.25rem;">${q.security_scan}</div>
+            <div style="color: var(--text-secondary); margin-top: 0.25rem;">${q.security_scan || 'No security scan data available'}</div>
           </div>
           
           <div style="font-weight: 700; font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Open Defects Detail</div>
           <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-md); font-size: 0.8rem; display: flex; flex-direction: column; gap: 0.5rem;">
-            ${q.open_issues.map(bug => `
+            ${openIssues.map(bug => `
               <div style="border-left: 2px solid var(--color-status-red-border); padding-left: 0.5rem;">
-                <span style="font-weight:700; color:var(--color-status-red-text);">${bug.defect_id} (${bug.severity})</span>
-                <div style="color:var(--text-secondary); font-size:0.75rem; margin-top:0.1rem;">${bug.summary}</div>
+                <span style="font-weight:700; color:var(--color-status-red-text);">${bug.defect_id || 'DEF-?'} (${bug.severity || 'unknown'})</span>
+                <div style="color:var(--text-secondary); font-size:0.75rem; margin-top:0.1rem;">${bug.summary || 'No description'}</div>
               </div>
             `).join('')}
-            ${q.open_issues.length === 0 ? '<div style="color:var(--text-muted);">No open blocking issues.</div>' : ''}
+            ${openIssues.length === 0 ? '<div style="color:var(--text-muted);">No open blocking issues.</div>' : ''}
+          </div>
+
+          <div style="font-size: 0.75rem; color: var(--text-secondary); border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
+            Full test evidence available in the <strong>Test &amp; Quality</strong> module (Stage 07)
           </div>
         </div>
       </div>

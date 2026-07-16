@@ -227,30 +227,187 @@ def get_mock_build_details(build_id: str, plan_id: str, version: str):
         "pipeline_url": f"http://jenkins.internal/job/pipeline-{suffix}/9901"
     }
 
-def get_mock_quality_details(project_id: str):
-    suffix = project_id.split("-")[-1] if project_id else "DUMMY"
-    # Make DEM-0072 look green, others look red or warn for high realism
-    gate_verdict = "Passed" if suffix == "0072" else "Failed"
-    defects = []
-    if gate_verdict == "Failed":
-        defects = [
+def get_real_quality_details(project_id: str) -> dict:
+    """
+    Fetches real Test & Quality data from the shared SQLite database.
+    Reads test executions, defects, security findings and quality gate results
+    keyed by demand_id == project_id.
+    Falls back to safe defaults when no data is found.
+    """
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # ── test_execution rows (from the mirrored explicit table) ────────
+            try:
+                cursor.execute(
+                    "SELECT data FROM test_execution WHERE demand_id = ? AND soft_delete = 0",
+                    (project_id,)
+                )
+                exec_rows = [json.loads(r[0]) for r in cursor.fetchall() if r[0]]
+            except Exception:
+                exec_rows = []
+
+            # ── defects rows ─────────────────────────────────────────────────
+            try:
+                cursor.execute(
+                    "SELECT data FROM defects WHERE demand_id = ? AND soft_delete = 0",
+                    (project_id,)
+                )
+                defect_rows = [json.loads(r[0]) for r in cursor.fetchall() if r[0]]
+            except Exception:
+                defect_rows = []
+
+            # ── security_findings rows ────────────────────────────────────────
+            try:
+                cursor.execute(
+                    "SELECT data FROM security_findings WHERE demand_id = ? AND soft_delete = 0",
+                    (project_id,)
+                )
+                sec_rows = [json.loads(r[0]) for r in cursor.fetchall() if r[0]]
+            except Exception:
+                sec_rows = []
+
+            # ── quality_gate rows ─────────────────────────────────────────────
+            try:
+                cursor.execute(
+                    "SELECT data FROM quality_gate WHERE demand_id = ? AND soft_delete = 0",
+                    (project_id,)
+                )
+                gate_rows = [json.loads(r[0]) for r in cursor.fetchall() if r[0]]
+            except Exception:
+                gate_rows = []
+
+            # ── fallback: consolidated test_and_quality store ─────────────────
+            if not exec_rows and not gate_rows:
+                try:
+                    cursor.execute(
+                        "SELECT data FROM test_and_quality WHERE demand_id = ?",
+                        (project_id,)
+                    )
+                    row = cursor.fetchone()
+                    if row and row[0]:
+                        consolidated = json.loads(row[0])
+                        run = consolidated.get("test_execution")
+                        if run:
+                            exec_rows = [run]
+                        gate = consolidated.get("quality_gate")
+                        if gate:
+                            gate_rows = [gate]
+                        for d in consolidated.get("defects", []):
+                            defect_rows.append(d)
+                        for s in consolidated.get("security_findings", []):
+                            sec_rows.append(s)
+                except Exception:
+                    pass
+
+        # ── aggregate execution stats ────────────────────────────────────────
+        # test_execution rows may be individual result records or a consolidated run dict
+        all_results = []
+        for e in exec_rows:
+            if "results" in e and isinstance(e["results"], list):
+                # consolidated run dict — expand the results array
+                all_results.extend(e["results"])
+            else:
+                all_results.append(e)
+
+        total = len(all_results)
+        passed = sum(1 for e in all_results if str(e.get("status", "")).lower() in ("passed", "pass"))
+        failed = sum(1 for e in all_results if str(e.get("status", "")).lower() in ("failed", "fail"))
+        test_results = f"{total} total, {passed} passed, {failed} failed" if total > 0 else "No executions recorded"
+
+        # ── open defects ─────────────────────────────────────────────────────
+        # Handle both direct defect rows and nested defect lists from consolidated store
+        flat_defects = []
+        for d in defect_rows:
+            if isinstance(d, list):
+                flat_defects.extend(d)
+            elif isinstance(d, dict):
+                flat_defects.append(d)
+
+        open_issues = [
             {
-                "defect_id": f"BUG-44{suffix}",
-                "severity": "critical",
-                "summary": "Connection pool exhausted under load > 200 rps",
-                "status": "open"
+                "defect_id": d.get("defect_id") or d.get("id", "DEF-unknown"),
+                "severity": d.get("severity", "unknown"),
+                "summary": d.get("summary") or d.get("title") or d.get("description") or "No description",
+                "status": d.get("status", "open")
             }
+            for d in flat_defects
+            if str(d.get("status", "")).lower() not in ("closed", "resolved")
         ]
-    return {
-        "test_results": "12 total, 11 passed, 1 failed" if gate_verdict == "Failed" else "15 total, 15 passed, 0 failed",
-        "automation_report": f"http://qa-reporter.internal/suites/TST-{suffix}-1",
-        "code_coverage": "74.2%" if gate_verdict == "Failed" else "92.5%",
-        "security_scan": "1 high finding (SQL Injection at src/routes/payments.py:L88), 3 medium findings" if gate_verdict == "Failed" else "0 high findings, 1 medium finding",
-        "performance_results": "p99 latency: 250ms, avg throughput: 150 rps" if gate_verdict == "Failed" else "p99 latency: 95ms, avg throughput: 300 rps",
-        "defect_summary": f"1 critical defect (BUG-44{suffix}) blocks release" if gate_verdict == "Failed" else "0 open critical defects",
-        "quality_gate": gate_verdict,
-        "open_issues": defects
-    }
+        critical_sev = {"critical", "blocker", "high"}
+        critical_defects = sum(1 for d in open_issues if d["severity"].lower() in critical_sev)
+        defect_summary = (
+            f"{len(open_issues)} open defect(s), {critical_defects} critical/blocker"
+            if open_issues else "0 open critical defects"
+        )
+
+        # ── security scan summary ─────────────────────────────────────────────
+        high_sec = sum(1 for f in sec_rows if str(f.get("severity", "")).lower() in ("high", "critical"))
+        med_sec = sum(1 for f in sec_rows if str(f.get("severity", "")).lower() == "medium")
+        security_scan = (
+            f"{high_sec} high/critical finding(s), {med_sec} medium finding(s)"
+            if sec_rows else "No security scan data available"
+        )
+
+        # ── quality gate verdict ──────────────────────────────────────────────
+        latest_gate = gate_rows[-1] if gate_rows else {}
+        # Real DB stores verdict as "PASS"/"FAIL", score as "score" field
+        gate_verdict_raw = str(latest_gate.get("verdict") or latest_gate.get("status") or "")
+        gate_verdict = "Passed" if gate_verdict_raw.upper() in ("PASS", "PASSED") else (
+            "Failed" if gate_verdict_raw.upper() in ("FAIL", "FAILED") else (
+                "Not Evaluated" if not gate_verdict_raw else gate_verdict_raw.title()
+            )
+        )
+        quality_score = latest_gate.get("score") or latest_gate.get("quality_score")
+        code_coverage_val = latest_gate.get("code_coverage_pct") or latest_gate.get("coverage_pct")
+        code_coverage = f"{code_coverage_val}%" if code_coverage_val is not None else (
+            f"{quality_score}/100" if quality_score is not None else "N/A"
+        )
+
+        return {
+            "test_results": test_results,
+            "automation_report": f"/api/test-quality/relational/test_execution/{project_id}",
+            "code_coverage": code_coverage,
+            "security_scan": security_scan,
+            "performance_results": f"Pass rate: {round(passed/total*100, 1) if total > 0 else 0}%",
+            "defect_summary": defect_summary,
+            "quality_gate": gate_verdict,
+            "quality_score": quality_score,
+            "open_issues": open_issues,
+            "source": "Test & Quality Module (Stage 07)",
+            "total_executions": total,
+            "total_defects": len(flat_defects),
+            "total_security_findings": len(sec_rows)
+        }
+
+
+    except Exception as e:
+        print(f"[release-change] Error fetching real quality details for {project_id}: {e}")
+        return {
+            "test_results": "Error loading data",
+            "automation_report": "",
+            "code_coverage": "N/A",
+            "security_scan": "N/A",
+            "performance_results": "N/A",
+            "defect_summary": "Could not load quality data",
+            "quality_gate": "Not Evaluated",
+            "quality_score": None,
+            "open_issues": [],
+            "source": "Test & Quality Module (Stage 07)",
+            "total_executions": 0,
+            "total_defects": 0,
+            "total_security_findings": 0
+        }
+
+
+@app.get("/api/release-change/quality-summary/{demand_id}")
+def get_quality_summary(demand_id: str):
+    """
+    Returns real Test & Quality evidence data for a given demand_id.
+    Used by the Release & Change frontend to populate the Quality Gate section.
+    """
+    return get_real_quality_details(demand_id)
 
 
 @app.get("/api/release-change/dropdowns")
@@ -431,7 +588,7 @@ def get_release_by_id(release_id: str):
         
     # Mock data providers
     build_details = get_mock_build_details(rel["build_id"], rel["plan_id"], rel["version"])
-    quality_details = get_mock_quality_details(rel["project_id"])
+    quality_details = get_real_quality_details(rel["project_id"])
     
     return {
         "release": rel,

@@ -79,6 +79,7 @@ class UpstreamBuildDeployRecord(BaseModel):
 class DeliveryContext(BaseModel):
     demand_id: str
     plan_id: Optional[str] = None
+    release_id: Optional[str] = None
     demand: Optional[UpstreamDemandRecord] = None
     estimate: Optional[UpstreamEstimateRecord] = None
     plan: Optional[UpstreamPlanRecord] = None

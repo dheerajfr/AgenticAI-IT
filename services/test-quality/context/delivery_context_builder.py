@@ -29,6 +29,7 @@ class DeliveryContextBuilder:
         demand_rec = None
         estimate_rec = None
         plan_rec = None
+        release_id_rec = None
         dependencies_list: List[UpstreamDependencyEdge] = []
         environments_list: List[UpstreamEnvironmentStateRecord] = []
         build_deploy_rec = None
@@ -45,6 +46,15 @@ class DeliveryContextBuilder:
                     demand_rec = UpstreamDemandRecord(**data)
                 except Exception as e:
                     print(f"Error parsing demand data: {e}")
+
+            # 1.5 Fetch Release ID associated with demand_id
+            try:
+                cursor.execute("SELECT release_id FROM release_change WHERE demand_id = ?", (demand_id,))
+                row = cursor.fetchone()
+                if row:
+                    release_id_rec = row[0]
+            except Exception as e:
+                print(f"Error querying release_change table: {e}")
 
             # 2. Fetch Estimate
             cursor.execute("SELECT data FROM estimates WHERE demand_id = ?", (demand_id,))
@@ -117,6 +127,7 @@ class DeliveryContextBuilder:
         return DeliveryContext(
             demand_id=demand_id,
             plan_id=plan_id,
+            release_id=release_id_rec,
             demand=demand_rec,
             estimate=estimate_rec,
             plan=plan_rec,

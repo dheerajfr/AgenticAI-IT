@@ -1,0 +1,89 @@
+{
+  "demand_id": "DEM-2026-0004",
+  "updated_at": "2026-07-16T07:19:12Z",
+  "test_generation": {
+    "suite_id": "TST-2026-0004-1",
+    "demand_id": "DEM-2026-0004",
+    "plan_id": "PLN-0004-1",
+    "generated_at": "2024-06-05T12:00:00Z",
+    "test_cases": [
+      {
+        "test_id": "TC-001",
+        "story_id": "US-101",
+        "title": "Validate memory usage under high websocket connection load",
+        "steps": [
+          "Establish high number of simultaneous websocket connections to the server",
+          "Simulate continuous real-time notifications sent over the connections for 48 hours",
+          "Monitor server memory allocation and usage metrics during the test period"
+        ],
+        "expected_result": "Server memory usage remains stable without increase leading to pod restarts over the 48-hour test duration",
+        "priority": "critical",
+        "type": "performance"
+      },
+      {
+        "test_id": "TC-002",
+        "story_id": "US-102",
+        "title": "Verify websocket notification delivery correctness under memory leak fix",
+        "steps": [
+          "Connect multiple clients to websocket server",
+          "Send diverse real-time notifications from backend",
+          "Confirm clients receive all notifications without delay or loss"
+        ],
+        "expected_result": "All connected clients receive real-time notifications correctly and timely with no data loss",
+        "priority": "high",
+        "type": "functional"
+      },
+      {
+        "test_id": "TC-003",
+        "story_id": "US-103",
+        "title": "Check server stability and pod lifecycle after memory leak fix under concurrent load",
+        "steps": [
+          "Deploy websocket server with fix in a controlled environment",
+          "Apply concurrent load with realistic connection and messaging patterns for 72 hours",
+          "Observe server and pod stability, verify no unexpected restarts or crashes"
+        ],
+        "expected_result": "Server remains stable with zero pod restarts and no memory leaks detected during load period",
+        "priority": "critical",
+        "type": "stability"
+      },
+      {
+        "test_id": "TC-004",
+        "story_id": null,
+        "title": "Run automated regression suite to verify no side effects on dependent services",
+        "steps": [
+          "Execute full regression automated test suite on all Core Platform Services",
+          "Review results for failures or anomalies indicating impact from memory leak fix"
+        ],
+        "expected_result": "No regression defects or service impact found related to websocket server memory leak fix",
+        "priority": "high",
+        "type": "regression"
+      },
+      {
+        "test_id": "TC-005",
+        "story_id": null,
+        "title": "Validate logging and alerting behavior for memory usage metrics",
+        "steps": [
+          "Trigger high load scenario on websocket server",
+          "Verify memory usage logs are generated accurately",
+          "Check alerting system triggers notifications if thresholds exceeded"
+        ],
+        "expected_result": "Logs correctly capture memory data and alerts raise timely notifications on breaches",
+        "priority": "medium",
+        "type": "monitoring"
+      }
+    ],
+    "coverage_summary": {
+      "total_stories": 3,
+      "stories_covered": 3,
+      "total_test_cases": 5,
+      "critical_path_coverage_pct": 66.67
+    },
+    "status": "draft"
+  },
+  "test_data": null,
+  "test_execution": null,
+  "defect_triage": null,
+  "security_testing": null,
+  "traceability": null,
+  "quality_gate": null
+}
