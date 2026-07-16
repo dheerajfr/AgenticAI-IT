@@ -14,6 +14,14 @@ class EnvironmentDatabase:
     def _init_db(self):
         with get_db() as conn:
             cursor = conn.cursor()
+            # Drop table if it has component_id column (old schema from previous version)
+            try:
+                cursor.execute("SELECT component_id FROM environments LIMIT 1")
+                cursor.execute("DROP TABLE environments")
+                print("Dropped old environments table with component_id column.")
+            except sqlite3.OperationalError:
+                pass
+
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS environments (
                     demand_id TEXT,

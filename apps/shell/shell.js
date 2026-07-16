@@ -116,6 +116,11 @@ function switchStage(stageId) {
       window.renderReleaseChangeScreen();
       window.fetchReleaseChange();
     }
+  } else if (stageId === 'test-quality') {
+    if (window.renderTestQualityScreen) {
+      window.renderTestQualityScreen();
+      window.fetchTestQualityData();
+    }
   } else {
     // Render the placeholder web component for other stages
     viewport.innerHTML = `<module-placeholder module-id="${stageId}"></module-placeholder>`;

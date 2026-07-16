@@ -1,0 +1,60 @@
+{
+  "demand_id": "DEM-2026-0106",
+  "title": "Slack and Discord Integration",
+  "description": "Request to integrate Slack and Discord platforms to enable seamless communication and collaboration between the two services.",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-14",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Slack and Discord Integration (DEM-2026-0106)\n\nExecutive Summary  \nThis project aims to integrate Slack and Discord platforms to streamline communication and enhance collaboration across teams. The integration will bridge current communication gaps, increasing efficiency and responsiveness.\n\nBusiness Value  \nBy enabling seamless interaction between Slack and Discord users, the integration supports faster decision-making and improves customer digital engagement. It will reduce duplicated efforts and foster a unified communication environment.\n\nRisk Mitigation  \nTo address the medium risk level, the project will implement rigorous testing and phased rollout to ensure stability. Continuous monitoring and user feedback will guide adjustments, minimizing disruption and security concerns.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 6,
+  "earliest_start_date": "2026-08-13",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 13 total active team members evaluated.",
+    "Technical capability profiling: 29 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 480/520 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Frontend Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    },
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Senior Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    },
+    {
+      "role": "Security Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    },
+    {
+      "role": "QA Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    }
+  ],
+  "skill_gaps": [
+    "API Integration",
+    "Slack API",
+    "Discord API",
+    "Backend Development",
+    "Frontend Development",
+    "Real-Time Communication",
+    "System Architecture"
+  ]
+}
