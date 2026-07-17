@@ -198,12 +198,15 @@ window.fetchPlans = async function () {
     }
 
     const activeDemandId = sessionStorage.getItem('selectedDemandId');
-    const matchedPlan = activeDemandId ? plans.find(p => p.demand_id === activeDemandId) : null;
-    if (matchedPlan && selectedPlanId === null) {
-      selectPlan(matchedPlan.plan_id);
-    } else if (plans.length > 0 && selectedPlanId === null) {
-      selectPlan(plans[0].plan_id);
-    } else if (selectedPlanId !== null) {
+    if (activeDemandId) {
+      const matchedPlan = plans.find(p => p.demand_id === activeDemandId);
+      if (matchedPlan) selectedPlanId = matchedPlan.plan_id;
+    }
+    if (plans.length > 0 && selectedPlanId === null) {
+      selectedPlanId = plans[0].plan_id;
+    }
+    
+    if (selectedPlanId !== null) {
       selectPlan(selectedPlanId);
     } else {
       showNewPlanForm();

@@ -146,6 +146,7 @@ function switchDeployTab(tab) {
 }
 
 window.fetchBuildDeployData = async function () {
+  selectedDemandId = sessionStorage.getItem('selectedDemandId') || selectedDemandId;
   const container = document.getElementById('deploy-list-container');
   try {
     const [rbRes, cutRes, depRes, demandRes, envRes] = await Promise.all([
@@ -1242,17 +1243,11 @@ function renderDeployContent() {
       <label for="demand-component-select" style="font-weight:600;font-size:0.9rem;">Select ${typeLabel}:</label>
       <select id="demand-component-select" style="flex:1;max-width:400px;padding:0.4rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);background:var(--bg-primary);">
         ${demandItems.map(i => {
-<<<<<<< HEAD
            const cName = formatSimpleName(i.component_id);
            const env = getEnvironment(i);
            const label = `${cName} - ${env}`;
            return `<option value="${i[idField]}" ${i[idField] === activeItem[idField] ? 'selected' : ''}>${label}</option>`;
         }).join('')}
-=======
-    const label = activeDeployTab === 'runbooks' ? (i.environment ? `${i.title} (${i.environment})` : i.title) : activeDeployTab === 'cutover' ? `${i.component_id}` : `${i.component_id} (${i.environment || 'N/A'})`;
-    return `<option value="${i[idField]}" ${i[idField] === activeItem[idField] ? 'selected' : ''}>${label}</option>`;
-  }).join('')}
->>>>>>> 921a6a4d9544a75b52d4927b08ee9ddc86f128f4
       </select>
       <button id="btn-delete-active-item" class="btn-secondary" style="color:var(--color-status-red-text); border-color:var(--color-status-red-text);">Delete Active ${typeLabel}</button>
     </div>

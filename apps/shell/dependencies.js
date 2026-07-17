@@ -228,9 +228,21 @@ window.fetchDependencies = async function () {
       return;
     }
 
+    const activeDemandId = sessionStorage.getItem('selectedDemandId');
     if (dependencies.length > 0 && selectedDependencyId === null) {
-      selectDependency(dependencies[0].dependency_id);
+      if (activeDemandId) {
+        const matchedDep = dependencies.find(d => planToDemandMap[d.plan_id] === activeDemandId);
+        selectedDependencyId = matchedDep ? matchedDep.dependency_id : dependencies[0].dependency_id;
+      } else {
+        selectedDependencyId = dependencies[0].dependency_id;
+      }
+      selectDependency(selectedDependencyId);
     } else if (selectedDependencyId !== null) {
+      // If we navigate from another demand, override selectedDependencyId
+      if (activeDemandId) {
+        const matchedDep = dependencies.find(d => planToDemandMap[d.plan_id] === activeDemandId);
+        if (matchedDep) selectedDependencyId = matchedDep.dependency_id;
+      }
       selectDependency(selectedDependencyId);
     } else {
       showAutoSenseForm();

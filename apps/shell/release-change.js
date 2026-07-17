@@ -85,6 +85,7 @@ function populateCreateModalDropdowns() {
 }
 
 async function fetchReleases() {
+  filterProject = sessionStorage.getItem('selectedDemandId') || filterProject;
   try {
     const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

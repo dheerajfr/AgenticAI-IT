@@ -5,7 +5,8 @@ const ENV_API_BASE = 'http://127.0.0.1:8000/api';
 
 let environments = [];
 let demandTitles = {};
-let selectedEnvKey = null;
+let selectedEnvKey = sessionStorage.getItem('selectedDemandId') || null;
+let activeTab = 'summary';
 let allDemandIds = [];
 
 // ─── Screen Entry Point ────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ window.renderConfigEnvironmentsScreen = function () {
 // ─── Fetch ────────────────────────────────────────────────────────────────
 
 window.fetchEnvironments = async function () {
+  selectedEnvKey = sessionStorage.getItem('selectedDemandId') || selectedEnvKey;
   const container = document.getElementById('env-list-container');
   if (!container) return;
   try {
