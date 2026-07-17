@@ -7,6 +7,39 @@ let cutoverSessions = [];
 let deployments = [];
 let demands = [];              // Stage 1 demand records
 let envRecords = [];           // All Stage 5 environment records
+
+function formatSimpleName(compId) {
+  if (!compId) return 'Unknown';
+  let s = compId.toLowerCase();
+  s = s.replace(/^svc-/, '');
+  s = s.replace(/-api/, '');
+  s = s.replace(/-prod.*/, '');
+  s = s.replace(/-staging.*/, '');
+  s = s.replace(/-test.*/, '');
+  s = s.replace(/-dev.*/, '');
+  s = s.replace(/-svr.*/, '');
+  return s.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function getEnvironment(record) {
+  if (record.environment) return record.environment;
+  if (record.cutover_id && record.deployment_id) {
+    const dep = deployments.find(d => d.deployment_id === record.deployment_id);
+    if (dep && dep.environment) return dep.environment;
+  }
+  if (record.steps && record.steps.length > 0) {
+    const envOrder = ['dev', 'test', 'staging', 'prod'];
+    let targetEnv = 'dev';
+    for (const step of record.steps) {
+      if (step.environment && envOrder.indexOf(step.environment) > envOrder.indexOf(targetEnv)) {
+        targetEnv = step.environment;
+      }
+    }
+    return targetEnv;
+  }
+  return 'N/A';
+}
+
 let envRecordsForDemand = []; // Stage 5 environment records for the selected demand
 let activeDeployTab = 'runbooks'; // 'runbooks' | 'cutover' | 'orchestration'
 let selectedRunbookId = null;
@@ -68,7 +101,10 @@ window.renderBuildDeployScreen = function () {
       <aside class="sidebar">
         <div class="sidebar-header">
           <h3 class="sidebar-title">Build & deploy</h3>
-          <button class="btn-new" id="btn-refresh-deploy">↻ Refresh</button>
+          <div style="display:flex; gap:0.5rem;">
+            ${activeDeployTab === 'runbooks' ? '<button class="btn-new" id="btn-new-deploy-item" title="Draft New Runbook">+</button>' : ''}
+            <button class="btn-new" id="btn-refresh-deploy">↻ Refresh</button>
+          </div>
         </div>
         <div class="tabs-container" style="margin: 0 1rem;">
           <button class="tab-btn ${activeDeployTab === 'runbooks' ? 'active' : ''}" id="tab-runbooks">Runbooks</button>
@@ -86,6 +122,15 @@ window.renderBuildDeployScreen = function () {
   `;
 
   document.getElementById('btn-refresh-deploy').addEventListener('click', () => window.fetchBuildDeployData());
+  const newBtn = document.getElementById('btn-new-deploy-item');
+  if (newBtn) {
+    newBtn.addEventListener('click', () => {
+      selectedDemandId = null;
+      selectedRunbookId = null;
+      window.renderBuildDeployScreen();
+      window.fetchBuildDeployData();
+    });
+  }
   document.getElementById('tab-runbooks').addEventListener('click', () => switchDeployTab('runbooks'));
   document.getElementById('tab-cutover').addEventListener('click', () => switchDeployTab('cutover'));
   document.getElementById('tab-orchestration').addEventListener('click', () => switchDeployTab('orchestration'));
@@ -158,10 +203,7 @@ function renderDeployList() {
   const idField = activeDeployTab === 'runbooks' ? 'runbook_id' : activeDeployTab === 'cutover' ? 'cutover_id' : 'deployment_id';
   const selectedId = activeDeployTab === 'runbooks' ? selectedRunbookId : activeDeployTab === 'cutover' ? selectedCutoverId : selectedDeploymentId;
 
-  const newBtnLabel = activeDeployTab === 'runbooks' ? '+ Draft Runbook' : activeDeployTab === 'cutover' ? '+ Start Cutover' : '+ Start Deployment';
-  let html = `<li style="padding: 0.75rem 1rem;">
-    <button class="btn-new" id="btn-new-deploy-item" style="width: 100%;">${newBtnLabel}</button>
-  </li>`;
+  let html = '';
 
   if (items.length === 0) {
     html += `<li style="padding: 2rem; text-align: center; color: var(--text-muted);">No records yet.</li>`;
@@ -175,11 +217,13 @@ function renderDeployList() {
 
     for (const dId of Object.keys(grouped)) {
       const isActive = dId === selectedDemandId;
+      const projName = formatSimpleName(grouped[dId][0].component_id);
       html += `
         <li class="demand-item ${isActive ? 'active' : ''}" data-did="${dId}" style="cursor:pointer;">
           <div class="demand-item-header">
             <span class="demand-item-id" style="font-size: 0.85rem; font-weight: 600;">Demand: ${dId}</span>
           </div>
+          <div style="font-size: 0.8rem; color: var(--text-primary); font-weight: 500; margin-top: 0.1rem;">${projName}</div>
           <h4 class="demand-item-title" style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal; margin-top: 0.2rem;">${grouped[dId].length} record(s)</h4>
         </li>
       `;
@@ -188,13 +232,6 @@ function renderDeployList() {
 
   container.innerHTML = html;
 
-  document.getElementById('btn-new-deploy-item').addEventListener('click', () => {
-    selectedDemandId = null;
-    if (activeDeployTab === 'runbooks') { selectedRunbookId = null; showNewRunbookForm(); }
-    else if (activeDeployTab === 'cutover') { selectedCutoverId = null; showNewCutoverForm(); }
-    else { selectedDeploymentId = null; showNewDeploymentForm(); }
-    renderDeployList();
-  });
 
   container.querySelectorAll('.demand-item[data-did]').forEach(el => {
     el.addEventListener('click', () => {
@@ -423,6 +460,7 @@ function showNewRunbookForm() {
       if (!res.ok) throw new Error('Failed to draft runbook.');
       const record = await res.json();
       selectedRunbookId = record.runbook_id;
+      selectedDemandId = record.demand_id || 'Unknown Demand';
       await window.fetchBuildDeployData();
     } catch (err) {
       errorBox.textContent = err.message;
@@ -650,7 +688,7 @@ function showNewCutoverForm(prefillRunbookId) {
   const panel = document.getElementById('deploy-panel-container');
   const approvedRunbooks = runbooks.filter(r => r.status === 'approved');
   const runbookOptions = approvedRunbooks.map(r =>
-    `<option value="${r.runbook_id}" ${r.runbook_id === prefillRunbookId ? 'selected' : ''}>${r.runbook_id} — ${r.title}</option>`
+    `<option value="${r.runbook_id}" ${r.runbook_id === prefillRunbookId ? 'selected' : ''}>${formatSimpleName(r.component_id)} - ${getEnvironment(r)}</option>`
   ).join('');
 
   panel.innerHTML = `
@@ -726,6 +764,7 @@ function showNewCutoverForm(prefillRunbookId) {
       if (!res.ok) throw new Error('Failed to start cutover.');
       const record = await res.json();
       selectedCutoverId = record.cutover_id;
+      selectedDemandId = record.demand_id || 'Unknown Demand';
       await window.fetchBuildDeployData();
     } catch (err) {
       errorBox.textContent = err.message;
@@ -842,6 +881,11 @@ function renderCutoverDetails(record) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'completed' })
       });
+      if (record.deployment_id) {
+        activeDeployTab = 'orchestration';
+        selectedDeploymentId = record.deployment_id;
+        window.renderBuildDeployScreen();
+      }
       await window.fetchBuildDeployData();
     });
   }
@@ -855,6 +899,11 @@ function renderCutoverDetails(record) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'aborted' })
       });
+      if (record.deployment_id) {
+        activeDeployTab = 'orchestration';
+        selectedDeploymentId = record.deployment_id;
+        window.renderBuildDeployScreen();
+      }
       await window.fetchBuildDeployData();
     });
   }
@@ -876,7 +925,7 @@ function showNewDeploymentForm(prefillRunbookId) {
 
   // Build runbook options — optionally pre-select one
   const runbookOptions = approvedRunbooks.map(r =>
-    `<option value="${r.runbook_id}" data-component="${r.component_id}" ${r.runbook_id === prefillRunbookId ? 'selected' : ''}>${r.runbook_id} — ${r.title} (${r.component_id})</option>`
+    `<option value="${r.runbook_id}" data-component="${r.component_id}" ${r.runbook_id === prefillRunbookId ? 'selected' : ''}>${formatSimpleName(r.component_id)} - ${getEnvironment(r)}</option>`
   ).join('');
 
   // Derive initial component ID from prefilled runbook (if any)
@@ -1016,6 +1065,7 @@ function showNewDeploymentForm(prefillRunbookId) {
       if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.detail || 'Failed to start deployment.'); }
       const record = await res.json();
       selectedDeploymentId = record.deployment_id;
+      selectedDemandId = record.demand_id || 'Unknown Demand';
       await window.fetchBuildDeployData();
     } catch (err) {
       errorBox.textContent = err.message;
@@ -1086,6 +1136,7 @@ function renderDeploymentDetails(record) {
         ` : ''}
         ${record.cutover_id ? `<button type="button" class="btn-secondary" id="btn-view-cutover">View Cutover Bridge</button>` : ''}
         ${record.cutover_id && record.status === 'in-progress' ? `<button type="button" class="btn-primary" id="btn-complete-deployment">Mark Deployment Done</button>` : ''}
+        ${record.status === 'done' ? `<button type="button" class="btn-primary" id="btn-next-stage">Proceed to Release & Change</button>` : ''}
       </div>
     </div>
   `;
@@ -1149,6 +1200,13 @@ function renderDeploymentDetails(record) {
       }
     });
   }
+
+  const nextStageBtn = document.getElementById('btn-next-stage');
+  if (nextStageBtn) {
+    nextStageBtn.addEventListener('click', () => {
+      window.location.hash = 'release-change';
+    });
+  }
 }
 
 
@@ -1184,7 +1242,9 @@ function renderDeployContent() {
       <label for="demand-component-select" style="font-weight:600;font-size:0.9rem;">Select ${typeLabel}:</label>
       <select id="demand-component-select" style="flex:1;max-width:400px;padding:0.4rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);background:var(--bg-primary);">
         ${demandItems.map(i => {
-           const label = activeDeployTab === 'runbooks' ? (i.environment ? `${i.title} (${i.environment})` : i.title) : activeDeployTab === 'cutover' ? `${i.component_id}` : `${i.component_id} (${i.environment || 'N/A'})`;
+           const cName = formatSimpleName(i.component_id);
+           const env = getEnvironment(i);
+           const label = `${cName} - ${env}`;
            return `<option value="${i[idField]}" ${i[idField] === activeItem[idField] ? 'selected' : ''}>${label}</option>`;
         }).join('')}
       </select>

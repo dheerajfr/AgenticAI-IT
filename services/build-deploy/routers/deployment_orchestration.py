@@ -151,7 +151,7 @@ def go_no_go(deployment_id: str, req: GoNoGoRequest):
         raise HTTPException(status_code=400, detail="Cannot go: one or more preconditions failed. Resolve them or record a no-go.")
 
     cutover = start_cutover(StartCutoverRequest(
-        demand_id=deployment_id,
+        demand_id=record.demand_id or "Unknown",
         component_id=record.component_id,
         runbook_id=record.runbook_id,
         stakeholders=req.stakeholders,
