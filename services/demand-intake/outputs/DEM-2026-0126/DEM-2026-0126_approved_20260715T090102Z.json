@@ -1,0 +1,42 @@
+{
+  "demand_id": "DEM-2026-0126",
+  "title": "Loan Approval Prediction",
+  "description": "Develop a machine learning model to predict loan approvals.",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-15",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Loan Approval Prediction (DEM-2026-0126)\n\nExecutive Summary  \nThis project aims to develop a machine learning model to accurately predict loan approvals, enhancing decision-making speed and consistency within the Customer Digital domain. Leveraging data-driven insights will improve operational efficiency and customer satisfaction.\n\nBusiness Value  \nAutomating loan approval predictions reduces manual processing time and errors, leading to faster approvals and increased throughput. This supports revenue growth by enabling scalable, reliable loan evaluations.\n\nRisk Mitigation  \nTo address medium-level risks, the project will incorporate rigorous model validation and compliance checks to ensure fairness and regulatory adherence. Continuous monitoring post-deployment will promptly identify and rectify potential biases or performance issues.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 92,
+  "earliest_start_date": "2026-08-14",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 11 total active team members evaluated.",
+    "Technical capability profiling: 26 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 0/440 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 4
+    },
+    {
+      "role": "QA Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    }
+  ],
+  "skill_gaps": [
+    "Machine Learning",
+    "Data Science",
+    "Backend Development",
+    "API Design"
+  ]
+}

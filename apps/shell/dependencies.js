@@ -1576,6 +1576,9 @@ async function handleCheckImpact() {
 }
 
 function showAutoSenseForm() {
+  const preSelectedPlanId = sessionStorage.getItem('dependencies_selected_plan_id');
+  sessionStorage.removeItem('dependencies_selected_plan_id');
+
   const container = document.getElementById('dependency-panel-container');
   container.innerHTML = `
     <div class="wizard-container">
@@ -1620,10 +1623,20 @@ function showAutoSenseForm() {
         if (!plansList || plansList.length === 0) {
           select.innerHTML = '<option value="">No active plans found</option>';
         } else {
-          select.innerHTML = plansList.map((p, idx) => {
-            const planName = p.release_name || `Plan ${idx + 1}: ${p.demand_id}`;
-            return `<option value="${p.plan_id}">${planName} (${p.demand_id})</option>`;
+          select.innerHTML = plansList.map(p => {
+            const title = p.project_title || "Unknown Project";
+            return `<option value="${p.plan_id}">${p.demand_id} - ${title}</option>`;
           }).join('');
+          
+          const activeDemandId = sessionStorage.getItem('selectedDemandId');
+          const matchedPlan = activeDemandId ? plansList.find(p => p.demand_id === activeDemandId) : null;
+          
+          if (preSelectedPlanId && plansList.some(p => p.plan_id === preSelectedPlanId)) {
+            select.value = preSelectedPlanId;
+          } else if (matchedPlan) {
+            select.value = matchedPlan.plan_id;
+          }
+          
           if (btn) btn.disabled = false;
         }
       }
@@ -1633,9 +1646,12 @@ function showAutoSenseForm() {
       const select = document.getElementById('select-plan-id');
       if (select) {
         select.innerHTML = `
-          <option value="PLN-0001-1">Plan 1: Loyalty Portal Integration (PLN-0001-1)</option>
-          <option value="PLN-0003-1">Plan 3: Security & SAST Pipelines (PLN-0003-1)</option>
+          <option value="PLN-0001-1">DEM-2026-0001 - Loyalty Portal Integration</option>
+          <option value="PLN-0003-1">DEM-2026-0003 - Security & SAST Pipelines</option>
         `;
+        if (preSelectedPlanId) {
+          select.value = preSelectedPlanId;
+        }
       }
       const btn = document.getElementById('btn-run-sense');
       if (btn) btn.disabled = false;

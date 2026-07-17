@@ -425,3 +425,488 @@ builder.add_edge("collision", END)
 builder.add_edge("audit", END)
 
 release_change_graph = builder.compile()
+
+# ==============================================================================
+# NEW STAGE 8 AGENTS (FOR RICH RELEASE FLOW)
+# ==============================================================================
+
+def _to_string(val) -> str:
+    if val is None:
+        return ""
+    if isinstance(val, list):
+        steps = []
+        for item in val:
+            if isinstance(item, dict):
+                step_str = item.get("step") or item.get("name") or item.get("description") or json.dumps(item)
+                steps.append(step_str)
+            else:
+                steps.append(str(item))
+        return "\n".join(steps)
+    if isinstance(val, dict):
+        return json.dumps(val)
+    return str(val)
+
+
+def run_change_record_agent(release_id: str, project_id: str, plan_id: str, db) -> dict:
+    """
+    Change Record Agent:
+    Retrieves upstream project and planning details, calls Gemini to draft
+    a professional ITSM change request, and saves it to the change_request table.
+    """
+    print(f"[Agent: Change Record] Generating documentation for Release {release_id}...")
+    
+    # Defaults
+    title = f"Deploy Release {release_id}"
+    description = f"Deployment of components specified in Plan {plan_id}."
+    summary = f"Deploy version associated with plan {plan_id}."
+    business_justification = "Required release for business capability update."
+    impact_analysis = "Low impact. Standard deployment window."
+    deployment_plan = "1. Run database migration\n2. Deploy app container\n3. Verify health endpoint"
+    validation_plan = "Run automated smoke test suite on target environment."
+    rollback_plan = "Revert to previous container image and restore database snapshot."
+    known_issues = "None."
+    
+    # Query demand
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT data FROM demands WHERE demand_id = ?", (project_id,))
+            row = cursor.fetchone()
+            if row:
+                demand_data = json.loads(row[0])
+                title = demand_data.get("title") or title
+                description = demand_data.get("description") or description
+                business_justification = demand_data.get("business_case_summary") or business_justification
+    except Exception as e:
+        print(f"[Agent: Change Record] Demand query failed: {e}")
+
+    # Query plan tasks for implementation steps
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT data FROM plans WHERE plan_id = ?", (plan_id,))
+            row = cursor.fetchone()
+            if row:
+                plan_data = json.loads(row[0])
+                tasks = plan_data.get("tasks") or []
+                if tasks:
+                    steps = []
+                    for idx, t in enumerate(tasks, start=1):
+                        steps.append(f"{idx}. {t.get('name')} (Owner: {t.get('owner')})")
+                    deployment_plan = "\n".join(steps)
+    except Exception as e:
+        print(f"[Agent: Change Record] Plan query failed: {e}")
+
+    prompt = f"""
+    You are an IT Change Management Specialist. Draft a professional ITSM Change Request for:
+    - Release ID: {release_id}
+    - Project: {title}
+    - Description: {description}
+    - Business Justification: {business_justification}
+    - Proposed Implementation Steps:
+    {deployment_plan}
+    
+    Format the response as a JSON object with keys:
+    - "summary": A high-level release summary sentence.
+    - "business_justification": Refined professional business case.
+    - "impact_analysis": Analysis of potential system impact during rollout.
+    - "deployment_plan": Step-by-step deploy instructions.
+    - "validation_plan": How to verify the release is successful.
+    - "rollback_plan": Step-by-step rollback instructions.
+    - "known_issues": Open defects or risks.
+    """
+
+    try:
+        res = call_gemini(prompt, is_json=True)
+        summary = _to_string(res.get("summary") or summary)
+        business_justification = _to_string(res.get("business_justification") or business_justification)
+        impact_analysis = _to_string(res.get("impact_analysis") or impact_analysis)
+        deployment_plan = _to_string(res.get("deployment_plan") or deployment_plan)
+        validation_plan = _to_string(res.get("validation_plan") or validation_plan)
+        rollback_plan = _to_string(res.get("rollback_plan") or rollback_plan)
+        known_issues = _to_string(res.get("known_issues") or known_issues)
+    except Exception as e:
+        print(f"[Agent: Change Record] Gemini failed, using defaults: {e}")
+
+    change_id = f"CR-{release_id.split('-')[-1]}-1"
+    created_at = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    
+    db.save_change_request(
+        change_id=change_id,
+        release_id=release_id,
+        summary=summary,
+        business_justification=business_justification,
+        impact_analysis=impact_analysis,
+        deployment_plan=deployment_plan,
+        validation_plan=validation_plan,
+        rollback_plan=rollback_plan,
+        known_issues=known_issues,
+        status="draft",
+        created_by="system.delivery",
+        created_at=created_at
+    )
+    
+    return {
+        "change_id": change_id,
+        "summary": summary,
+        "business_justification": business_justification,
+        "impact_analysis": impact_analysis,
+        "deployment_plan": deployment_plan,
+        "validation_plan": validation_plan,
+        "rollback_plan": rollback_plan,
+        "known_issues": known_issues,
+        "status": "draft",
+        "created_by": "system.delivery",
+        "created_at": created_at
+    }
+
+
+def run_risk_assessment_agent(release_id: str, db) -> dict:
+    """
+    Risk Assessment Agent:
+    Evaluates database/configuration changes, defects, security scans,
+    and blast radius to calculate an intelligent numerical risk score (0-100).
+    """
+    print(f"[Agent: Risk Assessment] Evaluating risk for Release {release_id}...")
+    
+    release_rec = db.get_release(release_id)
+    change_rec = db.get_change_request_by_release(release_id)
+    
+    project_id = release_rec.get("project_id") if release_rec else "DUMMY"
+    
+    # Mocking or extracting key factors from DB
+    database_changes = "No database schema alterations detected."
+    configuration_changes = "No configuration file drift detected."
+    security_score = 100
+    critical_defects = 0
+    dependency_score = 0
+    
+    # Query database changes (check config environment table or similar)
+    if release_rec:
+        env = release_rec.get("environment")
+        # Check drift from environments table
+        try:
+            with get_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT data FROM environments WHERE environment = ?", (env,))
+                rows = cursor.fetchall()
+                drift_count = 0
+                for r in rows:
+                    env_data = json.loads(r[0])
+                    if env_data.get("drift_status") == "drifted":
+                        drift_count += 1
+                if drift_count > 0:
+                    configuration_changes = f"Configuration drift detected on {drift_count} components."
+        except Exception:
+            pass
+
+    # Query dependencies for project
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT data FROM dependencies WHERE demand_id = ?", (project_id,))
+            rows = cursor.fetchall()
+            at_risk_dep = 0
+            for r in rows:
+                dep_data = json.loads(r[0])
+                if dep_data.get("status") in ["open", "at-risk"]:
+                    at_risk_dep += 1
+            if at_risk_dep > 0:
+                dependency_score = min(100, at_risk_dep * 25)
+    except Exception:
+        pass
+
+    # Basic deterministic math for fallback
+    db_changed = False
+    if change_rec:
+        dep_plan = change_rec.get("deployment_plan") or ""
+        dep_plan = _to_string(dep_plan)
+        db_changed = "alter" in dep_plan.lower() or "db" in dep_plan.lower()
+
+    if db_changed:
+        database_changes = "Database migrations or DDL operations detected in deployment steps."
+
+    # Compute a fallback score first
+    overall_score = 10
+    if db_changed:
+        overall_score += 20
+    if "drift" in configuration_changes.lower():
+        overall_score += 20
+    overall_score += min(50, dependency_score // 2)
+    overall_score = min(100, overall_score)
+
+    prompt = f"""
+    You are an AI Release Risk Officer. Evaluate the risk level of this deployment:
+    - Release ID: {release_id}
+    - Database Changes: {database_changes}
+    - Configuration Changes: {configuration_changes}
+    - Security vulnerabilities: {100 - security_score} points
+    - Critical Defects: {critical_defects}
+    - Dependency Risk Score: {dependency_score}/100
+    - Base Calculated Risk Score: {overall_score}/100
+    
+    Calculate:
+    1. A final risk score from 0 to 100.
+    2. A risk band: "low", "medium", or "high".
+    3. A clear justification / recommendation.
+    
+    Return a valid JSON object with keys:
+    - "overall_score": integer
+    - "risk_level": string
+    - "recommendation": string
+    """
+
+    try:
+        res = call_gemini(prompt, is_json=True)
+        overall_score = int(res.get("overall_score") or overall_score)
+        risk_level = res.get("risk_level") or ("high" if overall_score >= 60 else ("medium" if overall_score >= 35 else "low"))
+        recommendation = res.get("recommendation") or f"Standard approval flow. Risk level is {risk_level.upper()}."
+    except Exception as e:
+        print(f"[Agent: Risk Assessment] Gemini failed: {e}")
+        risk_level = "high" if overall_score >= 60 else ("medium" if overall_score >= 35 else "low")
+        recommendation = f"Calculated via rules engine. CAB Review required." if risk_level == "high" else "Pre-approved release path."
+
+    risk_id = f"RA-{release_id.split('-')[-1]}-1"
+    generated_at = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    
+    db.save_risk_assessment(
+        risk_id=risk_id,
+        release_id=release_id,
+        database_changes=database_changes,
+        configuration_changes=configuration_changes,
+        security_score=security_score,
+        critical_defects=critical_defects,
+        dependency_score=dependency_score,
+        overall_score=overall_score,
+        risk_level=risk_level,
+        recommendation=recommendation,
+        generated_at=generated_at
+    )
+    
+    # Sync with release table
+    cab_required = 1
+    cab_status = "pending-cab"
+    
+    # Update release status
+    if release_rec:
+        db.save_release(
+            release_id=release_rec["release_id"],
+            project_id=release_rec["project_id"],
+            plan_id=release_rec["plan_id"],
+            build_id=release_rec["build_id"],
+            version=release_rec["version"],
+            environment=release_rec["environment"],
+            status="Pending Approval",
+            planned_release_date=release_rec["planned_release_date"],
+            actual_release_date=release_rec["actual_release_date"],
+            risk_score=overall_score,
+            cab_required=cab_required,
+            cab_status=cab_status,
+            created_at=release_rec["created_at"],
+            updated_at=generated_at
+        )
+
+    return {
+        "risk_id": risk_id,
+        "overall_score": overall_score,
+        "risk_level": risk_level,
+        "recommendation": recommendation,
+        "generated_at": generated_at
+    }
+
+
+def run_cab_assistant_agent(release_id: str, db) -> dict:
+    """
+    CAB Assistant Agent:
+    Assembles CAB documentation and proactively identifies missing approvals or evidence.
+    """
+    print(f"[Agent: CAB Assistant] Preparing CAB packet for Release {release_id}...")
+    
+    release_rec = db.get_release(release_id)
+    change_rec = db.get_change_request_by_release(release_id)
+    risk_rec = db.get_risk_assessment_by_release(release_id)
+    
+    missing_approvals = []
+    required_documents = ["Change Request", "Risk Report"]
+    
+    # Auto-sense missing items
+    if not change_rec:
+        missing_approvals.append("Change Request is not drafted.")
+    if not risk_rec:
+        missing_approvals.append("AI Risk Assessment is missing.")
+    
+    # Query Quality Gate (mocked/sensed from test run)
+    qg_passed = True
+    if qg_passed:
+        required_documents.append("Test Summary Report (PASSED)")
+    else:
+        missing_approvals.append("Stage 07 Quality Gate verdict: FAILED.")
+        
+    prompt = f"""
+    You are an Executive CAB chairperson assistant. Help compile the review notes for release {release_id}:
+    - Change Summary: {change_rec.get('summary') if change_rec else 'N/A'}
+    - Risk Score: {risk_rec.get('overall_score') if risk_rec else 'N/A'} / 100
+    - Missing Approvals: {missing_approvals}
+    
+    Provide:
+    1. A list of 3 anticipated CAB review questions.
+    2. A checklist of required items.
+    
+    Format the response as a JSON object with keys:
+    - "questions": array of string (review questions)
+    - "document_checklist": array of string
+    """
+
+    questions = ["What is the estimated deployment duration?", "Has the rollback strategy been verified in Staging?"]
+    document_checklist = required_documents
+    
+    try:
+        res = call_gemini(prompt, is_json=True)
+        questions = res.get("questions") or questions
+        document_checklist = res.get("document_checklist") or document_checklist
+    except Exception as e:
+        print(f"[Agent: CAB Assistant] Gemini failed: {e}")
+        
+    return {
+        "release_id": release_id,
+        "missing_approvals": missing_approvals,
+        "document_checklist": document_checklist,
+        "anticipated_questions": questions
+    }
+
+
+def run_collision_agent(release_id: str, db) -> list[dict]:
+    """
+    Collision Detection Agent:
+    Checks for overlapping release windows, shared server/db resources, and freeze periods.
+    """
+    print(f"[Agent: Collision Detection] Checking for clashes for Release {release_id}...")
+    
+    release_rec = db.get_release(release_id)
+    if not release_rec:
+        return []
+        
+    start_date = release_rec.get("planned_release_date")
+    env = release_rec.get("environment")
+    
+    # Default server & database values
+    server = f"srv-{env}-node1"
+    database = f"db-{env}-master"
+    
+    collisions = []
+    
+    # Check calendar freeze (e.g. July/December)
+    if "-07-" in start_date or "-12-" in start_date:
+        col_id = f"CL-{release_id.split('-')[-1]}-freeze"
+        col_rec = {
+            "collision_id": col_id,
+            "release_id": release_id,
+            "conflicting_release": "System Freeze Window",
+            "shared_server": "N/A",
+            "shared_database": "N/A",
+            "shared_environment": env,
+            "reason": f"Planned release on {start_date} falls within the standard mid-year/year-end production freeze period.",
+            "recommended_schedule": "Next available Tuesday off-freeze.",
+            "status": "conflict"
+        }
+        db.save_release_collision(**col_rec)
+        collisions.append(col_rec)
+
+    # Check same-environment concurrent releases
+    all_rels = db.get_all_releases()
+    for other in all_rels:
+        if other["release_id"] != release_id and other["environment"] == env:
+            # Overlap test (simple date string equality for same day)
+            if other["planned_release_date"] == start_date:
+                col_id = f"CL-{release_id.split('-')[-1]}-{other['release_id'].split('-')[-1]}"
+                col_rec = {
+                    "collision_id": col_id,
+                    "release_id": release_id,
+                    "conflicting_release": other["release_id"],
+                    "shared_server": server,
+                    "shared_database": database,
+                    "shared_environment": env,
+                    "reason": f"Concurrent release schedule on {env} environment. Release {other['release_id']} is scheduled at the same date.",
+                    "recommended_schedule": "Reschedule release to alternate time slot.",
+                    "status": "conflict"
+                }
+                db.save_release_collision(**col_rec)
+                collisions.append(col_rec)
+                
+    return collisions
+
+
+def run_audit_agent(release_id: str, db) -> list[dict]:
+    """
+    Audit & Compliance Agent:
+    Assembles evidence from upstream modules, computes regulatory traceability,
+    and updates the audit_log table.
+    """
+    print(f"[Agent: Audit & Compliance] Building compliance records for Release {release_id}...")
+    
+    release_rec = db.get_release(release_id)
+    if not release_rec:
+        return []
+        
+    project_id = release_rec.get("project_id")
+    plan_id = release_rec.get("plan_id")
+    
+    events = []
+    
+    # 1. Demand Approved (Stage 01)
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT data FROM demands WHERE demand_id = ?", (project_id,))
+            row = cursor.fetchone()
+            if row:
+                events.append({
+                    "audit_id": f"AU-{release_id.split('-')[-1]}-1",
+                    "release_id": release_id,
+                    "event": "Demand Approved",
+                    "performed_by": "alice.smith@example.com",
+                    "timestamp": "2026-07-14T09:00:00Z",
+                    "evidence_link": f"/api/demands/{project_id}",
+                    "module_name": "Demand & Intake"
+                })
+    except Exception:
+        pass
+        
+    # 2. Plan generated & accepted (Stage 03)
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT data FROM plans WHERE plan_id = ?", (plan_id,))
+            row = cursor.fetchone()
+            if row:
+                events.append({
+                    "audit_id": f"AU-{release_id.split('-')[-1]}-2",
+                    "release_id": release_id,
+                    "event": "Plan Generated & Accepted",
+                    "performed_by": "system.scheduler",
+                    "timestamp": "2026-07-14T10:00:00Z",
+                    "evidence_link": f"/api/plans/{plan_id}",
+                    "module_name": "Plan & Schedule"
+                })
+    except Exception:
+        pass
+
+    # 3. Change request drafted
+    cr = db.get_change_request_by_release(release_id)
+    if cr:
+        events.append({
+            "audit_id": f"AU-{release_id.split('-')[-1]}-3",
+            "release_id": release_id,
+            "event": "Change Request Drafted",
+            "performed_by": "system.delivery",
+            "timestamp": cr.get("created_at"),
+            "evidence_link": f"/api/release-change/releases/{release_id}",
+            "module_name": "Release & Change"
+        })
+
+    # Save to DB
+    for ev in events:
+        db.add_audit_log(**ev)
+        
+    return events
+

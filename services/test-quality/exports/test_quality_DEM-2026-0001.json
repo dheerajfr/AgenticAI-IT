@@ -1,0 +1,226 @@
+{
+  "demand_id": "DEM-2026-0001",
+<<<<<<< HEAD
+  "updated_at": "2026-07-16T09:33:56Z",
+  "test_generation": {
+    "suite_id": "TST-0068-1",
+    "demand_id": "DEM-2026-0001",
+    "plan_id": "PLN-0001-1",
+    "generated_at": "2026-07-13T10:00:00Z",
+    "test_cases": [
+      {
+        "test_id": "TC-001",
+        "story_id": "US-101",
+        "title": "Successful payment with valid card",
+        "steps": [
+          "POST /api/payments with valid card",
+          "Assert 200 and transaction_id returned"
+        ],
+        "expected_result": "Payment accepted, transaction recorded",
+        "priority": "critical",
+        "type": "functional"
+=======
+  "updated_at": "2026-07-16T06:28:32Z",
+  "test_generation": {
+    "suite_id": "TST-DEM-2026-0001-1",
+    "demand_id": "DEM-2026-0001",
+    "plan_id": "PLN-undefined-1",
+    "generated_at": "2024-06-01T12:00:00Z",
+    "test_cases": [
+      {
+        "test_id": "TC-001",
+        "story_id": "DEM-2026-0001",
+        "title": "Validate Aurora PostgreSQL Database Connection and Data Integrity Post-Migration",
+        "steps": [
+          "Connect to the Aurora PostgreSQL instance configured for the loyalty portal.",
+          "Run sample queries to verify schema correctness.",
+          "Validate data consistency by comparing key data sets against the legacy database export.",
+          "Run transaction tests to ensure database operations succeed without error."
+        ],
+        "expected_result": "Database connection is successful, schemas are correct, data is consistent, and transactions complete without errors.",
+        "priority": "critical",
+        "type": "functional"
+      },
+      {
+        "test_id": "TC-002",
+        "story_id": "DEM-2026-0001",
+        "title": "Verify Automated CI/CD Pipeline Execution and Deployment",
+        "steps": [
+          "Trigger a build in the new CI/CD pipeline.",
+          "Validate that code compiles and unit tests are executed.",
+          "Ensure successful deployment to the AWS staging environment.",
+          "Verify rollback triggers function correctly upon deployment failure."
+        ],
+        "expected_result": "CI/CD pipeline completes all stages successfully and deploys the application; rollback executes correctly when triggered.",
+        "priority": "critical",
+        "type": "automation"
+      },
+      {
+        "test_id": "TC-003",
+        "story_id": "DEM-2026-0001",
+        "title": "End-to-End Flow Test of Customer Loyalty Portal on AWS",
+        "steps": [
+          "Access the loyalty portal via the configured AWS environment URL.",
+          "Perform login with a valid customer account.",
+          "Simulate earning rewards and redeeming points.",
+          "Validate UI response times and backend transaction accuracy."
+        ],
+        "expected_result": "Portal functions end-to-end without errors, UI is responsive within SLA, and transactions are recorded correctly.",
+        "priority": "high",
+        "type": "end-to-end"
+      },
+      {
+        "test_id": "TC-004",
+        "story_id": "DEM-2026-0001",
+        "title": "Validate Data Migration Scripts for Accuracy and Completeness",
+        "steps": [
+          "Execute the migration scripts on a test dataset.",
+          "Compare source and target datasets for completeness and accuracy.",
+          "Check for any data transformation errors or losses.",
+          "Review audit logs generated during migration."
+        ],
+        "expected_result": "Data migration completes without errors, data is accurate and complete, and audit logs confirm all records processed.",
+        "priority": "high",
+        "type": "data"
+      },
+      {
+        "test_id": "TC-005",
+        "story_id": "DEM-2026-0001",
+        "title": "Security Test: Validate Access Controls on AWS Deployed Portal",
+        "steps": [
+          "Attempt unauthorized access to AWS-hosted loyalty portal features.",
+          "Test role-based access permissions for various user types.",
+          "Verify encryption of data in transit and at rest.",
+          "Check logs for unauthorized access attempts."
+        ],
+        "expected_result": "Unauthorized access is blocked, roles are enforced correctly, data is encrypted properly, and logs capture all access attempts.",
+        "priority": "medium",
+        "type": "security"
+      },
+      {
+        "test_id": "TC-006",
+        "story_id": "DEM-2026-0001",
+        "title": "Performance Test: Measure Portal Scalability and Response under Load",
+        "steps": [
+          "Simulate concurrent users accessing the portal during peak loads.",
+          "Monitor response times and resource utilization on AWS infrastructure.",
+          "Verify system stability and no degradation in user experience.",
+          "Check for any error logs or failures."
+        ],
+        "expected_result": "Portal maintains acceptable response times under peak load with stable operation and no errors.",
+        "priority": "medium",
+        "type": "performance"
+>>>>>>> main
+      }
+    ],
+    "coverage_summary": {
+      "total_stories": 1,
+      "stories_covered": 1,
+<<<<<<< HEAD
+      "total_test_cases": 1,
+      "critical_path_coverage_pct": 100.0
+=======
+      "total_test_cases": 6,
+      "critical_path_coverage_pct": 66.67
+>>>>>>> main
+    },
+    "status": "draft"
+  },
+  "test_data": {
+    "data_provision_id": "TDP-0068-1",
+    "suite_id": "TST-0068-1",
+    "demand_id": "DEM-2026-0001",
+    "environment": "test",
+    "datasets": [
+      {
+        "schema": "db://payments/transactions",
+        "record_count": 100,
+        "masking_applied": true,
+        "location": "test-db://payments/synthetic_20260714"
+      }
+    ],
+    "privacy_sign_off": null,
+    "signed_off_by": null,
+    "expires_at": "2026-07-16T10:00:00Z",
+    "status": "pending-approval"
+  },
+<<<<<<< HEAD
+  "test_execution": null,
+=======
+  "test_execution": {
+    "test_run_id": "TR-DEM-2026-0001-1",
+    "suite_id": "TST-0068-1",
+    "demand_id": "DEM-2026-0001",
+    "environment": "test",
+    "executed_at": "2026-07-13T10:15:00Z",
+    "results": [
+      {
+        "test_id": "TC-001",
+        "status": "passed",
+        "duration_ms": 430,
+        "failure_analysis": null
+      }
+    ],
+    "summary": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    "defect_ids_raised": [],
+    "human_acceptance": null,
+    "status": "pending-approval"
+  },
+>>>>>>> main
+  "defect_triage": {
+    "triage_id": "TRG-0068-1",
+    "test_run_id": "TR-0068-1",
+    "demand_id": "DEM-2026-0001",
+    "triaged_defects": [
+      {
+        "defect_id": "BUG-4421",
+        "severity": "critical",
+        "priority": 1,
+        "cluster": "payments-timeout",
+        "duplicate_of": null,
+        "root_cause_hint": "Connection pool exhausted",
+        "assigned_to": "d.chen",
+        "recommended_action": "fix-before-release"
+      }
+    ],
+    "release_risk_summary": "1 critical defect blocks release",
+    "human_confirmed": false,
+    "status": "pending-approval"
+  },
+  "security_testing": {
+    "security_test_id": "SEC-0068-1",
+    "demand_id": "DEM-2026-0001",
+    "plan_id": "PLN-0001-1",
+    "pipeline_run_id": "CI-RUN-9901",
+    "scanned_at": "2026-07-13T08:00:00Z",
+    "findings": [
+      {
+        "finding_id": "FND-001",
+        "component_id": "svc-payments-api",
+        "severity": "high",
+        "category": "SQL Injection",
+        "location": "src/routes/payments.py:L88",
+        "exploitable": true,
+        "draft_fix": "Use parameterised query",
+        "status": "open"
+      }
+    ],
+    "summary": {
+      "critical": 0,
+      "high": 1,
+      "medium": 0,
+      "low": 0
+    },
+    "exploitable_confirmed": false,
+    "signed_off_by": null,
+    "status": "pending-approval"
+  },
+  "traceability": null,
+  "quality_gate": null
+}

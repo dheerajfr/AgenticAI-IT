@@ -44,6 +44,15 @@ def get_session(cutover_id: str):
     return record
 
 
+@router.delete("/{cutover_id}")
+def delete_session(cutover_id: str):
+    record = cutover_db.get_by_id(cutover_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Cutover session not found.")
+    cutover_db.delete(cutover_id)
+    return {"status": "ok"}
+
+
 @router.post("/start", response_model=CutoverSession)
 def start_cutover(req: StartCutoverRequest):
     """
@@ -62,7 +71,8 @@ def start_cutover(req: StartCutoverRequest):
 
     now = _now_iso()
     record = CutoverSession(
-        cutover_id=_next_id(),
+        cutover_id=f"{req.demand_id}-{req.component_id}",
+        demand_id=req.demand_id,
         deployment_id=req.deployment_id,
         component_id=req.component_id,
         runbook_id=req.runbook_id,

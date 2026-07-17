@@ -30,21 +30,40 @@ def evaluate_readiness(req: EvaluateReadinessRequest) -> ReleaseReadinessCheck:
     """
     checks: List[ReadinessCheckItem] = []
 
-    # Drift detection / baseline reconcile - Module 05 (Config & environments)
+    # Version Requirements Check - Module 05 (Config & environments)
     env_state = read_environment_state(req.component_id, req.environment)
     if env_state is None:
         checks.append(ReadinessCheckItem(
-            name="drift-detection",
+            name="version-check",
             passed=False,
             detail=f"No environment state record found for {req.component_id} in {req.environment} (Module 05)."
         ))
     else:
-        drift_ok = env_state.get("drift_status") == "in-sync"
+        expected_version = env_state.get('expected_version')
+        version_match = req.version_being_deployed == expected_version
         checks.append(ReadinessCheckItem(
-            name="drift-detection",
-            passed=drift_ok,
-            detail=f"Deployed {env_state.get('deployed_version')} vs expected {env_state.get('expected_version')} - {env_state.get('drift_status')}."
+            name="version-check",
+            passed=version_match,
+            detail=f"Deploying {req.version_being_deployed} vs required {expected_version}."
         ))
+
+        # Check all expected requirements are observed
+        expected_reqs = set(env_state.get('expected_requirements') or [])
+        observed_reqs = set(env_state.get('observed_requirements') or [])
+        missing_reqs = expected_reqs - observed_reqs
+        if not expected_reqs:
+            checks.append(ReadinessCheckItem(
+                name="requirements-check",
+                passed=True,
+                detail="No expected requirements defined in Stage 5."
+            ))
+        else:
+            checks.append(ReadinessCheckItem(
+                name="requirements-check",
+                passed=len(missing_reqs) == 0,
+                detail=f"Missing requirements: {', '.join(missing_reqs)}" if missing_reqs else f"All {len(expected_reqs)} requirements met."
+            ))
+
 
     # Runbook approved
     if req.runbook_id:

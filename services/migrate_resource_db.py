@@ -23,15 +23,66 @@ print("Reading existing resources...")
 with get_db() as conn:
     cursor = conn.cursor()
 
+<<<<<<< HEAD
+    # Check if resources table has total_capacity column (original schema)
+    cursor.execute("PRAGMA table_info(resources)")
+    res_cols = [col[1] for col in cursor.fetchall()]
+    
+    source_table = None
+    if "total_capacity" in res_cols:
+        # resources has the original schema, so we back it up
+        cursor.execute("DROP TABLE IF EXISTS resources_backup")
+        cursor.execute("CREATE TABLE resources_backup AS SELECT * FROM resources")
+        conn.commit()
+        print("  [+] Backed up original 'resources' table to 'resources_backup'.")
+        source_table = "resources"
+    else:
+        # Check resources_backup in current DB
+        cursor.execute("PRAGMA table_info(resources_backup)")
+        backup_cols = [col[1] for col in cursor.fetchall()]
+        if "total_capacity" in backup_cols:
+            print("  [+] 'resources' table is already migrated. Reading original data from 'resources_backup' in source.db.")
+            source_table = "resources_backup"
+        else:
+            # Fallback: check if we can read from services/resource.db resources_backup
+            r_db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "resource.db"))
+            if os.path.exists(r_db_path):
+                print("  [+] Reading original data from services/resource.db resources_backup.")
+                cursor.execute("ATTACH DATABASE ? AS res_db", (r_db_path,))
+                try:
+                    cursor.execute("SELECT name, role, skills, total_capacity, allocated_capacity FROM res_db.resources_backup")
+                    old_rows = cursor.fetchall()
+                except Exception:
+                    cursor.execute("SELECT name, role, skills, total_capacity, allocated_capacity FROM res_db.resources")
+                    old_rows = cursor.fetchall()
+                cursor.execute("DETACH DATABASE res_db")
+                source_table = None
+            else:
+                raise Exception("Could not find the original resource data (with total_capacity) in resources or resources_backup.")
+
+    if source_table:
+        cursor.execute(f"SELECT name, role, skills, total_capacity, allocated_capacity FROM {source_table}")
+        old_rows = cursor.fetchall()
+        
+    print(f"  [+] Found {len(old_rows)} records.")
+=======
+    # Check if already migrated
+    cursor.execute("PRAGMA table_info(resources)")
+    cols = [c[1] for c in cursor.fetchall()]
+    if 'name' not in cols:
+        print("  [OK] The table 'resources' is already migrated (no 'name' column). Skipping migration.")
+        sys.exit(0)
+
     # Backup original table
     cursor.execute("DROP TABLE IF EXISTS resources_backup")
     cursor.execute("CREATE TABLE resources_backup AS SELECT * FROM resources")
     conn.commit()
-    print("  ✔ Backed up original 'resources' table to 'resources_backup'.")
+    print("  [OK] Backed up original 'resources' table to 'resources_backup'.")
 
     cursor.execute("SELECT name, role, skills, total_capacity, allocated_capacity FROM resources")
     old_rows = cursor.fetchall()
-    print(f"  ✔ Found {len(old_rows)} records.")
+    print(f"  [OK] Found {len(old_rows)} records.")
+>>>>>>> main
 
 # ── Rebuild with new schema ───────────────────────────────────────────────────
 print("\nRebuilding 'resources' table with employee schema...")
@@ -76,13 +127,10 @@ with get_db() as conn:
             skills_list = [skills] if skills else []
         skill = skills_list[0] if skills_list else role
 
-        # Derive allocation percentage from capacity figures
+        # Make everyone unallocated for this refresh
         allocation_pct = 0.0
-        if total_cap and total_cap > 0 and alloc_cap:
-            allocation_pct = round((alloc_cap / total_cap) * 100, 1)
-
-        status    = "Allocated" if allocation_pct > 0 else "Available"
-        allocated = 1 if status == "Allocated" else 0
+        status    = "Available"
+        allocated = 0
 
         cursor.execute("""
             INSERT INTO resources (
@@ -102,7 +150,11 @@ with get_db() as conn:
             None, None
         ))
 
-        print(f"  ✔ Inserted {emp_id} | {name} | {role} | {status} ({allocation_pct}%)")
+<<<<<<< HEAD
+        print(f"  [+] Inserted {emp_id} | {name} | {role} | {status} ({allocation_pct}%)")
+=======
+        print(f"  [OK] Inserted {emp_id} | {name} | {role} | {status} ({allocation_pct}%)")
+>>>>>>> main
 
     conn.commit()
 
@@ -122,4 +174,8 @@ with get_db() as conn:
     for r in rows:
         print(f"  {r}")
 
-print("\n✅ Migration complete. Original data preserved in 'resources_backup'.")
+<<<<<<< HEAD
+print("\n[+] Migration complete. Original data preserved in 'resources_backup'.")
+=======
+print("\n[DONE] Migration complete. Original data preserved in 'resources_backup'.")
+>>>>>>> main

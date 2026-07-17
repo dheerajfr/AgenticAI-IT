@@ -103,3 +103,27 @@ class AuditTrailRequest(BaseModel):
     demand_id: str
     change_record_id: str
     event_sources: List[str]
+
+class ReleaseCreateRequest(BaseModel):
+    project_id: str
+    plan_id: Optional[str] = None
+    build_id: Optional[str] = None
+    version: Optional[str] = None
+    environment: Optional[str] = None
+    planned_release_date: Optional[str] = None
+
+class ChangeRequestEdit(BaseModel):
+    summary: str
+    business_justification: str
+    impact_analysis: str
+    deployment_plan: str
+    validation_plan: str
+    rollback_plan: str
+    known_issues: str
+
+class CABReviewSubmit(BaseModel):
+    meeting_date: str
+    chairperson: str
+    decision: str
+    comments: str
+

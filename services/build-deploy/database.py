@@ -131,8 +131,16 @@ deployments_db.load_fixtures(os.path.join(FIXTURES_ROOT, "deployments"))
 # ---------------------------------------------------------------------------
 
 def read_environment_state(component_id: str, environment: str) -> Optional[dict]:
+<<<<<<< HEAD
     import sys
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+=======
+    config_env_db_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "source.db")
+    )
+    if not os.path.exists(config_env_db_path):
+        return None
+>>>>>>> main
     try:
         from shared_db.connection import get_db
     except ImportError:
@@ -143,11 +151,19 @@ def read_environment_state(component_id: str, environment: str) -> Optional[dict
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute(
+<<<<<<< HEAD
                 "SELECT data FROM environments WHERE demand_id = ? AND environment = ?",
                 (component_id, environment)
+=======
+                "SELECT data FROM environments WHERE environment = ?",
+                (environment,)
+>>>>>>> main
             )
-            row = cursor.fetchone()
-            return json.loads(row[0]) if row else None
+            for row in cursor.fetchall():
+                data = json.loads(row[0])
+                if component_id in (data.get("demand_id"), data.get("cmdb_name"), data.get("observed_name")):
+                    return data
+            return None
     except Exception as e:
         print(f"Error reading shared DB for environments of {component_id}/{environment}: {e}")
         return None

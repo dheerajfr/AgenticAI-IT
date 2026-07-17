@@ -97,10 +97,38 @@ def delete_resource(name: str):
     return {"status": "deleted"}
 
 
+def sync_demand_resource_constraints_with_live_db(record: DemandRecord):
+    if not record.resource_constraints:
+        return
+    try:
+        resources = resource_db.get_all_resources()
+        role_available_people = {}
+        for res in resources:
+            role = res["role"]
+            avail = res["total_capacity"] - res["allocated_capacity"]
+            if avail > 0:
+                role_available_people[role] = role_available_people.get(role, 0) + 1
+        updated_constraints = []
+        for rc in record.resource_constraints:
+            role = rc.get("role")
+            if role:
+                new_rc = dict(rc)
+                new_rc["availableCapacity"] = role_available_people.get(role, 0)
+                updated_constraints.append(new_rc)
+            else:
+                updated_constraints.append(rc)
+        record.resource_constraints = updated_constraints
+    except Exception as e:
+        print(f"Error syncing demand resource constraints: {e}")
+
+
 @app.get("/api/demands", response_model=List[DemandRecord])
 def get_demands():
     """List all demand records in the system."""
-    return db.get_all()
+    records = db.get_all()
+    for r in records:
+        sync_demand_resource_constraints_with_live_db(r)
+    return records
 
 
 @app.get("/api/demands/{demand_id}", response_model=DemandRecord)
@@ -109,6 +137,7 @@ def get_demand(demand_id: str):
     record = db.get_by_id(demand_id)
     if not record:
         raise HTTPException(status_code=404, detail="Demand record not found.")
+    sync_demand_resource_constraints_with_live_db(record)
     return record
 
 

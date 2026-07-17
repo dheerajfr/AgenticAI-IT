@@ -120,6 +120,14 @@ function switchStage(stageId) {
     if (window.renderReleaseChangeScreen) {
       window.renderReleaseChangeScreen();
       window.fetchReleaseChange();
+<<<<<<< HEAD
+=======
+    }
+  } else if (stageId === 'test-quality') {
+    if (window.renderTestQualityScreen) {
+      window.renderTestQualityScreen();
+      window.fetchTestQualityData();
+>>>>>>> main
     }
   } else {
     // Render the placeholder web component for other stages
@@ -1307,7 +1315,7 @@ async function loadWorkforcePool() {
   const workforceScrollTop = container.scrollTop;
   
   try {
-    const res = await fetch(`${API_BASE}/demands/resources`);
+    const res = await fetch(`${API_BASE}/demands/resources?t=${Date.now()}`);
     if (!res.ok) throw new Error("Failed to fetch workforce pool");
     const pool = await res.json();
     

@@ -1,0 +1,49 @@
+{
+  "demand_id": "DEM-2026-0122",
+  "title": "Automate SDLC using AgenticAI",
+  "description": "Request to automate the Software Development Life Cycle (SDLC) using AgenticAI technology.",
+  "type": "project",
+  "domain": "Infrastructure",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-15",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Automate SDLC using AgenticAI (DEM-2026-0122)\n\nExecutive Summary  \nThis project aims to streamline the Software Development Life Cycle by integrating AgenticAI technology for automation. The initiative targets improved efficiency and reduced manual effort in infrastructure-related development processes.\n\nBusiness Value/Impact  \nAutomating SDLC will accelerate delivery timelines and enhance software quality, leading to cost savings and competitive advantage. It will also support scalability and consistent compliance across development projects.\n\nRisk Mitigation  \nGiven the high-risk level, thorough testing and phased implementation will be employed to minimize disruptions. Continuous monitoring and fallback protocols will ensure system stability throughout the transition.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 83,
+  "earliest_start_date": "2026-08-14",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 13 total active team members evaluated.",
+    "Technical capability profiling: 29 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 0/520 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 5
+    },
+    {
+      "role": "QA Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Senior Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 4
+    }
+  ],
+  "skill_gaps": [
+    "AgenticAI",
+    "SDLC Automation",
+    "Backend Development",
+    "Frontend Development",
+    "System Architecture",
+    "Quality Assurance"
+  ]
+}

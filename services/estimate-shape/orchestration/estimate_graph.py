@@ -159,7 +159,7 @@ def trigger_check_node(state: EstimateState) -> Dict[str, Any]:
     # We also need the current estimate's risk_factors!
     risk_factors = state.get("risk_factors") or []
     
-    # Simulated live fetch from resource.db
+    # Simulated live fetch from source.db
     import json
     live_info = fetch_live_resources_from_db(state.get("demand_id"))
     
@@ -173,7 +173,7 @@ def trigger_check_node(state: EstimateState) -> Dict[str, Any]:
     Initial Constraints: {constraints}
     Estimate Risk Factors (Already Priced In): {risk_factors}
     
-    LATEST LIVE RESOURCE POOL DATA (from resources.db):
+    LATEST LIVE RESOURCE POOL DATA (from source.db):
     {json.dumps(live_info, indent=2)}
     
     Simulate a live project scenario 3 months in based on these inputs.

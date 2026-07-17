@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+
+>>>>>>> main
 import os
 import sys
 
@@ -43,6 +47,7 @@ def service_info():
         ],
         "pending": [],
     }
+<<<<<<< HEAD
 
 
 @app.get("/api/build-deploy/health")
@@ -62,3 +67,5 @@ def get_all_change_records():
     except Exception as e:
         print(f"Error fetching change records: {e}")
         return []
+=======
+>>>>>>> main

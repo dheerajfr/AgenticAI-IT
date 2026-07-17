@@ -52,9 +52,25 @@ def start_deployment(req: StartDeploymentRequest):
         raise HTTPException(status_code=400, detail=f"Runbook {req.runbook_id} is not approved (status: {runbook.status}).")
 
     now = _now_iso()
+    deployment_id = f"{req.demand_id}-{req.component_id}"
+    record = deployments_db.get_by_id(deployment_id)
+    if record:
+        record.version = req.version
+        record.environment = req.environment
+        record.runbook_id = req.runbook_id
+        record.status = "planned"
+        record.preconditions = []
+        record.cutover_id = None
+        record.decided_by = None
+        record.updated_at = now
+        deployments_db.save(record)
+        return record
+
     record = DeploymentRecord(
-        deployment_id=_next_id(),
+        deployment_id=deployment_id,
+        demand_id=req.demand_id,
         component_id=req.component_id,
+        version=req.version,
         environment=req.environment,
         runbook_id=req.runbook_id,
         status="planned",
@@ -80,6 +96,7 @@ def check_preconditions(deployment_id: str):
         environment=record.environment,
         runbook_id=record.runbook_id,
         deployment_id=record.deployment_id,
+        version_being_deployed=record.version,
     ))
     rollback = validate_rollback(ValidateRollbackRequest(
         component_id=record.component_id,
@@ -92,9 +109,21 @@ def check_preconditions(deployment_id: str):
     ))
 
     record.preconditions = [
-        PreconditionCheck(name="release-readiness", source="release-readiness", passed=readiness.ready, detail=readiness.evidence_summary),
-        PreconditionCheck(name="rollback-readiness", source="rollback-readiness", passed=rollback.viable, detail="; ".join(rollback.issues) or "Rollback plan is viable."),
+        PreconditionCheck(
+            name=c.name,
+            source="release-readiness",
+            passed=c.passed,
+            detail=c.detail
+        ) for c in readiness.checks
     ]
+    record.preconditions.append(
+        PreconditionCheck(
+            name="rollback-readiness",
+            source="rollback-readiness",
+            passed=rollback.viable,
+            detail="; ".join(rollback.issues) or "Rollback plan is viable."
+        )
+    )
     record.status = "checking"
     record.updated_at = _now_iso()
     deployments_db.save(record)
@@ -122,6 +151,7 @@ def go_no_go(deployment_id: str, req: GoNoGoRequest):
         raise HTTPException(status_code=400, detail="Cannot go: one or more preconditions failed. Resolve them or record a no-go.")
 
     cutover = start_cutover(StartCutoverRequest(
+        demand_id=deployment_id,
         component_id=record.component_id,
         runbook_id=record.runbook_id,
         stakeholders=req.stakeholders,
@@ -150,3 +180,12 @@ def complete_deployment(deployment_id: str):
     record.updated_at = _now_iso()
     deployments_db.save(record)
     return record
+
+
+@router.delete("/{deployment_id}")
+def delete_deployment(deployment_id: str):
+    """Permanently delete a deployment record."""
+    deleted = deployments_db.delete(deployment_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Deployment not found.")
+    return {"message": f"Deployment {deployment_id} deleted."}

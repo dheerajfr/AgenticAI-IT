@@ -9,7 +9,12 @@ class StageRail extends HTMLElement {
       { id: 'plan-schedule', label: 'Plan & schedule', status: 'live' },
       { id: 'dependencies', label: 'Dependencies', status: 'live' },
       { id: 'config-environments', label: 'Config & environments', status: 'live' },
+<<<<<<< HEAD
       { id: 'build-deploy', label: 'Build & deploy', status: 'live' },
+=======
+      { id: 'build-deploy', label: 'Build & Deploy', status: 'live' },
+      { id: 'test-quality', label: 'Test & Quality', status: 'live' },
+>>>>>>> main
       { id: 'release-change', label: 'Release & Change', status: 'live' }
     ];
   }
@@ -59,6 +64,10 @@ class StageRail extends HTMLElement {
           align-items: stretch;
           justify-content: space-between;
           overflow-x: auto;
+          scrollbar-width: none; /* Firefox */
+        }
+        .rail-container::-webkit-scrollbar {
+          display: none; /* Chrome, Safari, Opera */
         }
         .stage-node {
           flex: 1;
@@ -66,14 +75,14 @@ class StageRail extends HTMLElement {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 1.25rem 1rem;
+          padding: 1rem 0.5rem;
           cursor: pointer;
           border-bottom: 3px solid transparent;
           transition: all var(--transition-normal, 0.25s) ease;
           user-select: none;
           text-align: center;
           position: relative;
-          min-width: 160px;
+          min-width: 120px;
         }
         .stage-node::after {
           content: '';
@@ -96,7 +105,7 @@ class StageRail extends HTMLElement {
         }
         .stage-title {
           font-family: var(--font-display, 'Outfit', sans-serif);
-          font-size: 0.9rem;
+          font-size: 0.8rem;
           font-weight: 600;
           margin-bottom: 0.5rem;
           color: var(--text-secondary, #94a3b8);

@@ -22,6 +22,7 @@ class RunbookStep(BaseModel):
 
 class RunbookRecord(BaseModel):
     runbook_id: str
+    demand_id: Optional[str] = None
     deployment_id: Optional[str] = Field(None, description="FK to the Deployment orchestration run, once that exists")
     component_id: str
     title: str
@@ -36,7 +37,9 @@ class RunbookRecord(BaseModel):
 
 
 class DraftRunbookRequest(BaseModel):
+    demand_id: str
     component_id: str
+    environment: Literal["dev", "test", "staging", "prod"] = "prod"
     change_summary: str = Field(..., description="What the change/release is, for the LLM to draft steps from")
     architecture_notes: Optional[str] = Field(None, description="Freeform architecture context")
     prior_runbook_id: Optional[str] = None
@@ -67,6 +70,7 @@ class CutoverStepStatus(BaseModel):
 
 class CutoverSession(BaseModel):
     cutover_id: str
+    demand_id: Optional[str] = None
     deployment_id: Optional[str] = Field(None, description="FK to the Deployment orchestration run, once that exists")
     component_id: str
     runbook_id: Optional[str] = Field(None, description="Runbook this cutover is executing")
@@ -79,6 +83,7 @@ class CutoverSession(BaseModel):
 
 
 class StartCutoverRequest(BaseModel):
+    demand_id: str
     component_id: str
     runbook_id: Optional[str] = None
     stakeholders: List[str] = Field(default_factory=list)
@@ -158,7 +163,9 @@ class PreconditionCheck(BaseModel):
 
 class DeploymentRecord(BaseModel):
     deployment_id: str
+    demand_id: Optional[str] = None
     component_id: str
+    version: str = Field("v0.0.0", description="The version being deployed")
     environment: Literal["dev", "test", "staging", "prod"] = "prod"
     runbook_id: Optional[str] = Field(None, description="Approved runbook this deployment executes")
     cutover_id: Optional[str] = Field(None, description="Cutover session opened once the go decision is made")
@@ -170,7 +177,9 @@ class DeploymentRecord(BaseModel):
 
 
 class StartDeploymentRequest(BaseModel):
+    demand_id: str
     component_id: str
+    version: str = Field(..., description="The version to deploy")
     runbook_id: str = Field(..., description="Must reference an approved RunbookRecord")
     environment: Literal["dev", "test", "staging", "prod"] = "prod"
 
@@ -179,3 +188,13 @@ class GoNoGoRequest(BaseModel):
     decision: Literal["go", "no-go"]
     decided_by: str
     stakeholders: List[str] = Field(default_factory=list, description="Passed through to Cutover comms if decision is 'go'")
+<<<<<<< HEAD
+=======
+
+class EvaluateReadinessRequest(BaseModel):
+    component_id: str
+    environment: Literal["dev", "test", "staging", "prod"] = "prod"
+    runbook_id: Optional[str] = None
+    deployment_id: Optional[str] = None
+    version_being_deployed: str
+>>>>>>> main

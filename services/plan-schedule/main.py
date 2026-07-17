@@ -169,7 +169,29 @@ def _build_reasoning(estimate: EstimateRecord, plan_id: str) -> dict:
 @app.get("/api/plans", response_model=List[dict])
 def list_plans():
     """Return all PlanRecords from SQLite store."""
-    return db.get_all()
+    plans = db.get_all()
+    try:
+        from shared_db.connection import get_db
+        import json
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT demand_id, data FROM demands")
+            demands_map = {}
+            for row in cursor.fetchall():
+                try:
+                    demand_data = json.loads(row[1])
+                    demands_map[row[0]] = demand_data.get("title")
+                except Exception:
+                    pass
+            for p in plans:
+                d_id = p.get("demand_id")
+                if d_id and d_id in demands_map:
+                    p["project_title"] = demands_map[d_id]
+                else:
+                    p["project_title"] = "Unknown Project"
+    except Exception as e:
+        print(f"Error fetching demand titles for plans: {e}")
+    return plans
 
 
 @app.get("/api/plans/employees")

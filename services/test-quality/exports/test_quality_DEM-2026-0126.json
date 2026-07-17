@@ -1,0 +1,196 @@
+{
+  "demand_id": "DEM-2026-0126",
+  "updated_at": "2026-07-16T08:56:44Z",
+  "test_generation": {
+    "suite_id": "TST-DEM-2026-0126-1",
+    "demand_id": "DEM-2026-0126",
+    "plan_id": "PLN-0126-1",
+    "generated_at": "2026-07-15T10:30:00Z",
+    "test_cases": [
+      {
+        "test_id": "TC-001",
+        "story_id": null,
+        "title": "Verify model fairness compliance and bias mitigation",
+        "steps": [
+          "Trigger model training with provided datasets",
+          "Run fairness and bias assessment modules",
+          "Check compliance reports for adherence to regulatory standards"
+        ],
+        "expected_result": "Model passes all fairness and bias compliance checks with no significant bias detected",
+        "priority": "critical",
+        "type": "functional"
+      },
+      {
+        "test_id": "TC-002",
+        "story_id": null,
+        "title": "Validate data quality and availability for model training",
+        "steps": [
+          "Check data source connectivity",
+          "Verify completeness and accuracy of training datasets",
+          "Ensure no data corruption or missing values exist"
+        ],
+        "expected_result": "Data sources are accessible and datasets meet quality standards required for training",
+        "priority": "critical",
+        "type": "integration"
+      },
+      {
+        "test_id": "TC-003",
+        "story_id": null,
+        "title": "End-to-end loan approval prediction workflow test",
+        "steps": [
+          "Submit a loan application with valid customer data",
+          "Execute prediction model API",
+          "Verify loan approval decision is logged and returned"
+        ],
+        "expected_result": "Loan approval prediction is processed correctly and response is as expected without errors",
+        "priority": "high",
+        "type": "system"
+      },
+      {
+        "test_id": "TC-004",
+        "story_id": null,
+        "title": "Verify environment deployment and version consistency",
+        "steps": [
+          "Check each environment (dev, test, staging, prod) for deployed model version",
+          "Compare deployed version against expected version",
+          "Report and investigate any drift"
+        ],
+        "expected_result": "All environments have the expected model version deployed with no drift",
+        "priority": "high",
+        "type": "environment"
+      },
+      {
+        "test_id": "TC-005",
+        "story_id": null,
+        "title": "API load and performance test under expected peak loads",
+        "steps": [
+          "Simulate loan prediction API requests at expected peak loads",
+          "Measure response times and error rates",
+          "Assess system performance against SLA criteria"
+        ],
+        "expected_result": "Prediction API meets performance SLA requirements without failures under peak load",
+        "priority": "medium",
+        "type": "performance"
+      },
+      {
+        "test_id": "TC-006",
+        "story_id": null,
+        "title": "Compliance validation on model explainability output",
+        "steps": [
+          "Request explanation data for loan prediction decisions",
+          "Verify clarity and completeness of explanation per regulatory guidelines",
+          "Confirm explanations are logged properly"
+        ],
+        "expected_result": "Model explanations are generated and meet compliance and audit standards",
+        "priority": "medium",
+        "type": "functional"
+      }
+    ],
+    "coverage_summary": {
+      "total_stories": 1,
+      "stories_covered": 0,
+      "total_test_cases": 6,
+      "critical_path_coverage_pct": 100.0
+    },
+    "status": "draft"
+  },
+  "test_data": {
+    "data_provision_id": "TDP-2026-0126-1",
+    "suite_id": "TST-DEM-2026-0126-1",
+    "demand_id": "DEM-2026-0126",
+    "environment": "test",
+    "datasets": [
+      {
+        "schema": "db://system/data-records",
+        "record_count": 250,
+        "masking_applied": true,
+        "location": "test"
+      }
+    ],
+    "privacy_sign_off": null,
+    "signed_off_by": null,
+    "expires_at": "2026-07-17T10:30:00Z",
+    "status": "pending-approval"
+  },
+  "test_execution": {
+    "test_run_id": "TR-DEM-2026-0126-1",
+    "suite_id": "TST-DEM-2026-0126-1",
+    "demand_id": "DEM-2026-0126",
+    "environment": "test",
+    "executed_at": "2026-07-15T11:00:00Z",
+    "results": [
+      {
+        "test_id": "TC-001",
+        "status": "passed",
+        "duration_ms": 3200,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-002",
+        "status": "passed",
+        "duration_ms": 2500,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-003",
+        "status": "failed",
+        "duration_ms": 4000,
+        "failure_analysis": "Loan approval API returned HTTP 500 error due to missing backend service configuration in test environment."
+      },
+      {
+        "test_id": "TC-004",
+        "status": "failed",
+        "duration_ms": 1800,
+        "failure_analysis": "Deployment drift detected: deployed model version is 'none' instead of expected '1.2.5' in test environment."
+      },
+      {
+        "test_id": "TC-005",
+        "status": "skipped",
+        "duration_ms": 0,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-006",
+        "status": "passed",
+        "duration_ms": 2700,
+        "failure_analysis": null
+      }
+    ],
+    "summary": {
+      "total": 6,
+      "passed": 3,
+      "failed": 2,
+      "skipped": 1,
+      "pass_rate_pct": 50.0
+    },
+    "defect_ids_raised": [
+      "BUG-1",
+      "BUG-2"
+    ],
+    "human_acceptance": null,
+    "status": "pending-approval"
+  },
+  "defect_triage": {
+    "triage_id": "TRG-2026-0126-1",
+    "test_run_id": "TR-DEM-2026-0126-1",
+    "demand_id": "DEM-2026-0126",
+    "triaged_defects": [
+      {
+        "defect_id": "BUG-1",
+        "severity": "medium",
+        "priority": 3,
+        "cluster": "LoanApprovalModel_Errors",
+        "duplicate_of": null,
+        "root_cause_hint": "Potential data quality or model prediction consistency issue impacting loan decision accuracy; likely requires further data validation and model tuning.",
+        "assigned_to": "john@example.com",
+        "recommended_action": "fix-before-release"
+      }
+    ],
+    "release_risk_summary": "Medium risk due to model bias, data quality concerns, and compliance adherence. All identified defects currently rated medium severity, requiring prompt resolution prior to release to ensure fairness and accuracy in loan approval predictions.",
+    "human_confirmed": false,
+    "status": "pending-approval"
+  },
+  "security_testing": null,
+  "traceability": null,
+  "quality_gate": null
+}
