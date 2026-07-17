@@ -38,6 +38,7 @@ window.renderReleaseChangeScreen = function () {
   window.triggerAuditUpdate = triggerAuditUpdate;
   window.handleFiltersChange = handleFiltersChange;
   window.onProjectSelectChange = onProjectSelectChange;
+  window.deleteRelease = deleteRelease;
 
   // Initial load
   loadDropdownOptions();
@@ -101,7 +102,28 @@ async function fetchReleases() {
   }
 }
 
+async function deleteRelease(releaseId) {
+  if (!confirm(`Are you sure you want to delete release ${releaseId}? This cannot be undone.`)) return;
+  try {
+    const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases/${releaseId}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(`Failed to delete: ${err.detail || res.status}`);
+      return;
+    }
+    // If currently viewing this release, return to the list
+    if (selectedReleaseId === releaseId) {
+      selectedReleaseId = null;
+      currentReleaseDetail = null;
+    }
+    await fetchReleases();
+  } catch (err) {
+    alert(`Delete failed: ${err.message}`);
+  }
+}
+
 function renderMainView() {
+
   const wrapper = document.getElementById('release-change-wrapper');
   if (selectedReleaseId) {
     renderReleaseDetailsView();
@@ -143,7 +165,7 @@ function renderDashboardView() {
         <h2 style="margin: 0; font-family: var(--font-display); font-size: 1.5rem; font-weight: 700;">Release & Change Governance</h2>
         <p style="margin: 0.25rem 0 0 0; color: var(--text-secondary); font-size: 0.85rem;">Continuous compliance, automated risk profiling, and CAB orchestration.</p>
       </div>
-      <button class="btn-primary" onclick="openCreateModal()" style="display: flex; align-items: center; gap: 0.5rem; background: var(--color-brand); border: none; padding: 0.6rem 1.2rem; border-radius: var(--radius-md); font-weight: 600; color: white; cursor: pointer;">
+      <button class="btn-primary" onclick="openCreateModal()" style="display: flex; align-items: center; gap: 0.5rem; background: var(--color-brand); border: none; padding: 0.6rem 1.2rem; border-radius: var(--radius-md); font-weight: 600; color: var(--text-primary); cursor: pointer;">
         <span>+ Create Release Package</span>
       </button>
     </div>
@@ -154,28 +176,28 @@ function renderDashboardView() {
         <div style="font-size: 2.25rem; background: rgba(99, 102, 241, 0.1); width: 60px; height: 60px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: var(--color-brand);">📦</div>
         <div>
           <div style="color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; font-weight: 700;">Total Releases</div>
-          <div style="font-size: 1.75rem; font-weight: 800; color: white; margin-top: 0.2rem;">${activeCount}</div>
+          <div style="font-size: 1.75rem; font-weight: 800; color: var(--text-primary); margin-top: 0.2rem;">${activeCount}</div>
         </div>
       </div>
       <div class="panel-card" style="padding: 1.25rem; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 1rem;">
         <div style="font-size: 2.25rem; background: rgba(251, 191, 36, 0.1); width: 60px; height: 60px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: var(--color-status-amber-text);">⏳</div>
         <div>
           <div style="color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; font-weight: 700;">Pending CAB</div>
-          <div style="font-size: 1.75rem; font-weight: 800; color: white; margin-top: 0.2rem;">${pendingCabCount}</div>
+          <div style="font-size: 1.75rem; font-weight: 800; color: var(--text-primary); margin-top: 0.2rem;">${pendingCabCount}</div>
         </div>
       </div>
       <div class="panel-card" style="padding: 1.25rem; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 1rem;">
         <div style="font-size: 2.25rem; background: rgba(248, 113, 113, 0.1); width: 60px; height: 60px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: var(--color-status-red-text);">⚠️</div>
         <div>
           <div style="color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; font-weight: 700;">High Risk Changes</div>
-          <div style="font-size: 1.75rem; font-weight: 800; color: white; margin-top: 0.2rem;">${highRiskCount}</div>
+          <div style="font-size: 1.75rem; font-weight: 800; color: var(--text-primary); margin-top: 0.2rem;">${highRiskCount}</div>
         </div>
       </div>
       <div class="panel-card" style="padding: 1.25rem; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 1rem;">
         <div style="font-size: 2.25rem; background: rgba(52, 211, 153, 0.1); width: 60px; height: 60px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: var(--color-status-green-text);">📈</div>
         <div>
           <div style="color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; font-weight: 700;">Release Success</div>
-          <div style="font-size: 1.75rem; font-weight: 800; color: white; margin-top: 0.2rem;">${successRate}%</div>
+          <div style="font-size: 1.75rem; font-weight: 800; color: var(--text-primary); margin-top: 0.2rem;">${successRate}%</div>
         </div>
       </div>
     </div>
@@ -184,11 +206,11 @@ function renderDashboardView() {
     <div style="display: flex; gap: 1rem; flex-wrap: wrap; background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
       <div style="flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 0.4rem;">
         <label style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 700;">Search Project ID</label>
-        <input type="text" id="filter-project-input" value="${filterProject}" placeholder="e.g. DEM-2026-0072" oninput="handleFiltersChange()" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white; outline: none;">
+        <input type="text" id="filter-project-input" value="${filterProject}" placeholder="e.g. DEM-2026-0072" oninput="handleFiltersChange()" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary); outline: none;">
       </div>
       <div style="flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 0.4rem;">
         <label style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 700;">Status</label>
-        <select id="filter-status-input" onchange="handleFiltersChange()" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white; outline: none;">
+        <select id="filter-status-input" onchange="handleFiltersChange()" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary); outline: none;">
           <option value="">All Statuses</option>
           <option value="Draft" ${filterStatus === 'Draft' ? 'selected' : ''}>Draft</option>
           <option value="Pending Approval" ${filterStatus === 'Pending Approval' ? 'selected' : ''}>Pending Approval</option>
@@ -198,7 +220,7 @@ function renderDashboardView() {
       </div>
       <div style="flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 0.4rem;">
         <label style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 700;">Environment</label>
-        <select id="filter-env-input" onchange="handleFiltersChange()" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white; outline: none;">
+        <select id="filter-env-input" onchange="handleFiltersChange()" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary); outline: none;">
           <option value="">All Environments</option>
           <option value="dev" ${filterEnvironment === 'dev' ? 'selected' : ''}>dev</option>
           <option value="test" ${filterEnvironment === 'test' ? 'selected' : ''}>test</option>
@@ -208,7 +230,7 @@ function renderDashboardView() {
       </div>
       <div style="flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 0.4rem;">
         <label style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 700;">Risk Rating</label>
-        <select id="filter-risk-input" onchange="handleFiltersChange()" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white; outline: none;">
+        <select id="filter-risk-input" onchange="handleFiltersChange()" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary); outline: none;">
           <option value="">All Risks</option>
           <option value="low" ${filterRisk === 'low' ? 'selected' : ''}>Low Risk (&lt; 35)</option>
           <option value="medium" ${filterRisk === 'medium' ? 'selected' : ''}>Medium Risk (35-59)</option>
@@ -234,6 +256,7 @@ function renderDashboardView() {
                 <th style="padding: 1rem;">Target Date</th>
                 <th style="padding: 1rem;">Risk Score</th>
                 <th style="padding: 1rem;">Status</th>
+                <th style="padding: 1rem; text-align: center;">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -243,7 +266,7 @@ function renderDashboardView() {
     const riskLabel = r.risk_score !== null ? `${r.risk_score} (${r.risk_score >= 60 ? 'HIGH' : (r.risk_score >= 35 ? 'MED' : 'LOW')})` : 'Pending';
 
     return `
-                  <tr onclick="navigateToRelease('${r.release_id}')" class="stage-8-tr" style="border-bottom: 1px solid var(--border-color); cursor: pointer; transition: all 0.2s;">
+                  <tr onclick="navigateToRelease('${r.release_id}')" class="stage-8-tr" style="border-bottom: 1px solid var(--border-color); cursor: pointer;">
                     <td style="padding: 1rem; font-family: monospace; color: var(--color-brand); font-weight: 700;">${r.release_id}</td>
                     <td style="padding: 1rem; font-weight: 600;">${r.project_id}</td>
                     <td style="padding: 1rem;">${r.version}</td>
@@ -251,6 +274,9 @@ function renderDashboardView() {
                     <td style="padding: 1rem; color: var(--text-secondary);">${r.planned_release_date.split('T')[0]}</td>
                     <td style="padding: 1rem;"><span style="color: var(--color-status-${riskColor}-text); font-weight: 700;">${riskLabel}</span></td>
                     <td style="padding: 1rem;"><span class="status-pill status-${badgeColor}" style="padding: 0.25rem 0.5rem; border-radius: var(--radius-round); font-size: 0.75rem; font-weight: 700;">${r.status}</span></td>
+                    <td style="padding: 1rem; text-align: center;" onclick="event.stopPropagation()">
+                      <button onclick="deleteRelease('${r.release_id}')" title="Delete release" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.35); color: #ef4444; padding: 0.3rem 0.7rem; border-radius: var(--radius-sm); cursor: pointer; font-size: 0.75rem; font-weight: 700;">✕ Delete</button>
+                    </td>
                   </tr>
                 `;
   }).join('')}
@@ -275,7 +301,7 @@ function renderDashboardView() {
       : `<span style="font-size:0.65rem; color: var(--color-status-green-text); border: 1px solid var(--color-status-green-border); padding: 2px 4px; border-radius:3px;">CALENDAR CLEAR</span>`;
     return `
                 <div style="border-left: 3px solid var(--color-brand); padding-left: 0.75rem; display: flex; flex-direction: column; gap: 0.25rem;">
-                  <div style="font-size: 0.8rem; font-weight: 700; color: white;">${r.release_id} (${r.version})</div>
+                  <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">${r.release_id} (${r.version})</div>
                   <div style="font-size: 0.75rem; color: var(--text-secondary);">Target: ${r.planned_release_date.split('T')[0]} | Env: ${r.environment}</div>
                   <div>${conflictLabel}</div>
                 </div>
@@ -308,7 +334,7 @@ function renderDashboardView() {
         <form onsubmit="handleCreateRelease(event)" style="display: flex; flex-direction: column; gap: 1rem; font-size: 0.85rem;">
           <div class="form-group" style="display: flex; flex-direction: column; gap: 0.4rem;">
             <label style="font-weight: 700; color: var(--text-secondary);">Select Project / Demand</label>
-            <select id="modal-project-select" required onchange="onProjectSelectChange()" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white;">
+            <select id="modal-project-select" required onchange="onProjectSelectChange()" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary);">
               <option value="">-- Choose Approved Demand --</option>
               ${dropdownOptions.demands.map(d => `<option value="${d.demand_id}">${d.demand_id} - ${d.title}</option>`).join('')}
             </select>
@@ -317,24 +343,24 @@ function renderDashboardView() {
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div class="form-group" style="display: flex; flex-direction: column; gap: 0.4rem;">
               <label style="font-weight: 700; color: var(--text-secondary);">Select Plan ID</label>
-              <select id="modal-plan-select" required style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white;">
+              <select id="modal-plan-select" required style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary);">
                 <option value="">-- Select Active Plan --</option>
               </select>
             </div>
             <div class="form-group" style="display: flex; flex-direction: column; gap: 0.4rem;">
               <label style="font-weight: 700; color: var(--text-secondary);">Version Baseline</label>
-              <input type="text" id="modal-version-input" value="v1.0.0" required style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white;">
+              <input type="text" id="modal-version-input" value="v1.0.0" required style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary);">
             </div>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div class="form-group" style="display: flex; flex-direction: column; gap: 0.4rem;">
               <label style="font-weight: 700; color: var(--text-secondary);">Build ID (Stage 06)</label>
-              <input type="text" id="modal-build-input" value="" required placeholder="e.g. BLD-0072-1" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white;">
+              <input type="text" id="modal-build-input" value="" required placeholder="e.g. BLD-0072-1" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary);">
             </div>
             <div class="form-group" style="display: flex; flex-direction: column; gap: 0.4rem;">
               <label style="font-weight: 700; color: var(--text-secondary);">Target Environment</label>
-              <select id="modal-env-select" required style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white;">
+              <select id="modal-env-select" required style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary);">
                 ${dropdownOptions.environments.map(e => `<option value="${e}">${e}</option>`).join('')}
               </select>
             </div>
@@ -342,12 +368,12 @@ function renderDashboardView() {
 
           <div class="form-group" style="display: flex; flex-direction: column; gap: 0.4rem;">
             <label style="font-weight: 700; color: var(--text-secondary);">Target Release Date</label>
-            <input type="date" id="modal-date-input" required style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white;">
+            <input type="date" id="modal-date-input" required style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary);">
           </div>
 
           <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
-            <button type="button" class="btn-secondary" onclick="closeCreateModal()" style="background: transparent; border: 1px solid var(--border-color); padding: 0.6rem 1.2rem; border-radius: var(--radius-md); color: white; cursor: pointer;">Cancel</button>
-            <button type="submit" class="btn-primary" style="background: var(--color-brand); border: none; padding: 0.6rem 1.2rem; border-radius: var(--radius-md); color: white; cursor: pointer; font-weight:600;">Initialize Release</button>
+            <button type="button" class="btn-secondary" onclick="closeCreateModal()" style="background: transparent; border: 1px solid var(--border-color); padding: 0.6rem 1.2rem; border-radius: var(--radius-md); color: var(--text-primary); cursor: pointer;">Cancel</button>
+            <button type="submit" class="btn-primary" style="background: var(--color-brand); border: none; padding: 0.6rem 1.2rem; border-radius: var(--radius-md); color: var(--text-primary); cursor: pointer; font-weight:600;">Initialize Release</button>
           </div>
         </form>
       </div>
@@ -479,11 +505,11 @@ function renderReleaseDetailsView() {
     <!-- Header Back Panel -->
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
       <div style="display: flex; align-items: center; gap: 1rem;">
-        <button onclick="closeReleaseDetails()" style="background: transparent; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.5rem 1rem; color: white; cursor: pointer;">
+        <button onclick="closeReleaseDetails()" style="background: transparent; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.5rem 1rem; color: var(--text-primary); cursor: pointer;">
           ← Back to Dashboard
         </button>
         <div>
-          <h2 style="margin: 0; font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; color: white;">
+          <h2 style="margin: 0; font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; color: var(--text-primary);">
             Release: <span style="font-family: monospace; color: var(--color-brand);">${r.release_id}</span> (${r.version})
           </h2>
           <span style="font-size: 0.8rem; color: var(--text-secondary);">Project Ref: <strong>${r.project_id}</strong> | Plan ID: <strong>${r.plan_id}</strong></span>
@@ -544,12 +570,12 @@ function renderReleaseDetailsView() {
 
         <!-- Insights Checklist -->
         <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.8rem;">
-          <div style="font-weight: 700; color: white;">Next Recommended Action:</div>
+          <div style="font-weight: 700; color: var(--text-primary);">Next Recommended Action:</div>
           <div style="background: rgba(99, 102, 241, 0.05); border: 1px dashed var(--color-brand); border-radius: var(--radius-sm); padding: 0.75rem; color: var(--text-primary); line-height: 1.4;">
             ${getNextRecommendedAction(r)}
           </div>
 
-          <div style="font-weight: 700; color: white; margin-top: 0.5rem;">Release Checks Status:</div>
+          <div style="font-weight: 700; color: var(--text-primary); margin-top: 0.5rem;">Release Checks Status:</div>
           <div style="display: flex; flex-direction: column; gap: 0.5rem;">
             ${renderInsightCheck('ITSM Change Ticket', currentReleaseDetail.change_request ? 'passed' : 'fail')}
             ${renderInsightCheck('AI Risk Profiling', currentReleaseDetail.risk_assessment ? 'passed' : 'fail')}
@@ -571,7 +597,7 @@ function renderReleaseDetailsView() {
 function renderTabHeader(tabId, label) {
   const isActive = activeSubTab === tabId;
   return `
-    <div onclick="changeTab('${tabId}')" class="stage-8-tab" style="padding: 1rem 1.25rem; font-weight: 600; font-size: 0.85rem; color: ${isActive ? 'white' : 'var(--text-secondary)'}; border-bottom: 2px solid ${isActive ? 'var(--color-brand)' : 'transparent'}; background: ${isActive ? 'rgba(99,102,241,0.05)' : 'transparent'}; cursor: pointer; white-space: nowrap; transition: all 0.2s;">
+    <div onclick="changeTab('${tabId}')" class="stage-8-tab" style="padding: 1rem 1.25rem; font-weight: 600; font-size: 0.85rem; color: ${isActive ? 'var(--text-primary)' : 'var(--text-secondary)'}; border-bottom: 2px solid ${isActive ? 'var(--color-brand)' : 'transparent'}; background: ${isActive ? 'rgba(99,102,241,0.05)' : 'transparent'}; cursor: pointer; white-space: nowrap;">
       ${label}
     </div>
   `;
@@ -639,7 +665,7 @@ function renderOverviewTab() {
     <div style="display: flex; flex-direction: column; gap: 2rem;">
       <!-- Overview & Metadata -->
       <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: white;">Release Overview & Metadata</h3>
+        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: var(--text-primary);">Release Overview & Metadata</h3>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
           <div style="display: flex; flex-direction: column; gap: 0.75rem;">
@@ -694,7 +720,7 @@ function renderBuildTab() {
   return `
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: white;">Build & Deployment Artifacts (Stage 06)</h3>
+        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: var(--text-primary);">Build & Deployment Artifacts (Stage 06)</h3>
         <span style="font-size: 0.75rem; color: var(--text-secondary);">Source: <strong>Build & Deploy Pipeline</strong></span>
       </div>
 
@@ -705,11 +731,11 @@ function renderBuildTab() {
         </div>
         <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 0.75rem 1rem; border-radius: var(--radius-sm); font-size: 0.8rem;">
           <div style="color: var(--text-secondary);">Artifact Version</div>
-          <div style="font-weight: 700; color: white; font-size: 0.9rem; margin-top:0.2rem;">${b.artifact_version}</div>
+          <div style="font-weight: 700; color: var(--text-primary); font-size: 0.9rem; margin-top:0.2rem;">${b.artifact_version}</div>
         </div>
         <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 0.75rem 1rem; border-radius: var(--radius-sm); font-size: 0.8rem;">
           <div style="color: var(--text-secondary);">Rollback Package</div>
-          <div style="font-weight: 700; color: white; font-size: 0.85rem; font-family: monospace; margin-top:0.2rem;">${b.rollback_package}</div>
+          <div style="font-weight: 700; color: var(--text-primary); font-size: 0.85rem; font-family: monospace; margin-top:0.2rem;">${b.rollback_package}</div>
         </div>
       </div>
 
@@ -718,9 +744,7 @@ function renderBuildTab() {
         <pre style="background: #020617; border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-md); font-family: monospace; font-size: 0.75rem; color: #10b981; line-height: 1.5; overflow-x: auto; max-height: 250px; overflow-y: auto; margin: 0;">${b.deployment_logs}</pre>
       </div>
 
-      <div style="font-size: 0.8rem; color: var(--text-secondary);">
-        Pipeline Trigger Url: <a href="${b.pipeline_url}" target="_blank" style="color: var(--color-brand); font-weight:700;">${b.pipeline_url}</a>
-      </div>
+
     </div>
   `;
 }
@@ -734,7 +758,7 @@ function renderQualityTab() {
   return `
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: white;">Quality Gate &amp; Test Summary (Stage 07)</h3>
+        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: var(--text-primary);">Quality Gate &amp; Test Summary (Stage 07)</h3>
         <div style="display: flex; align-items: center; gap: 0.75rem;">
           ${isLiveData ? `<span style="font-size: 0.7rem; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); color: #10b981; padding: 0.2rem 0.6rem; border-radius: 999px; font-weight: 700;">● LIVE DATA</span>` : ''}
           <span style="font-size: 0.75rem; color: var(--text-secondary);">Source: <strong>${q.source || 'Test &amp; Quality Module'}</strong></span>
@@ -744,7 +768,7 @@ function renderQualityTab() {
       <!-- Summary Counters Row -->
       <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;">
         <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem; text-align: center;">
-          <div style="font-size: 1.5rem; font-weight: 800; color: white;">${q.total_executions ?? '—'}</div>
+          <div style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary);">${q.total_executions ?? '—'}</div>
           <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.25rem;">Test Runs</div>
         </div>
         <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem; text-align: center;">
@@ -811,14 +835,14 @@ function renderDependenciesTab() {
   const deps = currentReleaseDetail.upstream.dependencies || [];
   return `
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-      <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: white;">Upstream Project Dependencies (Stage 04)</h3>
+      <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: var(--text-primary);">Upstream Project Dependencies (Stage 04)</h3>
       
       <div style="display: flex; flex-direction: column; gap: 0.75rem;">
         ${deps.map(d => {
     return `
             <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;">
               <div style="display:flex; flex-direction:column; gap:0.25rem;">
-                <div style="font-weight: 700; color: white;">Dependency ${d.dependency_id}</div>
+                <div style="font-weight: 700; color: var(--text-primary);">Dependency ${d.dependency_id}</div>
                 <div style="color: var(--text-secondary); font-size:0.8rem;">Task <strong>${d.source_task_id}</strong> relies on <strong>${d.target_task_id}</strong></div>
               </div>
               <div style="display:flex; gap: 0.75rem; align-items:center;">
@@ -846,7 +870,7 @@ function renderChangeTab() {
         <div style="font-size: 3rem; margin-bottom: 1rem;">✍️</div>
         <h3>No Change Request Drafted</h3>
         <p style="color: var(--text-secondary); max-width: 400px; margin: 0.5rem auto 1.5rem auto;">Run the change authoring agent to generate complete deployment, rollback, and validation plans.</p>
-        <button class="btn-primary" onclick="triggerDraftChange()" style="background: var(--color-brand); border: none; padding: 0.6rem 1.2rem; border-radius: var(--radius-md); font-weight: 600; color: white; cursor: pointer;">
+        <button class="btn-primary" onclick="triggerDraftChange()" style="background: var(--color-brand); border: none; padding: 0.6rem 1.2rem; border-radius: var(--radius-md); font-weight: 600; color: var(--text-primary); cursor: pointer;">
           Draft Change Request
         </button>
       </div>
@@ -856,9 +880,9 @@ function renderChangeTab() {
   return `
     <div style="display: flex; flex-direction: column; gap: 1.25rem;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: white;">Drafted ITSM Change Request</h3>
+        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: var(--text-primary);">Drafted ITSM Change Request</h3>
         <div>
-          <button class="btn-primary" onclick="submitChangeRequest()" style="background: var(--color-brand); border: none; padding: 0.5rem 1rem; border-radius: var(--radius-md); font-weight: 600; color: white; cursor: pointer; font-size: 0.8rem;">
+          <button class="btn-primary" onclick="submitChangeRequest()" style="background: var(--color-brand); border: none; padding: 0.5rem 1rem; border-radius: var(--radius-md); font-weight: 600; color: var(--text-primary); cursor: pointer; font-size: 0.8rem;">
             Submit Change Request
           </button>
         </div>
@@ -867,38 +891,38 @@ function renderChangeTab() {
       <form id="change-edit-form" onsubmit="saveChangeRequestEdit(event)" style="display: flex; flex-direction: column; gap: 1rem; font-size: 0.85rem;">
         <div class="form-group" style="display: flex; flex-direction: column; gap: 0.4rem;">
           <label style="font-weight: 700; color: var(--text-secondary);">Release Summary</label>
-          <input type="text" id="edit-summary" value="${cr.summary || ''}" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white;">
+          <input type="text" id="edit-summary" value="${cr.summary || ''}" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary);">
         </div>
 
         <div class="form-group" style="display: flex; flex-direction: column; gap: 0.4rem;">
           <label style="font-weight: 700; color: var(--text-secondary);">Business Justification</label>
-          <textarea id="edit-justification" rows="2" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white; resize: vertical;">${cr.business_justification || ''}</textarea>
+          <textarea id="edit-justification" rows="2" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary); resize: vertical;">${cr.business_justification || ''}</textarea>
         </div>
 
         <div class="form-group" style="display: flex; flex-direction: column; gap: 0.4rem;">
           <label style="font-weight: 700; color: var(--text-secondary);">Impact Analysis</label>
-          <textarea id="edit-impact" rows="2" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white; resize: vertical;">${cr.impact_analysis || ''}</textarea>
+          <textarea id="edit-impact" rows="2" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary); resize: vertical;">${cr.impact_analysis || ''}</textarea>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
           <div class="form-group" style="display: flex; flex-direction: column; gap: 0.4rem;">
             <label style="font-weight: 700; color: var(--text-secondary);">Deployment Steps</label>
-            <textarea id="edit-deployment" rows="4" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white; resize: vertical;">${cr.deployment_plan || ''}</textarea>
+            <textarea id="edit-deployment" rows="4" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary); resize: vertical;">${cr.deployment_plan || ''}</textarea>
           </div>
           <div class="form-group" style="display: flex; flex-direction: column; gap: 0.4rem;">
             <label style="font-weight: 700; color: var(--text-secondary);">Rollback Plan</label>
-            <textarea id="edit-rollback" rows="4" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white; resize: vertical;">${cr.rollback_plan || ''}</textarea>
+            <textarea id="edit-rollback" rows="4" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary); resize: vertical;">${cr.rollback_plan || ''}</textarea>
           </div>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
           <div class="form-group" style="display: flex; flex-direction: column; gap: 0.4rem;">
             <label style="font-weight: 700; color: var(--text-secondary);">Validation Plan</label>
-            <textarea id="edit-validation" rows="3" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white; resize: vertical;">${cr.validation_plan || ''}</textarea>
+            <textarea id="edit-validation" rows="3" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary); resize: vertical;">${cr.validation_plan || ''}</textarea>
           </div>
           <div class="form-group" style="display: flex; flex-direction: column; gap: 0.4rem;">
             <label style="font-weight: 700; color: var(--text-secondary);">Known Issues / Notes</label>
-            <textarea id="edit-issues" rows="3" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white; resize: vertical;">${cr.known_issues || ''}</textarea>
+            <textarea id="edit-issues" rows="3" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary); resize: vertical;">${cr.known_issues || ''}</textarea>
           </div>
         </div>
 
@@ -969,7 +993,7 @@ function renderRiskTab() {
         <div style="font-size: 3rem; margin-bottom: 1rem;">⚖️</div>
         <h3>No Risk Assessment Calculated</h3>
         <p style="color: var(--text-secondary); max-width: 400px; margin: 0.5rem auto 1.5rem auto;">Generate the release risk profile to evaluate blast radius and required approvals.</p>
-        <button class="btn-primary" onclick="triggerRiskAssessment()" style="background: var(--color-brand); border: none; padding: 0.6rem 1.2rem; border-radius: var(--radius-md); font-weight: 600; color: white; cursor: pointer;">
+        <button class="btn-primary" onclick="triggerRiskAssessment()" style="background: var(--color-brand); border: none; padding: 0.6rem 1.2rem; border-radius: var(--radius-md); font-weight: 600; color: var(--text-primary); cursor: pointer;">
           Run AI Risk Assessment
         </button>
       </div>
@@ -981,8 +1005,8 @@ function renderRiskTab() {
   return `
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: white;">AI Risk Analysis & Blast Radius</h3>
-        <button class="btn-primary" onclick="triggerRiskAssessment()" style="background: transparent; border: 1px solid var(--border-color); padding: 0.4rem 0.8rem; border-radius: var(--radius-md); color: white; cursor: pointer; font-size: 0.8rem;">
+        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: var(--text-primary);">AI Risk Analysis & Blast Radius</h3>
+        <button class="btn-primary" onclick="triggerRiskAssessment()" style="background: transparent; border: 1px solid var(--border-color); padding: 0.4rem 0.8rem; border-radius: var(--radius-md); color: var(--text-primary); cursor: pointer; font-size: 0.8rem;">
           Re-evaluate Risk
         </button>
       </div>
@@ -1027,7 +1051,7 @@ function renderRiskMeterRow(label, pct) {
       <div style="width: 150px; background: rgba(0,0,0,0.3); height: 8px; border-radius: 4px; border: 1px solid var(--border-color); overflow: hidden;">
         <div style="width: ${pct}%; background: var(--color-status-${barColor}-text); height: 100%;"></div>
       </div>
-      <span style="width: 30px; text-align: right; color: white; font-weight: 700;">${pct}%</span>
+      <span style="width: 30px; text-align: right; color: var(--text-primary); font-weight: 700;">${pct}%</span>
     </div>
   `;
 }
@@ -1061,7 +1085,7 @@ function renderCABTab() {
 
   return `
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-      <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: white;">Change Advisory Board (CAB) Review</h3>
+      <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: var(--text-primary);">Change Advisory Board (CAB) Review</h3>
 
       <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.5rem;">
         
@@ -1073,11 +1097,11 @@ function renderCABTab() {
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
               <div style="display: flex; flex-direction: column; gap: 0.4rem;">
                 <label style="color: var(--text-secondary); font-weight:700;">Meeting Date</label>
-                <input type="date" id="cab-meeting-date" required value="2026-07-14" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.4rem; color: white;">
+                <input type="date" id="cab-meeting-date" required value="2026-07-14" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.4rem; color: var(--text-primary);">
               </div>
               <div style="display: flex; flex-direction: column; gap: 0.4rem;">
                 <label style="color: var(--text-secondary); font-weight:700;">Chairperson</label>
-                <select id="cab-chairperson" required style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.4rem; color: white;">
+                <select id="cab-chairperson" required style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.4rem; color: var(--text-primary);">
                   ${dropdownOptions.approvers.map(a => `<option value="${a}">${a}</option>`).join('')}
                 </select>
               </div>
@@ -1085,7 +1109,7 @@ function renderCABTab() {
 
             <div style="display: flex; flex-direction: column; gap: 0.4rem;">
               <label style="color: var(--text-secondary); font-weight:700;">Comments & Directives</label>
-              <textarea id="cab-comments" rows="3" required placeholder="Chairperson's feedback, rollback guarantees, and constraints." style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: white; resize: vertical;"></textarea>
+              <textarea id="cab-comments" rows="3" required placeholder="Chairperson's feedback, rollback guarantees, and constraints." style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary); resize: vertical;"></textarea>
             </div>
 
             <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.5rem;">
@@ -1101,7 +1125,7 @@ function renderCABTab() {
           <div style="font-weight: 700; font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Required Release Evidence</div>
           
           <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-md); font-size: 0.8rem; display: flex; flex-direction: column; gap: 0.75rem;">
-            <div style="font-weight: 700; color: white; border-bottom: 1px solid var(--border-color); padding-bottom: 0.4rem;">Compliance Preconditions:</div>
+            <div style="font-weight: 700; color: var(--text-primary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.4rem;">Compliance Preconditions:</div>
             
             <div style="display: flex; justify-content: space-between;">
               <span>Quality Gate Verdict</span>
@@ -1128,7 +1152,7 @@ function renderCABTab() {
 
       ${cab ? `
         <div style="border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
-          <h4 style="margin:0 0 0.5rem 0; font-size:0.9rem; color:white;">Latest CAB Decision</h4>
+          <h4 style="margin:0 0 0.5rem 0; font-size:0.9rem; color: var(--text-primary);">Latest CAB Decision</h4>
           <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-md); font-size: 0.85rem; display:flex; flex-direction:column; gap:0.4rem;">
             <div><strong>Decision:</strong> <span style="font-weight:700; text-transform:uppercase; color: var(--color-status-${cab.decision === 'Approve' ? 'green' : 'red'}-text);">${cab.decision}</span></div>
             <div><strong>Chairperson:</strong> ${cab.chairperson}</div>
@@ -1172,8 +1196,8 @@ function renderCollisionTab() {
   return `
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: white;">Environment Collision & Schedule Conflicts</h3>
-        <button class="btn-primary" onclick="triggerCollisionCheck()" style="background: transparent; border: 1px solid var(--border-color); padding: 0.4rem 0.8rem; border-radius: var(--radius-md); color: white; cursor: pointer; font-size: 0.8rem;">
+        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: var(--text-primary);">Environment Collision & Schedule Conflicts</h3>
+        <button class="btn-primary" onclick="triggerCollisionCheck()" style="background: transparent; border: 1px solid var(--border-color); padding: 0.4rem 0.8rem; border-radius: var(--radius-md); color: var(--text-primary); cursor: pointer; font-size: 0.8rem;">
           Run Collision Scan
         </button>
       </div>
@@ -1185,7 +1209,7 @@ function renderCollisionTab() {
               <strong style="color:var(--color-status-red-text); font-size:0.9rem;">⚠️ Conflict Alert: ${c.conflicting_release}</strong>
               <span class="status-pill status-red" style="padding: 0.25rem 0.5rem; border-radius: var(--radius-sm); font-size: 0.7rem; font-weight:700;">BLOCKED</span>
             </div>
-            <div style="color: white; line-height: 1.4;">${c.reason}</div>
+            <div style="color: var(--text-primary); line-height: 1.4;">${c.reason}</div>
             <div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.25rem;">
               <strong>Shared Target Server:</strong> ${c.shared_server} | <strong>Database:</strong> ${c.shared_database}
             </div>
@@ -1222,29 +1246,18 @@ async function triggerCollisionCheck() {
 function renderAuditTab() {
   const logs = currentReleaseDetail.audit_logs;
 
-  // Find cryptographic hash from newest audit record
-  const newestLog = logs.find(l => l.event.includes('CAB') || l.event.includes('Change'));
-  const immutableHash = newestLog ? `sha256:d84f29a08e12a9e9a4f48b8be881204a9918a8dbce25e608` : 'sha256:42f919b860a8a9fde34be2d441442c538d2e6084d374737818be5be0bb2b1a3d';
+
 
   return `
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: white;">Compliance Audit Trail & Traceability</h3>
-        <button class="btn-primary" onclick="triggerAuditUpdate()" style="background: transparent; border: 1px solid var(--border-color); padding: 0.4rem 0.8rem; border-radius: var(--radius-md); color: white; cursor: pointer; font-size: 0.8rem;">
+        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: var(--text-primary);">Compliance Audit Trail & Traceability</h3>
+        <button class="btn-primary" onclick="triggerAuditUpdate()" style="background: transparent; border: 1px solid var(--border-color); padding: 0.4rem 0.8rem; border-radius: var(--radius-md); color: var(--text-primary); cursor: pointer; font-size: 0.8rem;">
           Recalculate Audit Trail
         </button>
       </div>
 
-      <!-- Regulatory Certified Certificate -->
-      <div style="background: var(--color-status-green-bg); border: 1px solid var(--color-status-green-border); border-radius: var(--radius-lg); padding: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <strong style="color:var(--color-status-green-text); font-size:0.95rem;">✓ Compliance Cryptographic Certificate</strong>
-          <span style="font-size:0.7rem; color: var(--color-status-green-text); border:1px solid var(--color-status-green-border); padding:2px 6px; border-radius:3px; font-weight:700;">AUDIT READY</span>
-        </div>
-        <div style="color: var(--text-secondary); font-family: monospace; font-size: 0.75rem; background: rgba(0,0,0,0.3); padding:0.5rem; border-radius:4px; margin-top:0.25rem; word-break: break-all;">
-          ${immutableHash}
-        </div>
-      </div>
+
 
       <!-- Timeline List -->
       <div style="position: relative; padding-left: 2rem; display: flex; flex-direction: column; gap: 1.5rem; margin-top: 1rem;">

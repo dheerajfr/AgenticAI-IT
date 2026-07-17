@@ -11,8 +11,8 @@
 
   <!-- Load Web Components as ES Modules -->
   <script type="module" src="../../packages/ui-kit/status-pill.js"></script>
-  <script type="module" src="../../packages/ui-kit/stage-rail.js"></script>
   <script type="module" src="../../packages/ui-kit/module-placeholder.js"></script>
+  <script type="module" src="../../packages/ui-kit/navigation-menu.js"></script>
 
   <!-- Load Main Shell script -->
   <script type="module" src="./estimate-shape.js"></script>
@@ -31,6 +31,11 @@
     <!-- Header -->
     <header>
       <div class="logo-container">
+        <button id="btn-menu-toggle" style="background: none; border: none; cursor: pointer; color: var(--text-primary); padding: 0.25rem; display: flex; align-items: center; margin-right: 0.5rem;" onclick="window.dispatchEvent(new CustomEvent('toggle-nav-menu'))">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+          </svg>
+        </button>
         <svg class="logo-icon" viewBox="0 0 24 24">
           <path d="M12 2L2 22h20L12 2zm0 3.99L19.53 19H4.47L12 5.99zM13 16h-2v2h2v-2zm0-6h-2v4h2v-4z" />
         </svg>
@@ -41,11 +46,18 @@
       </div>
     </header>
 
-    <!-- Stage Pipeline Rail -->
-    <stage-rail id="pipeline-rail" active-stage="demand-intake"></stage-rail>
+    <!-- Navigation Drawer -->
+    <navigation-menu id="nav-drawer" active-stage="demand-intake"></navigation-menu>
 
     <!-- Core Viewport -->
     <div class="main-content">
+      <!-- Breadcrumbs -->
+      <div class="breadcrumbs-bar" style="padding: 1rem 1.5rem 0 1.5rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">
+        <span>Home</span>
+        <span>></span>
+        <span id="breadcrumb-current-module" style="font-weight: 600; color: var(--text-primary);">Demand & Intake</span>
+      </div>
+      
       <div id="viewport" class="screen-viewport">
         <!-- Content will be swapped here dynamically by shell.js -->
       </div>

@@ -147,7 +147,7 @@ function renderEnvironmentList() {
               ? `<span style="font-size:0.65rem;font-weight:700;color:var(--color-status-red-text);text-transform:uppercase;">Drifted</span>`
               : `<span style="font-size:0.65rem;font-weight:700;color:var(--color-status-green-text);text-transform:uppercase;">In Sync</span>`}
             <button type="button" class="env-delete-btn" data-id="${id}"
-              style="background:none;border:none;color:var(--color-status-red-text);cursor:pointer;padding:0.15rem;opacity:0.65;transition:opacity 0.2s;display:flex;align-items:center;"
+              style="background:none;border:none;color:var(--color-status-red-text);cursor:pointer;padding:0.15rem;opacity:0.65;display:flex;align-items:center;"
               title="Delete all environment records for ${id}"
               onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.65'">
               <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
@@ -181,7 +181,7 @@ function renderEnvironmentList() {
       confirmRow.style.cssText = 'display:flex;gap:0.4rem;align-items:center;margin-top:0.4rem;padding:0.4rem 0;border-top:1px solid rgba(239,68,68,0.3);';
       confirmRow.innerHTML = `
         <span style="font-size:0.72rem;color:var(--color-status-red-text);flex:1;font-weight:600;">Delete all records?</span>
-        <button class="btn-confirm-delete" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:var(--color-status-red-text);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:700;">Yes</button>
+        <button class="btn-confirm-delete" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:var(--color-status-red-text);color: var(--text-primary);border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:700;">Yes</button>
         <button class="btn-cancel-delete" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:transparent;color:var(--text-muted);border:1px solid var(--border-color);border-radius:var(--radius-sm);cursor:pointer;">Cancel</button>
       `;
       listItem.appendChild(confirmRow);
@@ -242,7 +242,7 @@ function renderEnvDetail(demand_id) {
             This can only be done once.
           </div>
           <button id="btn-init-envs" class="btn-primary"
-            style="background:linear-gradient(135deg,#059669,#10b981);border:none;color:#fff;padding:0.6rem 1.5rem;border-radius:var(--radius-sm);font-size:0.9rem;font-weight:700;cursor:pointer;">
+            style="background:linear-gradient(135deg,#059669,#10b981);border:none;color: var(--text-primary);padding:0.6rem 1.5rem;border-radius:var(--radius-sm);font-size:0.9rem;font-weight:700;cursor:pointer;">
             ✦ Initialise Environments with AI
           </button>
           <div id="init-status" style="margin-top:1rem; font-size:0.82rem; color:var(--text-muted);"></div>
@@ -431,7 +431,6 @@ function renderEnvDetail(demand_id) {
         color: rgba(255,255,255,0.25);
         font-size: 0.82rem;
         padding: 0.1rem 0.2rem;
-        transition: color 0.2s;
         flex-shrink: 0;
         line-height: 1;
       }
@@ -466,7 +465,7 @@ function renderEnvDetail(demand_id) {
       }
       .btn-save-inline {
         background: linear-gradient(135deg,#4f46e5,#3b82f6);
-        color: white;
+        color: var(--text-primary);
         border: none;
         padding: 0.25rem 0.6rem;
         border-radius: var(--radius-sm);
@@ -565,7 +564,7 @@ window.saveField = async function (demand_id, environment, field) {
 
 function showToast(msg) {
   const t = document.createElement('div');
-  t.style.cssText = 'position:fixed;bottom:2rem;right:2rem;background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:0.65rem 1.3rem;border-radius:8px;font-size:0.88rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:9999;animation:fadeIn 0.25s ease;';
+  t.style.cssText = 'position:fixed;bottom:2rem;right:2rem;background:linear-gradient(135deg,#059669,#10b981);color: var(--text-primary);padding:0.65rem 1.3rem;border-radius:8px;font-size:0.88rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:9999;';
   t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);

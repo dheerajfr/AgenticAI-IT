@@ -303,7 +303,7 @@ function renderPlanList() {
         <div class="demand-item-header">
           <span class="demand-item-id">${plan.demand_id}</span>
           <button type="button" class="btn-queue-delete plan-delete-btn" data-id="${plan.plan_id}"
-            style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; opacity: 0.7; transition: opacity 0.2s;"
+            style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; opacity: 0.7; "
             title="Delete Plan"
             onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
             <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
@@ -340,7 +340,7 @@ function renderPlanList() {
       confirmRow.style.cssText = 'display:flex;gap:0.4rem;align-items:center;margin-top:0.4rem;padding:0.4rem 0;border-top:1px solid rgba(239,68,68,0.3);';
       confirmRow.innerHTML = `
         <span style="font-size:0.72rem;color:var(--color-status-red-text);flex:1;font-weight:600;">Delete this plan?</span>
-        <button class="btn-confirm-delete" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:var(--color-status-red-text);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:700;">Yes, Delete</button>
+        <button class="btn-confirm-delete" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:var(--color-status-red-text);color: var(--text-primary);border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:700;">Yes, Delete</button>
         <button class="btn-cancel-delete" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:transparent;color:var(--text-muted);border:1px solid var(--border-color);border-radius:var(--radius-sm);cursor:pointer;">Cancel</button>
       `;
       listItem.appendChild(confirmRow);
@@ -975,7 +975,7 @@ function renderPlanPreview(newPlans, actionsRow) {
         nextBanner.innerHTML = `
           <span style="font-size:0.85rem;color:var(--text-secondary);">&#x2713; Plan accepted &mdash; ready for dependency sensing.</span>
           <div style="flex:1;"></div>
-          <button id="btn-proceed-to-deps-preview" style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.2rem;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(139,92,246,0.35);transition:all 0.18s ease;"
+          <button id="btn-proceed-to-deps-preview" style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.2rem;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color: var(--text-primary);box-shadow:0 2px 8px rgba(139,92,246,0.35);"
             onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(139,92,246,0.5)';"
             onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(139,92,246,0.35)';">
             <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
@@ -1162,7 +1162,7 @@ function renderPlanDetail(plan) {
           </button>
           <div style="flex:1;"></div>
           <button type="button" id="btn-proceed-to-deps"
-            style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.2rem;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(139,92,246,0.35);transition:all 0.18s ease;"
+            style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.2rem;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color: var(--text-primary);box-shadow:0 2px 8px rgba(139,92,246,0.35);"
             onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(139,92,246,0.5)';"
             onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(139,92,246,0.35]';">
             <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
@@ -1319,7 +1319,7 @@ function renderPlanDetail(plan) {
     }
 
     return `
-                <tr style="background: ${rowBg}; transition: background 0.15s;">
+                <tr style="background: ${rowBg};">
                   <td style="padding: 0.6rem 0.75rem; font-family: monospace; font-size: 0.75rem; color: ${isCritical ? 'var(--color-brand)' : 'var(--text-secondary)'};">
                     ${t.task_id}
                     ${isCritical ? '<span style="font-size: 0.6rem; margin-left: 4px; color: var(--color-brand);">★ CRIT</span>' : ''}
@@ -1580,7 +1580,7 @@ function renderPlanDetail(plan) {
     bar.style.cssText = 'display:flex;gap:0.5rem;align-items:center;margin-top:0.5rem;padding:0.5rem 0.75rem;background:rgba(239,68,68,0.08);border:1px solid var(--color-status-red-text);border-radius:var(--radius-sm);';
     bar.innerHTML = `
       <span style="font-size:0.78rem;color:var(--color-status-red-text);flex:1;font-weight:600;">⚠ Permanently delete this plan?</span>
-      <button id="btn-confirm-delete-yes" style="font-size:0.75rem;padding:0.25rem 0.7rem;background:var(--color-status-red-text);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:700;">Yes, Delete</button>
+      <button id="btn-confirm-delete-yes" style="font-size:0.75rem;padding:0.25rem 0.7rem;background:var(--color-status-red-text);color: var(--text-primary);border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:700;">Yes, Delete</button>
       <button id="btn-confirm-delete-no" style="font-size:0.75rem;padding:0.25rem 0.7rem;background:transparent;color:var(--text-muted);border:1px solid var(--border-color);border-radius:var(--radius-sm);cursor:pointer;">Cancel</button>
     `;
     btn.closest('div').parentElement.insertBefore(bar, btn.closest('div').nextSibling);
@@ -1640,7 +1640,7 @@ function renderPlanDetail(plan) {
           nextBanner.innerHTML = `
             <span style="font-size:0.85rem;color:var(--text-secondary);">Plan accepted — ready for dependency sensing.</span>
             <div style="flex:1;"></div>
-            <button id="btn-proceed-to-deps-detail" style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.2rem;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(139,92,246,0.35);transition:all 0.18s ease;"
+            <button id="btn-proceed-to-deps-detail" style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.2rem;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color: var(--text-primary);box-shadow:0 2px 8px rgba(139,92,246,0.35);"
               onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(139,92,246,0.5)';"
               onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(139,92,246,0.35)';">
               <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
@@ -1834,7 +1834,7 @@ function renderTimelineBars(plan) {
             align-items: center;
             padding-left: 6px;
             font-size: 0.68rem;
-            color: #ffffff;
+            color: var(--text-primary);
             text-shadow: 0px 1px 3px rgba(0,0,0,0.9);
             font-weight: 700;
             white-space: nowrap;

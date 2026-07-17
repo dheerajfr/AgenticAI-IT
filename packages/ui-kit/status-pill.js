@@ -50,7 +50,6 @@ class StatusPill extends HTMLElement {
           border-radius: var(--radius-round, 9999px);
           border: 1px solid transparent;
           font-family: var(--font-sans, system-ui, sans-serif);
-          transition: all var(--transition-fast, 0.15s) ease;
         }
         .gray {
           background-color: var(--color-status-gray-bg, #1e293b);

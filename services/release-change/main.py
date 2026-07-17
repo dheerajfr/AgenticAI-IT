@@ -223,8 +223,7 @@ def get_mock_build_details(build_id: str, plan_id: str, version: str):
             "[INFO] Deployment completed successfully."
         ),
         "rollback_package": f"rollback-app-{suffix}-v2.4.1.tar.gz",
-        "build_timestamp": "2026-07-14T06:30:00Z",
-        "pipeline_url": f"http://jenkins.internal/job/pipeline-{suffix}/9901"
+        "build_timestamp": "2026-07-14T06:30:00Z"
     }
 
 def get_real_build_details(project_id: str, build_id: str, version: str) -> dict:
@@ -272,8 +271,7 @@ def get_real_build_details(project_id: str, build_id: str, version: str) -> dict
                         "deployment_status": "runbook-ready",
                         "deployment_logs": f"[INFO] Runbook {rb_id} loaded for component {comp_id}.\n[INFO] Status: {status}.\n[INFO] Runbook Steps:\n{steps_str}",
                         "rollback_package": f"rollback-{comp_id}-{version}.tar.gz",
-                        "build_timestamp": runbook_data.get("created_at") or "2026-07-14T06:30:00Z",
-                        "pipeline_url": f"http://jenkins.internal/job/runbook-{rb_id}"
+                        "build_timestamp": runbook_data.get("created_at") or "2026-07-14T06:30:00Z"
                     }
                 
                 return get_mock_build_details(build_id, project_id, version)
@@ -322,8 +320,7 @@ def get_real_build_details(project_id: str, build_id: str, version: str) -> dict
                 "deployment_status": dep_status,
                 "deployment_logs": "\n".join(logs),
                 "rollback_package": f"rollback-{comp_id}-{dep_ver}.tar.gz",
-                "build_timestamp": deployment_row.get("created_at") or "2026-07-14T06:30:00Z",
-                "pipeline_url": f"http://jenkins.internal/job/pipeline-{project_id.split('-')[-1]}/deploy"
+                "build_timestamp": deployment_row.get("created_at") or "2026-07-14T06:30:00Z"
             }
     except Exception as e:
         print(f"Error querying build-deploy DB: {e}")
@@ -576,6 +573,17 @@ def get_releases(project_id: Optional[str] = None, status: Optional[str] = None,
     if environment:
         releases = [r for r in releases if r["environment"].lower() == environment.lower()]
     return releases
+
+
+@app.delete("/api/release-change/releases/{release_id}")
+def delete_release(release_id: str):
+    """
+    Deletes a release record and all associated data for the given release_id.
+    """
+    deleted = db.delete_release(release_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Release record not found.")
+    return {"status": "deleted", "release_id": release_id}
 
 
 @app.post("/api/release-change/releases")

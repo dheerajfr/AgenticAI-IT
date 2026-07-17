@@ -242,6 +242,14 @@ class ChangeDatabase:
             releases.sort(key=lambda x: x.get("created_at", ""), reverse=True)
             return releases
 
+    def delete_release(self, release_id: str) -> bool:
+        suffix = self._get_suffix(release_id)
+        with self._conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM release_change WHERE id = ?", (suffix,))
+            conn.commit()
+            return cursor.rowcount > 0
+
     # Change Request methods
     def save_change_request(self, change_id: str, release_id: str, summary: str, business_justification: str, impact_analysis: str, deployment_plan: str, validation_plan: str, rollback_plan: str, known_issues: str, status: str, created_by: str, created_at: str) -> None:
         suffix = self._get_suffix(release_id)

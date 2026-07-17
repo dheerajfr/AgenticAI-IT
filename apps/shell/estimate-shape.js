@@ -127,7 +127,7 @@ function renderEstimateList() {
             <span style="font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;" class="${statusClass}">
               ${est.status}
             </span>
-            <button type="button" class="btn-queue-delete" data-id="${est.estimate_id}" style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; justify-content: center; opacity: 0.7; transition: opacity 0.2s;" title="Delete Estimate" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+            <button type="button" class="btn-queue-delete" data-id="${est.estimate_id}" style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; justify-content: center; opacity: 0.7; " title="Delete Estimate" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
               <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             </button>
           </div>
@@ -418,13 +418,13 @@ function renderEstimateWizard(est) {
         <!-- Next Step + Redo CTAs for approved estimates -->
         <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color); flex-wrap: wrap;">
           <button type="button" id="btn-redo-estimate"
-            style="display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.9rem; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-secondary); transition: all 0.15s ease;"
+            style="display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.9rem; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-secondary); "
             onmouseover="this.style.borderColor='var(--color-brand)';this.style.color='var(--color-brand)';"
             onmouseout="this.style.borderColor='var(--border-color)';this.style.color='var(--text-secondary)';"
           >&#x21ba; Re-estimate</button>
           <div style="flex:1;"></div>
           <button type="button" id="btn-proceed-to-plan"
-            style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1.2rem; border-radius: var(--radius-sm); font-size: 0.88rem; font-weight: 700; cursor: pointer; border: none; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; box-shadow: 0 2px 8px rgba(99,102,241,0.35); transition: all 0.18s ease;"
+            style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1.2rem; border-radius: var(--radius-sm); font-size: 0.88rem; font-weight: 700; cursor: pointer; border: none; background: linear-gradient(135deg, #6366f1, #4f46e5); color: var(--text-primary); box-shadow: 0 2px 8px rgba(99,102,241,0.35); "
             onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(99,102,241,0.5)';"
             onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(99,102,241,0.35)';"
           >

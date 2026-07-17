@@ -99,8 +99,8 @@ function computeDynamicRisk(dep) {
     .wf-badge.medium { background-color: var(--color-status-amber-bg); color: var(--color-status-amber-text); border: 1px solid var(--color-status-amber-border); }
     .wf-badge.low { background-color: var(--color-status-green-bg); color: var(--color-status-green-text); border: 1px solid var(--color-status-green-border); }
     .wf-card { background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-md); }
-    .wf-btn-toggle { background-color: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 0.4rem 0.8rem; border-radius: var(--radius-sm); cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all var(--transition-fast) ease; }
-    .wf-btn-toggle.active { background-color: var(--color-brand); color: white; border-color: var(--color-brand); box-shadow: 0 0 8px rgba(99, 102, 241, 0.4); }
+    .wf-btn-toggle { background-color: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 0.4rem 0.8rem; border-radius: var(--radius-sm); cursor: pointer; font-size: 0.8rem; font-weight: 600; }
+    .wf-btn-toggle.active { background-color: var(--color-brand); color: var(--text-primary); border-color: var(--color-brand); box-shadow: 0 0 8px rgba(99, 102, 241, 0.4); }
     .wf-btn-toggle:hover:not(.active) { background-color: rgba(255, 255, 255, 0.05); }
     .wf-textarea { width: 100%; min-height: 120px; background-color: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-md); padding: 0.75rem; font-family: var(--font-sans); font-size: 0.9rem; line-height: 1.5; resize: vertical; margin-bottom: 0.5rem; }
     .wf-textarea:focus { border-color: var(--border-focus); outline: none; }
@@ -109,18 +109,18 @@ function computeDynamicRisk(dep) {
     .wf-history-item::before { content: ''; position: absolute; left: 4px; top: 5px; width: 8px; height: 8px; border-radius: 50%; background-color: var(--color-brand); }
     .wf-history-item::after { content: ''; position: absolute; left: 7px; top: 15px; width: 2px; height: calc(100% - 10px); background-color: var(--border-color); }
     .wf-history-item:last-child::after { display: none; }
-    .ai-pill { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.65rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-secondary); transition: all 0.15s ease; }
+    .ai-pill { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.65rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-secondary); }
     .ai-pill:hover { border-color: var(--color-brand); color: var(--color-brand); }
-    .ai-pill.active { background: var(--color-brand); color: white; border-color: var(--color-brand); }
-    .ai-action-btn { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-secondary); transition: all 0.15s ease; white-space: nowrap; }
+    .ai-pill.active { background: var(--color-brand); color: var(--text-primary); border-color: var(--color-brand); }
+    .ai-action-btn { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-secondary); white-space: nowrap; }
     .ai-action-btn:hover { border-color: var(--color-brand); color: var(--color-brand); background: rgba(99,102,241,0.05); }
     .conf-bar { height: 8px; border-radius: 4px; background: var(--border-color); overflow: hidden; flex: 1; }
-    .conf-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+    .conf-bar-fill { height: 100%; border-radius: 4px; }
     .timeline-step { display: flex; align-items: flex-start; gap: 0.75rem; position: relative; padding-bottom: 1rem; }
     .timeline-step:not(:last-child)::after { content: ''; position: absolute; left: 11px; top: 24px; width: 2px; height: calc(100% - 12px); background: var(--border-color); }
     .timeline-dot { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0; border: 2px solid var(--border-color); background: var(--bg-secondary); }
-    .quick-action-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-md); font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-secondary); transition: all 0.15s ease; flex: 1; min-width: 140px; }
-    .quick-action-btn:hover { border-color: var(--color-brand); color: var(--color-brand); background: rgba(99,102,241,0.04); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+    .quick-action-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-md); font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-secondary); flex: 1; min-width: 140px; }
+    .quick-action-btn:hover { border-color: var(--color-brand); color: var(--color-brand); background: rgba(99,102,241,0.04); box-shadow: var(--shadow-sm); }
     .kpi-stat { text-align: center; padding: 0.75rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
     .kpi-stat .kpi-val { font-size: 1.4rem; font-weight: 800; color: var(--color-brand); line-height: 1.2; }
     .kpi-stat .kpi-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-top: 0.2rem; }
@@ -131,10 +131,10 @@ function computeDynamicRisk(dep) {
     .wizard-step { margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 2rem; }
     .wizard-step-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
     .wizard-step-title { margin: 0; display: flex; align-items: center; gap: 0.75rem; font-size: 1.1rem; }
-    .wizard-step-num { width: 28px; height: 28px; background: var(--color-brand); color: white; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.9rem; }
+    .wizard-step-num { width: 28px; height: 28px; background: var(--color-brand); color: var(--text-primary); display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.9rem; }
     .wizard-step.locked { opacity: 0.5; pointer-events: none; }
     .dep-tab-bar { display: flex; gap: 0; border-bottom: 2px solid var(--border-color); margin-bottom: 1.5rem; }
-    .dep-tab { flex: 1; padding: 0.65rem 0.5rem; background: none; border: none; font-size: 0.82rem; font-weight: 700; color: var(--text-muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: color 0.15s, border-color 0.15s; white-space: nowrap; }
+    .dep-tab { flex: 1; padding: 0.65rem 0.5rem; background: none; border: none; font-size: 0.82rem; font-weight: 700; color: var(--text-muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; white-space: nowrap; }
     .dep-tab:hover { color: var(--color-brand); }
     .dep-tab.active { color: var(--color-brand); border-bottom-color: var(--color-brand); }
     .dep-tab-pane { display: none; }
@@ -276,7 +276,7 @@ function renderDependencyList() {
               ${dep.status}
             </span>
             <button class="btn-delete-dep" data-id="${dep.dependency_id}" title="Delete dependency"
-              style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; opacity: 0.7; transition: opacity 0.2s;"
+              style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; opacity: 0.7; "
               onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
               <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             </button>
@@ -475,7 +475,7 @@ function renderDependencyDetails(dep) {
           <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.1rem;">All dependencies for this demand have been resolved.</div>
         </div>
       </div>
-      <button id="btn-resense-deps" style="display:flex;align-items:center;gap:0.4rem;padding:0.4rem 0.9rem;border-radius:var(--radius-sm);font-size:0.8rem;font-weight:600;cursor:pointer;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-secondary);transition:all 0.15s ease;"
+      <button id="btn-resense-deps" style="display:flex;align-items:center;gap:0.4rem;padding:0.4rem 0.9rem;border-radius:var(--radius-sm);font-size:0.8rem;font-weight:600;cursor:pointer;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-secondary);"
         onmouseover="this.style.borderColor='var(--color-brand)';this.style.color='var(--color-brand)';"
         onmouseout="this.style.borderColor='var(--border-color)';this.style.color='var(--text-secondary)';">
         &#x21ba; Re-sense Dependencies
@@ -735,7 +735,7 @@ function renderDependencyDetails(dep) {
                 <!-- HUMAN APPROVAL BANNER -->
                 <div class="approval-banner" style="margin-bottom: 1.25rem; display: ${dep.is_self_dependency ? 'none' : 'flex'};">
                   <div style="display: flex; align-items: center; gap: 0.75rem;">
-                    <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand); display: flex; align-items: center; justify-content: center; color: white; font-size: 1rem;">🧠</div>
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand); display: flex; align-items: center; justify-content: center; color: var(--text-primary); font-size: 1rem;">🧠</div>
                     <div>
                       <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">AI Recommendation Ready</div>
                       <div style="font-size: 0.72rem; color: var(--text-secondary);">Pending Human Approval — Review draft and assessment before sending.</div>

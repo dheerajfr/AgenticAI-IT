@@ -158,7 +158,6 @@ class ModulePlaceholder extends HTMLElement {
           text-align: center;
           box-shadow: var(--shadow-lg);
           backdrop-filter: blur(10px);
-          transition: border-color var(--transition-normal, 0.25s) ease;
         }
         .placeholder-card:hover {
           border-color: var(--color-brand, #6366f1);

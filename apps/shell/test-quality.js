@@ -74,7 +74,6 @@ window.renderTestQualityScreen = function() {
         font-family: var(--font-sans);
         font-size: 0.85rem;
         font-weight: 600;
-        transition: all 0.2s ease;
       }
       .tq-tab-btn:hover {
         background: rgba(255, 255, 255, 0.03);
@@ -138,14 +137,13 @@ window.renderTestQualityScreen = function() {
       }
       .tq-btn {
         background: linear-gradient(135deg, var(--color-brand), #4f46e5);
-        color: white;
+        color: var(--text-primary);
         border: none;
         padding: 0.65rem 1.25rem;
         border-radius: var(--radius-sm);
         cursor: pointer;
         font-weight: 600;
         font-size: 0.85rem;
-        transition: opacity 0.2s ease;
         display: inline-flex;
         align-items: center;
         gap: 0.5rem;
@@ -255,7 +253,7 @@ function renderTQQueues(activeDemandIds) {
     pendingContainer.innerHTML = pendingDemands.map(d => {
       const isActive = d.demand_id === tqSelectedDemandId;
       return `
-        <li class="demand-item pending-item ${isActive ? 'active' : ''}" data-id="${d.demand_id}" style="padding: 0.75rem 1rem; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;">
+        <li class="demand-item pending-item ${isActive ? 'active' : ''}" data-id="${d.demand_id}" style="padding: 0.75rem 1rem; border-radius: var(--radius-sm); cursor: pointer; ">
           <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.25rem;">${d.title}</div>
           <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: var(--text-secondary);">
             <span>${d.demand_id}</span>
@@ -273,7 +271,7 @@ function renderTQQueues(activeDemandIds) {
     activeContainer.innerHTML = activeDemands.map(d => {
       const isActive = d.demand_id === tqSelectedDemandId;
       return `
-        <li class="demand-item active-item ${isActive ? 'active' : ''}" data-id="${d.demand_id}" style="padding: 0.75rem 1rem; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;">
+        <li class="demand-item active-item ${isActive ? 'active' : ''}" data-id="${d.demand_id}" style="padding: 0.75rem 1rem; border-radius: var(--radius-sm); cursor: pointer; ">
           <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.25rem;">${d.title}</div>
           <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: var(--text-secondary);">
             <span>${d.demand_id}</span>
