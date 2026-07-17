@@ -68,14 +68,14 @@ function populateCreateModalDropdowns() {
       <option value="">-- Choose Approved Demand --</option>
       ${dropdownOptions.demands.map(d => `<option value="${d.demand_id}">${d.demand_id} - ${d.title}</option>`).join('')}
     `;
-    
+
     const activeDemandId = sessionStorage.getItem('selectedDemandId');
     if (activeDemandId && dropdownOptions.demands.some(d => d.demand_id === activeDemandId)) {
       projectSelect.value = activeDemandId;
       onProjectSelectChange();
     }
   }
-  
+
   const envSelect = document.getElementById('modal-env-select');
   if (envSelect && dropdownOptions.environments && dropdownOptions.environments.length > 0) {
     envSelect.innerHTML = `
@@ -420,7 +420,7 @@ function onProjectSelectChange() {
 
 function openCreateModal() {
   populateCreateModalDropdowns();
-  
+
   const activeDemandId = sessionStorage.getItem('selectedDemandId');
   if (activeDemandId) {
     const projectSelect = document.getElementById('modal-project-select');
@@ -429,7 +429,7 @@ function openCreateModal() {
       onProjectSelectChange();
     }
   }
-  
+
   document.getElementById('release-create-modal').style.display = 'flex';
 }
 

@@ -16,7 +16,7 @@ let traceabilityMatrix = null;
 let qualityGate = null;
 
 // Expose to window so shell.js can call it
-window.renderTestQualityScreen = function() {
+window.renderTestQualityScreen = function () {
   const viewport = document.getElementById('viewport');
   viewport.innerHTML = `
     <div class="intake-screen">
@@ -197,7 +197,7 @@ window.renderTestQualityScreen = function() {
   }
 }
 
-window.fetchTestQualityData = async function() {
+window.fetchTestQualityData = async function () {
   try {
     const resDemands = await fetch(`${TQ_API_BASE}/demands`);
     if (!resDemands.ok) throw new Error(`HTTP Error: ${resDemands.status}`);
@@ -299,10 +299,10 @@ async function selectTQDemand(id) {
     .then(states => {
       renderTQQueues(states.map(s => s.demand_id));
     });
-  
+
   // Set memory state and call fetch context
   await loadConsolidatedTQState(id);
-  
+
   try {
     const resCtx = await fetch(`${TQ_API_BASE}/test-quality/delivery-context/${id}`);
     if (resCtx.ok) {
@@ -418,8 +418,8 @@ function renderSearchableDemandDropdown(container, activeDemand) {
 
   function renderOptions(query) {
     const q = query.toLowerCase();
-    const filtered = tqDemands.filter(d => 
-      d.demand_id.toLowerCase().includes(q) || 
+    const filtered = tqDemands.filter(d =>
+      d.demand_id.toLowerCase().includes(q) ||
       d.title.toLowerCase().includes(q)
     );
 
@@ -494,14 +494,14 @@ function renderActiveTabContent(demand) {
 // -------------------------------------------------------------
 async function renderDashboardTab(container, demand) {
   container.innerHTML = `<div style="text-align: center; padding: 2rem;"><span class="loader" style="width: 32px; height: 32px;"></span><p style="margin-top: 0.5rem; color: var(--text-secondary);">Analyzing stats...</p></div>`;
-  
+
   try {
     const res = await fetch(`${TQ_API_BASE}/test-quality/dashboard-stats/${demand.demand_id}`);
     const stats = res.ok ? await res.json() : getMockDashboardStats();
 
     const isGatePass = stats.quality_gate_status === 'PASS';
     const isGateFail = stats.quality_gate_status === 'FAIL';
-    
+
     let gateColor = '#4ade80';
     if (isGateFail) gateColor = '#ef4444';
     else if (stats.quality_gate_status === 'CONDITIONAL_PASS') gateColor = '#fbbf24';
@@ -651,7 +651,7 @@ function getMockDashboardStats() {
 // -------------------------------------------------------------
 function renderTestGenerationTab(container, demand) {
   const cases = generatedSuite ? generatedSuite.test_cases : [];
-  
+
   container.innerHTML = `
     <!-- Top Configuration card -->
     <div class="tq-card">
@@ -727,15 +727,15 @@ function renderTestGenerationTab(container, demand) {
                 </td>
               </tr>
             ` : cases.map(c => {
-              const testId = c.test_id || c.id || '';
-              const testPriority = c.priority || 'medium';
-              const testRisk = c.risk_level || 'medium';
-              const testAuto = c.automation_candidate || (c.type && c.type !== 'manual' ? 'Yes' : 'No');
-              const testStatus = c.status || 'Approved';
-              const testReq = c.requirement || c.type || 'Functional';
-              const stepsStr = Array.isArray(c.steps) ? c.steps.join('; ') : (c.steps || '');
-              
-              return `
+    const testId = c.test_id || c.id || '';
+    const testPriority = c.priority || 'medium';
+    const testRisk = c.risk_level || 'medium';
+    const testAuto = c.automation_candidate || (c.type && c.type !== 'manual' ? 'Yes' : 'No');
+    const testStatus = c.status || 'Approved';
+    const testReq = c.requirement || c.type || 'Functional';
+    const stepsStr = Array.isArray(c.steps) ? c.steps.join('; ') : (c.steps || '');
+
+    return `
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
                 <td style="padding: 0.5rem; font-weight: bold; color: var(--color-brand);">${testId}</td>
                 <td style="padding: 0.5rem; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
@@ -757,7 +757,7 @@ function renderTestGenerationTab(container, demand) {
                 </td>
               </tr>
               `;
-            }).join('')}
+  }).join('')}
           </tbody>
         </table>
       </div>
@@ -769,7 +769,7 @@ function renderTestGenerationTab(container, demand) {
   generateBtn.addEventListener('click', async () => {
     generateBtn.disabled = true;
     generateBtn.innerHTML = `<span class="loader"></span> Generating...`;
-    
+
     // Save generated test cases
     const defaultCases = getDefaultMockTestCases(demand.demand_id);
     for (const c of defaultCases) {
@@ -790,7 +790,7 @@ function renderTestGenerationTab(container, demand) {
     if (!title) return;
     const reqName = prompt("Enter Requirement Area:", "Functional Check");
     const priority = prompt("Enter Priority (Critical, High, Medium, Low):", "High");
-    
+
     const mockId = `TC-${demand.demand_id.split('-').pop()}-${Date.now().toString().slice(-4)}`;
     const newCase = {
       id: mockId,
@@ -935,13 +935,13 @@ function renderTestDataTab(container, demand) {
                 </td>
               </tr>
             ` : datasets.map(d => {
-              const dId = d.dataset_id || d.id || d.name || '—';
-              const dEnv = d.environment || d.env || '—';
-              const dType = d.data_type || d.type || '—';
-              const dCount = d.record_count || d.count || '—';
-              const dDate = d.created_date || d.created_at || d.provisioned_at || '—';
-              const dStatus = d.status || 'Provisioned';
-              return `
+    const dId = d.dataset_id || d.id || d.name || '—';
+    const dEnv = d.environment || d.env || '—';
+    const dType = d.data_type || d.type || '—';
+    const dCount = d.record_count || d.count || '—';
+    const dDate = d.created_date || d.created_at || d.provisioned_at || '—';
+    const dStatus = d.status || 'Provisioned';
+    return `
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
                 <td style="padding: 0.5rem; font-weight: bold; color: var(--color-brand);">${dId}</td>
                 <td style="padding: 0.5rem; color: var(--text-secondary);">${dEnv}</td>
@@ -955,7 +955,7 @@ function renderTestDataTab(container, demand) {
                 </td>
               </tr>
               `;
-            }).join('')}
+  }).join('')}
           </tbody>
         </table>
       </div>
@@ -1128,14 +1128,14 @@ function renderTestExecutionTab(container, demand) {
                 </td>
               </tr>
             ` : executions.map(e => {
-              const eId = e.id || e.run_id || e.test_run_id || '—';
-              const eTitle = e.test_case_title || e.title || e.test_name || e.test_case_id || '—';
-              const eCategory = e.category || e.execution_type || e.type || '—';
-              const eEnv = e.environment || e.env || '—';
-              const eDate = e.run_date || e.executed_at || e.created_at || '—';
-              const eStatus = e.status || '—';
-              const statusColor = eStatus === 'Passed' || eStatus === 'passed' ? '#4ade80' : (eStatus === 'Failed' || eStatus === 'failed' ? '#ef4444' : '#fbbf24');
-              return `
+    const eId = e.id || e.run_id || e.test_run_id || '—';
+    const eTitle = e.test_case_title || e.title || e.test_name || e.test_case_id || '—';
+    const eCategory = e.category || e.execution_type || e.type || '—';
+    const eEnv = e.environment || e.env || '—';
+    const eDate = e.run_date || e.executed_at || e.created_at || '—';
+    const eStatus = e.status || '—';
+    const statusColor = eStatus === 'Passed' || eStatus === 'passed' ? '#4ade80' : (eStatus === 'Failed' || eStatus === 'failed' ? '#ef4444' : '#fbbf24');
+    return `
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
                 <td style="padding: 0.5rem; font-weight: bold; color: var(--color-brand);">${eId}</td>
                 <td style="padding: 0.5rem;">${eTitle}</td>
@@ -1348,7 +1348,7 @@ async function renderDefectTriageTab(container, demand) {
       alert("Please select at least two defects to merge.");
       return;
     }
-    
+
     if (confirm(`Are you sure you want to merge defects: ${selected.join(', ')}?`)) {
       // Retain first defect, close others
       const survivorId = selected[0];
@@ -1622,8 +1622,8 @@ async function renderTraceabilityTab(container, demand) {
           </thead>
           <tbody>
             ${matrix.rows.map(r => {
-              const isMissing = r.test_id === 'Missing' || r.execution === 'Missing';
-              return `
+    const isMissing = r.test_id === 'Missing' || r.execution === 'Missing';
+    return `
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.03); ${isMissing ? 'background: rgba(239,68,68,0.04);' : ''}">
                   <td style="padding: 0.5rem; font-weight: 600;">${r.requirement}</td>
                   <td style="padding: 0.5rem; color: var(--text-secondary);">${r.story}</td>
@@ -1634,7 +1634,7 @@ async function renderTraceabilityTab(container, demand) {
                   <td style="padding: 0.5rem; color: var(--text-secondary);">${r.release_id}</td>
                 </tr>
               `;
-            }).join('')}
+  }).join('')}
           </tbody>
         </table>
       </div>
@@ -1682,7 +1682,7 @@ async function renderQualityGateTab(container, demand) {
   const qg = qualityGate;
   const isPass = qg.verdict === 'PASS';
   const isFail = qg.verdict === 'FAIL';
-  
+
   let verdictBg = 'rgba(74, 222, 128, 0.06)';
   let verdictBorder = '#4ade80';
   let verdictColor = '#4ade80';
@@ -1786,7 +1786,7 @@ async function renderQualityGateTab(container, demand) {
   document.getElementById('btn-tq-qg-evaluate').addEventListener('click', async () => {
     // Call evaluate policy logic
     alert("Re-evaluating all policy thresholds in the background...");
-    
+
     // Simulate updating values if bugs/vulns have been resolved
     const resBugs = await fetch(`${TQ_API_BASE}/test-quality/relational/defects/${demand.demand_id}`);
     const bugs = await resBugs.json();
@@ -1805,7 +1805,7 @@ async function renderQualityGateTab(container, demand) {
     qg.checks[1].result = openBugs === 0 ? "passed" : "failed";
     qg.checks[2].actual = openSec.toString();
     qg.checks[2].result = openSec === 0 ? "passed" : "failed";
-    qg.gap_explanation = (openBugs === 0 && openSec === 0) 
+    qg.gap_explanation = (openBugs === 0 && openSec === 0)
       ? "All release policy thresholds met successfully. Release approved."
       : "One open blocker bug and AWS secret leak finding are violating release policy threshold guidelines.";
 
@@ -1829,7 +1829,7 @@ async function renderQualityGateTab(container, demand) {
   document.getElementById('btn-tq-qg-approve').addEventListener('click', async () => {
     const comments = prompt("Enter approval override comments/justification:");
     if (comments === null) return;
-    
+
     qg.verdict = 'PASS';
     qg.score = 100;
     qg.history.push({
