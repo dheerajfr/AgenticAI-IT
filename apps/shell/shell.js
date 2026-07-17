@@ -102,7 +102,13 @@ function switchStage(stageId) {
     breadcrumbText.textContent = getModuleName(stageId);
   }
   
-  if (stageId === 'demand-intake') {
+  if (stageId === 'dashboard') {
+    if (window.renderDashboardScreen) {
+      window.renderDashboardScreen();
+    } else {
+      viewport.innerHTML = `<module-placeholder module-id="\${stageId}" module-title="Dashboard" style="animation: fade-in 0.3s ease; display: block; height: 100%;"></module-placeholder>`;
+    }
+  } else if (stageId === 'demand-intake') {
     renderIntakeScreen();
     fetchDemands();
   } else if (stageId === 'estimate-shape') {
