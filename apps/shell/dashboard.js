@@ -144,6 +144,11 @@ window.renderDashboardScreen = async function() {
       renderProjectDetails(match.demand_id);
     }
   });
+
+  if (currentProject && currentProject.demandId) {
+    dropdown.value = currentProject.demandId;
+    renderProjectDetails(currentProject.demandId);
+  }
 };
 
 async function renderProjectDetails(demandId) {

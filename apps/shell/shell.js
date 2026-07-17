@@ -97,6 +97,10 @@ function switchStage(stageId) {
   }
   
   // Update Breadcrumbs
+  const breadcrumbs = document.getElementById('global-breadcrumbs');
+  if (breadcrumbs) {
+    breadcrumbs.style.display = stageId === 'dashboard' ? 'none' : 'flex';
+  }
   const breadcrumbText = document.getElementById('breadcrumb-current-module');
   if (breadcrumbText) {
     breadcrumbText.textContent = getModuleName(stageId);
