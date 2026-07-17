@@ -165,7 +165,7 @@ window.fetchBuildDeployData = async function () {
     renderDeployList();
 
     const activeItems = activeDeployTab === 'runbooks' ? runbooks : activeDeployTab === 'cutover' ? cutoverSessions : deployments;
-    
+
     if (activeDeployTab === 'runbooks') {
       if (selectedRunbookId && !runbooks.some(r => r.runbook_id === selectedRunbookId)) selectedRunbookId = null;
     } else if (activeDeployTab === 'cutover') {
@@ -173,12 +173,12 @@ window.fetchBuildDeployData = async function () {
     } else {
       if (selectedDeploymentId && !deployments.some(d => d.deployment_id === selectedDeploymentId)) selectedDeploymentId = null;
     }
-    
+
     if (selectedDemandId) {
       const hasItems = activeItems.some(i => (i.demand_id || 'Unknown') === selectedDemandId);
       if (!hasItems) selectedDemandId = null;
     }
-    
+
     if (selectedDemandId) {
       renderDeployContent();
     } else {
@@ -385,14 +385,14 @@ function showNewRunbookForm() {
 
     // Filter component options based on this demand
     const compSelect = document.getElementById('rbk-component');
-    
+
     let relatedComps = [];
     for (const r of envRecordsForDemand) {
       if (r.cmdb_name) relatedComps.push(r.cmdb_name);
       if (r.observed_name) relatedComps.push(r.observed_name);
     }
     relatedComps = [...new Set(relatedComps)].filter(Boolean).sort();
-    
+
     // Replace options in dropdown
     compSelect.innerHTML = relatedComps.map(c => `<option value="${c}">${c}</option>`).join('');
 
@@ -401,7 +401,7 @@ function showNewRunbookForm() {
     } else {
       compSelect.value = relatedComps[0] || '';
     }
-    
+
     function updateTargetEnv() {
       const currentCompId = compSelect.value;
       const envOrder = ['dev', 'test', 'staging', 'prod'];
@@ -418,10 +418,10 @@ function showNewRunbookForm() {
         envSelect.value = targetEnv;
       }
     }
-    
+
     compSelect.addEventListener('change', updateTargetEnv);
     updateTargetEnv();
-    
+
     document.getElementById('rbk-change-summary').value = _buildChangeSummary(demand);
     document.getElementById('rbk-arch-notes').value = _buildArchNotes();
 
@@ -523,13 +523,13 @@ function renderRunbookDetails(record) {
               <div class="form-group" style="margin-bottom:0;">
                 <label style="font-size:0.72rem;">Environment</label>
                 <select class="edit-step-env" data-idx="${i}">
-                  ${['dev','test','staging','prod'].map(e => `<option value="${e}" ${s.environment === e ? 'selected' : ''}>${e}</option>`).join('')}
+                  ${['dev', 'test', 'staging', 'prod'].map(e => `<option value="${e}" ${s.environment === e ? 'selected' : ''}>${e}</option>`).join('')}
                 </select>
               </div>
               <div class="form-group" style="margin-bottom:0;">
                 <label style="font-size:0.72rem;">Type</label>
                 <select class="edit-step-type" data-idx="${i}">
-                  ${['pre-check','execute','verify','rollback-trigger'].map(t => `<option value="${t}" ${s.step_type === t ? 'selected' : ''}>${t}</option>`).join('')}
+                  ${['pre-check', 'execute', 'verify', 'rollback-trigger'].map(t => `<option value="${t}" ${s.step_type === t ? 'selected' : ''}>${t}</option>`).join('')}
                 </select>
               </div>
               <div class="form-group" style="margin-bottom:0;">
@@ -721,7 +721,7 @@ function showNewCutoverForm(prefillRunbookId) {
 
   const cutRunbookSelect = document.getElementById('cut-runbook');
   const cutComponentSelect = document.getElementById('cut-component');
-  
+
   cutRunbookSelect.addEventListener('change', () => {
     const selectedRbkId = cutRunbookSelect.value;
     if (selectedRbkId) {
@@ -980,13 +980,13 @@ function showNewDeploymentForm(prefillRunbookId) {
   `;
 
   const runbookSelect = document.getElementById('dep-runbook');
-  
+
   async function updateFromRunbook() {
     const runbookId = runbookSelect.value;
     const compSelect = document.getElementById('dep-component');
     const envInput = document.getElementById('dep-environment');
     const verInput = document.getElementById('dep-version');
-    
+
     if (!runbookId) {
       compSelect.value = '';
       envInput.value = '';
@@ -1000,7 +1000,7 @@ function showNewDeploymentForm(prefillRunbookId) {
     // Auto-fill component
     const compId = runbook.component_id;
     document.getElementById('dep-component').value = compId || '';
-    
+
     // Auto-fill environment based on runbook steps (highest priority: prod > staging > test > dev)
     const envOrder = ['dev', 'test', 'staging', 'prod'];
     let targetEnv = 'dev';
@@ -1010,7 +1010,7 @@ function showNewDeploymentForm(prefillRunbookId) {
       }
     }
     envInput.value = targetEnv;
-    
+
     // Auto-fill version from Stage 5 by fetching it live
     try {
       const res = await fetch('/api/environments');
@@ -1022,7 +1022,7 @@ function showNewDeploymentForm(prefillRunbookId) {
           return;
         }
       }
-    } catch(err) {
+    } catch (err) {
       console.warn("Failed to fetch environment state for version fallback", err);
     }
     verInput.value = '1.0.0'; // Fallback
@@ -1220,12 +1220,12 @@ function renderDeployContent() {
   const items = activeDeployTab === 'runbooks' ? runbooks : activeDeployTab === 'cutover' ? cutoverSessions : deployments;
   const idField = activeDeployTab === 'runbooks' ? 'runbook_id' : activeDeployTab === 'cutover' ? 'cutover_id' : 'deployment_id';
   const demandItems = items.filter(i => (i.demand_id || 'Unknown') === selectedDemandId);
-  
+
   if (demandItems.length === 0) {
     panel.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text-muted);">No records found for this demand.</div>`;
     return;
   }
-  
+
   const currentSelectedId = activeDeployTab === 'runbooks' ? selectedRunbookId : activeDeployTab === 'cutover' ? selectedCutoverId : selectedDeploymentId;
   let activeItem = demandItems.find(i => i[idField] === currentSelectedId);
   if (!activeItem) {
@@ -1234,25 +1234,31 @@ function renderDeployContent() {
     else if (activeDeployTab === 'cutover') selectedCutoverId = activeItem.cutover_id;
     else selectedDeploymentId = activeItem.deployment_id;
   }
-  
+
   const typeLabel = activeDeployTab === 'runbooks' ? 'Runbook' : activeDeployTab === 'cutover' ? 'Cutover' : 'Deployment';
-  
+
   panel.innerHTML = `
     <div style="background:var(--bg-tertiary); padding:1rem; border-bottom:1px solid var(--border-color); display:flex; align-items:center; gap:1rem;">
       <label for="demand-component-select" style="font-weight:600;font-size:0.9rem;">Select ${typeLabel}:</label>
       <select id="demand-component-select" style="flex:1;max-width:400px;padding:0.4rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);background:var(--bg-primary);">
         ${demandItems.map(i => {
+<<<<<<< HEAD
            const cName = formatSimpleName(i.component_id);
            const env = getEnvironment(i);
            const label = `${cName} - ${env}`;
            return `<option value="${i[idField]}" ${i[idField] === activeItem[idField] ? 'selected' : ''}>${label}</option>`;
         }).join('')}
+=======
+    const label = activeDeployTab === 'runbooks' ? (i.environment ? `${i.title} (${i.environment})` : i.title) : activeDeployTab === 'cutover' ? `${i.component_id}` : `${i.component_id} (${i.environment || 'N/A'})`;
+    return `<option value="${i[idField]}" ${i[idField] === activeItem[idField] ? 'selected' : ''}>${label}</option>`;
+  }).join('')}
+>>>>>>> 921a6a4d9544a75b52d4927b08ee9ddc86f128f4
       </select>
       <button id="btn-delete-active-item" class="btn-secondary" style="color:var(--color-status-red-text); border-color:var(--color-status-red-text);">Delete Active ${typeLabel}</button>
     </div>
     <div id="deploy-content-inner" style="flex:1; display:flex; flex-direction:column; min-height:0; overflow:hidden; padding-top:1rem;"></div>
   `;
-  
+
   document.getElementById('demand-component-select').addEventListener('change', (e) => {
     const newId = e.target.value;
     if (activeDeployTab === 'runbooks') selectedRunbookId = newId;
@@ -1260,37 +1266,37 @@ function renderDeployContent() {
     else selectedDeploymentId = newId;
     renderDeployContent();
   });
-  
+
   document.getElementById('btn-delete-active-item').addEventListener('click', async () => {
-    if(!confirm(`Delete this ${typeLabel}?`)) return;
+    if (!confirm(`Delete this ${typeLabel}?`)) return;
     try {
       const apiPath = activeDeployTab === 'runbooks' ? 'runbooks' : activeDeployTab === 'cutover' ? 'cutover' : 'orchestration';
       const res = await fetch(`${DEPLOY_API_BASE}/${apiPath}/${encodeURIComponent(activeItem[idField])}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Delete failed');
-      
+
       if (activeDeployTab === 'runbooks') selectedRunbookId = null;
       else if (activeDeployTab === 'cutover') selectedCutoverId = null;
       else selectedDeploymentId = null;
-      
+
       await window.fetchBuildDeployData();
     } catch (err) {
       alert(err.message);
     }
   });
-  
+
   const innerContainer = document.getElementById('deploy-content-inner');
   const tempPanel = Object.defineProperty({}, 'innerHTML', {
     set(html) { innerContainer.innerHTML = html; },
     get() { return innerContainer.innerHTML; }
   });
-  
+
   // Actually, a better way is to redefine them to return the inner wrapper.
   const originalGetElementById = document.getElementById.bind(document);
-  document.getElementById = function(id) {
+  document.getElementById = function (id) {
     if (id === 'deploy-panel-container') return innerContainer;
     return originalGetElementById(id);
   };
-  
+
   try {
     if (activeDeployTab === 'runbooks') renderRunbookDetails(activeItem);
     else if (activeDeployTab === 'cutover') renderCutoverDetails(activeItem);

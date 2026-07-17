@@ -446,8 +446,8 @@ function renderDependencyDetails(dep) {
   const confidenceReasons = risk.reasons.length > 0
     ? risk.reasons
     : (dep.confidence_reasons && dep.confidence_reasons.length > 0
-        ? dep.confidence_reasons
-        : ['Dependency chain analysis complete', 'Owner activity tracked', 'Schedule variance calculated']);
+      ? dep.confidence_reasons
+      : ['Dependency chain analysis complete', 'Owner activity tracked', 'Schedule variance calculated']);
   const threatEmoji = threatLevel === 'high' ? '\u{1F534}' : threatLevel === 'medium' ? '\u{1F7E1}' : '\u{1F7E2}';
   const threatColorVar = threatLevel === 'high' ? 'red' : threatLevel === 'medium' ? 'amber' : 'green';
   const daysSinceUpdate = risk.daysSinceContact !== null
@@ -475,11 +475,17 @@ function renderDependencyDetails(dep) {
           <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.1rem;">All dependencies for this demand have been resolved.</div>
         </div>
       </div>
-      <button id="btn-resense-deps" style="display:flex;align-items:center;gap:0.4rem;padding:0.4rem 0.9rem;border-radius:var(--radius-sm);font-size:0.8rem;font-weight:600;cursor:pointer;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-secondary);"
-        onmouseover="this.style.borderColor='var(--color-brand)';this.style.color='var(--color-brand)';"
-        onmouseout="this.style.borderColor='var(--border-color)';this.style.color='var(--text-secondary)';">
-        &#x21ba; Re-sense Dependencies
-      </button>
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <button id="btn-resense-deps" style="display:flex;align-items:center;gap:0.4rem;padding:0.4rem 0.9rem;border-radius:var(--radius-sm);font-size:0.8rem;font-weight:600;cursor:pointer;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-secondary);"
+          onmouseover="this.style.borderColor='var(--color-brand)';this.style.color='var(--color-brand)';"
+          onmouseout="this.style.borderColor='var(--border-color)';this.style.color='var(--text-secondary)';">
+          &#x21ba; Re-sense
+        </button>
+        <button id="btn-proceed-to-build" style="display:flex;align-items:center;gap:0.4rem;padding:0.4rem 0.9rem;border-radius:var(--radius-sm);font-size:0.8rem;font-weight:700;cursor:pointer;border:none;background:var(--color-brand);color:var(--text-primary);box-shadow:0 2px 4px rgba(99,102,241,0.2);"
+          onclick="window.switchStage('config-environments')">
+          Next: Config Environments &nbsp;&rarr;
+        </button>
+      </div>
     </div>
   ` : '';
 
@@ -922,9 +928,9 @@ function renderDependencyDetails(dep) {
         ` : `
           <ul class="hist-timeline" style="list-style: none; padding: 0; margin: 0;">
             ${activityLogs.slice().reverse().map(entry => {
-              const text = typeof entry === 'string' ? entry : (entry.activity || entry.text || JSON.stringify(entry));
-              const ts = typeof entry === 'object' && entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '';
-              return `
+    const text = typeof entry === 'string' ? entry : (entry.activity || entry.text || JSON.stringify(entry));
+    const ts = typeof entry === 'object' && entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '';
+    return `
                 <li class="hist-entry">
                   <span class="hist-dot info">•</span>
                   <div>
@@ -933,7 +939,7 @@ function renderDependencyDetails(dep) {
                   </div>
                 </li>
               `;
-            }).join('')}
+  }).join('')}
           </ul>
         `}
       </div>
@@ -1114,7 +1120,7 @@ function renderDependencyDetails(dep) {
     });
   });
 
-  
+
 
   // Re-sense button (shown in completion banner for resolved deps)
   const resenseBtn = document.getElementById('btn-resense-deps');
@@ -1218,18 +1224,18 @@ function renderDependencyDetails(dep) {
         const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/${dep.dependency_id}/task-details?task_id=${tId}`);
         if (!res.ok) throw new Error("Failed to load task details");
         const data = await res.json();
-        
+
         document.getElementById('task-detail-current').textContent = data.selected_task;
         document.getElementById('task-detail-owner').textContent = data.current_owner;
         document.getElementById('task-detail-predecessor').textContent = data.depends_on;
         document.getElementById('task-detail-prev-owner').textContent = data.depends_on_owner;
         document.getElementById('task-detail-status').textContent = data.status;
         document.getElementById('task-detail-risk').textContent = data.risk;
-        
+
         window.currentSelectedTaskId = data.selected_task;
-        
+
         renderDependencyGraph(dep.dependency_id, 'dependency-graph-panel', data.selected_task);
-        
+
         const impactInput = document.getElementById('impact-task-id');
         if (impactInput) {
           impactInput.value = data.selected_task;
@@ -1238,11 +1244,11 @@ function renderDependencyDetails(dep) {
         console.error(err);
       }
     };
-    
+
     taskSelect.addEventListener('change', () => {
       updateDynamicTaskDetails(taskSelect.value);
     });
-    
+
     if (taskSelect.value) {
       updateDynamicTaskDetails(taskSelect.value);
     }
@@ -1627,16 +1633,16 @@ function showAutoSenseForm() {
             const title = p.project_title || "Unknown Project";
             return `<option value="${p.plan_id}">${p.demand_id} - ${title}</option>`;
           }).join('');
-          
+
           const activeDemandId = sessionStorage.getItem('selectedDemandId');
           const matchedPlan = activeDemandId ? plansList.find(p => p.demand_id === activeDemandId) : null;
-          
+
           if (preSelectedPlanId && plansList.some(p => p.plan_id === preSelectedPlanId)) {
             select.value = preSelectedPlanId;
           } else if (matchedPlan) {
             select.value = matchedPlan.plan_id;
           }
-          
+
           if (btn) btn.disabled = false;
         }
       }
