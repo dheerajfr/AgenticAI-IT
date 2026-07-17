@@ -227,6 +227,108 @@ def get_mock_build_details(build_id: str, plan_id: str, version: str):
         "pipeline_url": f"http://jenkins.internal/job/pipeline-{suffix}/9901"
     }
 
+def get_real_build_details(project_id: str, build_id: str, version: str) -> dict:
+    import sqlite3
+    db_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "build-deploy", "build-deploy.db")
+    )
+    if not os.path.exists(db_path):
+        return get_mock_build_details(build_id, project_id, version)
+    
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Fetch all deployments
+            cursor.execute("SELECT data FROM deployments")
+            deployment_row = None
+            for r in cursor.fetchall():
+                dep_data = json.loads(r[0])
+                if dep_data.get("demand_id") == project_id:
+                    deployment_row = dep_data
+                    break
+            
+            if not deployment_row:
+                # Try fetching runbooks for this demand/project
+                cursor.execute("SELECT data FROM runbooks")
+                runbook_data = None
+                for r in cursor.fetchall():
+                    rb_data = json.loads(r[0])
+                    if rb_data.get("demand_id") == project_id:
+                        runbook_data = rb_data
+                        break
+                
+                if runbook_data:
+                    rb_id = runbook_data.get("runbook_id")
+                    comp_id = runbook_data.get("component_id")
+                    status = "runbook approved" if runbook_data.get("status") == "approved" else "runbook drafting"
+                    steps = runbook_data.get("steps") or []
+                    steps_str = "\n".join([f"- {s.get('description')} ({s.get('step_type')})" for s in steps])
+                    
+                    return {
+                        "build_id": build_id or f"BLD-{project_id.split('-')[-1]}-1",
+                        "artifact_version": version or "v1.0.0",
+                        "build_status": "successful",
+                        "deployment_status": "runbook-ready",
+                        "deployment_logs": f"[INFO] Runbook {rb_id} loaded for component {comp_id}.\n[INFO] Status: {status}.\n[INFO] Runbook Steps:\n{steps_str}",
+                        "rollback_package": f"rollback-{comp_id}-{version}.tar.gz",
+                        "build_timestamp": runbook_data.get("created_at") or "2026-07-14T06:30:00Z",
+                        "pipeline_url": f"http://jenkins.internal/job/runbook-{rb_id}"
+                    }
+                
+                return get_mock_build_details(build_id, project_id, version)
+            
+            # We found a deployment record! Let's get more details
+            dep_id = deployment_row.get("deployment_id")
+            rb_id = deployment_row.get("runbook_id")
+            comp_id = deployment_row.get("component_id")
+            dep_status = deployment_row.get("status")
+            dep_ver = deployment_row.get("version") or version
+            
+            # Fetch cutover updates if cutover session exists
+            cutover_id = deployment_row.get("cutover_id")
+            logs = [
+                f"[INFO] Deployment {dep_id} initialized.",
+                f"[INFO] Target: {deployment_row.get('environment')} environment.",
+                f"[INFO] Status: {dep_status}."
+            ]
+            
+            if rb_id:
+                logs.append(f"[INFO] Using approved runbook: {rb_id}.")
+                
+            # Preconditions summary
+            preconditions = deployment_row.get("preconditions") or []
+            if preconditions:
+                logs.append("[INFO] Pre-conditions evaluated:")
+                for pc in preconditions:
+                    status_sym = "[✓]" if pc.get("passed") else "[✗]"
+                    logs.append(f"  {status_sym} {pc.get('name')}: {pc.get('detail')}")
+                    
+            if cutover_id:
+                logs.append(f"[INFO] Cutover session {cutover_id} active.")
+                cursor.execute("SELECT data FROM cutover_sessions WHERE cutover_id = ?", (cutover_id,))
+                co_row = cursor.fetchone()
+                if co_row:
+                    co_data = json.loads(co_row[0])
+                    for update in co_data.get("updates", []):
+                        logs.append(f"[{update.get('timestamp')}] {update.get('author')}: {update.get('message')}")
+                    for step in co_data.get("steps", []):
+                        logs.append(f"  Step {step.get('step_id')} ({step.get('status')}): {step.get('description')}")
+                        
+            return {
+                "build_id": build_id or f"BLD-{project_id.split('-')[-1]}-1",
+                "artifact_version": dep_ver,
+                "build_status": "successful",
+                "deployment_status": dep_status,
+                "deployment_logs": "\n".join(logs),
+                "rollback_package": f"rollback-{comp_id}-{dep_ver}.tar.gz",
+                "build_timestamp": deployment_row.get("created_at") or "2026-07-14T06:30:00Z",
+                "pipeline_url": f"http://jenkins.internal/job/pipeline-{project_id.split('-')[-1]}/deploy"
+            }
+    except Exception as e:
+        print(f"Error querying build-deploy DB: {e}")
+        return get_mock_build_details(build_id, project_id, version)
+
 def get_real_quality_details(project_id: str) -> dict:
     """
     Fetches real Test & Quality data from the shared SQLite database.
@@ -586,8 +688,8 @@ def get_release_by_id(release_id: str):
     except Exception as e:
         print(f"Error loading upstream data: {e}")
         
-    # Mock data providers
-    build_details = get_mock_build_details(rel["build_id"], rel["plan_id"], rel["version"])
+    # Mock/Real data providers
+    build_details = get_real_build_details(rel["project_id"], rel["build_id"], rel["version"])
     quality_details = get_real_quality_details(rel["project_id"])
     
     return {

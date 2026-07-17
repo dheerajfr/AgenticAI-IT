@@ -430,6 +430,23 @@ release_change_graph = builder.compile()
 # NEW STAGE 8 AGENTS (FOR RICH RELEASE FLOW)
 # ==============================================================================
 
+def _to_string(val) -> str:
+    if val is None:
+        return ""
+    if isinstance(val, list):
+        steps = []
+        for item in val:
+            if isinstance(item, dict):
+                step_str = item.get("step") or item.get("name") or item.get("description") or json.dumps(item)
+                steps.append(step_str)
+            else:
+                steps.append(str(item))
+        return "\n".join(steps)
+    if isinstance(val, dict):
+        return json.dumps(val)
+    return str(val)
+
+
 def run_change_record_agent(release_id: str, project_id: str, plan_id: str, db) -> dict:
     """
     Change Record Agent:
@@ -501,13 +518,13 @@ def run_change_record_agent(release_id: str, project_id: str, plan_id: str, db) 
 
     try:
         res = call_gemini(prompt, is_json=True)
-        summary = res.get("summary") or summary
-        business_justification = res.get("business_justification") or business_justification
-        impact_analysis = res.get("impact_analysis") or impact_analysis
-        deployment_plan = res.get("deployment_plan") or deployment_plan
-        validation_plan = res.get("validation_plan") or validation_plan
-        rollback_plan = res.get("rollback_plan") or rollback_plan
-        known_issues = res.get("known_issues") or known_issues
+        summary = _to_string(res.get("summary") or summary)
+        business_justification = _to_string(res.get("business_justification") or business_justification)
+        impact_analysis = _to_string(res.get("impact_analysis") or impact_analysis)
+        deployment_plan = _to_string(res.get("deployment_plan") or deployment_plan)
+        validation_plan = _to_string(res.get("validation_plan") or validation_plan)
+        rollback_plan = _to_string(res.get("rollback_plan") or rollback_plan)
+        known_issues = _to_string(res.get("known_issues") or known_issues)
     except Exception as e:
         print(f"[Agent: Change Record] Gemini failed, using defaults: {e}")
 
@@ -603,10 +620,7 @@ def run_risk_assessment_agent(release_id: str, db) -> dict:
     db_changed = False
     if change_rec:
         dep_plan = change_rec.get("deployment_plan") or ""
-        if isinstance(dep_plan, list):
-            dep_plan = "\n".join(dep_plan)
-        elif not isinstance(dep_plan, str):
-            dep_plan = str(dep_plan)
+        dep_plan = _to_string(dep_plan)
         db_changed = "alter" in dep_plan.lower() or "db" in dep_plan.lower()
 
     if db_changed:
