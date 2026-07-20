@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: agentic-ai-it
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn gateway:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: AZURE_OPENAI_API_KEY
+        sync: false
+      - key: AZURE_MODEL_NAME
+        value: "gpt-4.1-mini"
+      - key: LANGCHAIN_TRACING_V2
+        value: "true"
+      - key: LANGCHAIN_ENDPOINT
+        value: "https://api.smith.langchain.com"
+      - key: LANGCHAIN_API_KEY
+        sync: false
+      - key: LANGCHAIN_PROJECT
+        value: "agentic-ai-it"
