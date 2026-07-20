@@ -82,8 +82,8 @@ def update_environment(demand_id: str, environment: str, req: UpdateEnvironmentR
         record.expected_requirements = req.expected_requirements
     if req.observed_requirements is not None:
         record.observed_requirements = req.observed_requirements
-    # Recompute drift status after edits
-    if record.deployed_version == record.expected_version:
+    # Recompute drift status after edits, but don't mark as drifted just for planning a new version
+    if record.deployed_version == record.expected_version or req.expected_version is not None:
         record.drift_status = "in-sync"
     else:
         record.drift_status = "drifted"
@@ -135,7 +135,7 @@ You are an IT configuration management expert. Based on the following demand, ge
 Generate expected (baseline) configuration data for these 4 environments: dev, test, staging, prod.
 
 Rules:
-- Use realistic semantic versioning (e.g. 1.x.y). Prod should be the most stable (lowest version). Dev should have the latest target version.
+- Use realistic semantic versioning (e.g. 1.0.0). EVERY environment (dev, test, staging, prod) MUST be initialized to the exact same expected_version (e.g., 1.0.0 for all).
 - Do NOT include deployed versions — we only know what the baseline EXPECTS, not what has been deployed yet.
 - Generate 2-4 realistic expected_requirements based on what this kind of system would need (e.g. databases, caches, auth services, message queues, external APIs, etc.).
 - Generate realistic CMDB server names based on the demand title (short kebab-case, e.g. svc-loyalty-api-prod-svr-01).
@@ -175,10 +175,10 @@ Respond STRICTLY in JSON with this structure:
         # Fallback to deterministic defaults if LLM fails
         svc = req.demand_id.lower().replace("-", "_")
         env_data = {
-            "dev":     {"expected_version": "2.0.0", "cmdb_name": f"svc-{svc}-dev-svr-01",     "expected_requirements": ["db-dev", "cache-dev", "auth-service"]},
-            "test":    {"expected_version": "2.0.0", "cmdb_name": f"svc-{svc}-test-svr-01",    "expected_requirements": ["db-test", "cache-test", "auth-service"]},
-            "staging": {"expected_version": "1.8.0", "cmdb_name": f"svc-{svc}-staging-svr-01", "expected_requirements": ["db-staging", "cache-staging", "auth-service"]},
-            "prod":    {"expected_version": "1.7.3", "cmdb_name": f"svc-{svc}-prod-svr-01",    "expected_requirements": ["db-prod", "cache-prod", "auth-service"]},
+            "dev":     {"expected_version": "1.0.0", "cmdb_name": f"svc-{svc}-dev-svr-01",     "expected_requirements": ["db-dev", "cache-dev", "auth-service"]},
+            "test":    {"expected_version": "1.0.0", "cmdb_name": f"svc-{svc}-test-svr-01",    "expected_requirements": ["db-test", "cache-test", "auth-service"]},
+            "staging": {"expected_version": "1.0.0", "cmdb_name": f"svc-{svc}-staging-svr-01", "expected_requirements": ["db-staging", "cache-staging", "auth-service"]},
+            "prod":    {"expected_version": "1.0.0", "cmdb_name": f"svc-{svc}-prod-svr-01",    "expected_requirements": ["db-prod", "cache-prod", "auth-service"]},
         }
 
     created = []
