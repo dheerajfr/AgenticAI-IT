@@ -18,10 +18,38 @@ let qualityGate = null;
 // Expose to window so shell.js can call it
 window.renderTestQualityScreen = function () {
   const viewport = document.getElementById('viewport');
+
+  // ── Override viewport to a fixed-height flex container so the TQ layout
+  //    can fill 100% height without being constrained by the scrollable
+  //    .screen-viewport's overflow-y: auto. Restore on module teardown.
+  const _origOverflow = viewport.style.overflow;
+  const _origOverflowY = viewport.style.overflowY;
+  const _origDisplay   = viewport.style.display;
+  const _origFlexDir   = viewport.style.flexDirection;
+  const _origPadding   = viewport.style.padding;
+
+  viewport.style.overflow       = 'hidden';
+  viewport.style.overflowY      = 'hidden';
+  viewport.style.display        = 'flex';
+  viewport.style.flexDirection  = 'column';
+  viewport.style.padding        = '0';
+
+  const _tqObserver = new MutationObserver(() => {
+    if (!document.getElementById('tq-panel-container')) {
+      viewport.style.overflow      = _origOverflow;
+      viewport.style.overflowY     = _origOverflowY;
+      viewport.style.display       = _origDisplay;
+      viewport.style.flexDirection = _origFlexDir;
+      viewport.style.padding       = _origPadding;
+      _tqObserver.disconnect();
+    }
+  });
+  _tqObserver.observe(viewport, { childList: true, subtree: false });
+
   viewport.innerHTML = `
-    <div class="intake-screen">
+    <div class="intake-screen" style="padding: 1rem; flex: 1; min-height: 0; box-sizing: border-box; align-items: stretch;">
       <!-- Left Sidebar: Demands Queue & Test & Quality Queue -->
-      <aside class="sidebar" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 100%; overflow: hidden; width: 300px;">
+      <aside class="sidebar" style="display: flex; flex-direction: column; gap: 0.75rem; height: 100%; overflow: hidden; width: 300px; align-self: stretch;">
         <!-- Demands Queue -->
         <div class="panel-card" style="flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
           <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
@@ -48,7 +76,7 @@ window.renderTestQualityScreen = function () {
       </aside>
       
       <!-- Right Panel: Capabilities Tabbed View -->
-      <main class="details-panel" id="tq-panel-container" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);"></main>
+      <main class="details-panel" id="tq-panel-container" style="display: flex; flex-direction: column; overflow: hidden; min-height: 0; height: 100%; align-self: stretch; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);"></main>
     </div>
   `;
 
@@ -90,7 +118,11 @@ window.renderTestQualityScreen = function () {
         display: flex;
         flex-direction: column;
         gap: 1.5rem;
-        padding-right: 0.25rem;
+        scrollbar-width: none;       /* Firefox */
+        -ms-overflow-style: none;    /* IE/Edge legacy */
+      }
+      .tq-tab-content::-webkit-scrollbar {
+        display: none;               /* Chrome / Safari / Edge */
       }
       .tq-card {
         background: rgba(255,255,255,0.02);
@@ -191,7 +223,20 @@ window.renderTestQualityScreen = function () {
       .badge-priority.high, .badge-priority.Major { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
       .badge-priority.medium, .badge-priority.Minor { background: rgba(59, 130, 246, 0.15); color: #93c5fd; }
       .badge-priority.low, .badge-priority.Cosmetic { background: rgba(75, 85, 99, 0.15); color: #d1d5db; }
+      .badge-type {
+        font-size: 12px;
+        padding: 0.1rem 0.5rem;
+        border-radius: 9999px;
+        font-weight: 500;
+        display: inline-block;
+        white-space: nowrap;
+      }
+      .badge-type.functional-positive { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+      .badge-type.functional-negative { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+      .badge-type.non-functional { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; }
+      .badge-type.functional { background: rgba(59, 130, 246, 0.15); color: #93c5fd; }
       .demand-item.active { background: rgba(99, 102, 241, 0.15); border-left: 3px solid var(--color-brand); }
+      .tq-table-row:hover { background: rgba(255, 255, 255, 0.02) !important; }
     `;
     document.head.appendChild(style);
   }
@@ -341,16 +386,9 @@ function renderTQDetailsPanel() {
     <!-- Top Header -->
     <div style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
       <div>
-        <h2 style="margin: 0 0 0.25rem 0; font-size: 1.35rem; font-family: var(--font-display); font-weight: 800;">
+        <h2 style="margin: 0; font-size: 1.35rem; font-family: var(--font-display); font-weight: 800;">
           Test & Quality Assurance Module
         </h2>
-        <div style="font-size: 0.8rem; color: var(--text-secondary); display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-          <span>Current Context: <strong>${demand.demand_id}</strong></span> &bull; 
-          <span>Project: <strong>${tqDeliveryContext && tqDeliveryContext.demand ? tqDeliveryContext.demand.title : 'Unified Platform Core'}</strong></span> &bull; 
-          <span>Customer: <strong>${tqDeliveryContext && tqDeliveryContext.demand ? 'Global Retail' : 'Global Retail'}</strong></span> &bull; 
-          <span>Business Unit: <strong>${tqDeliveryContext && tqDeliveryContext.demand ? tqDeliveryContext.demand.domain : 'Digital Payments'}</strong></span> &bull;
-          <span>Manager: <strong>${tqDeliveryContext && tqDeliveryContext.demand ? tqDeliveryContext.demand.submitted_by : 'Sarah Jenkins'}</strong></span>
-        </div>
       </div>
       
       <!-- Searchable Dropdown Selector -->
@@ -453,8 +491,19 @@ function renderSearchableDemandDropdown(container, activeDemand) {
     });
   }
 
-  searchInput.addEventListener('focus', showDropdown);
-  searchInput.addEventListener('blur', hideDropdown);
+  searchInput.addEventListener('focus', () => {
+    searchInput.value = '';          // clear label so filter shows all
+    showDropdown();
+  });
+  searchInput.addEventListener('blur', () => {
+    hideDropdown();
+    // Restore the selected demand label after blur
+    setTimeout(() => {
+      if (activeDemand && searchInput.value === '') {
+        searchInput.value = `${activeDemand.demand_id} - ${activeDemand.title}`;
+      }
+    }, 300);
+  });
   searchInput.addEventListener('input', (e) => {
     dropdownList.style.display = 'block';
     renderOptions(e.target.value);
@@ -464,6 +513,7 @@ function renderSearchableDemandDropdown(container, activeDemand) {
     if (dropdownList.style.display === 'block') {
       dropdownList.style.display = 'none';
     } else {
+      searchInput.value = '';
       showDropdown();
     }
   });
@@ -666,10 +716,6 @@ function renderTestGenerationTab(container, demand) {
           <label>Requirement Context / User Stories</label>
           <input type="text" class="tq-input" id="tq-gen-stories" value="${demand.demand_id}" placeholder="e.g. US-101, US-102">
         </div>
-        <div class="tq-form-group">
-          <label>Code Diff Reference (PR/Git)</label>
-          <input type="text" class="tq-input" id="tq-gen-diff" value="pr://repo/${demand.demand_id.toLowerCase()}/pr/1" placeholder="e.g. pr://repo/loyalty-portal/pr/12 (Fetched from Build & Deploy)">
-        </div>
       </div>
 
       <div style="display: flex; gap: 0.75rem;">
@@ -698,32 +744,35 @@ function renderTestGenerationTab(container, demand) {
       </div>
       <div class="tq-card" style="padding: 0.75rem 1rem;">
         <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Coverage Target</div>
-        <div style="font-size: 1.5rem; font-weight: bold; margin-top: 0.25rem; color: #4ade80;">96%</div>
+        <div style="font-size: 1.5rem; font-weight: bold; margin-top: 0.25rem; color: ${cases.length === 0 ? 'var(--text-muted)' : '#4ade80'};">
+          ${cases.length === 0 ? '—' : Math.round((cases.filter(c => c.automation_candidate === 'Yes').length / cases.length) * 100) + '%'}
+        </div>
       </div>
     </div>
 
     <!-- Active List -->
-    <div class="tq-card">
+    <div class="tq-card" style="max-width: 100%;">
       <h5 style="margin: 0 0 1rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Active Test Suite</h5>
       
-      <div style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; text-align: left;">
+      <div style="overflow-x: auto; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: var(--radius-sm); max-width: 100%;">
+        <table style="width: 100%; min-width: 1050px; border-collapse: collapse; font-size: 0.82rem; text-align: left;">
           <thead>
-            <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
-              <th style="padding: 0.5rem;">Test ID</th>
-              <th style="padding: 0.5rem;">Title / Objective</th>
-              <th style="padding: 0.5rem;">Requirement</th>
-              <th style="padding: 0.5rem;">Priority</th>
-              <th style="padding: 0.5rem;">Risk</th>
-              <th style="padding: 0.5rem;">Automation</th>
-              <th style="padding: 0.5rem;">Status</th>
-              <th style="padding: 0.5rem; text-align: right;">Actions</th>
+            <tr style="border-bottom: 1px solid var(--border-color); background: rgba(255, 255, 255, 0.015); color: var(--text-muted);">
+              <th style="padding: 0.75rem 0.75rem; width: 110px; white-space: nowrap;">Test ID</th>
+              <th style="padding: 0.75rem 0.75rem; min-width: 280px; max-width: 320px;">Title / Objective</th>
+              <th style="padding: 0.75rem 0.75rem; width: 140px;">Requirement</th>
+              <th style="padding: 0.75rem 0.75rem; width: 140px;">Type</th>
+              <th style="padding: 0.75rem 0.75rem; width: 100px;">Priority</th>
+              <th style="padding: 0.75rem 0.75rem; width: 100px;">Risk</th>
+              <th style="padding: 0.75rem 0.75rem; width: 100px;">Automation</th>
+              <th style="padding: 0.75rem 0.75rem; width: 100px;">Status</th>
+              <th style="padding: 0.75rem 0.75rem; width: 130px; text-align: right;">Actions</th>
             </tr>
           </thead>
           <tbody>
             ${cases.length === 0 ? `
               <tr>
-                <td colspan="8" style="padding: 2rem; text-align: center; color: var(--text-secondary);">
+                <td colspan="9" style="padding: 2rem; text-align: center; color: var(--text-secondary);">
                   No test cases generated. Click "Generate Test Suite" above to build AI test scripts.
                 </td>
               </tr>
@@ -733,26 +782,58 @@ function renderTestGenerationTab(container, demand) {
     const testRisk = c.risk_level || 'medium';
     const testAuto = c.automation_candidate || (c.type && c.type !== 'manual' ? 'Yes' : 'No');
     const testStatus = c.status || 'Approved';
-    const testReq = c.requirement || c.type || 'Functional';
-    const stepsStr = Array.isArray(c.steps) ? c.steps.join('; ') : (c.steps || '');
+    const testReq = c.requirement || 'Functional';
+    const testType = c.type || 'functional';
+    
+    // Parse steps list
+    let stepsList = [];
+    if (Array.isArray(c.steps)) {
+      stepsList = c.steps;
+    } else if (typeof c.steps === 'string') {
+      if (c.steps.includes('\n')) {
+        stepsList = c.steps.split('\n');
+      } else if (c.steps.includes('; ')) {
+        stepsList = c.steps.split('; ');
+      } else if (c.steps.includes(';')) {
+        stepsList = c.steps.split(';');
+      } else {
+        stepsList = [c.steps];
+      }
+    }
+    stepsList = stepsList.map(s => s.trim()).filter(s => s.length > 0);
+    const stepsCount = stepsList.length;
+
+    // Format badge text (Title Case / Space Separated)
+    const displayType = testType === 'functional-positive' ? 'Functional Positive' :
+                        testType === 'functional-negative' ? 'Functional Negative' :
+                        testType === 'non-functional' ? 'Non-Functional' :
+                        testType.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
     return `
-              <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-                <td style="padding: 0.5rem; font-weight: bold; color: var(--color-brand);">${testId}</td>
-                <td style="padding: 0.5rem; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                  <strong>${c.title}</strong>
-                  <div style="font-size: 0.72rem; color: var(--text-muted);">${stepsStr}</div>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle;" class="tq-table-row">
+                <td style="padding: 0.75rem 0.75rem; font-weight: bold; font-family: monospace; color: var(--color-brand); white-space: nowrap;">${testId}</td>
+                <td style="padding: 0.75rem 0.75rem; min-width: 280px; max-width: 320px; white-space: normal; word-break: break-word;">
+                  <strong style="color: var(--text-primary); display: block; margin-bottom: 0.3rem;">${c.title}</strong>
+                  <div style="margin-top: 0.35rem;">
+                    <span class="tq-steps-toggle" data-id="${testId}" data-count="${stepsCount}" style="cursor: pointer; color: var(--color-brand); font-size: 0.72rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.2rem; user-select: none;">
+                      ▼ Steps (${stepsCount})
+                    </span>
+                    <div class="tq-steps-content" data-id="${testId}" style="display: none; margin-top: 0.4rem; font-size: 0.74rem; color: var(--text-muted); line-height: 1.45; border-left: 2px solid rgba(255, 255, 255, 0.08); padding-left: 0.5rem;">
+                      ${stepsList.map(step => `<div style="margin-bottom: 0.25rem;">${step}</div>`).join('')}
+                    </div>
+                  </div>
                 </td>
-                <td style="padding: 0.5rem; color: var(--text-secondary);">${testReq}</td>
-                <td style="padding: 0.5rem;"><span class="badge-priority ${testPriority}">${testPriority}</span></td>
-                <td style="padding: 0.5rem;"><span class="badge-priority ${testRisk}">${testRisk}</span></td>
-                <td style="padding: 0.5rem; color: var(--text-secondary);">${testAuto}</td>
-                <td style="padding: 0.5rem;">
+                <td style="padding: 0.75rem 0.75rem; color: var(--text-secondary);">${testReq}</td>
+                <td style="padding: 0.75rem 0.75rem;"><span class="badge-type ${testType}">${displayType}</span></td>
+                <td style="padding: 0.75rem 0.75rem;"><span class="badge-priority ${testPriority}">${testPriority}</span></td>
+                <td style="padding: 0.75rem 0.75rem;"><span class="badge-priority ${testRisk}">${testRisk}</span></td>
+                <td style="padding: 0.75rem 0.75rem; color: var(--text-secondary);">${testAuto}</td>
+                <td style="padding: 0.75rem 0.75rem;">
                   <span style="font-size: 0.75rem; font-weight: bold; color: ${testStatus === 'Approved' ? '#4ade80' : '#fcd34d'};">
                     ${testStatus}
                   </span>
                 </td>
-                <td style="padding: 0.5rem; text-align: right; white-space: nowrap;">
+                <td style="padding: 0.75rem 0.75rem; text-align: right; white-space: nowrap;">
                   <button class="btn-tq-edit tq-btn" data-id="${testId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: var(--text-primary); margin-right: 0.25rem;">Edit</button>
                   <button class="btn-tq-delete tq-btn" data-id="${testId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); color: #fca5a5;">Delete</button>
                 </td>
@@ -764,6 +845,21 @@ function renderTestGenerationTab(container, demand) {
       </div>
     </div>
   `;
+
+  // Attach delegated steps toggle listener
+  container.addEventListener('click', (e) => {
+    const toggle = e.target.closest('.tq-steps-toggle');
+    if (toggle) {
+      const id = toggle.getAttribute('data-id');
+      const count = toggle.getAttribute('data-count');
+      const content = container.querySelector(`.tq-steps-content[data-id="${id}"]`);
+      if (content) {
+        const isHidden = content.style.display === 'none';
+        content.style.display = isHidden ? 'block' : 'none';
+        toggle.innerHTML = isHidden ? `▲ Steps (${count})` : `▼ Steps (${count})`;
+      }
+    }
+  });
 
   // Attach handlers
   const generateBtn = document.getElementById('btn-tq-generate');
@@ -856,10 +952,62 @@ function renderTestGenerationTab(container, demand) {
 
 function getDefaultMockTestCases(demandId) {
   const suffix = demandId.split('-').pop();
+  const demand = tqDemands.find(d => d.demand_id === demandId);
+  const titleText = demand ? demand.title : "Unified Platform Core";
+  const domainText = demand ? (demand.domain || "Digital Payments") : "Digital Payments";
+
   return [
-    { id: `TC-${suffix}-01`, test_id: `TC-${suffix}-01`, title: "Verify checkout authorization validation", requirement: "Checkout Gateway", type: "Checkout Gateway", story_id: `${demandId}-US-01`, preconditions: "User has cart loaded", steps: "1. Select cart checkout\n2. Authorize via mock api", expected: "Verifies correct payment status response", expected_result: "Verifies correct payment status response", priority: "High", risk_level: "High", automation_candidate: "Yes", status: "Approved", traceability: `${demandId}-US-01` },
-    { id: `TC-${suffix}-02`, test_id: `TC-${suffix}-02`, title: "Regression check for loyalty ledger points rollback", requirement: "Loyalty Ledger", type: "Loyalty Ledger", story_id: `${demandId}-US-02`, preconditions: "Ledger details active", steps: "1. Perform checkout\n2. Rollback points on error", expected: "Points correctly roll back in db transaction", expected_result: "Points correctly roll back in db transaction", priority: "Critical", risk_level: "High", automation_candidate: "Yes", status: "Approved", traceability: `${demandId}-US-02` },
-    { id: `TC-${suffix}-03`, test_id: `TC-${suffix}-03`, title: "Dark mode theme layout overlap boundary check", requirement: "Customer UI", type: "Customer UI", story_id: `${demandId}-US-03`, preconditions: "Anonymized db mock running", steps: "1. Toggle dark mode\n2. Inspect overlaps on mobile view", expected: "No layout breaks or unreadable overlaps", expected_result: "No layout breaks or unreadable overlaps", priority: "Low", risk_level: "Low", automation_candidate: "No", status: "Draft", traceability: `${demandId}-US-03` }
+    { 
+      id: `TC-${suffix}-01`, 
+      test_id: `TC-${suffix}-01`, 
+      title: `Verify ${titleText} functionality and access validation`, 
+      requirement: `${domainText}`, 
+      type: "functional-positive", 
+      story_id: `${demandId}-US-01`, 
+      preconditions: "System initialized", 
+      steps: `1. Log in to dashboard\n2. Navigate to ${titleText} component\n3. Verify successful validation status`, 
+      expected: `Successful access to ${titleText}`, 
+      expected_result: `Successful access to ${titleText}`, 
+      priority: "High", 
+      risk_level: "High", 
+      automation_candidate: "Yes", 
+      status: "Approved", 
+      traceability: `${demandId}-US-01` 
+    },
+    { 
+      id: `TC-${suffix}-02`, 
+      test_id: `TC-${suffix}-02`, 
+      title: `Boundary test for ${titleText} transaction processing on invalid inputs`, 
+      requirement: `${domainText}`, 
+      type: "functional-negative", 
+      story_id: `${demandId}-US-02`, 
+      preconditions: "Services running", 
+      steps: `1. Attempt transaction with empty credentials\n2. Verify system throws error response`, 
+      expected: "Validation error returned gracefully", 
+      expected_result: "Validation error returned gracefully", 
+      priority: "Critical", 
+      risk_level: "High", 
+      automation_candidate: "Yes", 
+      status: "Approved", 
+      traceability: `${demandId}-US-02` 
+    },
+    { 
+      id: `TC-${suffix}-03`, 
+      test_id: `TC-${suffix}-03`, 
+      title: `Performance SLA load check under high user concurrency for ${titleText}`, 
+      requirement: `${domainText}`, 
+      type: "non-functional", 
+      story_id: `${demandId}-US-03`, 
+      preconditions: "Mock environment ready", 
+      steps: `1. Run load test script with 500 concurrent threads\n2. Verify response time SLA < 200ms`, 
+      expected: "No latency degradation observed", 
+      expected_result: "No latency degradation observed", 
+      priority: "Low", 
+      risk_level: "Low", 
+      automation_candidate: "No", 
+      status: "Draft", 
+      traceability: `${demandId}-US-03` 
+    }
   ];
 }
 
@@ -900,10 +1048,7 @@ function renderTestDataTab(container, demand) {
           <label>Record Count Target</label>
           <input type="number" class="tq-input" id="tq-data-volume" value="250" min="10" max="10000">
         </div>
-        <div class="tq-form-group">
-          <label>Database Schemas (comma separated)</label>
-          <input type="text" class="tq-input" id="tq-data-schemas" value="db://payments/transactions, db://auth/users" placeholder="e.g. db://payments/transactions">
-        </div>
+
       </div>
 
       <div style="display: flex; gap: 0.75rem;">
@@ -969,32 +1114,37 @@ function renderTestDataTab(container, demand) {
     genBtn.disabled = true;
     genBtn.innerHTML = `<span class="loader"></span> Generating...`;
 
-    const env = document.getElementById('tq-data-env').value;
-    const type = document.getElementById('tq-data-type').value;
-    const volume = document.getElementById('tq-data-volume').value;
-    const schemas = document.getElementById('tq-data-schemas').value;
+    try {
+      const env = document.getElementById('tq-data-env').value;
+      const type = document.getElementById('tq-data-type').value;
+      const volume = document.getElementById('tq-data-volume').value;
 
-    // Each dataset is saved as its own flat record in the relational table
-    const datasetId = `DS-${demand.demand_id.split('-').pop()}-${Date.now().toString().slice(-4)}`;
-    const newDataset = {
-      dataset_id: datasetId,
-      environment: env,
-      data_type: type,
-      record_count: parseInt(volume) || 250,
-      schemas: schemas,
-      created_date: new Date().toLocaleDateString(),
-      status: 'Provisioned',
-      demand_id: demand.demand_id
-    };
+      // Each dataset is saved as its own flat record in the relational table
+      const datasetId = `DS-${demand.demand_id.split('-').pop()}-${Date.now().toString().slice(-4)}`;
+      const newDataset = {
+        dataset_id: datasetId,
+        environment: env,
+        data_type: type,
+        record_count: parseInt(volume) || 250,
+        created_date: new Date().toLocaleDateString(),
+        status: 'Provisioned',
+        demand_id: demand.demand_id
+      };
 
-    await fetch(`${TQ_API_BASE}/test-quality/relational/test_data/${demand.demand_id}/${datasetId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newDataset)
-    });
+      await fetch(`${TQ_API_BASE}/test-quality/relational/test_data/${demand.demand_id}/${datasetId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newDataset)
+      });
 
-    await loadConsolidatedTQState(demand.demand_id);
-    renderTQDetailsPanel();
+      await loadConsolidatedTQState(demand.demand_id);
+      renderTQDetailsPanel();
+    } catch (err) {
+      console.error('Dataset generation error:', err);
+      genBtn.disabled = false;
+      genBtn.innerHTML = 'Generate Dataset';
+      alert('Failed to generate dataset. Please try again.');
+    }
   });
 
   // Download handler
