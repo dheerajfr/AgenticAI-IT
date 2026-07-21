@@ -252,8 +252,6 @@ function renderDeployList() {
 // Runbook drafting — smart form pre-populated from upstream stages
 // ---------------------------------------------------------------------------
 
-
-
 function _buildArchNotes() {
   return '';
 }
@@ -276,9 +274,31 @@ async function _loadEnvRecordsForDemand(demandId) {
   } catch (_) { return []; }
 }
 
-function showNewRunbookForm() {
+async function showNewRunbookForm() {
   const panel = document.getElementById('deploy-panel-container');
-  const priorOptions = runbooks.map(r => `<option value="${r.runbook_id}">${r.title}</option>`).join('');
+  panel.innerHTML = `
+    <div class="panel-card" style="text-align: center; padding: 2rem;">
+      <span class="loader"><span class="spinner"></span> Loading database records...</span>
+    </div>
+  `;
+
+  let demandsList = [];
+  let changeRecordsList = [];
+  try {
+    const [dRes, cRes] = await Promise.all([
+      fetch('/api/demands'),
+      fetch('/api/deployments/change-records')
+    ]);
+    if (dRes.ok) demandsList = await dRes.json();
+    if (cRes.ok) changeRecordsList = await cRes.json();
+  } catch (err) {
+    console.error('Failed to pre-fetch metadata:', err);
+  }
+
+  const demandOptions = demandsList.map(d => `<option value="${d.demand_id}">${d.demand_id} — ${d.title}</option>`).join('');
+  const changeOptions = changeRecordsList.map(c => `<option value="${c.change_record_id}">${c.change_record_id} (Demand: ${c.demand_id})</option>`).join('');
+  const priorOptions = runbooks.map(r => `<option value="${r.runbook_id}">${r.runbook_id} — ${r.title}</option>`).join('');
+
 
   // Build component options from distinct component_ids in runbooks and envRecords
   const rawComponentIds = [
@@ -293,11 +313,10 @@ function showNewRunbookForm() {
   // Build demand options grouped by status
   const approvedDemands = demands.filter(d => d.status === 'approved' || d.status === 'capacity-checked');
   const otherDemands = demands.filter(d => d.status !== 'approved' && d.status !== 'capacity-checked');
-  const demandOptions = [
+  const demandOptionsGrouped = [
     approvedDemands.length ? `<optgroup label="Approved / Capacity-checked">${approvedDemands.map(d => `<option value="${d.demand_id}">${d.demand_id} — ${d.title}</option>`).join('')}</optgroup>` : '',
     otherDemands.length ? `<optgroup label="Other Demands">${otherDemands.map(d => `<option value="${d.demand_id}">${d.demand_id} — ${d.title}</option>`).join('')}</optgroup>` : ''
   ].join('');
-
   panel.innerHTML = `
     <div class="panel-card">
       <h3 style="font-family: var(--font-display); font-size: 1.5rem; margin-top: 0;">Draft a Runbook</h3>
@@ -311,7 +330,7 @@ function showNewRunbookForm() {
         <div style="display:flex;gap:0.5rem;align-items:center;">
           <select id="rbk-demand-pick" style="flex:1;">
             <option value="">— choose a demand —</option>
-            ${demandOptions}
+            ${demandOptionsGrouped}
           </select>
           <button type="button" class="btn-secondary" id="btn-load-demand" style="white-space:nowrap;">Load ↓</button>
         </div>
@@ -448,6 +467,7 @@ function showNewRunbookForm() {
   });
 
   // Draft button — POST to backend
+>>>>>>> main
   document.getElementById('btn-draft-runbook').addEventListener('click', async () => {
     const component_id = document.getElementById('rbk-component').value.trim();
     const environment = document.getElementById('rbk-environment').value.trim();
@@ -931,8 +951,23 @@ function renderCutoverDetails(record) {
 // Deployment orchestration
 // ---------------------------------------------------------------------------
 
-function showNewDeploymentForm(prefillRunbookId) {
+async function showNewDeploymentForm(prefillRunbookId) {
   const panel = document.getElementById('deploy-panel-container');
+  panel.innerHTML = `
+    <div class="panel-card" style="text-align: center; padding: 2rem;">
+      <span class="loader"><span class="spinner"></span> Loading database records...</span>
+    </div>
+  `;
+
+  let demandsList = [];
+  try {
+    const dRes = await fetch('/api/demands');
+    if (dRes.ok) demandsList = await dRes.json();
+  } catch (err) {
+    console.error('Failed to pre-fetch demands:', err);
+  }
+
+  const demandOptions = demandsList.map(d => `<option value="${d.demand_id}">${d.demand_id} — ${d.title}</option>`).join('');
   const approvedRunbooks = runbooks.filter(r => r.status === 'approved');
 
   // Build component options from distinct component_ids in approved runbooks
@@ -956,8 +991,6 @@ function showNewDeploymentForm(prefillRunbookId) {
       <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
         Drives the deployment runbook across environments and teams; checks pre-conditions and holds go/no-go on production steps.
       </p>
-
-
 
       <div class="grid-2col">
         <div class="form-group">
@@ -1010,8 +1043,7 @@ function showNewDeploymentForm(prefillRunbookId) {
     </div>
   `;
 
-  window.currentRequirements = [];
-  window.checkedRequirements = new Set();
+  const runbookSelect = document.getElementById('dep-runbook');
   
   window.renderRequirementsChecklist = function() {
     const container = document.getElementById('req-checklist-container');

@@ -1,8 +1,9 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Literal, Optional, List
 
 class EnvironmentStateRecord(BaseModel):
-    demand_id: str = Field(..., description="Unified demand ID — shared across all stages")
+    demand_id: Optional[str] = Field(None, description="Unified demand ID — shared across all stages")
+    component_id: Optional[str] = Field(None, description="Component ID (legacy mapping for demand_id)")
     environment: Literal["dev", "test", "staging", "prod"] = Field(..., description="Target environment")
     deployed_version: str = Field(..., description="What's actually running")
     expected_version: str = Field(..., description="What the release baseline says should be running")
@@ -12,6 +13,16 @@ class EnvironmentStateRecord(BaseModel):
     cmdb_name: Optional[str] = Field(None, description="Name in the CMDB")
     expected_requirements: List[str] = Field(default_factory=list)
     observed_requirements: List[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_ids(cls, data):
+        if isinstance(data, dict):
+            if "component_id" in data and "demand_id" not in data:
+                data["demand_id"] = data["component_id"]
+            elif "demand_id" in data and "component_id" not in data:
+                data["component_id"] = data["demand_id"]
+        return data
 
 class ReconcileDriftRequest(BaseModel):
     demand_id: str

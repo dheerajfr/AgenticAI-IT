@@ -44,3 +44,22 @@ def service_info():
         ],
         "pending": [],
     }
+
+
+@app.get("/api/build-deploy/health")
+def health_check():
+    return {"status": "healthy", "stage": 6}
+
+
+@app.get("/api/deployments/change-records")
+def get_all_change_records():
+    try:
+        from shared_db.connection import get_db
+        with get_db() as conn:
+            c = conn.cursor()
+            c.execute("SELECT change_record_id, demand_id FROM change_records")
+            rows = c.fetchall()
+            return [{"change_record_id": r[0], "demand_id": r[1]} for r in rows]
+    except Exception as e:
+        print(f"Error fetching change records: {e}")
+        return []
