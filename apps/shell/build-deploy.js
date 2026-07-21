@@ -139,18 +139,18 @@ window.renderBuildDeployScreen = function () {
 
 function switchDeployTab(tab) {
   activeDeployTab = tab;
-  selectedRunbookId = null;
-  selectedCutoverId = null;
-  selectedDeploymentId = null;
+  if (selectedDemandId) {
+    sessionStorage.setItem('selectedDemandId', selectedDemandId);
+  }
   window.renderBuildDeployScreen();
   window.fetchBuildDeployData();
 }
 
 window.fetchBuildDeployData = async function (forceNew = false) {
-  if (!forceNew) {
-    selectedDemandId = sessionStorage.getItem('selectedDemandId') || selectedDemandId;
-  } else {
+  if (forceNew) {
     selectedDemandId = null;
+  } else if (!selectedDemandId) {
+    selectedDemandId = sessionStorage.getItem('selectedDemandId') || null;
   }
   const container = document.getElementById('deploy-list-container');
   try {
@@ -242,6 +242,7 @@ function renderDeployList() {
   container.querySelectorAll('.demand-item[data-did]').forEach(el => {
     el.addEventListener('click', () => {
       selectedDemandId = el.getAttribute('data-did');
+      sessionStorage.setItem('selectedDemandId', selectedDemandId);
       renderDeployList();
       renderDeployContent();
     });
@@ -479,6 +480,7 @@ function showNewRunbookForm() {
       const record = await res.json();
       selectedRunbookId = record.runbook_id;
       selectedDemandId = record.demand_id || 'Unknown Demand';
+      sessionStorage.setItem('selectedDemandId', selectedDemandId);
       await window.fetchBuildDeployData();
     } catch (err) {
       errorBox.textContent = err.message;
@@ -612,7 +614,7 @@ function renderRunbookDetails(record) {
   if (approveBtn) {
     approveBtn.addEventListener('click', async () => {
       await fetch(`${DEPLOY_API_BASE}/runbooks/${record.runbook_id}/approve`, { method: 'POST' });
-      await window.fetchBuildDeployData();
+      switchDeployTab('orchestration');
     });
   }
 
@@ -900,11 +902,11 @@ function renderCutoverDetails(record) {
         body: JSON.stringify({ status: 'completed' })
       });
       if (record.deployment_id) {
-        activeDeployTab = 'orchestration';
         selectedDeploymentId = record.deployment_id;
-        window.renderBuildDeployScreen();
+        switchDeployTab('orchestration');
+      } else {
+        await window.fetchBuildDeployData();
       }
-      await window.fetchBuildDeployData();
     });
   }
 
@@ -918,11 +920,11 @@ function renderCutoverDetails(record) {
         body: JSON.stringify({ status: 'aborted' })
       });
       if (record.deployment_id) {
-        activeDeployTab = 'orchestration';
         selectedDeploymentId = record.deployment_id;
-        window.renderBuildDeployScreen();
+        switchDeployTab('orchestration');
+      } else {
+        await window.fetchBuildDeployData();
       }
-      await window.fetchBuildDeployData();
     });
   }
 }
@@ -1312,7 +1314,11 @@ function renderDeploymentDetails(record) {
         body: JSON.stringify({ decision, decided_by, stakeholders })
       });
       if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.detail || 'Decision failed.'); }
-      await window.fetchBuildDeployData();
+      if (decision === 'go') {
+        switchDeployTab('cutover');
+      } else {
+        await window.fetchBuildDeployData();
+      }
     } catch (err) {
       errorBox.textContent = err.message;
       errorBox.style.display = 'block';
@@ -1325,10 +1331,8 @@ function renderDeploymentDetails(record) {
   const viewCutoverBtn = document.getElementById('btn-view-cutover');
   if (viewCutoverBtn) {
     viewCutoverBtn.addEventListener('click', () => {
-      activeDeployTab = 'cutover';
       selectedCutoverId = record.cutover_id;
-      window.renderBuildDeployScreen();
-      window.fetchBuildDeployData();
+      switchDeployTab('cutover');
     });
   }
 
