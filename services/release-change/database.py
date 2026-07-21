@@ -454,6 +454,17 @@ class ChangeDatabase:
             )
             conn.commit()
 
+    def save_audit_logs(self, release_id: str, logs: list) -> None:
+        suffix = self._get_suffix(release_id)
+        with self._conn() as conn:
+            cursor = conn.cursor()
+            self._get_or_create_row(cursor, release_id=release_id)
+            cursor.execute(
+                "UPDATE release_change SET audit_log = ? WHERE id = ?",
+                (json.dumps(logs), suffix)
+            )
+            conn.commit()
+
     def get_audit_logs(self, release_id: str) -> list[dict]:
         suffix = self._get_suffix(release_id)
         with self._conn() as conn:
@@ -466,7 +477,7 @@ class ChangeDatabase:
                     logs = json.loads(row[0])
                 except Exception:
                     pass
-            logs.sort(key=lambda x: x.get("timestamp", ""))
+            logs.sort(key=lambda x: str(x.get("timestamp", "")))
             return logs
 
 db = ChangeDatabase()

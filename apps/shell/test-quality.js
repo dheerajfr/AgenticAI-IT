@@ -24,58 +24,43 @@ window.renderTestQualityScreen = function () {
   //    .screen-viewport's overflow-y: auto. Restore on module teardown.
   const _origOverflow = viewport.style.overflow;
   const _origOverflowY = viewport.style.overflowY;
-  const _origDisplay   = viewport.style.display;
-  const _origFlexDir   = viewport.style.flexDirection;
-  const _origPadding   = viewport.style.padding;
+  const _origDisplay = viewport.style.display;
+  const _origFlexDir = viewport.style.flexDirection;
+  const _origPadding = viewport.style.padding;
 
-  viewport.style.overflow       = 'hidden';
-  viewport.style.overflowY      = 'hidden';
-  viewport.style.display        = 'flex';
-  viewport.style.flexDirection  = 'column';
-  viewport.style.padding        = '0';
+  viewport.style.overflow = 'hidden';
+  viewport.style.overflowY = 'hidden';
+  viewport.style.display = 'flex';
+  viewport.style.flexDirection = 'column';
+  viewport.style.padding = '0';
 
   const _tqObserver = new MutationObserver(() => {
     if (!document.getElementById('tq-panel-container')) {
-      viewport.style.overflow      = _origOverflow;
-      viewport.style.overflowY     = _origOverflowY;
-      viewport.style.display       = _origDisplay;
+      viewport.style.overflow = _origOverflow;
+      viewport.style.overflowY = _origOverflowY;
+      viewport.style.display = _origDisplay;
       viewport.style.flexDirection = _origFlexDir;
-      viewport.style.padding       = _origPadding;
+      viewport.style.padding = _origPadding;
       _tqObserver.disconnect();
     }
   });
   _tqObserver.observe(viewport, { childList: true, subtree: false });
 
   viewport.innerHTML = `
-    <div class="intake-screen" style="padding: 1rem; flex: 1; min-height: 0; box-sizing: border-box; align-items: stretch;">
-      <!-- Left Sidebar: Demands Queue & Test & Quality Queue -->
-      <aside class="sidebar" style="display: flex; flex-direction: column; gap: 0.75rem; height: 100%; overflow: hidden; width: 300px; align-self: stretch;">
-        <!-- Demands Queue -->
-        <div class="panel-card" style="flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-          <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-            <h3 class="sidebar-title" style="margin: 0; font-size: 0.85rem;">Demands Queue</h3>
-            <button class="btn-new" id="tq-refresh-btn" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; background: rgba(255, 255, 255, 0.05); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer;" title="Refresh">&#x21BB;</button>
-          </div>
-          <ul class="demand-list" id="tq-demand-list-container" style="flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.35rem;">
-            <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 1rem;">
-              Loading demands...
-            </li>
-          </ul>
+    <div class="intake-screen" style="padding: 1rem; height: 100%; box-sizing: border-box;">
+      <!-- Left Sidebar: Test Queue -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h3 class="sidebar-title">Test Queue</h3>
+          <button class="btn-new" id="tq-refresh-btn" title="Refresh Queue">&#x21BB; Refresh</button>
         </div>
-        
-        <!-- Test and Quality Queue -->
-        <div class="panel-card" style="flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-          <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-            <h3 class="sidebar-title" style="margin: 0; font-size: 0.85rem; color: #818cf8; text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-display); font-weight: bold;">Test and Quality Queue</h3>
-          </div>
-          <ul class="demand-list" id="tq-active-queue-list" style="flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.35rem;">
-            <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 1rem;">
-              Loading active queue...
-            </li>
-          </ul>
-        </div>
+        <ul class="demand-list" id="tq-demand-list-container">
+          <li style="text-align: center; color: var(--text-muted); padding: 1.5rem 1rem;">
+            Loading demands...
+          </li>
+        </ul>
       </aside>
-      
+
       <!-- Right Panel: Capabilities Tabbed View -->
       <main class="details-panel" id="tq-panel-container" style="display: flex; flex-direction: column; overflow: hidden; min-height: 0; min-width: 0; height: 100%; align-self: stretch; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);"></main>
     </div>
@@ -245,6 +230,8 @@ window.renderTestQualityScreen = function () {
   }
 }
 
+let tqQualityGateMap = {};
+
 window.fetchTestQualityData = async function () {
   tqSelectedDemandId = sessionStorage.getItem('selectedDemandId') || tqSelectedDemandId;
   try {
@@ -252,17 +239,45 @@ window.fetchTestQualityData = async function () {
     if (!resDemands.ok) throw new Error(`HTTP Error: ${resDemands.status}`);
     tqDemands = await resDemands.json();
 
-    const resConsolidated = await fetch(`${TQ_API_BASE}/test-quality/consolidated`);
-    const consolidatedStates = resConsolidated.ok ? await resConsolidated.json() : [];
-    const activeDemandIds = consolidatedStates.map(record => record.demand_id);
-
-    renderTQQueues(activeDemandIds);
+    // Fetch real Quality Gate output for each demand
+    try {
+      const qgPromises = tqDemands.map(async d => {
+        try {
+          const resGate = await fetch(`${TQ_API_BASE}/test-quality/relational/quality_gate/${d.demand_id}`);
+          if (resGate.ok) {
+            const gates = await resGate.json();
+            if (gates && gates.length > 0) {
+              const latest = gates[gates.length - 1];
+              return { demandId: d.demand_id, verdict: latest.verdict || latest.status || 'PASS' };
+            }
+          }
+          const resStats = await fetch(`${TQ_API_BASE}/test-quality/dashboard-stats/${d.demand_id}`);
+          if (resStats.ok) {
+            const stats = await resStats.json();
+            return { demandId: d.demand_id, verdict: stats.quality_gate_status || 'PASS' };
+          }
+        } catch (e) {
+          // ignore individual fetch errors
+        }
+        return { demandId: d.demand_id, verdict: 'PASS' };
+      });
+      const results = await Promise.all(qgPromises);
+      tqQualityGateMap = {};
+      results.forEach(r => {
+        if (r && r.demandId) {
+          tqQualityGateMap[r.demandId] = r.verdict;
+        }
+      });
+    } catch (e) {
+      console.warn("Could not fetch Quality Gate outputs:", e);
+    }
 
     // Auto-select: if no valid ID or saved ID doesn't exist in current demands, pick first available
     if (!tqSelectedDemandId || !tqDemands.some(d => d.demand_id === tqSelectedDemandId)) {
-      const first = tqDemands.find(d => activeDemandIds.includes(d.demand_id)) || tqDemands[0];
-      if (first) tqSelectedDemandId = first.demand_id;
+      if (tqDemands.length > 0) tqSelectedDemandId = tqDemands[0].demand_id;
     }
+
+    renderTQQueues();
 
     if (tqSelectedDemandId) {
       selectTQDemand(tqSelectedDemandId);
@@ -271,61 +286,123 @@ window.fetchTestQualityData = async function () {
     }
   } catch (err) {
     console.error("Failed to fetch demands for Test & Quality:", err);
-    const list = document.getElementById('tq-sidebar-list');
-    if (list) list.innerHTML = `<li style="padding:1.5rem; text-align:center; color:var(--color-status-red-text);">Failed to load demands. Make sure the backend is running.</li>`;
+    const container = document.getElementById('tq-demand-list-container');
+    if (container) container.innerHTML = `<li style="padding:1.5rem; text-align:center; color:var(--color-status-red-text); font-size:0.85rem;">Failed to load demands. Make sure backend is running.</li>`;
   }
 }
 
-function renderTQQueues(activeDemandIds) {
-  const pendingContainer = document.getElementById('tq-demand-list-container');
-  const activeContainer = document.getElementById('tq-active-queue-list');
-  if (!pendingContainer || !activeContainer) return;
+function renderTQQueues() {
+  const container = document.getElementById('tq-demand-list-container');
+  if (!container) return;
 
-  const approvedDemands = tqDemands.filter(d => d.status === 'approved');
-  const pendingDemands = approvedDemands.filter(d => !activeDemandIds.includes(d.demand_id));
-  const activeDemands = approvedDemands.filter(d => activeDemandIds.includes(d.demand_id));
-
-  // Render pending demands
-  if (pendingDemands.length === 0) {
-    pendingContainer.innerHTML = `<li style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">No pending demands.</li>`;
-  } else {
-    pendingContainer.innerHTML = pendingDemands.map(d => {
-      const isActive = d.demand_id === tqSelectedDemandId;
-      return `
-        <li class="demand-item pending-item ${isActive ? 'active' : ''}" data-id="${d.demand_id}" style="padding: 0.75rem 1rem; border-radius: var(--radius-sm); cursor: pointer; ">
-          <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.25rem;">${d.title}</div>
-          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: var(--text-secondary);">
-            <span>${d.demand_id}</span>
-            <span class="badge-priority ${d.risk_level}">${d.risk_level}</span>
-          </div>
-        </li>
-      `;
-    }).join('');
+  if (!tqDemands || tqDemands.length === 0) {
+    container.innerHTML = `<li style="padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">No demands found.</li>`;
+    return;
   }
 
-  // Render active demands
-  if (activeDemands.length === 0) {
-    activeContainer.innerHTML = `<li style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">No active test runs.</li>`;
-  } else {
-    activeContainer.innerHTML = activeDemands.map(d => {
-      const isActive = d.demand_id === tqSelectedDemandId;
-      return `
-        <li class="demand-item active-item ${isActive ? 'active' : ''}" data-id="${d.demand_id}" style="padding: 0.75rem 1rem; border-radius: var(--radius-sm); cursor: pointer; ">
-          <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.25rem;">${d.title}</div>
-          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: var(--text-secondary);">
-            <span>${d.demand_id}</span>
-            <span class="badge-priority ${d.risk_level}">${d.risk_level}</span>
-          </div>
-        </li>
-      `;
-    }).join('');
-  }
+  container.innerHTML = tqDemands.map(d => {
+    const isActive = d.demand_id === tqSelectedDemandId;
+    const qgVerdict = (tqQualityGateMap[d.demand_id] || d.quality_gate_status || 'PASS').toUpperCase();
+    
+    let statusText = 'Gate: PASS';
+    let statusBg = 'rgba(74, 222, 128, 0.15)';
+    let statusColor = '#4ade80';
 
-  // Attach event handlers
-  const allItems = [...pendingContainer.querySelectorAll('.demand-item'), ...activeContainer.querySelectorAll('.demand-item')];
-  allItems.forEach(item => {
+    if (qgVerdict === 'FAIL' || qgVerdict === 'FAILED' || qgVerdict === 'BLOCKED' || qgVerdict === 'NOT READY') {
+      statusText = 'Gate: BLOCKED';
+      statusBg = 'rgba(239, 68, 68, 0.15)';
+      statusColor = '#ef4444';
+    } else if (qgVerdict === 'PASS' || qgVerdict === 'PASSED' || qgVerdict === 'APPROVED') {
+      statusText = 'Gate: PASS';
+      statusBg = 'rgba(74, 222, 128, 0.15)';
+      statusColor = '#4ade80';
+    } else {
+      statusText = 'Gate: PENDING';
+      statusBg = 'rgba(245, 158, 11, 0.15)';
+      statusColor = '#fcd34d';
+    }
+
+    return `
+      <li class="demand-item ${isActive ? 'active' : ''}" data-id="${d.demand_id}" style="padding: 0.75rem 0.85rem;">
+        <div class="demand-item-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <span class="demand-item-id" style="font-family: monospace; font-weight: 700; color: var(--color-brand); font-size: 0.78rem;">${d.demand_id}</span>
+            <span style="font-size: 0.68rem; font-weight: 700; padding: 0.12rem 0.45rem; border-radius: 9999px; background: ${statusBg}; color: ${statusColor}; text-transform: uppercase;">
+              ${statusText}
+            </span>
+          </div>
+          <button type="button" class="btn-queue-delete tq-delete-btn" data-id="${d.demand_id}"
+            style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; opacity: 0.7;"
+            title="Delete Demand"
+            onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+            <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; fill: currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          </button>
+        </div>
+        <h4 class="demand-item-title" style="margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${d.title}">${d.title || d.demand_id}</h4>
+      </li>
+    `;
+  }).join('');
+
+  // Attach click & delete handlers
+  container.querySelectorAll('.demand-item').forEach(item => {
     item.addEventListener('click', () => {
       selectTQDemand(item.getAttribute('data-id'));
+    });
+  });
+
+  container.querySelectorAll('.tq-delete-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const id = btn.getAttribute('data-id');
+      const listItem = btn.closest('li');
+      if (!listItem) return;
+
+      const existingConfirm = listItem.querySelector('.inline-delete-confirm');
+      if (existingConfirm) {
+        existingConfirm.remove();
+        return;
+      }
+
+      const confirmRow = document.createElement('div');
+      confirmRow.className = 'inline-delete-confirm';
+      confirmRow.style.cssText = 'display:flex;gap:0.4rem;align-items:center;margin-top:0.4rem;padding:0.4rem 0;border-top:1px solid rgba(239,68,68,0.3);';
+      confirmRow.innerHTML = `
+        <span style="font-size:0.72rem;color:var(--color-status-red-text);flex:1;font-weight:600;">Delete this demand?</span>
+        <button class="btn-confirm-delete" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:var(--color-status-red-text);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:700;">Yes, Delete</button>
+        <button class="btn-cancel-delete" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:transparent;color:var(--text-muted);border:1px solid var(--border-color);border-radius:var(--radius-sm);cursor:pointer;">Cancel</button>
+      `;
+      listItem.appendChild(confirmRow);
+
+      confirmRow.querySelector('.btn-cancel-delete').addEventListener('click', e2 => {
+        e2.stopPropagation();
+        confirmRow.remove();
+      });
+
+      confirmRow.querySelector('.btn-confirm-delete').addEventListener('click', async e2 => {
+        e2.stopPropagation();
+        try {
+          const res = await fetch(`${TQ_API_BASE}/demands/${id}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error('Failed to delete demand');
+
+          tqDemands = tqDemands.filter(d => d.demand_id !== id);
+          if (tqSelectedDemandId === id) {
+            tqSelectedDemandId = tqDemands.length > 0 ? tqDemands[0].demand_id : null;
+          }
+          if (tqSelectedDemandId) {
+            sessionStorage.setItem('selectedDemandId', tqSelectedDemandId);
+          } else {
+            sessionStorage.removeItem('selectedDemandId');
+          }
+          renderTQQueues();
+          if (tqSelectedDemandId) {
+            selectTQDemand(tqSelectedDemandId);
+          } else {
+            renderEmptyTQDetails();
+          }
+        } catch (err) {
+          alert(`Error deleting demand: ${err.message}`);
+        }
+      });
     });
   });
 }
@@ -335,13 +412,9 @@ async function selectTQDemand(id) {
   if (id) {
     sessionStorage.setItem('selectedDemandId', id);
   }
-  // Re-fetch consolidated list dynamically to rebuild sidebar queues highlighting
-  fetch(`${TQ_API_BASE}/test-quality/consolidated`)
-    .then(res => res.json())
-    .then(states => {
-      renderTQQueues(states.map(s => s.demand_id));
-    })
-    .catch(err => console.warn("TQ consolidated fetch warning:", err));
+
+  // Update sidebar selection state
+  renderTQQueues();
 
   // Set memory state and call fetch context
   await loadConsolidatedTQState(id);
@@ -527,14 +600,14 @@ async function renderDashboardTab(container, demand) {
       <div style="padding: 1.25rem; border-radius: var(--radius-md); background: ${isGatePass ? 'rgba(74, 222, 128, 0.08)' : 'rgba(239, 68, 68, 0.08)'}; border: 1px solid ${isGatePass ? '#4ade80' : '#ef4444'}; display: flex; align-items: center; justify-content: space-between;">
         <div>
           <h4 style="margin: 0; color: var(--text-primary); font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
-            <span>${isGatePass ? '✓ RELEASE STATUS: APPROVED' : '✗ RELEASE STATUS: BLOCKED'}</span>
+            <span style="color: ${isGatePass ? '#4ade80' : '#ef4444'};">${isGatePass ? '✓ RELEASE STATUS: APPROVED' : '✗ RELEASE STATUS: BLOCKED'}</span>
           </h4>
-          <p style="margin: 0.25rem 0 0 0; font-size: 0.8rem; color: var(--text-secondary);">
+          <p style="margin: 0.35rem 0 0 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">
             ${isGatePass ? 'All gate verification criteria met successfully. Ready for deployment.' : 'Critical defects or security issues are blocking release. Check detailed audit results.'}
           </p>
         </div>
-        <div style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: ${isGatePass ? '#4ade80' : '#ef4444'}; padding: 0.25rem 0.75rem; border-radius: 9999px; background: rgba(255,255,255,0.03);">
-          ${stats.release_readiness}
+        <div style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: ${isGatePass ? '#4ade80' : '#ef4444'}; padding: 0.35rem 0.85rem; border-radius: 9999px; background: rgba(255,255,255,0.04); border: 1px solid ${isGatePass ? 'rgba(74,222,128,0.3)' : 'rgba(239,68,68,0.3)'};">
+          ${isGatePass ? 'Ready' : 'Not Ready'}
         </div>
       </div>
 
@@ -721,7 +794,7 @@ function renderTestGenerationTab(container, demand) {
     const testStatus = c.status || 'Approved';
     const testReq = c.requirement || 'Functional';
     const testType = c.type || 'functional';
-    
+
     // Parse steps list
     let stepsList = [];
     if (Array.isArray(c.steps)) {
@@ -742,9 +815,9 @@ function renderTestGenerationTab(container, demand) {
 
     // Format badge text (Title Case / Space Separated)
     const displayType = testType === 'functional-positive' ? 'Functional Positive' :
-                        testType === 'functional-negative' ? 'Functional Negative' :
-                        testType === 'non-functional' ? 'Non-Functional' :
-                        testType.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+      testType === 'functional-negative' ? 'Functional Negative' :
+        testType === 'non-functional' ? 'Non-Functional' :
+          testType.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
     return `
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle;" class="tq-table-row">
@@ -804,11 +877,11 @@ function renderTestGenerationTab(container, demand) {
     generateBtn.innerHTML = `<span class="loader"></span> Generating...`;
 
     try {
-      const planId = (tqDeliveryContext && tqDeliveryContext.plan) 
-        ? tqDeliveryContext.plan.plan_id 
-        : ((tqDeliveryContext && tqDeliveryContext.plan_id) 
-            ? tqDeliveryContext.plan_id 
-            : `PLN-${demand.demand_id.split('-').pop()}-1`);
+      const planId = (tqDeliveryContext && tqDeliveryContext.plan)
+        ? tqDeliveryContext.plan.plan_id
+        : ((tqDeliveryContext && tqDeliveryContext.plan_id)
+          ? tqDeliveryContext.plan_id
+          : `PLN-${demand.demand_id.split('-').pop()}-1`);
 
       const storiesInput = document.getElementById('tq-gen-stories').value || '';
       const storyIds = storiesInput.split(',')
@@ -925,56 +998,56 @@ function getDefaultMockTestCases(demandId) {
   const domainText = demand ? (demand.domain || "Digital Payments") : "Digital Payments";
 
   return [
-    { 
-      id: `TC-${suffix}-01`, 
-      test_id: `TC-${suffix}-01`, 
-      title: `Verify ${titleText} functionality and access validation`, 
-      requirement: `${domainText}`, 
-      type: "functional-positive", 
-      story_id: `${demandId}-US-01`, 
-      preconditions: "System initialized", 
-      steps: `1. Log in to dashboard\n2. Navigate to ${titleText} component\n3. Verify successful validation status`, 
-      expected: `Successful access to ${titleText}`, 
-      expected_result: `Successful access to ${titleText}`, 
-      priority: "High", 
-      risk_level: "High", 
-      automation_candidate: "Yes", 
-      status: "Approved", 
-      traceability: `${demandId}-US-01` 
+    {
+      id: `TC-${suffix}-01`,
+      test_id: `TC-${suffix}-01`,
+      title: `Verify ${titleText} functionality and access validation`,
+      requirement: `${domainText}`,
+      type: "functional-positive",
+      story_id: `${demandId}-US-01`,
+      preconditions: "System initialized",
+      steps: `1. Log in to dashboard\n2. Navigate to ${titleText} component\n3. Verify successful validation status`,
+      expected: `Successful access to ${titleText}`,
+      expected_result: `Successful access to ${titleText}`,
+      priority: "High",
+      risk_level: "High",
+      automation_candidate: "Yes",
+      status: "Approved",
+      traceability: `${demandId}-US-01`
     },
-    { 
-      id: `TC-${suffix}-02`, 
-      test_id: `TC-${suffix}-02`, 
-      title: `Boundary test for ${titleText} transaction processing on invalid inputs`, 
-      requirement: `${domainText}`, 
-      type: "functional-negative", 
-      story_id: `${demandId}-US-02`, 
-      preconditions: "Services running", 
-      steps: `1. Attempt transaction with empty credentials\n2. Verify system throws error response`, 
-      expected: "Validation error returned gracefully", 
-      expected_result: "Validation error returned gracefully", 
-      priority: "Critical", 
-      risk_level: "High", 
-      automation_candidate: "Yes", 
-      status: "Approved", 
-      traceability: `${demandId}-US-02` 
+    {
+      id: `TC-${suffix}-02`,
+      test_id: `TC-${suffix}-02`,
+      title: `Boundary test for ${titleText} transaction processing on invalid inputs`,
+      requirement: `${domainText}`,
+      type: "functional-negative",
+      story_id: `${demandId}-US-02`,
+      preconditions: "Services running",
+      steps: `1. Attempt transaction with empty credentials\n2. Verify system throws error response`,
+      expected: "Validation error returned gracefully",
+      expected_result: "Validation error returned gracefully",
+      priority: "Critical",
+      risk_level: "High",
+      automation_candidate: "Yes",
+      status: "Approved",
+      traceability: `${demandId}-US-02`
     },
-    { 
-      id: `TC-${suffix}-03`, 
-      test_id: `TC-${suffix}-03`, 
-      title: `Performance SLA load check under high user concurrency for ${titleText}`, 
-      requirement: `${domainText}`, 
-      type: "non-functional", 
-      story_id: `${demandId}-US-03`, 
-      preconditions: "Mock environment ready", 
-      steps: `1. Run load test script with 500 concurrent threads\n2. Verify response time SLA < 200ms`, 
-      expected: "No latency degradation observed", 
-      expected_result: "No latency degradation observed", 
-      priority: "Low", 
-      risk_level: "Low", 
-      automation_candidate: "No", 
-      status: "Draft", 
-      traceability: `${demandId}-US-03` 
+    {
+      id: `TC-${suffix}-03`,
+      test_id: `TC-${suffix}-03`,
+      title: `Performance SLA load check under high user concurrency for ${titleText}`,
+      requirement: `${domainText}`,
+      type: "non-functional",
+      story_id: `${demandId}-US-03`,
+      preconditions: "Mock environment ready",
+      steps: `1. Run load test script with 500 concurrent threads\n2. Verify response time SLA < 200ms`,
+      expected: "No latency degradation observed",
+      expected_result: "No latency degradation observed",
+      priority: "Low",
+      risk_level: "Low",
+      automation_candidate: "No",
+      status: "Draft",
+      traceability: `${demandId}-US-03`
     }
   ];
 }
@@ -1450,14 +1523,14 @@ async function renderDefectTriageTab(container, demand) {
                 </td>
               </tr>
             ` : defects.map(d => {
-              const defId = d.defect_id || d.id || 'BUG-—';
-              const defSummary = d.summary || d.cluster || 'Triaged Defect';
-              const defDesc = d.description || d.root_cause_hint || '';
-              const defPriority = d.priority || 'Medium';
-              const defSeverity = d.severity || 'Medium';
-              const defAssignee = d.assignee || d.assigned_to || 'Unassigned';
-              const defStatus = d.status || d.recommended_action || 'Open';
-              return `
+    const defId = d.defect_id || d.id || 'BUG-—';
+    const defSummary = d.summary || d.cluster || 'Triaged Defect';
+    const defDesc = d.description || d.root_cause_hint || '';
+    const defPriority = d.priority || 'Medium';
+    const defSeverity = d.severity || 'Medium';
+    const defAssignee = d.assignee || d.assigned_to || 'Unassigned';
+    const defStatus = d.status || d.recommended_action || 'Open';
+    return `
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
                 <td style="padding: 0.5rem;"><input type="checkbox" class="chk-defect-merge" value="${defId}"></td>
                 <td style="padding: 0.5rem; font-weight: bold; color: var(--color-brand);">${defId}</td>
@@ -1641,13 +1714,13 @@ async function renderSecurityScanningTab(container, demand) {
                 </td>
               </tr>
             ` : findings.map(f => {
-              const findId = f.finding_id || f.id || 'SEC-—';
-              const findCat = f.category || 'Security Finding';
-              const findSev = f.severity || 'Medium';
-              const findDesc = f.description || '';
-              const findFix = f.draft_fix || f.suggested_fix || 'No suggested fix';
-              const findStatus = f.status || 'Open';
-              return `
+    const findId = f.finding_id || f.id || 'SEC-—';
+    const findCat = f.category || 'Security Finding';
+    const findSev = f.severity || 'Medium';
+    const findDesc = f.description || '';
+    const findFix = f.draft_fix || f.suggested_fix || 'No suggested fix';
+    const findStatus = f.status || 'Open';
+    return `
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
                 <td style="padding: 0.5rem; font-weight: bold; color: var(--color-brand);">${findId}</td>
                 <td style="padding: 0.5rem; font-weight: 600;">${findCat}</td>
@@ -1665,7 +1738,7 @@ async function renderSecurityScanningTab(container, demand) {
                 </td>
               </tr>
             `;
-            }).join('')}
+  }).join('')}
           </tbody>
         </table>
       </div>
@@ -1905,23 +1978,23 @@ async function renderTraceabilityTab(container, demand) {
           </thead>
           <tbody>
             ${entries.map(r => {
-              const story = r.story_id || r.story || '—';
-              const req = r.requirement || (r.coverage_status ? r.coverage_status.charAt(0).toUpperCase() + r.coverage_status.slice(1) : 'User Story');
-              const task = r.task || '—';
-              const testId = r.test_ids ? r.test_ids.join(', ') : (r.test_id || '—');
-              
-              let execution = '—';
-              if (r.execution) {
-                execution = r.execution;
-              } else if (r.passing !== undefined) {
-                execution = r.passing ? 'Passed' : 'Failed';
-              }
-              
-              const defect = r.defect_ids ? (r.defect_ids.length > 0 ? r.defect_ids.join(', ') : 'None') : (r.defect || '—');
-              const release = r.release_id || '—';
+    const story = r.story_id || r.story || '—';
+    const req = r.requirement || (r.coverage_status ? r.coverage_status.charAt(0).toUpperCase() + r.coverage_status.slice(1) : 'User Story');
+    const task = r.task || '—';
+    const testId = r.test_ids ? r.test_ids.join(', ') : (r.test_id || '—');
 
-              const isMissing = testId === 'Missing' || execution === 'Missing' || r.coverage_status === 'uncovered';
-              return `
+    let execution = '—';
+    if (r.execution) {
+      execution = r.execution;
+    } else if (r.passing !== undefined) {
+      execution = r.passing ? 'Passed' : 'Failed';
+    }
+
+    const defect = r.defect_ids ? (r.defect_ids.length > 0 ? r.defect_ids.join(', ') : 'None') : (r.defect || '—');
+    const release = r.release_id || '—';
+
+    const isMissing = testId === 'Missing' || execution === 'Missing' || r.coverage_status === 'uncovered';
+    return `
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.03); ${isMissing ? 'background: rgba(239,68,68,0.04);' : ''}">
                   <td style="padding: 0.5rem; font-weight: 600;">${req}</td>
                   <td style="padding: 0.5rem; color: var(--text-secondary);">${story}</td>
@@ -1932,7 +2005,7 @@ async function renderTraceabilityTab(container, demand) {
                   <td style="padding: 0.5rem; color: var(--text-secondary);">${release}</td>
                 </tr>
               `;
-            }).join('')}
+  }).join('')}
           </tbody>
         </table>
       </div>

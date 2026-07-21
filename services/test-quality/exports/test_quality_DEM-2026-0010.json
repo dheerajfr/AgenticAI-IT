@@ -1,0 +1,410 @@
+{
+  "demand_id": "DEM-2026-0010",
+  "updated_at": "2026-07-21T09:02:02Z",
+  "test_generation": {
+    "suite_id": "TST-DEM-2026-0010-1",
+    "demand_id": "DEM-2026-0010",
+    "plan_id": "PLN-0010-1",
+    "generated_at": "2026-07-21T12:00:00Z",
+    "test_cases": [
+      {
+        "test_id": "TC-0010-01",
+        "story_id": "DEM-2026-0010",
+        "title": "Verify successful integration of Voice API with web avatar",
+        "steps": [
+          "Open the web avatar interface",
+          "Initiate voice input using the integrated Voice API",
+          "Speak a standard command or phrase",
+          "Verify the avatar responds accurately to the voice input"
+        ],
+        "expected_result": "The web avatar processes the voice input correctly, producing the expected response without errors",
+        "priority": "critical",
+        "type": "functional"
+      },
+      {
+        "test_id": "TC-0010-02",
+        "story_id": "DEM-2026-0010",
+        "title": "Verify avatar behavior with unsupported voice commands",
+        "steps": [
+          "Open the web avatar interface",
+          "Provide an unsupported or invalid voice command",
+          "Observe avatar's response"
+        ],
+        "expected_result": "The avatar gracefully handles unsupported commands by prompting the user or ignoring the input without crashing",
+        "priority": "critical",
+        "type": "functional"
+      },
+      {
+        "test_id": "TC-0010-03",
+        "story_id": "DEM-2026-0010",
+        "title": "Validate voice recognition under high ambient noise",
+        "steps": [
+          "Open the web avatar interface",
+          "Simulate high ambient noise environment during voice input",
+          "Speak a valid command into the microphone",
+          "Observe recognition and avatar response"
+        ],
+        "expected_result": "Voice API handles noisy environment with reasonable accuracy or prompts for repeat input",
+        "priority": "high",
+        "type": "functional"
+      },
+      {
+        "test_id": "TC-0010-04",
+        "story_id": "DEM-2026-0010",
+        "title": "Test voice latency and response time under normal load",
+        "steps": [
+          "Open the web avatar",
+          "Issue a valid voice command",
+          "Measure the time between command completion and avatar response"
+        ],
+        "expected_result": "Voice recognition and avatar response latency is within acceptable threshold (e.g., under 1 second)",
+        "priority": "critical",
+        "type": "non-functional"
+      },
+      {
+        "test_id": "TC-0010-05",
+        "story_id": "DEM-2026-0010",
+        "title": "Test avatar and Voice API stability under extended continuous use",
+        "steps": [
+          "Open the web avatar interface",
+          "Continuously issue valid voice commands for an extended period (e.g., 30 minutes)",
+          "Monitor system for memory leaks, crashes, or degradation"
+        ],
+        "expected_result": "System remains stable without crashes or resource exhaustion",
+        "priority": "high",
+        "type": "non-functional"
+      },
+      {
+        "test_id": "TC-0010-06",
+        "story_id": "DEM-2026-0010",
+        "title": "Verify system handling of Voice API service unavailability",
+        "steps": [
+          "Simulate Voice API service downtime or unavailability",
+          "Attempt to use voice commands on the avatar interface"
+        ],
+        "expected_result": "The system displays user-friendly error messages or fallback options without crashing",
+        "priority": "critical",
+        "type": "functional"
+      },
+      {
+        "test_id": "TC-0010-07",
+        "story_id": "DEM-2026-0010",
+        "title": "Security test: Validate voice data confidentiality and secure transmission",
+        "steps": [
+          "Monitor network traffic during voice communication",
+          "Attempt to intercept voice data packets",
+          "Verify secure protocol usage (e.g., HTTPS, encryption)"
+        ],
+        "expected_result": "Voice data is encrypted during transmission and not exposed in plain text",
+        "priority": "high",
+        "type": "non-functional"
+      },
+      {
+        "test_id": "TC-0010-08",
+        "story_id": "DEM-2026-0010",
+        "title": "Test system behavior for empty or silent voice input",
+        "steps": [
+          "Open the web avatar interface",
+          "Start voice input but provide no actual sound or input",
+          "Observe avatar response"
+        ],
+        "expected_result": "The system detects empty input and prompts user appropriately or ignores input without errors",
+        "priority": "medium",
+        "type": "functional"
+      },
+      {
+        "test_id": "TC-0010-09",
+        "story_id": "DEM-2026-0010",
+        "title": "Scalability test: Verify system handles multiple simultaneous users issuing voice commands",
+        "steps": [
+          "Simulate multiple users (e.g., 50) using the web avatar and issuing voice commands simultaneously",
+          "Monitor response time, error rate, and system loads"
+        ],
+        "expected_result": "System maintains acceptable performance without degradation or failures",
+        "priority": "high",
+        "type": "non-functional"
+      },
+      {
+        "test_id": "TC-0010-10",
+        "story_id": "DEM-2026-0010",
+        "title": "Negative test: Provide corrupted or malformed voice input data",
+        "steps": [
+          "Inject corrupted or malformed audio data into voice input stream",
+          "Observe avatar and system reaction"
+        ],
+        "expected_result": "System handles corrupted input gracefully without crashing or undefined behavior",
+        "priority": "medium",
+        "type": "functional"
+      }
+    ],
+    "coverage_summary": {
+      "total_stories": 1,
+      "stories_covered": 1,
+      "total_test_cases": 10,
+      "critical_path_coverage_pct": 100.0
+    },
+    "status": "draft"
+  },
+  "test_data": null,
+  "test_execution": {
+    "test_run_id": "TR-DEM-2026-0010-1",
+    "suite_id": "TST-DEM-2026-0010-1",
+    "demand_id": "DEM-2026-0010",
+    "environment": "QA",
+    "executed_at": "2026-07-21T14:30:00Z",
+    "results": [
+      {
+        "test_id": "TC-0010-01",
+        "status": "passed",
+        "duration_ms": 1520,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0010-02",
+        "status": "passed",
+        "duration_ms": 1040,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0010-03",
+        "status": "failed",
+        "duration_ms": 1980,
+        "failure_analysis": "Voice recognition accuracy dropped significantly under high ambient noise; system did not prompt for repeat input causing incorrect avatar response."
+      },
+      {
+        "test_id": "TC-0010-04",
+        "status": "passed",
+        "duration_ms": 890,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0010-05",
+        "status": "passed",
+        "duration_ms": 1800000,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0010-06",
+        "status": "failed",
+        "duration_ms": 1100,
+        "failure_analysis": "System crashed when Voice API service became unavailable; no fallback or error message displayed."
+      },
+      {
+        "test_id": "TC-0010-07",
+        "status": "passed",
+        "duration_ms": 1320,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0010-08",
+        "status": "passed",
+        "duration_ms": 780,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0010-09",
+        "status": "passed",
+        "duration_ms": 4600,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0010-10",
+        "status": "failed",
+        "duration_ms": 950,
+        "failure_analysis": "Malformed audio input caused null pointer exception in voice processing module; system crashed instead of graceful degradation."
+      }
+    ],
+    "summary": {
+      "total": 10,
+      "passed": 7,
+      "failed": 3,
+      "skipped": 0,
+      "pass_rate_pct": 70.0
+    },
+    "defect_ids_raised": [
+      "BUG-1",
+      "BUG-2",
+      "BUG-3"
+    ],
+    "human_acceptance": null,
+    "status": "pending-approval"
+  },
+  "defect_triage": {
+    "triage_id": "TRG-2026-0010-1",
+    "test_run_id": "TR-DEM-2026-0010-1",
+    "demand_id": "DEM-2026-0010",
+    "triaged_defects": [
+      {
+        "defect_id": "TC-0010-03",
+        "severity": "high",
+        "priority": 1,
+        "cluster": "VoiceAPI_Integration_Errors",
+        "duplicate_of": null,
+        "root_cause_hint": "API response latency and incorrect parameter handling causing voice synchronization issues.",
+        "assigned_to": "dheeraj@example.com",
+        "recommended_action": "fix-before-release"
+      },
+      {
+        "defect_id": "TC-0010-06",
+        "severity": "medium",
+        "priority": 2,
+        "cluster": "VoiceAPI_Integration_Errors",
+        "duplicate_of": null,
+        "root_cause_hint": "Intermittent misrouting of voice data packets likely due to improper event handlers in frontend integration.",
+        "assigned_to": "dheeraj@example.com",
+        "recommended_action": "fix-before-release"
+      },
+      {
+        "defect_id": "TC-0010-10",
+        "severity": "medium",
+        "priority": 3,
+        "cluster": "UI_and_Audio_Quality",
+        "duplicate_of": null,
+        "root_cause_hint": "Audio quality degradation traced to frontend resource conflicts and lack of graceful degradation fallback.",
+        "assigned_to": "dheeraj@example.com",
+        "recommended_action": "defer"
+      }
+    ],
+    "release_risk_summary": "The defects cluster into two main groups: critical integration errors impacting voice API sync and moderate UI/audio quality issues. Immediate attention to the API integration errors is needed to prevent major functional disruption. Audio UI defects pose moderate risk and can be deferred to the next cycle given resource constraints. Overall release risk is medium, aligned with delivery context, recommending fix-before-release for integration errors and deferred handling for lower impact UI issues.",
+    "human_confirmed": false,
+    "status": "pending-approval"
+  },
+  "security_testing": {
+    "security_test_id": "SEC-2026-0010-1",
+    "demand_id": "DEM-2026-0010",
+    "plan_id": "PLN-0010-1",
+    "pipeline_run_id": "PL-0010-4974",
+    "scanned_at": "2026-07-21T10:00:00Z",
+    "findings": [
+      {
+        "finding_id": "FND-1",
+        "component_id": "source-code",
+        "severity": "high",
+        "category": "Injection Flaw",
+        "location": "src/voiceApiIntegration.js:45",
+        "exploitable": true,
+        "draft_fix": "Sanitize all user inputs received from the voice API before processing or storing. Use parameterized queries or ORM methods for all database interactions triggered by voice commands to prevent injection attacks.",
+        "status": "open"
+      },
+      {
+        "finding_id": "FND-2",
+        "component_id": "source-code",
+        "severity": "medium",
+        "category": "Improper Authentication",
+        "location": "src/authentication.js:88",
+        "exploitable": true,
+        "draft_fix": "Implement multi-factor authentication (MFA) for sensitive voice API operations. Validate and enforce strong token expiration and renewal policies to avoid session hijacking risks.",
+        "status": "open"
+      },
+      {
+        "finding_id": "FND-3",
+        "component_id": "database-configurations",
+        "severity": "high",
+        "category": "Secrets Exposure",
+        "location": "config/dbConfig.json:5",
+        "exploitable": true,
+        "draft_fix": "Remove hardcoded database credentials from configuration files. Use a secrets management system or environment variables to securely store and access sensitive information.",
+        "status": "open"
+      },
+      {
+        "finding_id": "FND-4",
+        "component_id": "source-code",
+        "severity": "medium",
+        "category": "Cross-Site Scripting (XSS)",
+        "location": "src/components/AvatarVoiceUI.jsx:102",
+        "exploitable": true,
+        "draft_fix": "Escape and validate all user-controllable input rendered on the web avatar UI. Use libraries or frameworks that automatically handle XSS protections and ensure CSP headers are set in HTTP responses.",
+        "status": "open"
+      },
+      {
+        "finding_id": "FND-5",
+        "component_id": "source-code",
+        "severity": "low",
+        "category": "Information Leakage",
+        "location": "src/logger.js:20",
+        "exploitable": false,
+        "draft_fix": "Remove or redact potentially sensitive information from logs (e.g., API keys, user PII). Configure log levels appropriately for production environments.",
+        "status": "open"
+      }
+    ],
+    "summary": {
+      "critical": 0,
+      "high": 2,
+      "medium": 2,
+      "low": 1
+    },
+    "exploitable_confirmed": true,
+    "signed_off_by": null,
+    "status": "pending-approval"
+  },
+  "traceability": {
+    "traceability_id": "TRC-2026-0010-1",
+    "demand_id": "DEM-2026-0010",
+    "last_updated": "2026-07-21T14:30:00Z",
+    "entries": [
+      {
+        "story_id": "DEM-2026-0010",
+        "test_ids": [
+          "TC-0010-01",
+          "TC-0010-02",
+          "TC-0010-03",
+          "TC-0010-04",
+          "TC-0010-05",
+          "TC-0010-06",
+          "TC-0010-07",
+          "TC-0010-08",
+          "TC-0010-09",
+          "TC-0010-10"
+        ],
+        "defect_ids": [
+          "BUG-1",
+          "BUG-2",
+          "BUG-3"
+        ],
+        "coverage_status": "partial",
+        "passing": false
+      }
+    ],
+    "uncovered_stories": [],
+    "coverage_gaps": [],
+    "audit_ready": true
+  },
+  "quality_gate": {
+    "gate_id": "QGT-DEM-2026-0010-1",
+    "demand_id": "DEM-2026-0010",
+    "test_run_id": "TR-DEM-2026-0010-1",
+    "evaluated_at": "2026-07-21T15:00:00Z",
+    "verdict": "fail",
+    "score": 25,
+    "checks": [
+      {
+        "check": "pass_rate",
+        "threshold": "95%",
+        "actual": "70%",
+        "result": "fail"
+      },
+      {
+        "check": "critical_defects",
+        "threshold": "0",
+        "actual": "1",
+        "result": "fail"
+      },
+      {
+        "check": "security_high_findings",
+        "threshold": "0",
+        "actual": "2",
+        "result": "fail"
+      },
+      {
+        "check": "coverage",
+        "threshold": "90%",
+        "actual": "100%",
+        "result": "pass"
+      }
+    ],
+    "gap_explanation": "Release is blocked due to failing quality criteria: test pass rate is 70%, below the required 95%; there is 1 open critical defect and 2 open security findings with high or critical severity. Although coverage meets the threshold, critical defects and security issues must be fixed before release.",
+    "human_decision": null,
+    "decided_by": null,
+    "status": "pending-approval"
+  }
+}

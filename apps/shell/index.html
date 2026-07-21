@@ -15,14 +15,14 @@
   <script type="module" src="../../packages/ui-kit/navigation-menu.js?v=10"></script>
 
   <!-- Load Main Shell script -->
-  <script type="module" src="./dashboard.js?v=10"></script>
+  <script type="module" src="./dashboard.js?v=12"></script>
   <script type="module" src="./estimate-shape.js?v=10"></script>
   <script type="module" src="./config-environments.js?v=10"></script>
   <script type="module" src="./plan-schedule.js?v=11"></script>
   <script type="module" src="./dependencies.js?v=10"></script>
   <script type="module" src="./build-deploy.js?v=10"></script>
-  <script type="module" src="./test-quality.js?v=10"></script>
-  <script type="module" src="./release-change.js?v=13"></script>
+  <script type="module" src="./test-quality.js?v=19"></script>
+  <script type="module" src="./release-change.js?v=14"></script>
   <script type="module" src="./shell.js?v=10"></script>
 </head>
 
@@ -32,9 +32,11 @@
     <!-- Header -->
     <header>
       <div class="logo-container">
-        <button id="btn-menu-toggle" style="background: none; border: none; cursor: pointer; color: var(--text-primary); padding: 0.25rem; display: flex; align-items: center; margin-right: 0.5rem;" onclick="window.dispatchEvent(new CustomEvent('toggle-nav-menu'))">
+        <button id="btn-menu-toggle"
+          style="background: none; border: none; cursor: pointer; color: var(--text-primary); padding: 0.25rem; display: flex; align-items: center; margin-right: 0.5rem;"
+          onclick="window.dispatchEvent(new CustomEvent('toggle-nav-menu'))">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-            <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+            <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" />
           </svg>
         </button>
         <span class="logo-text">CADENCE</span>
@@ -48,15 +50,22 @@
     <!-- Core Viewport -->
     <div class="main-content">
       <!-- Breadcrumbs -->
-      <div class="breadcrumbs-bar" id="global-breadcrumbs" style="padding: 1rem 1.5rem 0 1.5rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">
-        <a href="#dashboard" style="color: var(--color-brand); text-decoration: none; cursor: pointer; display: flex; align-items: center; gap: 0.3rem; font-weight: 500; transition: color 0.2s ease;" onmouseover="this.style.color='var(--color-brand-dark)'" onmouseout="this.style.color='var(--color-brand)'">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> 
+      <div class="breadcrumbs-bar" id="global-breadcrumbs"
+        style="padding: 1rem 1.5rem 0 1.5rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">
+        <a href="#dashboard"
+          style="color: var(--color-brand); text-decoration: none; cursor: pointer; display: flex; align-items: center; gap: 0.3rem; font-weight: 500; transition: color 0.2s ease;"
+          onmouseover="this.style.color='var(--color-brand-dark)'" onmouseout="this.style.color='var(--color-brand)'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
           Back to Dashboard
         </a>
         <span style="color: var(--border-color); margin: 0 0.2rem;">/</span>
-        <span id="breadcrumb-current-module" style="font-weight: 600; color: var(--text-primary);">Demand & Intake</span>
+        <span id="breadcrumb-current-module" style="font-weight: 600; color: var(--text-primary);">Demand &
+          Intake</span>
       </div>
-      
+
       <div id="viewport" class="screen-viewport">
         <!-- Content will be swapped here dynamically by shell.js -->
       </div>

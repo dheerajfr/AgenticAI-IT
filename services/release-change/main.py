@@ -669,6 +669,7 @@ def get_release_by_id(release_id: str):
     risk_rec = db.get_risk_assessment_by_release(release_id)
     cab_rec = db.get_cab_by_release(release_id)
     collisions = db.get_release_collisions(release_id)
+    run_audit_agent(release_id, db)
     audit_logs = db.get_audit_logs(release_id)
     
     # Fetch upstream tables
