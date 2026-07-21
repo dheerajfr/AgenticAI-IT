@@ -139,38 +139,46 @@ window.renderBuildDeployScreen = function () {
 
 function switchDeployTab(tab) {
   activeDeployTab = tab;
-  selectedRunbookId = null;
-  selectedCutoverId = null;
-  selectedDeploymentId = null;
+  if (selectedDemandId) {
+    sessionStorage.setItem('selectedDemandId', selectedDemandId);
+  }
   window.renderBuildDeployScreen();
   window.fetchBuildDeployData();
 }
 
 window.fetchBuildDeployData = async function (forceNew = false) {
-  if (!forceNew) {
-    selectedDemandId = sessionStorage.getItem('selectedDemandId') || selectedDemandId;
-  } else {
+  if (forceNew) {
     selectedDemandId = null;
+  } else if (!selectedDemandId) {
+    selectedDemandId = sessionStorage.getItem('selectedDemandId') || null;
   }
   const container = document.getElementById('deploy-list-container');
+  if (!container) return; // Screen not rendered yet
   try {
+    // Fetch all data — treat demand/env failures as non-fatal
     const [rbRes, cutRes, depRes, demandRes, envRes] = await Promise.all([
-      fetch(`${DEPLOY_API_BASE}/runbooks`),
-      fetch(`${DEPLOY_API_BASE}/cutover`),
-      fetch(`${DEPLOY_API_BASE}/orchestration`),
-      fetch(DEMAND_API_BASE),
-      fetch(ENV_API_BASE)
+      fetch(`${DEPLOY_API_BASE}/runbooks`).catch(() => null),
+      fetch(`${DEPLOY_API_BASE}/cutover`).catch(() => null),
+      fetch(`${DEPLOY_API_BASE}/orchestration`).catch(() => null),
+      fetch(DEMAND_API_BASE).catch(() => null),
+      fetch(ENV_API_BASE).catch(() => null)
     ]);
-    if (!rbRes.ok || !cutRes.ok || !depRes.ok) throw new Error(`HTTP Error`);
-    runbooks = await rbRes.json();
+
+    if (!rbRes || !rbRes.ok) throw new Error('Could not reach runbooks endpoint');
+    if (!cutRes || !cutRes.ok) throw new Error('Could not reach cutover endpoint');
+    if (!depRes || !depRes.ok) throw new Error('Could not reach orchestration endpoint');
+
+    runbooks        = await rbRes.json();
     cutoverSessions = await cutRes.json();
-    deployments = await depRes.json();
-    demands = demandRes.ok ? await demandRes.json() : [];
-    envRecords = envRes.ok ? await envRes.json() : [];
+    deployments     = await depRes.json();
+    demands         = (demandRes && demandRes.ok)  ? await demandRes.json() : [];
+    envRecords      = (envRes    && envRes.ok)     ? await envRes.json()    : [];
 
     renderDeployList();
 
-    const activeItems = activeDeployTab === 'runbooks' ? runbooks : activeDeployTab === 'cutover' ? cutoverSessions : deployments;
+    const activeItems = activeDeployTab === 'runbooks' ? runbooks
+      : activeDeployTab === 'cutover' ? cutoverSessions
+      : deployments;
 
     if (activeDeployTab === 'runbooks') {
       if (selectedRunbookId && !runbooks.some(r => r.runbook_id === selectedRunbookId)) selectedRunbookId = null;
@@ -194,12 +202,15 @@ window.fetchBuildDeployData = async function (forceNew = false) {
     }
   } catch (err) {
     console.error('Failed to fetch build-deploy data:', err);
-    container.innerHTML = `
-      <li style="padding: 1.5rem; text-align: center; color: var(--color-status-red-text);">
-        <div style="font-weight: 700; margin-bottom: 0.5rem;">Backend Offline</div>
-        <div style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">Make sure gateway server is running.</div>
-      </li>
-    `;
+    const c = document.getElementById('deploy-list-container');
+    if (c) {
+      c.innerHTML = `
+        <li style="padding: 1.5rem; text-align: center; color: var(--color-status-red-text);">
+          <div style="font-weight: 700; margin-bottom: 0.5rem;">Backend Offline</div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">${err.message}<br>Make sure the gateway server is running.</div>
+        </li>
+      `;
+    }
   }
 };
 
@@ -242,6 +253,7 @@ function renderDeployList() {
   container.querySelectorAll('.demand-item[data-did]').forEach(el => {
     el.addEventListener('click', () => {
       selectedDemandId = el.getAttribute('data-did');
+      sessionStorage.setItem('selectedDemandId', selectedDemandId);
       renderDeployList();
       renderDeployContent();
     });
@@ -506,6 +518,7 @@ async function showNewRunbookForm() {
       const record = await res.json();
       selectedRunbookId = record.runbook_id;
       selectedDemandId = record.demand_id || 'Unknown Demand';
+      sessionStorage.setItem('selectedDemandId', selectedDemandId);
       await window.fetchBuildDeployData();
     } catch (err) {
       errorBox.textContent = err.message;
@@ -639,7 +652,7 @@ function renderRunbookDetails(record) {
   if (approveBtn) {
     approveBtn.addEventListener('click', async () => {
       await fetch(`${DEPLOY_API_BASE}/runbooks/${record.runbook_id}/approve`, { method: 'POST' });
-      await window.fetchBuildDeployData();
+      switchDeployTab('orchestration');
     });
   }
 
@@ -927,11 +940,11 @@ function renderCutoverDetails(record) {
         body: JSON.stringify({ status: 'completed' })
       });
       if (record.deployment_id) {
-        activeDeployTab = 'orchestration';
         selectedDeploymentId = record.deployment_id;
-        window.renderBuildDeployScreen();
+        switchDeployTab('orchestration');
+      } else {
+        await window.fetchBuildDeployData();
       }
-      await window.fetchBuildDeployData();
     });
   }
 
@@ -945,11 +958,11 @@ function renderCutoverDetails(record) {
         body: JSON.stringify({ status: 'aborted' })
       });
       if (record.deployment_id) {
-        activeDeployTab = 'orchestration';
         selectedDeploymentId = record.deployment_id;
-        window.renderBuildDeployScreen();
+        switchDeployTab('orchestration');
+      } else {
+        await window.fetchBuildDeployData();
       }
-      await window.fetchBuildDeployData();
     });
   }
 }
@@ -1320,7 +1333,7 @@ function renderDeploymentDetails(record) {
         ` : ''}
         ${record.cutover_id ? `<button type="button" class="btn-secondary" id="btn-view-cutover">View Cutover Bridge</button>` : ''}
         ${record.cutover_id && record.status === 'in-progress' ? `<button type="button" class="btn-primary" id="btn-complete-deployment">Mark Deployment Done</button>` : ''}
-        ${record.status === 'done' ? `<button type="button" class="btn-primary" id="btn-next-stage">Proceed to Release & Change</button>` : ''}
+        ${record.status === 'done' ? `<button type="button" class="btn-primary" id="btn-next-stage">Proceed to Test &amp; Quality →</button>` : ''}
       </div>
     </div>
   `;
@@ -1350,7 +1363,11 @@ function renderDeploymentDetails(record) {
         body: JSON.stringify({ decision, decided_by, stakeholders })
       });
       if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.detail || 'Decision failed.'); }
-      await window.fetchBuildDeployData();
+      if (decision === 'go') {
+        switchDeployTab('cutover');
+      } else {
+        await window.fetchBuildDeployData();
+      }
     } catch (err) {
       errorBox.textContent = err.message;
       errorBox.style.display = 'block';
@@ -1363,10 +1380,8 @@ function renderDeploymentDetails(record) {
   const viewCutoverBtn = document.getElementById('btn-view-cutover');
   if (viewCutoverBtn) {
     viewCutoverBtn.addEventListener('click', () => {
-      activeDeployTab = 'cutover';
       selectedCutoverId = record.cutover_id;
-      window.renderBuildDeployScreen();
-      window.fetchBuildDeployData();
+      switchDeployTab('cutover');
     });
   }
 
@@ -1388,7 +1403,11 @@ function renderDeploymentDetails(record) {
   const nextStageBtn = document.getElementById('btn-next-stage');
   if (nextStageBtn) {
     nextStageBtn.addEventListener('click', () => {
-      window.location.hash = 'release-change';
+      if (window.switchStage) {
+        window.switchStage('test-quality');
+      } else {
+        window.location.hash = 'test-quality';
+      }
     });
   }
 }
@@ -1396,6 +1415,8 @@ function renderDeploymentDetails(record) {
 
 function renderDeployContent() {
   const panel = document.getElementById('deploy-panel-container');
+  if (!panel) return;
+
   if (!selectedDemandId) {
     panel.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text-muted);">Select a Demand from the left sidebar or create a new record.</div>`;
     return;
@@ -1421,20 +1442,21 @@ function renderDeployContent() {
 
   const typeLabel = activeDeployTab === 'runbooks' ? 'Runbook' : activeDeployTab === 'cutover' ? 'Cutover' : 'Deployment';
 
+  // Render the header bar + inner container directly into the panel
   panel.innerHTML = `
     <div style="background:var(--bg-tertiary); padding:1rem; border-bottom:1px solid var(--border-color); display:flex; align-items:center; gap:1rem;">
       <label for="demand-component-select" style="font-weight:600;font-size:0.9rem;">Select ${typeLabel}:</label>
       <select id="demand-component-select" style="flex:1;max-width:400px;padding:0.4rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);background:var(--bg-primary);">
         ${demandItems.map(i => {
-    const cName = formatSimpleName(i.component_id);
-    const env = getEnvironment(i);
-    const label = `${cName} - ${env}`;
-    return `<option value="${i[idField]}" ${i[idField] === activeItem[idField] ? 'selected' : ''}>${label}</option>`;
-  }).join('')}
+          const cName = formatSimpleName(i.component_id);
+          const env = getEnvironment(i);
+          const label = `${cName} - ${env}`;
+          return `<option value="${i[idField]}" ${i[idField] === activeItem[idField] ? 'selected' : ''}>${label}</option>`;
+        }).join('')}
       </select>
       <button id="btn-delete-active-item" class="btn-secondary" style="color:var(--color-status-red-text); border-color:var(--color-status-red-text);">Delete Active ${typeLabel}</button>
     </div>
-    <div id="deploy-content-inner" style="flex:1; display:flex; flex-direction:column; min-height:0; overflow:hidden; padding-top:1rem;"></div>
+    <div id="deploy-content-inner" style="flex:1; overflow-y:auto; padding-top:1rem;"></div>
   `;
 
   document.getElementById('demand-component-select').addEventListener('change', (e) => {
@@ -1462,24 +1484,22 @@ function renderDeployContent() {
     }
   });
 
-  const innerContainer = document.getElementById('deploy-content-inner');
-  const tempPanel = Object.defineProperty({}, 'innerHTML', {
-    set(html) { innerContainer.innerHTML = html; },
-    get() { return innerContainer.innerHTML; }
-  });
+  // Render the detail view into the inner container
+  // We pass the inner element directly — no monkey-patching needed
+  const innerEl = document.getElementById('deploy-content-inner');
+  const fakePanel = { get innerHTML() { return innerEl.innerHTML; }, set innerHTML(v) { innerEl.innerHTML = v; } };
 
-  // Actually, a better way is to redefine them to return the inner wrapper.
-  const originalGetElementById = document.getElementById.bind(document);
-  document.getElementById = function (id) {
-    if (id === 'deploy-panel-container') return innerContainer;
-    return originalGetElementById(id);
-  };
+  // Temporarily expose fakePanel under 'deploy-panel-container' id via a data attr trick
+  innerEl.id = 'deploy-panel-container';
+  panel.removeAttribute('id'); // Detach real panel id temporarily
 
   try {
     if (activeDeployTab === 'runbooks') renderRunbookDetails(activeItem);
     else if (activeDeployTab === 'cutover') renderCutoverDetails(activeItem);
     else renderDeploymentDetails(activeItem);
   } finally {
-    document.getElementById = originalGetElementById;
+    // Restore ids
+    panel.id = 'deploy-panel-container';
+    innerEl.id = 'deploy-content-inner';
   }
 }

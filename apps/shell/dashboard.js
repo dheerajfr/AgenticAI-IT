@@ -71,8 +71,8 @@ function determineCurrentStage(data) {
   if (data.qualityGate) return 'test-quality';
   if (data.deployments && data.deployments.length > 0) return 'build-deploy';
   if (data.dependencies && data.dependencies.length > 0) return 'dependencies';
-  if (data.plan) return 'plan-schedule';
   if (data.environments && data.environments.length > 0) return 'config-environments';
+  if (data.plan) return 'plan-schedule';
   if (data.estimate) return 'estimate-shape';
   return 'demand-intake';
 }
@@ -87,8 +87,8 @@ function calculateHealth(data) {
 
 function calculateProgress(stage) {
   const stages = [
-    'demand-intake', 'estimate-shape', 'config-environments', 
-    'plan-schedule', 'dependencies', 'build-deploy', 
+    'demand-intake', 'estimate-shape', 'plan-schedule', 
+    'config-environments', 'dependencies', 'build-deploy', 
     'test-quality', 'release-change'
   ];
   const idx = stages.indexOf(stage);

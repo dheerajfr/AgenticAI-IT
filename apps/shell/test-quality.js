@@ -20,37 +20,25 @@ window.renderTestQualityScreen = function () {
   const viewport = document.getElementById('viewport');
   viewport.innerHTML = `
     <div class="intake-screen">
-      <!-- Left Sidebar: Demands Queue & Test & Quality Queue -->
-      <aside class="sidebar" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 100%; overflow: hidden; width: 300px;">
-        <!-- Demands Queue -->
-        <div class="panel-card" style="flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-          <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-            <h3 class="sidebar-title" style="margin: 0; font-size: 0.85rem;">Demands Queue</h3>
-          </div>
-          <ul class="demand-list" id="tq-demand-list-container" style="flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.35rem;">
-            <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 1rem;">
-              Loading demands...
-            </li>
-          </ul>
+      <!-- Left Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h3 class="sidebar-title">Test &amp; Quality</h3>
+          <button class="btn-new" id="tq-refresh-btn" title="Refresh">&#x21BB;</button>
         </div>
-        
-        <!-- Test and Quality Queue -->
-        <div class="panel-card" style="flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-          <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-            <h3 class="sidebar-title" style="margin: 0; font-size: 0.85rem; color: #818cf8; text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-display); font-weight: bold;">Test and Quality Queue</h3>
-          </div>
-          <ul class="demand-list" id="tq-active-queue-list" style="flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.35rem;">
-            <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 1rem;">
-              Loading active queue...
-            </li>
-          </ul>
-        </div>
+        <ul class="demand-list" id="tq-sidebar-list">
+          <li class="demand-item" style="text-align:center; color:var(--text-muted); padding:2rem;">
+            Loading demands...
+          </li>
+        </ul>
       </aside>
-      
-      <!-- Right Panel: Capabilities Tabbed View -->
-      <main class="details-panel" id="tq-panel-container" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);"></main>
+
+      <!-- Right Detail Panel -->
+      <main class="details-panel" id="tq-panel-container"></main>
     </div>
   `;
+
+  document.getElementById('tq-refresh-btn').addEventListener('click', () => window.fetchTestQualityData());
 
   // Inject CSS styles if they do not exist
   if (!document.getElementById('tq-premium-styles')) {
@@ -205,101 +193,101 @@ window.fetchTestQualityData = async function () {
     tqDemands = await resDemands.json();
 
     const resConsolidated = await fetch(`${TQ_API_BASE}/test-quality/consolidated`);
-    if (!resConsolidated.ok) throw new Error(`HTTP Error: ${resConsolidated.status}`);
-    const consolidatedStates = await resConsolidated.json();
-
+    const consolidatedStates = resConsolidated.ok ? await resConsolidated.json() : [];
     const activeDemandIds = consolidatedStates.map(record => record.demand_id);
+
     renderTQQueues(activeDemandIds);
 
-    const approvedDemands = tqDemands.filter(d => d.status === 'approved');
-    const pendingApproved = approvedDemands.filter(d => !activeDemandIds.includes(d.demand_id));
-    const activeDemands = approvedDemands.filter(d => activeDemandIds.includes(d.demand_id));
+    // Auto-select: if no valid ID or saved ID doesn't exist in current demands, pick first available
+    if (!tqSelectedDemandId || !tqDemands.some(d => d.demand_id === tqSelectedDemandId)) {
+      const first = tqDemands.find(d => activeDemandIds.includes(d.demand_id)) || tqDemands[0];
+      if (first) tqSelectedDemandId = first.demand_id;
+    }
 
-    if (tqSelectedDemandId === null) {
-      if (activeDemands.length > 0) {
-        selectTQDemand(activeDemands[0].demand_id);
-      } else if (pendingApproved.length > 0) {
-        selectTQDemand(pendingApproved[0].demand_id);
-      } else if (tqDemands.length > 0) {
-        selectTQDemand(tqDemands[0].demand_id);
-      } else {
-        renderEmptyTQDetails();
-      }
-    } else {
+    if (tqSelectedDemandId) {
       selectTQDemand(tqSelectedDemandId);
+    } else {
+      renderEmptyTQDetails();
     }
   } catch (err) {
     console.error("Failed to fetch demands for Test & Quality:", err);
-    document.getElementById('tq-demand-list-container').innerHTML = `
-      <li style="padding: 1.5rem; text-align: center; color: var(--color-status-red-text);">
-        Failed to load demands queue.
-      </li>
-    `;
+    const list = document.getElementById('tq-sidebar-list');
+    if (list) list.innerHTML = `<li style="padding:1.5rem; text-align:center; color:var(--color-status-red-text);">Failed to load demands. Make sure the backend is running.</li>`;
   }
 }
 
 function renderTQQueues(activeDemandIds) {
-  const pendingContainer = document.getElementById('tq-demand-list-container');
-  const activeContainer = document.getElementById('tq-active-queue-list');
-  if (!pendingContainer || !activeContainer) return;
+  const list = document.getElementById('tq-sidebar-list');
+  if (!list) return;
 
-  const approvedDemands = tqDemands.filter(d => d.status === 'approved');
-  const pendingDemands = approvedDemands.filter(d => !activeDemandIds.includes(d.demand_id));
-  const activeDemands = approvedDemands.filter(d => activeDemandIds.includes(d.demand_id));
-
-  // Render pending demands
-  if (pendingDemands.length === 0) {
-    pendingContainer.innerHTML = `<li style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">No pending demands.</li>`;
-  } else {
-    pendingContainer.innerHTML = pendingDemands.map(d => {
-      const isActive = d.demand_id === tqSelectedDemandId;
-      return `
-        <li class="demand-item pending-item ${isActive ? 'active' : ''}" data-id="${d.demand_id}" style="padding: 0.75rem 1rem; border-radius: var(--radius-sm); cursor: pointer; ">
-          <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.25rem;">${d.title}</div>
-          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: var(--text-secondary);">
-            <span>${d.demand_id}</span>
-            <span class="badge-priority ${d.risk_level}">${d.risk_level}</span>
-          </div>
-        </li>
-      `;
-    }).join('');
+  if (tqDemands.length === 0) {
+    list.innerHTML = `<li style="padding:2rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">No demands found.</li>`;
+    return;
   }
 
-  // Render active demands
-  if (activeDemands.length === 0) {
-    activeContainer.innerHTML = `<li style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">No active test runs.</li>`;
-  } else {
-    activeContainer.innerHTML = activeDemands.map(d => {
-      const isActive = d.demand_id === tqSelectedDemandId;
-      return `
-        <li class="demand-item active-item ${isActive ? 'active' : ''}" data-id="${d.demand_id}" style="padding: 0.75rem 1rem; border-radius: var(--radius-sm); cursor: pointer; ">
-          <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.25rem;">${d.title}</div>
-          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: var(--text-secondary);">
-            <span>${d.demand_id}</span>
-            <span class="badge-priority ${d.risk_level}">${d.risk_level}</span>
-          </div>
-        </li>
-      `;
-    }).join('');
+  const activeDemands = tqDemands.filter(d => activeDemandIds.includes(d.demand_id));
+  const otherDemands  = tqDemands.filter(d => !activeDemandIds.includes(d.demand_id));
+
+  let html = '';
+
+  if (activeDemands.length) {
+    html += `<li style="padding:0.4rem 1rem 0.2rem; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#34d399; pointer-events:none;">&#x25CF; Active Test Runs</li>`;
+    html += activeDemands.map(d => _tqSidebarItem(d, activeDemandIds)).join('');
   }
 
-  // Attach event handlers
-  const allItems = [...pendingContainer.querySelectorAll('.demand-item'), ...activeContainer.querySelectorAll('.demand-item')];
-  allItems.forEach(item => {
-    item.addEventListener('click', () => {
-      selectTQDemand(item.getAttribute('data-id'));
-    });
+  if (otherDemands.length) {
+    html += `<li style="padding:0.4rem 1rem 0.2rem; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); margin-top:0.5rem; pointer-events:none;">All Demands</li>`;
+    html += otherDemands.map(d => _tqSidebarItem(d, activeDemandIds)).join('');
+  }
+
+  list.innerHTML = html;
+
+  list.querySelectorAll('.demand-item[data-id]').forEach(item => {
+    item.addEventListener('click', () => selectTQDemand(item.getAttribute('data-id')));
   });
+}
+
+function _tqSidebarItem(d, activeDemandIds) {
+  const isSelected = d.demand_id === tqSelectedDemandId;
+  const isActive   = activeDemandIds.includes(d.demand_id);
+
+  let statusBadge = '';
+  if (isActive) {
+    statusBadge = `<span style="font-size:0.62rem; padding:1px 5px; border-radius:9999px; font-weight:700; background:rgba(52,211,153,0.15); color:#34d399;">Active</span>`;
+  } else {
+    const statusColor = d.status === 'approved' ? 'var(--color-status-green-text)'
+      : d.status === 'capacity-checked' ? 'var(--color-status-amber-text)'
+      : 'var(--text-muted)';
+    statusBadge = `<span style="font-size:0.62rem; padding:1px 5px; border-radius:9999px; font-weight:700; background:rgba(255,255,255,0.05); color:${statusColor};">${d.status}</span>`;
+  }
+
+  return `
+    <li class="demand-item ${isSelected ? 'active' : ''}" data-id="${d.demand_id}" style="cursor:pointer;">
+      <div class="demand-item-header">
+        <span class="demand-item-id">${d.demand_id}</span>
+        ${statusBadge}
+      </div>
+      <h4 class="demand-item-title" style="margin:0.2rem 0 0 0; font-size:0.82rem;">${d.title}</h4>
+      <div class="demand-item-meta" style="margin-top:0.2rem;">
+        <span>By: ${(d.submitted_by || '').split('@')[0] || 'N/A'}</span>
+        <span>${d.submitted_date || ''}</span>
+      </div>
+    </li>
+  `;
 }
 
 async function selectTQDemand(id) {
   tqSelectedDemandId = id;
+  if (id) {
+    sessionStorage.setItem('selectedDemandId', id);
+  }
   // Re-fetch consolidated list dynamically to rebuild sidebar queues highlighting
   fetch(`${TQ_API_BASE}/test-quality/consolidated`)
     .then(res => res.json())
     .then(states => {
       renderTQQueues(states.map(s => s.demand_id));
-    });
+    })
+    .catch(err => console.warn("TQ consolidated fetch warning:", err));
 
   // Set memory state and call fetch context
   await loadConsolidatedTQState(id);
@@ -321,10 +309,11 @@ async function selectTQDemand(id) {
 
 function renderEmptyTQDetails() {
   const panel = document.getElementById('tq-panel-container');
+  if (!panel) return;
   panel.innerHTML = `
     <div style="text-align: center; color: var(--text-muted); padding: 4rem 2rem;">
       <h3>No Demand Selected</h3>
-      <p>Please select a demand from the left sidebar queues to run capability scans.</p>
+      <p>Select a demand from the left sidebar to begin Test &amp; Quality scans.</p>
     </div>
   `;
 }
@@ -339,22 +328,28 @@ function renderTQDetailsPanel() {
 
   panel.innerHTML = `
     <!-- Top Header -->
-    <div style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
-      <div>
-        <h2 style="margin: 0 0 0.25rem 0; font-size: 1.35rem; font-family: var(--font-display); font-weight: 800;">
-          Test & Quality Assurance Module
+    <div style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 0;">
+        <h2 style="margin: 0 0 0.35rem 0; font-size: 1.35rem; font-family: var(--font-display); font-weight: 800;">
+          ${demand.title || 'Test & Quality Assurance'}
         </h2>
-        <div style="font-size: 0.8rem; color: var(--text-secondary); display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-          <span>Current Context: <strong>${demand.demand_id}</strong></span> &bull; 
-          <span>Project: <strong>${tqDeliveryContext && tqDeliveryContext.demand ? tqDeliveryContext.demand.title : 'Unified Platform Core'}</strong></span> &bull; 
-          <span>Customer: <strong>${tqDeliveryContext && tqDeliveryContext.demand ? 'Global Retail' : 'Global Retail'}</strong></span> &bull; 
-          <span>Business Unit: <strong>${tqDeliveryContext && tqDeliveryContext.demand ? tqDeliveryContext.demand.domain : 'Digital Payments'}</strong></span> &bull;
-          <span>Manager: <strong>${tqDeliveryContext && tqDeliveryContext.demand ? tqDeliveryContext.demand.submitted_by : 'Sarah Jenkins'}</strong></span>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+          <span><span style="color:var(--text-muted); text-transform:uppercase; font-size:0.68rem; font-weight:700; letter-spacing:0.05em;">Demand ID</span><br><strong style="color:var(--text-primary);">${demand.demand_id}</strong></span>
+          <span><span style="color:var(--text-muted); text-transform:uppercase; font-size:0.68rem; font-weight:700; letter-spacing:0.05em;">Domain</span><br><strong style="color:var(--text-primary);">${demand.domain || (tqDeliveryContext && tqDeliveryContext.demand ? tqDeliveryContext.demand.domain : '—')}</strong></span>
+          <span><span style="color:var(--text-muted); text-transform:uppercase; font-size:0.68rem; font-weight:700; letter-spacing:0.05em;">Submitted By</span><br><strong style="color:var(--text-primary);">${(demand.submitted_by || '—').split('@')[0]}</strong></span>
+          <span><span style="color:var(--text-muted); text-transform:uppercase; font-size:0.68rem; font-weight:700; letter-spacing:0.05em;">Date</span><br><strong style="color:var(--text-primary);">${demand.submitted_date || '—'}</strong></span>
+          <span><span style="color:var(--text-muted); text-transform:uppercase; font-size:0.68rem; font-weight:700; letter-spacing:0.05em;">Status</span><br>
+            <strong style="color:${demand.status === 'approved' ? 'var(--color-status-green-text)' : 'var(--color-status-amber-text)'};">${demand.status || '—'}</strong>
+          </span>
+          <span><span style="color:var(--text-muted); text-transform:uppercase; font-size:0.68rem; font-weight:700; letter-spacing:0.05em;">Risk</span><br>
+            <strong style="color:${demand.risk_level === 'critical' || demand.risk_level === 'high' ? 'var(--color-status-red-text)' : demand.risk_level === 'medium' ? 'var(--color-status-amber-text)' : 'var(--color-status-green-text)'};">${demand.risk_level || '—'}</strong>
+          </span>
+          ${demand.description ? `<span style="flex-basis:100%; color:var(--text-secondary); font-size:0.8rem; line-height:1.5; margin-top:0.25rem;">${demand.description.substring(0, 180)}${demand.description.length > 180 ? '…' : ''}</span>` : ''}
         </div>
       </div>
-      
+
       <!-- Searchable Dropdown Selector -->
-      <div id="tq-searchable-demand-selector-container"></div>
+      <div id="tq-searchable-demand-selector-container" style="flex-shrink:0;"></div>
     </div>
 
     <!-- Capabilities Tabs -->
@@ -389,84 +384,34 @@ function renderTQDetailsPanel() {
 }
 
 function renderSearchableDemandDropdown(container, activeDemand) {
+  if (!container) return;
+
+  const optionsHtml = tqDemands.map(d => {
+    const isSel = activeDemand && d.demand_id === activeDemand.demand_id ? 'selected' : '';
+    return `<option value="${d.demand_id}" ${isSel}>${d.demand_id} - ${d.title}</option>`;
+  }).join('');
+
   container.innerHTML = `
-    <div style="position: relative; width: 320px;">
-      <div style="display: flex; gap: 0.25rem; align-items: center; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.35rem 0.5rem;">
-        <svg style="width: 16px; height: 16px; fill: var(--text-muted);" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-        <input type="text" id="tq-search-input" value="${activeDemand ? activeDemand.demand_id + ' - ' + activeDemand.title : ''}" placeholder="Search Demand ID..." style="background: transparent; border: none; color: var(--text-primary); font-size: 0.82rem; width: 100%; outline: none;" autocomplete="off">
-        <button id="tq-dropdown-toggle-btn" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 0;">▼</button>
-      </div>
-      <div id="tq-dropdown-list" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); max-height: 250px; overflow-y: auto; z-index: 9999; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.5);">
-        <!-- Options populated dynamically -->
-      </div>
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <select id="tq-demand-dropdown" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
+        <option value="">Select a Project...</option>
+        ${optionsHtml}
+      </select>
     </div>
   `;
 
-  const searchInput = document.getElementById('tq-search-input');
-  const dropdownList = document.getElementById('tq-dropdown-list');
-  const toggleBtn = document.getElementById('tq-dropdown-toggle-btn');
-
-  function showDropdown() {
-    dropdownList.style.display = 'block';
-    renderOptions(searchInput.value.trim());
-  }
-
-  function hideDropdown() {
-    setTimeout(() => {
-      dropdownList.style.display = 'none';
-    }, 250);
-  }
-
-  function renderOptions(query) {
-    const q = query.toLowerCase();
-    const filtered = tqDemands.filter(d =>
-      d.demand_id.toLowerCase().includes(q) ||
-      d.title.toLowerCase().includes(q)
-    );
-
-    if (filtered.length === 0) {
-      dropdownList.innerHTML = `<div style="padding: 0.5rem 0.75rem; color: var(--text-muted); font-size: 0.8rem;">No matching demands found</div>`;
-      return;
+  const dropdown = document.getElementById('tq-demand-dropdown');
+  if (dropdown) {
+    if (activeDemand) {
+      dropdown.value = activeDemand.demand_id;
     }
-
-    dropdownList.innerHTML = filtered.map(d => {
-      const isSelected = activeDemand && d.demand_id === activeDemand.demand_id;
-      return `
-        <div class="tq-dropdown-option" data-id="${d.demand_id}" style="padding: 0.5rem 0.75rem; cursor: pointer; font-size: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.02); display: flex; justify-content: space-between; align-items: center; ${isSelected ? 'background: rgba(99, 102, 241, 0.15); color: var(--color-brand); font-weight: bold;' : 'color: var(--text-primary);'}">
-          <div>
-            <div style="font-weight: 600;">${d.demand_id}</div>
-            <div style="font-size: 0.75rem; color: var(--text-secondary); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${d.title}</div>
-          </div>
-          <span style="font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 9999px; font-weight: bold; background: rgba(255,255,255,0.05);">${d.status}</span>
-        </div>
-      `;
-    }).join('');
-
-    dropdownList.querySelectorAll('.tq-dropdown-option').forEach(opt => {
-      opt.addEventListener('click', () => {
-        const id = opt.getAttribute('data-id');
-        const selected = tqDemands.find(d => d.demand_id === id);
-        searchInput.value = `${selected.demand_id} - ${selected.title}`;
-        dropdownList.style.display = 'none';
-        selectTQDemand(id);
-      });
+    dropdown.addEventListener('change', (e) => {
+      const selectedId = e.target.value;
+      if (selectedId) {
+        selectTQDemand(selectedId);
+      }
     });
   }
-
-  searchInput.addEventListener('focus', showDropdown);
-  searchInput.addEventListener('blur', hideDropdown);
-  searchInput.addEventListener('input', (e) => {
-    dropdownList.style.display = 'block';
-    renderOptions(e.target.value);
-  });
-  toggleBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (dropdownList.style.display === 'block') {
-      dropdownList.style.display = 'none';
-    } else {
-      showDropdown();
-    }
-  });
 }
 
 function renderActiveTabContent(demand) {
@@ -1708,6 +1653,11 @@ async function renderQualityGateTab(container, demand) {
         <button class="tq-btn" id="btn-tq-qg-evaluate">⚖ Re-evaluate Policy</button>
         <button class="tq-btn" id="btn-tq-qg-approve" style="background: rgba(74, 222, 128, 0.15); color: #4ade80;">Approve Gate Override</button>
         <button class="tq-btn" id="btn-tq-qg-reject" style="background: rgba(239, 68, 68, 0.15); color: #fca5a5;">Reject Release</button>
+        <div style="flex: 1;"></div>
+        <button class="tq-btn" id="btn-tq-proceed-release" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,0.35); font-weight: 700;"
+          onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(16,185,129,0.45)';"
+          onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(16,185,129,0.35)';"
+        >Proceed to Release &amp; Change →</button>
       </div>
 
       <!-- Verdict Banner -->
@@ -1872,6 +1822,17 @@ async function renderQualityGateTab(container, demand) {
 
     renderActiveTabContent(demand);
   });
+
+  const proceedBtn = document.getElementById('btn-tq-proceed-release');
+  if (proceedBtn) {
+    proceedBtn.addEventListener('click', () => {
+      if (window.switchStage) {
+        window.switchStage('release-change');
+      } else {
+        window.location.hash = 'release-change';
+      }
+    });
+  }
 }
 
 async function refreshTQSidebar() {

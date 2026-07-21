@@ -3,7 +3,10 @@
 
 const PLAN_API_BASE = '/api';
 const ESTIMATE_API_FOR_PLANS = '/api';
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/Fardeen
 
 let plans = [];
 let availableEstimates = [];
@@ -706,16 +709,17 @@ function renderPlanPreview(newPlans, actionsRow) {
         const ownersList = t.owner.split(',').map(o => o.trim());
         const chips = ownersList.map(o => {
           const name = getEmployeeDisplayName(o);
-          return `<span style="display: inline-block; background-color: var(--color-brand-light, #e0f2fe); color: var(--color-brand, #0369a1); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.75rem; margin-right: 0.25rem; font-weight: 500; border: 1px solid var(--color-brand-border, #bae6fd);">${name}</span>`;
+          return `<span style="display: inline-block; background: rgba(99, 102, 241, 0.1); color: var(--color-brand); padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; margin-right: 0.25rem; font-weight: 600; border: 1px solid rgba(99, 102, 241, 0.25);">${name}</span>`;
         }).join('');
         ownerCell = `<td style="padding: 0.35rem 0.5rem;">${chips}</td>`;
       }
 
+      const prevRowBg = ti % 2 === 0 ? 'transparent' : 'var(--bg-tertiary)';
       return `
-                <tr style="border-bottom: 1px solid rgba(46,60,84,0.5);">
-                  <td style="padding: 0.35rem 0.5rem; color: var(--text-primary);">${t.name}</td>
-                  <td style="padding: 0.35rem 0.5rem; font-family: monospace;">${t.start_date}</td>
-                  <td style="padding: 0.35rem 0.5rem; font-family: monospace;">${t.end_date}</td>
+                <tr style="background: ${prevRowBg}; border-bottom: 1px solid var(--border-color);">
+                  <td style="padding: 0.35rem 0.5rem; color: var(--text-primary); font-weight: 600;">${t.name}</td>
+                  <td style="padding: 0.35rem 0.5rem; font-family: monospace; color: var(--text-primary);">${t.start_date}</td>
+                  <td style="padding: 0.35rem 0.5rem; font-family: monospace; color: var(--text-primary);">${t.end_date}</td>
                   ${ownerCell}
                 </tr>
               `;
@@ -1258,7 +1262,7 @@ function renderPlanDetail(plan) {
           <tbody>
             ${plan.tasks.map((t, idx) => {
     const isCritical = plan.critical_path_task_ids.includes(t.task_id);
-    const rowBg = idx % 2 === 0 ? 'transparent' : 'rgba(30,41,59,0.4)';
+    const rowBg = idx % 2 === 0 ? 'transparent' : 'var(--bg-tertiary)';
     const isCompleted = t.status === 'completed';
 
     let statusCell = '';
@@ -1318,21 +1322,21 @@ function renderPlanDetail(plan) {
       const ownersList = t.owner.split(',').map(o => o.trim());
       ownerDisplay = ownersList.map(o => {
         const name = getEmployeeDisplayName(o);
-        return `<span class="employee-chip" style="display: inline-block; background-color: var(--color-brand-light, #e0f2fe); color: var(--color-brand, #0369a1); padding: 0.15rem 0.45rem; border-radius: 12px; font-size: 0.75rem; margin-right: 0.25rem; font-weight: 600; border: 1px solid var(--color-brand-border, #bae6fd);">${name}</span>`;
+        return `<span class="employee-chip" style="display: inline-block; background: rgba(99, 102, 241, 0.1); color: var(--color-brand); padding: 0.15rem 0.45rem; border-radius: 12px; font-size: 0.75rem; margin-right: 0.25rem; font-weight: 600; border: 1px solid rgba(99, 102, 241, 0.25);">${name}</span>`;
       }).join('');
     }
 
     return `
-                <tr style="background: ${rowBg};">
-                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; font-size: 0.75rem; color: ${isCritical ? 'var(--color-brand)' : 'var(--text-secondary)'};">
+                <tr style="background: ${rowBg}; border-bottom: 1px solid var(--border-color);">
+                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; font-size: 0.75rem; font-weight: 600; color: ${isCritical ? 'var(--color-brand)' : 'var(--text-primary)'};">
                     ${t.task_id}
                     ${isCritical ? '<span style="font-size: 0.6rem; margin-left: 4px; color: var(--color-brand);">★ CRIT</span>' : ''}
                   </td>
                   <td style="padding: 0.6rem 0.75rem; color: var(--text-primary); font-weight: 600;">${t.name}</td>
-                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; color: var(--text-secondary);">${t.start_date}</td>
-                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; color: var(--text-secondary);">${t.end_date}</td>
+                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; color: var(--text-primary); font-weight: 500;">${t.start_date}</td>
+                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; color: var(--text-primary); font-weight: 500;">${t.end_date}</td>
                   <td style="padding: 0.6rem 0.75rem;">${ownerDisplay}</td>
-                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; font-size: 0.72rem; color: var(--text-muted);">
+                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; font-size: 0.75rem; color: var(--text-primary); font-weight: 500;">
                     ${(t.predecessor_task_ids && t.predecessor_task_ids.length) ? t.predecessor_task_ids.join(', ') : '—'}
                   </td>
                   <td style="padding: 0.6rem 0.75rem; text-align: center;">
