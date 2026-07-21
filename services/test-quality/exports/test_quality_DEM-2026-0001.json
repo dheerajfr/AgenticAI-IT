@@ -1,25 +1,5 @@
 {
   "demand_id": "DEM-2026-0001",
-<<<<<<< HEAD
-  "updated_at": "2026-07-16T09:33:56Z",
-  "test_generation": {
-    "suite_id": "TST-0068-1",
-    "demand_id": "DEM-2026-0001",
-    "plan_id": "PLN-0001-1",
-    "generated_at": "2026-07-13T10:00:00Z",
-    "test_cases": [
-      {
-        "test_id": "TC-001",
-        "story_id": "US-101",
-        "title": "Successful payment with valid card",
-        "steps": [
-          "POST /api/payments with valid card",
-          "Assert 200 and transaction_id returned"
-        ],
-        "expected_result": "Payment accepted, transaction recorded",
-        "priority": "critical",
-        "type": "functional"
-=======
   "updated_at": "2026-07-16T06:28:32Z",
   "test_generation": {
     "suite_id": "TST-DEM-2026-0001-1",
@@ -116,13 +96,8 @@
     "coverage_summary": {
       "total_stories": 1,
       "stories_covered": 1,
-<<<<<<< HEAD
-      "total_test_cases": 1,
-      "critical_path_coverage_pct": 100.0
-=======
       "total_test_cases": 6,
       "critical_path_coverage_pct": 66.67
->>>>>>> main
     },
     "status": "draft"
   },
@@ -144,9 +119,6 @@
     "expires_at": "2026-07-16T10:00:00Z",
     "status": "pending-approval"
   },
-<<<<<<< HEAD
-  "test_execution": null,
-=======
   "test_execution": {
     "test_run_id": "TR-DEM-2026-0001-1",
     "suite_id": "TST-0068-1",
@@ -172,7 +144,6 @@
     "human_acceptance": null,
     "status": "pending-approval"
   },
->>>>>>> main
   "defect_triage": {
     "triage_id": "TRG-0068-1",
     "test_run_id": "TR-0068-1",

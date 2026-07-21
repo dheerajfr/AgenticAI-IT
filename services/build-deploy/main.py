@@ -46,6 +46,7 @@ def service_info():
     }
 
 
+
 @app.get("/api/build-deploy/health")
 def health_check():
     return {"status": "healthy", "stage": 6}
@@ -63,3 +64,4 @@ def get_all_change_records():
     except Exception as e:
         print(f"Error fetching change records: {e}")
         return []
+

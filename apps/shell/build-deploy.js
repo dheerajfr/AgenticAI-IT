@@ -299,7 +299,6 @@ async function showNewRunbookForm() {
   const changeOptions = changeRecordsList.map(c => `<option value="${c.change_record_id}">${c.change_record_id} (Demand: ${c.demand_id})</option>`).join('');
   const priorOptions = runbooks.map(r => `<option value="${r.runbook_id}">${r.runbook_id} — ${r.title}</option>`).join('');
 
-
   // Build component options from distinct component_ids in runbooks and envRecords
   const rawComponentIds = [
     ...runbooks.map(r => r.component_id),
@@ -387,6 +386,14 @@ async function showNewRunbookForm() {
     </div>
   `;
 
+  // Restore previously selected demand if any
+  if (selectedRunbookDemandId) {
+    const sel = document.getElementById('rbk-demand-pick');
+    if (sel) sel.value = selectedRunbookDemandId;
+  }
+
+  // "Load" button — fetch demand + env data and populate form
+  document.getElementById('btn-load-demand').addEventListener('click', async () => {
   // Restore previously selected demand if any
   if (selectedRunbookDemandId) {
     const sel = document.getElementById('rbk-demand-pick');
@@ -1102,8 +1109,6 @@ async function showNewDeploymentForm(prefillRunbookId) {
       preconditionLi.innerHTML = `<strong>Requirements check:</strong> <span class="req-status-text">Pending verification (${window.checkedRequirements.size}/${window.currentRequirements.length})</span>`;
     }
   };
-
-  const runbookSelect = document.getElementById('dep-runbook');
   const envInput = document.getElementById('dep-environment');
   const verInput = document.getElementById('dep-version');
 
@@ -1213,6 +1218,7 @@ async function showNewDeploymentForm(prefillRunbookId) {
     document.getElementById('dep-component').value = prefillComponent;
     updateFromRunbook();
   }
+
 
   document.getElementById('btn-start-deployment').addEventListener('click', async () => {
     const component_id = document.getElementById('dep-component').value.trim();
