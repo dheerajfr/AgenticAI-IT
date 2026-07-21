@@ -238,6 +238,13 @@ class TestQualityRepository:
         plan_id_res, release_id_res = self._resolve_ids(demand_id, plan_id)
         now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
         
+        # Soft-delete previous relational test cases for this demand
+        with self._conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE test_cases SET soft_delete = 1 WHERE demand_id = ?", (demand_id,))
+            cursor.execute("UPDATE generated_test_cases SET soft_delete = 1 WHERE demand_id = ?", (demand_id,))
+            conn.commit()
+            
         # test_generation
         self._insert_relational("test_generation", suite_id, demand_id, plan_id_res, release_id_res, "QA-Engineer", now, data.get("status", "draft"), data)
         

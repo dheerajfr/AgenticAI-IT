@@ -76,7 +76,7 @@ window.renderTestQualityScreen = function () {
       </aside>
       
       <!-- Right Panel: Capabilities Tabbed View -->
-      <main class="details-panel" id="tq-panel-container" style="display: flex; flex-direction: column; overflow: hidden; min-height: 0; height: 100%; align-self: stretch; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);"></main>
+      <main class="details-panel" id="tq-panel-container" style="display: flex; flex-direction: column; overflow: hidden; min-height: 0; min-width: 0; height: 100%; align-self: stretch; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);"></main>
     </div>
   `;
 
@@ -736,16 +736,16 @@ function renderTestGenerationTab(container, demand) {
       </div>
       <div class="tq-card" style="padding: 0.75rem 1rem;">
         <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Generated Tests</div>
-        <div style="font-size: 1.5rem; font-weight: bold; margin-top: 0.25rem;">${cases.filter(c => c.automation_candidate === 'Yes').length}</div>
+        <div style="font-size: 1.5rem; font-weight: bold; margin-top: 0.25rem;">${cases.filter(c => (c.automation_candidate || (c.type && c.type !== 'manual' ? 'Yes' : 'No')) === 'Yes').length}</div>
       </div>
       <div class="tq-card" style="padding: 0.75rem 1rem;">
         <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Manual Tests</div>
-        <div style="font-size: 1.5rem; font-weight: bold; margin-top: 0.25rem;">${cases.filter(c => c.automation_candidate !== 'Yes').length}</div>
+        <div style="font-size: 1.5rem; font-weight: bold; margin-top: 0.25rem;">${cases.filter(c => (c.automation_candidate || (c.type && c.type !== 'manual' ? 'Yes' : 'No')) !== 'Yes').length}</div>
       </div>
       <div class="tq-card" style="padding: 0.75rem 1rem;">
         <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Coverage Target</div>
         <div style="font-size: 1.5rem; font-weight: bold; margin-top: 0.25rem; color: ${cases.length === 0 ? 'var(--text-muted)' : '#4ade80'};">
-          ${cases.length === 0 ? '—' : Math.round((cases.filter(c => c.automation_candidate === 'Yes').length / cases.length) * 100) + '%'}
+          ${cases.length === 0 ? '—' : Math.round((cases.filter(c => (c.automation_candidate || (c.type && c.type !== 'manual' ? 'Yes' : 'No')) === 'Yes').length / cases.length) * 100) + '%'}
         </div>
       </div>
     </div>
@@ -760,8 +760,7 @@ function renderTestGenerationTab(container, demand) {
             <tr style="border-bottom: 1px solid var(--border-color); background: rgba(255, 255, 255, 0.015); color: var(--text-muted);">
               <th style="padding: 0.75rem 0.75rem; width: 110px; white-space: nowrap;">Test ID</th>
               <th style="padding: 0.75rem 0.75rem; min-width: 280px; max-width: 320px;">Title / Objective</th>
-              <th style="padding: 0.75rem 0.75rem; width: 140px;">Requirement</th>
-              <th style="padding: 0.75rem 0.75rem; width: 140px;">Type</th>
+              <th style="padding: 0.75rem 0.75rem; width: 140px; white-space: nowrap;">Type</th>
               <th style="padding: 0.75rem 0.75rem; width: 100px;">Priority</th>
               <th style="padding: 0.75rem 0.75rem; width: 100px;">Risk</th>
               <th style="padding: 0.75rem 0.75rem; width: 100px;">Automation</th>
@@ -823,10 +822,9 @@ function renderTestGenerationTab(container, demand) {
                     </div>
                   </div>
                 </td>
-                <td style="padding: 0.75rem 0.75rem; color: var(--text-secondary);">${testReq}</td>
-                <td style="padding: 0.75rem 0.75rem;"><span class="badge-type ${testType}">${displayType}</span></td>
-                <td style="padding: 0.75rem 0.75rem;"><span class="badge-priority ${testPriority}">${testPriority}</span></td>
-                <td style="padding: 0.75rem 0.75rem;"><span class="badge-priority ${testRisk}">${testRisk}</span></td>
+                <td style="padding: 0.75rem 0.75rem; color: var(--text-secondary); white-space: nowrap;">${displayType}</td>
+                <td style="padding: 0.75rem 0.75rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">${testPriority}</td>
+                <td style="padding: 0.75rem 0.75rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">${testRisk}</td>
                 <td style="padding: 0.75rem 0.75rem; color: var(--text-secondary);">${testAuto}</td>
                 <td style="padding: 0.75rem 0.75rem;">
                   <span style="font-size: 0.75rem; font-weight: bold; color: ${testStatus === 'Approved' ? '#4ade80' : '#fcd34d'};">
@@ -867,19 +865,51 @@ function renderTestGenerationTab(container, demand) {
     generateBtn.disabled = true;
     generateBtn.innerHTML = `<span class="loader"></span> Generating...`;
 
-    // Save generated test cases
-    const defaultCases = getDefaultMockTestCases(demand.demand_id);
-    for (const c of defaultCases) {
-      await fetch(`${TQ_API_BASE}/test-quality/relational/test_cases/${demand.demand_id}/${c.id}`, {
+    try {
+      const planId = (tqDeliveryContext && tqDeliveryContext.plan) 
+        ? tqDeliveryContext.plan.plan_id 
+        : ((tqDeliveryContext && tqDeliveryContext.plan_id) 
+            ? tqDeliveryContext.plan_id 
+            : `PLN-${demand.demand_id.split('-').pop()}-1`);
+
+      const storiesInput = document.getElementById('tq-gen-stories').value || '';
+      const storyIds = storiesInput.split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+      const codeDiffRef = (tqDeliveryContext && tqDeliveryContext.build_deploy)
+        ? tqDeliveryContext.build_deploy.code_diff_ref
+        : null;
+
+      const payload = {
+        demand_id: demand.demand_id,
+        plan_id: planId,
+        story_ids: storyIds,
+        code_diff_ref: codeDiffRef,
+        traceability_matrix_id: null
+      };
+
+      const response = await fetch(`${TQ_API_BASE}/test-quality/test-generation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(c)
+        body: JSON.stringify(payload)
       });
-    }
 
-    await loadConsolidatedTQState(demand.demand_id);
-    renderTQDetailsPanel();
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `Server returned status ${response.status}`);
+      }
+
+      await loadConsolidatedTQState(demand.demand_id);
+      renderTQDetailsPanel();
+    } catch (err) {
+      console.error('Test generation error:', err);
+      alert(`Failed to generate test suite: ${err.message}`);
+      generateBtn.disabled = false;
+      generateBtn.innerHTML = `<span>Generate Test Suite</span>`;
+    }
   });
+
 
   const addManualBtn = document.getElementById('btn-tq-add-manual');
   addManualBtn.addEventListener('click', async () => {
@@ -1177,7 +1207,28 @@ function renderTestDataTab(container, demand) {
 // -------------------------------------------------------------
 function renderTestExecutionTab(container, demand) {
   const cases = generatedSuite ? generatedSuite.test_cases : [];
-  const executions = testRun ? testRun.executions || [] : [];
+  const rawExecutions = testRun ? (testRun.results || testRun.executions || []) : [];
+  const executions = rawExecutions.map(res => {
+    // Find matching test case title from generatedSuite
+    let title = res.test_case_title || res.title || res.test_id || '—';
+    if (generatedSuite && generatedSuite.test_cases) {
+      const matchingCase = generatedSuite.test_cases.find(c => (c.test_id || c.id) === res.test_id);
+      if (matchingCase) title = matchingCase.title;
+    }
+    return {
+      id: res.test_id || res.id || '—',
+      run_id: testRun.test_run_id || testRun.id || '—',
+      test_case_title: title,
+      category: res.category || testRun.category || 'System Test',
+      environment: testRun.environment || '—',
+      run_date: testRun.executed_at || testRun.created_at || '—',
+      status: res.status || '—',
+      failure_reason: res.failure_reason || res.failure_analysis || null,
+      root_cause: res.root_cause || null,
+      assignee: res.assignee || null,
+      resolution_status: res.resolution_status || null
+    };
+  });
 
   // Summary counts — case-insensitive status checks
   const total = executions.length;
@@ -1279,7 +1330,6 @@ function renderTestExecutionTab(container, demand) {
                 </td>
               </tr>
             ` : executions.map(e => {
-    const eId = e.id || e.run_id || e.test_run_id || '—';
     const eTitle = e.test_case_title || e.title || e.test_name || e.test_case_id || '—';
     const eCategory = e.category || e.execution_type || e.type || '—';
     const eEnv = e.environment || e.env || '—';
@@ -1288,7 +1338,7 @@ function renderTestExecutionTab(container, demand) {
     const statusColor = eStatus === 'Passed' || eStatus === 'passed' ? '#4ade80' : (eStatus === 'Failed' || eStatus === 'failed' ? '#ef4444' : '#fbbf24');
     return `
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-                <td style="padding: 0.5rem; font-weight: bold; color: var(--color-brand);">${eId}</td>
+                <td style="padding: 0.5rem; font-weight: bold; color: var(--color-brand);">${e.run_id}</td>
                 <td style="padding: 0.5rem;">${eTitle}</td>
                 <td style="padding: 0.5rem; color: var(--text-secondary);">${eCategory}</td>
                 <td style="padding: 0.5rem; color: var(--text-secondary);">${eEnv}</td>
@@ -1300,7 +1350,7 @@ function renderTestExecutionTab(container, demand) {
                 </td>
                 <td style="padding: 0.5rem; text-align: right;">
                   ${eStatus === 'Failed' || eStatus === 'failed' ? `
-                    <button class="btn-tq-record-failure tq-btn" data-id="${eId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); color: #fca5a5;">Triage Log</button>
+                    <button class="btn-tq-record-failure tq-btn" data-id="${e.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); color: #fca5a5;">Triage Log</button>
                   ` : `<span style="font-size: 0.75rem; color: var(--text-muted);">No Action</span>`}
                 </td>
               </tr>
@@ -1316,10 +1366,10 @@ function renderTestExecutionTab(container, demand) {
   const execBtn = document.getElementById('btn-tq-exec-run');
   execBtn.addEventListener('click', async () => {
     execBtn.disabled = true;
-    execBtn.innerHTML = `<span class="loader"></span> Running Suite...`;
+    execBtn.innerHTML = `<span class="loader"></span> Executing Agent Suite...`;
 
-    if (cases.length === 0) {
-      alert("No generated test cases to execute! Generate tests first.");
+    if (!generatedSuite || !generatedSuite.test_cases || generatedSuite.test_cases.length === 0) {
+      alert("No generated test cases to execute! Generate tests first (Tab 1).");
       execBtn.disabled = false;
       execBtn.innerHTML = `▶ Execute Test Cases`;
       return;
@@ -1328,41 +1378,68 @@ function renderTestExecutionTab(container, demand) {
     const type = document.getElementById('tq-exec-type').value;
     const env = document.getElementById('tq-exec-env').value;
 
-    const mockRunId = `TR-${demand.demand_id.split('-').pop()}-1`;
-    const newExecutions = cases.map((c, i) => {
-      // Mock some failures to allow triaging defects
-      let mockStatus = "Passed";
-      if (i === 1) mockStatus = "Failed";
-      return {
-        id: `RUN-${demand.demand_id.split('-').pop()}-0${i + 1}`,
-        test_case_id: c.test_id || c.id,
-        test_case_title: c.title,
-        category: type,
+    try {
+      const suiteId = generatedSuite.suite_id || generatedSuite.id || `TST-${demand.demand_id.split('-').pop()}-1`;
+      const dataProvId = testDataProvision ? (testDataProvision.data_provision_id || testDataProvision.id) : null;
+
+      const payload = {
+        suite_id: suiteId,
+        demand_id: demand.demand_id,
+        data_provision_id: dataProvId,
         environment: env,
-        run_date: new Date().toLocaleString(),
-        status: mockStatus,
-        failure_reason: mockStatus === 'Failed' ? 'Transaction rollback mismatch error on backend ledger balance check' : null,
-        root_cause: mockStatus === 'Failed' ? 'Incorrect ledger calculation validation trigger' : null,
-        assignee: mockStatus === 'Failed' ? 'Sarah Jenkins' : null,
-        resolution_status: mockStatus === 'Failed' ? 'Investigating' : null
+        impact_scope: [],
+        execution_mode: type.toLowerCase()
       };
-    });
 
-    await fetch(`${TQ_API_BASE}/test-quality/relational/test_execution/${demand.demand_id}/${mockRunId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ executions: newExecutions, test_run_id: mockRunId, defect_ids_raised: [`BUG-${demand.demand_id.split('-').pop()}-01`] })
-    });
+      const response = await fetch(`${TQ_API_BASE}/test-quality/test-execution`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
 
-    await loadConsolidatedTQState(demand.demand_id);
-    renderTQDetailsPanel();
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || `Server error ${response.status}`);
+      }
+
+      const runRecord = await response.json();
+      const failedResults = (runRecord.results || []).filter(r => (r.status || '').toLowerCase() === 'failed');
+
+      if (failedResults.length > 0) {
+        // Automatically trigger defect triage for these failures
+        const triagePayload = {
+          test_run_id: runRecord.test_run_id,
+          demand_id: demand.demand_id,
+          defect_ids: failedResults.map(r => r.test_id || r.id),
+          code_ownership_map: {}
+        };
+
+        const triageResponse = await fetch(`${TQ_API_BASE}/test-quality/defect-triage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(triagePayload)
+        });
+
+        if (!triageResponse.ok) {
+          console.warn("Automated defect triage warning:", await triageResponse.text());
+        }
+      }
+
+      await loadConsolidatedTQState(demand.demand_id);
+      renderTQDetailsPanel();
+    } catch (err) {
+      console.error('Test execution run error:', err);
+      alert(`Execution run failed: ${err.message}`);
+      execBtn.disabled = false;
+      execBtn.innerHTML = `▶ Execute Test Cases`;
+    }
   });
 
   // Triage log click
   container.querySelectorAll('.btn-tq-record-failure').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-id');
-      const exec = executions.find(e => (e.id || e.run_id || e.test_run_id) === id);
+      const exec = executions.find(e => e.id === id);
       if (!exec) return;
 
       const newReason = prompt("Record failure reason:", exec.failure_reason || "API response mismatch");
@@ -1372,11 +1449,21 @@ function renderTestExecutionTab(container, demand) {
       exec.assignee = prompt("Assignee Employee:", exec.assignee || "Sarah Jenkins");
       exec.resolution_status = prompt("Resolution Status:", exec.resolution_status || "In-Progress");
 
-      await fetch(`${TQ_API_BASE}/test-quality/relational/test_execution/${demand.demand_id}/test_execution_record`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ executions: executions, test_run_id: `TR-${demand.demand_id.split('-').pop()}-1`, defect_ids_raised: [`BUG-${demand.demand_id.split('-').pop()}-01`] })
-      });
+      if (testRun && testRun.results) {
+        const matchingResult = testRun.results.find(r => r.test_id === id);
+        if (matchingResult) {
+          matchingResult.failure_reason = exec.failure_reason;
+          matchingResult.root_cause = exec.root_cause;
+          matchingResult.assignee = exec.assignee;
+          matchingResult.resolution_status = exec.resolution_status;
+        }
+
+        await fetch(`${TQ_API_BASE}/test-quality/relational/test_execution/${demand.demand_id}/${testRun.test_run_id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(testRun)
+        });
+      }
 
       await loadConsolidatedTQState(demand.demand_id);
       renderTQDetailsPanel();
@@ -1391,17 +1478,6 @@ async function renderDefectTriageTab(container, demand) {
   // Fetch defects from DB relational defects table
   const res = await fetch(`${TQ_API_BASE}/test-quality/relational/defects/${demand.demand_id}`);
   let defects = res.ok ? await res.json() : [];
-  if (defects.length === 0) {
-    const defaultDefects = getDefaultMockDefects(demand.demand_id);
-    for (const d of defaultDefects) {
-      await fetch(`${TQ_API_BASE}/test-quality/relational/defects/${demand.demand_id}/${d.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(d)
-      });
-    }
-    defects = defaultDefects;
-  }
 
   container.innerHTML = `
     <!-- Top action card -->
@@ -1436,28 +1512,42 @@ async function renderDefectTriageTab(container, demand) {
             </tr>
           </thead>
           <tbody>
-            ${defects.map(d => `
-              <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-                <td style="padding: 0.5rem;"><input type="checkbox" class="chk-defect-merge" value="${d.id}"></td>
-                <td style="padding: 0.5rem; font-weight: bold; color: var(--color-brand);">${d.id}</td>
-                <td style="padding: 0.5rem;">
-                  <strong>${d.summary}</strong>
-                  <div style="font-size: 0.72rem; color: var(--text-muted);">${d.description || ''}</div>
+            ${defects.length === 0 ? `
+              <tr>
+                <td colspan="8" style="padding: 2rem; text-align: center; color: var(--text-secondary);">
+                  No open defects found for this demand.
                 </td>
-                <td style="padding: 0.5rem;"><span class="badge-priority ${d.priority}">${d.priority}</span></td>
-                <td style="padding: 0.5rem;"><span class="badge-priority ${d.severity}">${d.severity}</span></td>
-                <td style="padding: 0.5rem; color: var(--text-secondary); font-weight: 600;">${d.assignee || 'Unassigned'}</td>
+              </tr>
+            ` : defects.map(d => {
+              const defId = d.defect_id || d.id || 'BUG-—';
+              const defSummary = d.summary || d.cluster || 'Triaged Defect';
+              const defDesc = d.description || d.root_cause_hint || '';
+              const defPriority = d.priority || 'Medium';
+              const defSeverity = d.severity || 'Medium';
+              const defAssignee = d.assignee || d.assigned_to || 'Unassigned';
+              const defStatus = d.status || d.recommended_action || 'Open';
+              return `
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+                <td style="padding: 0.5rem;"><input type="checkbox" class="chk-defect-merge" value="${defId}"></td>
+                <td style="padding: 0.5rem; font-weight: bold; color: var(--color-brand);">${defId}</td>
                 <td style="padding: 0.5rem;">
-                  <span style="font-size: 0.75rem; font-weight: bold; color: ${d.status === 'Closed' ? '#4ade80' : '#ef4444'};">
-                    ${d.status}
+                  <strong>${defSummary}</strong>
+                  <div style="font-size: 0.72rem; color: var(--text-muted);">${defDesc}</div>
+                </td>
+                <td style="padding: 0.5rem;"><span class="badge-priority ${defPriority}">${defPriority}</span></td>
+                <td style="padding: 0.5rem;"><span class="badge-priority ${defSeverity}">${defSeverity}</span></td>
+                <td style="padding: 0.5rem; color: var(--text-secondary); font-weight: 600;">${defAssignee}</td>
+                <td style="padding: 0.5rem;">
+                  <span style="font-size: 0.75rem; font-weight: bold; color: ${defStatus === 'Closed' || defStatus === 'close' || defStatus === 'resolved' ? '#4ade80' : '#ef4444'};">
+                    ${defStatus.toUpperCase()}
                   </span>
                 </td>
                 <td style="padding: 0.5rem; text-align: right; white-space: nowrap;">
-                  <button class="btn-tq-defect-assign tq-btn" data-id="${d.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: var(--text-primary); margin-right: 0.25rem;">Reassign</button>
-                  <button class="btn-tq-defect-close tq-btn" data-id="${d.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(74, 222, 128, 0.15); color: #4ade80;">Close</button>
+                  <button class="btn-tq-defect-assign tq-btn" data-id="${defId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: var(--text-primary); margin-right: 0.25rem;">Reassign</button>
+                  <button class="btn-tq-defect-close tq-btn" data-id="${defId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(74, 222, 128, 0.15); color: #4ade80;">Close</button>
                 </td>
               </tr>
-            `).join('')}
+            `}).join('')}
           </tbody>
         </table>
       </div>
@@ -1580,17 +1670,6 @@ async function renderSecurityScanningTab(container, demand) {
   // Fetch security findings from DB
   const res = await fetch(`${TQ_API_BASE}/test-quality/relational/security_findings/${demand.demand_id}`);
   let findings = res.ok ? await res.json() : [];
-  if (findings.length === 0) {
-    const defaultFindings = getDefaultMockFindings(demand.demand_id);
-    for (const f of defaultFindings) {
-      await fetch(`${TQ_API_BASE}/test-quality/relational/security_findings/${demand.demand_id}/${f.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(f)
-      });
-    }
-    findings = defaultFindings;
-  }
 
   container.innerHTML = `
     <!-- Top action card -->
@@ -1601,7 +1680,8 @@ async function renderSecurityScanningTab(container, demand) {
       </p>
 
       <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-        <button class="tq-btn" id="btn-tq-sec-add">+ Add Security Finding</button>
+        <button class="tq-btn" id="btn-tq-sec-scan">🛡 Run Security Audit Scan</button>
+        <button class="tq-btn" id="btn-tq-sec-add" style="background: rgba(255,255,255,0.05); color: var(--text-primary);">+ Add Security Finding</button>
       </div>
     </div>
 
@@ -1623,29 +1703,85 @@ async function renderSecurityScanningTab(container, demand) {
             </tr>
           </thead>
           <tbody>
-            ${findings.map(f => `
+            ${findings.length === 0 ? `
+              <tr>
+                <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-secondary);">
+                  No security vulnerabilities detected.
+                </td>
+              </tr>
+            ` : findings.map(f => {
+              const findId = f.finding_id || f.id || 'SEC-—';
+              const findCat = f.category || 'Security Finding';
+              const findSev = f.severity || 'Medium';
+              const findDesc = f.description || '';
+              const findFix = f.draft_fix || f.suggested_fix || 'No suggested fix';
+              const findStatus = f.status || 'Open';
+              return `
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-                <td style="padding: 0.5rem; font-weight: bold; color: var(--color-brand);">${f.id}</td>
-                <td style="padding: 0.5rem; font-weight: 600;">${f.category}</td>
-                <td style="padding: 0.5rem;"><span class="badge-priority ${f.severity}">${f.severity}</span></td>
-                <td style="padding: 0.5rem; color: var(--text-secondary); max-width: 250px;">${f.description}</td>
-                <td style="padding: 0.5rem; color: #818cf8; font-family: ui-monospace, monospace; font-size: 0.75rem;">${f.suggested_fix || ''}</td>
+                <td style="padding: 0.5rem; font-weight: bold; color: var(--color-brand);">${findId}</td>
+                <td style="padding: 0.5rem; font-weight: 600;">${findCat}</td>
+                <td style="padding: 0.5rem;"><span class="badge-priority ${findSev}">${findSev}</span></td>
+                <td style="padding: 0.5rem; color: var(--text-secondary); max-width: 250px;">${findDesc}</td>
+                <td style="padding: 0.5rem; color: #818cf8; font-family: ui-monospace, monospace; font-size: 0.75rem;">${findFix}</td>
                 <td style="padding: 0.5rem;">
-                  <span style="font-size: 0.75rem; font-weight: bold; color: ${f.status === 'Closed' ? '#4ade80' : '#ef4444'};">
-                    ${f.status}
+                  <span style="font-size: 0.75rem; font-weight: bold; color: ${findStatus === 'Closed' || findStatus === 'closed' ? '#4ade80' : '#ef4444'};">
+                    ${findStatus.toUpperCase()}
                   </span>
                 </td>
                 <td style="padding: 0.5rem; text-align: right; white-space: nowrap;">
-                  <button class="btn-tq-sec-edit tq-btn" data-id="${f.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: var(--text-primary); margin-right: 0.25rem;">Edit</button>
-                  <button class="btn-tq-sec-close tq-btn" data-id="${f.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(74, 222, 128, 0.15); color: #4ade80;">Resolve</button>
+                  <button class="btn-tq-sec-edit tq-btn" data-id="${findId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: var(--text-primary); margin-right: 0.25rem;">Edit</button>
+                  <button class="btn-tq-sec-close tq-btn" data-id="${findId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(74, 222, 128, 0.15); color: #4ade80;">Resolve</button>
                 </td>
               </tr>
-            `).join('')}
+            `;
+            }).join('')}
           </tbody>
         </table>
       </div>
     </div>
   `;
+
+  // Scan trigger handler
+  const secScanBtn = document.getElementById('btn-tq-sec-scan');
+  if (secScanBtn) {
+    secScanBtn.addEventListener('click', async () => {
+      secScanBtn.disabled = true;
+      secScanBtn.innerHTML = `<span class="loader"></span> Running Security Scan...`;
+
+      try {
+        const planId = generatedSuite ? (generatedSuite.plan_id || generatedSuite.id) : `PL-${demand.demand_id.split('-').pop()}-1`;
+        const pipelineId = `PL-${demand.demand_id.split('-').pop()}-${Date.now().toString().slice(-4)}`;
+
+        const payload = {
+          demand_id: demand.demand_id,
+          plan_id: planId,
+          component_ids: ["source-code", "database-configurations"],
+          pipeline_run_id: pipelineId,
+          scan_types: ["SAST", "DAST", "Secrets"],
+          vulnerability_db_version: "v2026.3.1"
+        };
+
+        const response = await fetch(`${TQ_API_BASE}/test-quality/security-testing`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(errText || `Server error ${response.status}`);
+        }
+
+        await loadConsolidatedTQState(demand.demand_id);
+        renderTQDetailsPanel();
+      } catch (err) {
+        console.error('Security scan execution error:', err);
+        alert(`Security scan failed: ${err.message}`);
+        secScanBtn.disabled = false;
+        secScanBtn.innerHTML = `🛡 Run Security Audit Scan`;
+      }
+    });
+  }
 
   // Handlers
   document.getElementById('btn-tq-sec-add').addEventListener('click', async () => {
@@ -1656,11 +1792,14 @@ async function renderSecurityScanningTab(container, demand) {
 
     const mockId = `SEC-${demand.demand_id.split('-').pop()}-${Date.now().toString().slice(-4)}`;
     const newFinding = {
-      id: mockId,
+      finding_id: mockId,
+      component_id: "source-code",
       category: cat,
-      severity: severity,
+      severity: severity.toLowerCase(),
+      location: "src/api/auth.py",
+      exploitable: true,
       description: desc || "Auto detected vulnerability during sandbox scan triggers.",
-      suggested_fix: "Check parameter bounds checks and sanitize input string templates.",
+      draft_fix: "Check parameter bounds checks and sanitize input string templates.",
       status: "Open"
     };
 
@@ -1676,7 +1815,8 @@ async function renderSecurityScanningTab(container, demand) {
   container.querySelectorAll('.btn-tq-sec-edit').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-id');
-      const finding = findings.find(f => f.id === id);
+      const finding = findings.find(f => (f.finding_id || f.id) === id);
+      if (!finding) return;
       const newDesc = prompt("Edit Description:", finding.description);
       if (newDesc === null) return;
       finding.description = newDesc;
@@ -1694,7 +1834,8 @@ async function renderSecurityScanningTab(container, demand) {
   container.querySelectorAll('.btn-tq-sec-close').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-id');
-      const finding = findings.find(f => f.id === id);
+      const finding = findings.find(f => (f.finding_id || f.id) === id);
+      if (!finding) return;
       finding.status = 'Closed';
 
       await fetch(`${TQ_API_BASE}/test-quality/relational/security_findings/${demand.demand_id}/${id}`, {
@@ -1724,30 +1865,90 @@ async function renderTraceabilityTab(container, demand) {
   const res = await fetch(`${TQ_API_BASE}/test-quality/relational/traceability/${demand.demand_id}`);
   let traceabilityList = res.ok ? await res.json() : [];
 
-  if (traceabilityList.length === 0) {
-    const mockTrcId = `TRC-${demand.demand_id.split('-').pop()}-1`;
-    const defaultMatrix = {
-      traceability_id: mockTrcId,
-      coverage_percentage: 90,
-      rows: [
-        { requirement: "Checkout Gateway", story: `${demand.demand_id}-US-01`, task: `${demand.demand_id}-TSK-01`, test_id: `TC-${demand.demand_id.split('-').pop()}-01`, execution: "Passed", defect: "None", release_id: "REL-001" },
-        { requirement: "Loyalty Ledger", story: `${demand.demand_id}-US-02`, task: `${demand.demand_id}-TSK-02`, test_id: `TC-${demand.demand_id.split('-').pop()}-02`, execution: "Failed", defect: `BUG-${demand.demand_id.split('-').pop()}-01`, release_id: "REL-001" },
-        { requirement: "Customer UI", story: `${demand.demand_id}-US-03`, task: `${demand.demand_id}-TSK-03`, test_id: `TC-${demand.demand_id.split('-').pop()}-03`, execution: "Missing", defect: "None", release_id: "REL-002" }
-      ]
-    };
-
-    await fetch(`${TQ_API_BASE}/test-quality/relational/traceability/${demand.demand_id}/${mockTrcId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(defaultMatrix)
-    });
-    traceabilityMatrix = defaultMatrix;
-    traceabilityList = [defaultMatrix];
-  } else {
+  if (traceabilityList.length > 0) {
     traceabilityMatrix = traceabilityList[0];
+  } else {
+    traceabilityMatrix = null;
   }
 
   const matrix = traceabilityMatrix;
+
+  if (!matrix) {
+    const hasSuite = !!generatedSuite;
+    const hasExec = !!testRun;
+    const canBuild = hasSuite && hasExec;
+
+    container.innerHTML = `
+      <div class="tq-card" style="text-align: center; padding: 3rem 2rem;">
+        <h4 class="tq-card-title">Requirement Traceability Matrix</h4>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0 0 1.5rem 0;">
+          Builds a live traceability matrix linking User Stories to Test Cases, Execution Runs, and open defects.
+        </p>
+        ${!canBuild ? `
+          <div style="padding: 0.75rem; background: rgba(239, 68, 68, 0.08); border: 1px solid #ef4444; border-radius: var(--radius-sm); font-size: 0.82rem; color: #fca5a5; display: inline-block; margin-bottom: 1rem; text-align: left;">
+            <strong>Prerequisites Missing:</strong>
+            <ul style="margin: 0.25rem 0 0 0; padding-left: 1.25rem;">
+              ${!hasSuite ? '<li>Test suite has not been generated yet (Tab 1).</li>' : ''}
+              ${!hasExec ? '<li>Test runs have not been executed yet (Tab 3).</li>' : ''}
+            </ul>
+          </div>
+          <div>
+            <button class="tq-btn" id="btn-tq-trc-build" disabled style="opacity: 0.5; cursor: not-allowed;">
+              <span>Build Traceability Matrix</span>
+            </button>
+          </div>
+        ` : `
+          <div>
+            <button class="tq-btn" id="btn-tq-trc-build">
+              <span>Build Traceability Matrix</span>
+            </button>
+          </div>
+        `}
+      </div>
+    `;
+
+    if (canBuild) {
+      document.getElementById('btn-tq-trc-build').addEventListener('click', async () => {
+        const buildBtn = document.getElementById('btn-tq-trc-build');
+        buildBtn.disabled = true;
+        buildBtn.innerHTML = `<span class="loader"></span> Building Matrix...`;
+
+        try {
+          const suiteId = generatedSuite ? (generatedSuite.suite_id || generatedSuite.id) : '';
+          const testRunId = testRun ? (testRun.test_run_id || testRun.id) : '';
+
+          const payload = {
+            demand_id: demand.demand_id,
+            suite_id: suiteId,
+            test_run_id: testRunId,
+            defect_ids: []
+          };
+
+          const response = await fetch(`${TQ_API_BASE}/test-quality/traceability`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(errText || `Server error ${response.status}`);
+          }
+
+          await loadConsolidatedTQState(demand.demand_id);
+          renderTQDetailsPanel();
+        } catch (err) {
+          console.error('Traceability matrix generation error:', err);
+          alert(`Failed to build traceability matrix: ${err.message}`);
+          buildBtn.disabled = false;
+          buildBtn.innerHTML = `<span>Build Traceability Matrix</span>`;
+        }
+      });
+    }
+    return;
+  }
+
+  const entries = matrix.entries || matrix.rows || [];
 
   container.innerHTML = `
     <div class="tq-card">
@@ -1772,25 +1973,81 @@ async function renderTraceabilityTab(container, demand) {
             </tr>
           </thead>
           <tbody>
-            ${matrix.rows.map(r => {
-    const isMissing = r.test_id === 'Missing' || r.execution === 'Missing';
-    return `
+            ${entries.map(r => {
+              const story = r.story_id || r.story || '—';
+              const req = r.requirement || (r.coverage_status ? r.coverage_status.charAt(0).toUpperCase() + r.coverage_status.slice(1) : 'User Story');
+              const task = r.task || '—';
+              const testId = r.test_ids ? r.test_ids.join(', ') : (r.test_id || '—');
+              
+              let execution = '—';
+              if (r.execution) {
+                execution = r.execution;
+              } else if (r.passing !== undefined) {
+                execution = r.passing ? 'Passed' : 'Failed';
+              }
+              
+              const defect = r.defect_ids ? (r.defect_ids.length > 0 ? r.defect_ids.join(', ') : 'None') : (r.defect || '—');
+              const release = r.release_id || '—';
+
+              const isMissing = testId === 'Missing' || execution === 'Missing' || r.coverage_status === 'uncovered';
+              return `
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.03); ${isMissing ? 'background: rgba(239,68,68,0.04);' : ''}">
-                  <td style="padding: 0.5rem; font-weight: 600;">${r.requirement}</td>
-                  <td style="padding: 0.5rem; color: var(--text-secondary);">${r.story}</td>
-                  <td style="padding: 0.5rem; color: var(--text-secondary);">${r.task}</td>
-                  <td style="padding: 0.5rem; font-weight: bold; color: ${r.test_id === 'Missing' ? '#ef4444' : 'var(--color-brand)'};">${r.test_id}</td>
-                  <td style="padding: 0.5rem; font-weight: 700; color: ${r.execution === 'Passed' ? '#4ade80' : (r.execution === 'Failed' ? '#ef4444' : '#f87171')};">${r.execution}</td>
-                  <td style="padding: 0.5rem; font-weight: 700; color: ${r.defect !== 'None' ? '#ef4444' : 'var(--text-muted)'};">${r.defect}</td>
-                  <td style="padding: 0.5rem; color: var(--text-secondary);">${r.release_id}</td>
+                  <td style="padding: 0.5rem; font-weight: 600;">${req}</td>
+                  <td style="padding: 0.5rem; color: var(--text-secondary);">${story}</td>
+                  <td style="padding: 0.5rem; color: var(--text-secondary);">${task}</td>
+                  <td style="padding: 0.5rem; font-weight: bold; color: ${testId === 'Missing' ? '#ef4444' : 'var(--color-brand)'};">${testId}</td>
+                  <td style="padding: 0.5rem; font-weight: 700; color: ${execution === 'Passed' ? '#4ade80' : (execution === 'Failed' ? '#ef4444' : '#f87171')};">${execution}</td>
+                  <td style="padding: 0.5rem; font-weight: 700; color: ${defect !== 'None' ? '#ef4444' : 'var(--text-muted)'};">${defect}</td>
+                  <td style="padding: 0.5rem; color: var(--text-secondary);">${release}</td>
                 </tr>
               `;
-  }).join('')}
+            }).join('')}
           </tbody>
         </table>
       </div>
     </div>
   `;
+}
+
+// -------------------------------------------------------------
+async function triggerQualityGateEvaluation(demandId) {
+  try {
+    const suiteId = generatedSuite ? (generatedSuite.suite_id || generatedSuite.id) : '';
+    const testRunId = testRun ? (testRun.test_run_id || testRun.id) : '';
+    const triageId = defectTriage ? (defectTriage.triage_id || defectTriage.id) : '';
+    const securityTestId = securityScan ? (securityScan.security_test_id || securityScan.id) : '';
+    const traceabilityId = traceabilityMatrix ? (traceabilityMatrix.traceability_id || traceabilityMatrix.id) : '';
+
+    const payload = {
+      demand_id: demandId,
+      test_run_id: testRunId,
+      triage_id: triageId,
+      security_test_id: securityTestId,
+      traceability_id: traceabilityId,
+      quality_policy: {
+        min_pass_rate_pct: 95.0,
+        max_open_critical_defects: 0,
+        max_open_high_security_findings: 0,
+        min_coverage_pct: 90.0
+      }
+    };
+
+    const response = await fetch(`${TQ_API_BASE}/test-quality/quality-gate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(errText || `Server error ${response.status}`);
+    }
+
+    await loadConsolidatedTQState(demandId);
+  } catch (err) {
+    console.error('Quality gate evaluation error:', err);
+    alert(`Failed to evaluate quality gate: ${err.message}`);
+  }
 }
 
 // -------------------------------------------------------------
@@ -1801,38 +2058,62 @@ async function renderQualityGateTab(container, demand) {
   const res = await fetch(`${TQ_API_BASE}/test-quality/relational/quality_gate/${demand.demand_id}`);
   let gateList = res.ok ? await res.json() : [];
 
-  if (gateList.length === 0) {
-    const mockGateId = `QG-${demand.demand_id.split('-').pop()}-1`;
-    const defaultGate = {
-      gate_id: mockGateId,
-      verdict: "FAIL",
-      score: 65,
-      checks: [
-        { check: "min_pass_rate_pct", threshold: ">= 95%", actual: "83.3%", result: "failed" },
-        { check: "max_open_critical_defects", threshold: "0", actual: "1", result: "failed" },
-        { check: "max_open_high_security_findings", threshold: "0", actual: "1", result: "failed" },
-        { check: "min_coverage_pct", threshold: ">= 90%", actual: "90%", result: "passed" }
-      ],
-      gap_explanation: "One open blocker bug and AWS secret leak finding are violating release policy threshold guidelines.",
-      history: [
-        { event: "Evaluated Gate", timestamp: new Date().toLocaleString(), status: "FAIL", decision: "None", user: "Release-Manager" }
-      ]
-    };
-
-    await fetch(`${TQ_API_BASE}/test-quality/relational/quality_gate/${demand.demand_id}/${mockGateId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(defaultGate)
-    });
-    qualityGate = defaultGate;
-    gateList = [defaultGate];
-  } else {
+  if (gateList.length > 0) {
     qualityGate = gateList[0];
+  } else {
+    qualityGate = null;
   }
 
   const qg = qualityGate;
-  const isPass = qg.verdict === 'PASS';
-  const isFail = qg.verdict === 'FAIL';
+
+  if (!qg) {
+    const hasSuite = !!generatedSuite;
+    const hasExec = !!testRun;
+    const canEvaluate = hasSuite && hasExec;
+
+    container.innerHTML = `
+      <div class="tq-card" style="text-align: center; padding: 3rem 2rem;">
+        <h4 class="tq-card-title">Quality Gate Policies & Verdict</h4>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0 0 1.5rem 0;">
+          Reviews release policy thresholds and issues automatic pass/fail logs based on test execution and security scans.
+        </p>
+        ${!canEvaluate ? `
+          <div style="padding: 0.75rem; background: rgba(239, 68, 68, 0.08); border: 1px solid #ef4444; border-radius: var(--radius-sm); font-size: 0.82rem; color: #fca5a5; display: inline-block; margin-bottom: 1rem; text-align: left;">
+            <strong>Prerequisites Missing:</strong>
+            <ul style="margin: 0.25rem 0 0 0; padding-left: 1.25rem;">
+              ${!hasSuite ? '<li>Test suite has not been generated yet (Tab 1).</li>' : ''}
+              ${!hasExec ? '<li>Test runs have not been executed yet (Tab 3).</li>' : ''}
+            </ul>
+          </div>
+          <div>
+            <button class="tq-btn" id="btn-tq-qg-evaluate" disabled style="opacity: 0.5; cursor: not-allowed;">
+              <span>⚖ Evaluate Policy</span>
+            </button>
+          </div>
+        ` : `
+          <div>
+            <button class="tq-btn" id="btn-tq-qg-evaluate">
+              <span>⚖ Evaluate Policy</span>
+            </button>
+          </div>
+        `}
+      </div>
+    `;
+
+    if (canEvaluate) {
+      document.getElementById('btn-tq-qg-evaluate').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-tq-qg-evaluate');
+        btn.disabled = true;
+        btn.innerHTML = `<span class="loader"></span> Evaluating...`;
+        await triggerQualityGateEvaluation(demand.demand_id);
+        renderActiveTabContent(demand);
+      });
+    }
+    return;
+  }
+
+  const isPass = qg.verdict === 'PASS' || qg.verdict === 'pass';
+  const isFail = qg.verdict === 'FAIL' || qg.verdict === 'fail';
 
   let verdictBg = 'rgba(74, 222, 128, 0.06)';
   let verdictBorder = '#4ade80';
@@ -1864,7 +2145,7 @@ async function renderQualityGateTab(container, demand) {
       <div style="display:flex;align-items:center;justify-content:space-between;padding:1.25rem;border-radius:8px;background:${verdictBg};border:1px solid ${verdictBorder};margin-bottom:1.5rem;">
         <div>
           <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;letter-spacing:0.1em;margin-bottom:0.25rem;">Gate ID: ${qg.gate_id}</div>
-          <div style="font-size:2.5rem;font-weight:900;color:${verdictColor};line-height:1;">${qg.verdict}</div>
+          <div style="font-size:2.5rem;font-weight:900;color:${verdictColor};line-height:1;">${qg.verdict.toUpperCase()}</div>
           <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:0.5rem;">Release ${isPass ? 'APPROVED — all criteria checked.' : 'BLOCKED — threshold breaches detected.'}</div>
         </div>
         <div style="text-align:center;">
@@ -1885,13 +2166,13 @@ async function renderQualityGateTab(container, demand) {
           </tr>
         </thead>
         <tbody>
-          ${qg.checks.map(c => `
-            <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
-              <td style="padding:0.5rem;font-weight:600;color:var(--text-primary);">${c.check.replace(/_/g, ' ')}</td>
-              <td style="padding:0.5rem;color:var(--text-secondary);">${c.threshold}</td>
-              <td style="padding:0.5rem;color:var(--text-secondary);">${c.actual}</td>
+          ${(qg.checks || []).map(c => `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+              <td style="padding:0.5rem;font-weight:600;color:var(--text-primary);">${(c.check || '').replace(/_/g, ' ')}</td>
+              <td style="padding:0.5rem;color:var(--text-secondary);">${c.threshold || ''}</td>
+              <td style="padding:0.5rem;color:var(--text-secondary);">${c.actual || ''}</td>
               <td style="padding:0.5rem;">
-                <span style="color:${c.result === 'passed' ? '#4ade80' : '#ef4444'};font-weight:700;">${c.result.toUpperCase()}</span>
+                <span style="color:${c.result === 'passed' || c.result === 'pass' ? '#4ade80' : '#ef4444'};font-weight:700;">${(c.result || '').toUpperCase()}</span>
               </td>
             </tr>
           `).join('')}
@@ -1901,10 +2182,11 @@ async function renderQualityGateTab(container, demand) {
       <!-- AI recommendations block -->
       <div style="padding:0.75rem;background:rgba(255,255,255,0.02);border:1px solid var(--border-color);border-radius:6px;margin-bottom:1.25rem;">
         <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;margin-bottom:0.5rem;">AI Recommendation</div>
-        <p style="margin:0;font-size:0.85rem;color:var(--text-secondary);line-height:1.6;">${qg.gap_explanation}</p>
+        <p style="margin:0;font-size:0.85rem;color:var(--text-secondary);line-height:1.6;">${qg.gap_explanation || 'No recommendation issues identified.'}</p>
       </div>
 
       <!-- Audit History -->
+      ${qg.history && qg.history.length > 0 ? `
       <h5 style="margin:0 0 0.75rem 0;font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;letter-spacing:0.05em;">Approval Audit History</h5>
       <div style="overflow-x: auto;">
         <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
@@ -1922,7 +2204,7 @@ async function renderQualityGateTab(container, demand) {
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.02);">
                 <td style="padding: 0.4rem; font-weight: 600;">${h.event}</td>
                 <td style="padding: 0.4rem; color: var(--text-muted);">${h.timestamp}</td>
-                <td style="padding: 0.4rem; font-weight: bold; color: ${h.status === 'PASS' ? '#4ade80' : '#ef4444'};">${h.status}</td>
+                <td style="padding: 0.4rem; font-weight: bold; color: ${h.status === 'PASS' || h.status === 'pass' ? '#4ade80' : '#ef4444'};">${h.status}</td>
                 <td style="padding: 0.4rem; color: var(--text-secondary);">${h.decision}</td>
                 <td style="padding: 0.4rem; color: var(--text-muted);">${h.user}</td>
               </tr>
@@ -1930,50 +2212,16 @@ async function renderQualityGateTab(container, demand) {
           </tbody>
         </table>
       </div>
+      ` : ''}
     </div>
   `;
 
   // Attach handlers
   document.getElementById('btn-tq-qg-evaluate').addEventListener('click', async () => {
-    // Call evaluate policy logic
-    alert("Re-evaluating all policy thresholds in the background...");
-
-    // Simulate updating values if bugs/vulns have been resolved
-    const resBugs = await fetch(`${TQ_API_BASE}/test-quality/relational/defects/${demand.demand_id}`);
-    const bugs = await resBugs.json();
-    const openBugs = bugs.filter(b => b.status === 'Open').length;
-
-    const resSec = await fetch(`${TQ_API_BASE}/test-quality/relational/security_findings/${demand.demand_id}`);
-    const sec = await resSec.json();
-    const openSec = sec.filter(s => s.status === 'Open').length;
-
-    const newVerdict = (openBugs === 0 && openSec === 0) ? "PASS" : "FAIL";
-    const newScore = (openBugs === 0 && openSec === 0) ? 98 : 65;
-
-    qg.verdict = newVerdict;
-    qg.score = newScore;
-    qg.checks[1].actual = openBugs.toString();
-    qg.checks[1].result = openBugs === 0 ? "passed" : "failed";
-    qg.checks[2].actual = openSec.toString();
-    qg.checks[2].result = openSec === 0 ? "passed" : "failed";
-    qg.gap_explanation = (openBugs === 0 && openSec === 0)
-      ? "All release policy thresholds met successfully. Release approved."
-      : "One open blocker bug and AWS secret leak finding are violating release policy threshold guidelines.";
-
-    qg.history.push({
-      event: "Re-Evaluated Gate",
-      timestamp: new Date().toLocaleString(),
-      status: newVerdict,
-      decision: "Auto-re-evaluation query complete",
-      user: "System-Evaluator"
-    });
-
-    await fetch(`${TQ_API_BASE}/test-quality/relational/quality_gate/${demand.demand_id}/${qg.gate_id}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(qg)
-    });
-
+    const btn = document.getElementById('btn-tq-qg-evaluate');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="loader"></span> Re-evaluating...`;
+    await triggerQualityGateEvaluation(demand.demand_id);
     renderActiveTabContent(demand);
   });
 
@@ -1981,6 +2229,7 @@ async function renderQualityGateTab(container, demand) {
     const comments = prompt("Enter approval override comments/justification:");
     if (comments === null) return;
 
+    if (!qg.history) qg.history = [];
     qg.verdict = 'PASS';
     qg.score = 100;
     qg.history.push({
@@ -2004,6 +2253,7 @@ async function renderQualityGateTab(container, demand) {
     const comments = prompt("Enter rejection comments:");
     if (comments === null) return;
 
+    if (!qg.history) qg.history = [];
     qg.verdict = 'FAIL';
     qg.score = 0;
     qg.history.push({
