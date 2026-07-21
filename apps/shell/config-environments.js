@@ -1,7 +1,7 @@
 // config-environments.js — Stage 05: Config & Environments Frontend Module
 // Matches the plan-schedule UI pattern
 
-const ENV_API_BASE = 'http://127.0.0.1:8000/api';
+const ENV_API_BASE = '/api';
 
 let environments = [];
 let demandTitles = {};

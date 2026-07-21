@@ -1,5 +1,5 @@
-const ESTIMATE_API_BASE = 'http://127.0.0.1:8000/api';
-const DEMAND_API_BASE = 'http://127.0.0.1:8000/api'; // To fetch demands
+const ESTIMATE_API_BASE = '/api';
+const DEMAND_API_BASE = '/api'; // To fetch demands
 
 let estimates = [];
 let availableDemands = [];

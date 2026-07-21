@@ -1,8 +1,8 @@
 // plan-schedule.js — Stage 03: Plan & Schedule Frontend Module
 // Follows the same pattern as estimate-shape.js
 
-const PLAN_API_BASE = 'http://127.0.0.1:8000/api';
-const ESTIMATE_API_FOR_PLANS = 'http://127.0.0.1:8000/api';
+const PLAN_API_BASE = '/api';
+const ESTIMATE_API_FOR_PLANS = '/api';
 
 let plans = [];
 let availableEstimates = [];

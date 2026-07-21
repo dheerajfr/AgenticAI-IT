@@ -1,4 +1,4 @@
-const TQ_API_BASE = 'http://127.0.0.1:8000/api';
+const TQ_API_BASE = '/api';
 
 let tqDemands = [];
 let tqSelectedDemandId = sessionStorage.getItem('selectedDemandId') || null;

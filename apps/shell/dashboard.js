@@ -1,6 +1,6 @@
 // Dashboard Component - End-to-End Project Tracking
 
-const BASE_URL = 'http://127.0.0.1:8000/api';
+const BASE_URL = '/api';
 
 let allDemands = [];
 let currentProject = null;
