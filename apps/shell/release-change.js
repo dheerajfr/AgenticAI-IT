@@ -465,9 +465,13 @@ async function handleCreateRelease(e) {
   }
 }
 
-async function navigateToRelease(releaseId) {
+async function navigateToRelease(releaseId, targetTab = null) {
   selectedReleaseId = releaseId;
-  activeSubTab = 'overview';
+  if (targetTab) {
+    activeSubTab = targetTab;
+  } else if (!activeSubTab) {
+    activeSubTab = 'overview';
+  }
 
   try {
     const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases/${releaseId}`);
@@ -939,7 +943,7 @@ async function triggerDraftChange() {
   try {
     const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases/${selectedReleaseId}/draft`, { method: 'POST' });
     if (res.ok) {
-      navigateToRelease(selectedReleaseId);
+      navigateToRelease(selectedReleaseId, 'change');
     }
   } catch (err) {
     alert(err.message);
@@ -966,7 +970,7 @@ async function saveChangeRequestEdit(e) {
     });
     if (res.ok) {
       alert("Draft saved successfully.");
-      navigateToRelease(selectedReleaseId);
+      navigateToRelease(selectedReleaseId, 'change');
     }
   } catch (err) {
     alert(err.message);
@@ -978,7 +982,7 @@ async function submitChangeRequest() {
     const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases/${selectedReleaseId}/submit`, { method: 'POST' });
     if (res.ok) {
       alert("Change request submitted. AI risk assessment and collision scans completed.");
-      navigateToRelease(selectedReleaseId);
+      navigateToRelease(selectedReleaseId, 'risk');
     }
   } catch (err) {
     alert(err.message);
@@ -1061,7 +1065,7 @@ async function triggerRiskAssessment() {
   try {
     const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases/${selectedReleaseId}/evaluate-risk`, { method: 'POST' });
     if (res.ok) {
-      navigateToRelease(selectedReleaseId);
+      navigateToRelease(selectedReleaseId, 'cab');
     }
   } catch (err) {
     alert(err.message);
@@ -1184,7 +1188,7 @@ async function submitCABReview(e) {
     });
     if (res.ok) {
       alert(`CAB Review successfully submitted: ${decision}`);
-      navigateToRelease(selectedReleaseId);
+      navigateToRelease(selectedReleaseId, 'collision');
     }
   } catch (err) {
     alert(err.message);
@@ -1237,7 +1241,7 @@ async function triggerCollisionCheck() {
     const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases/${selectedReleaseId}/collision`, { method: 'POST' });
     if (res.ok) {
       alert("Collision detection scan completed.");
-      navigateToRelease(selectedReleaseId);
+      navigateToRelease(selectedReleaseId, 'audit');
     }
   } catch (err) {
     alert(err.message);
@@ -1245,43 +1249,62 @@ async function triggerCollisionCheck() {
 }
 
 function renderAuditTab() {
-  const logs = currentReleaseDetail.audit_logs;
-
-
+  const logs = currentReleaseDetail.audit_logs || [];
 
   return `
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: var(--text-primary);">Compliance Audit Trail & Traceability</h3>
-        <button class="btn-primary" onclick="triggerAuditUpdate()" style="background: transparent; border: 1px solid var(--border-color); padding: 0.4rem 0.8rem; border-radius: var(--radius-md); color: var(--text-primary); cursor: pointer; font-size: 0.8rem;">
+        <div>
+          <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: var(--text-primary);">Compliance Audit Trail & Traceability</h3>
+          <p style="margin: 0.25rem 0 0 0; font-size: 0.78rem; color: var(--text-secondary);">End-to-End Immutable Governance Records across all delivery lifecycle stages.</p>
+        </div>
+        <button class="btn-primary" onclick="triggerAuditUpdate()" style="background: transparent; border: 1px solid var(--border-color); padding: 0.4rem 0.8rem; border-radius: var(--radius-md); color: var(--text-primary); cursor: pointer; font-size: 0.8rem; font-weight: 600;">
           Recalculate Audit Trail
         </button>
       </div>
 
-
-
       <!-- Timeline List -->
-      <div style="position: relative; padding-left: 2rem; display: flex; flex-direction: column; gap: 1.5rem; margin-top: 1rem;">
-        <!-- Verticle line -->
-        <div style="position: absolute; left: 7px; top: 5px; bottom: 5px; width: 2px; background: var(--border-color);"></div>
+      <div style="position: relative; padding-left: 2rem; display: flex; flex-direction: column; gap: 1.25rem; margin-top: 0.5rem;">
+        <!-- Vertical line -->
+        <div style="position: absolute; left: 7px; top: 8px; bottom: 8px; width: 2px; background: var(--border-color);"></div>
 
-        ${logs.map(log => `
-          <div style="position: relative; font-size: 0.85rem;">
-            <!-- Node dot -->
-            <div style="position: absolute; left: -29px; top: 4px; width: 16px; height: 16px; border-radius: 50%; background: var(--color-brand); border: 3px solid var(--bg-secondary);"></div>
-            
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <strong>${log.event}</strong>
-                <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.5rem;">[${log.module_name}]</span>
+        ${logs.map(log => {
+          let formattedDate = '—';
+          if (log.timestamp) {
+            try {
+              const cleanTs = String(log.timestamp).replace(/\+00:00Z?$/, 'Z');
+              const d = new Date(cleanTs);
+              formattedDate = isNaN(d.getTime()) ? String(log.timestamp) : d.toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+            } catch (e) {
+              formattedDate = String(log.timestamp);
+            }
+          }
+          return `
+            <div style="position: relative; font-size: 0.85rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.85rem 1rem;">
+              <!-- Node dot -->
+              <div style="position: absolute; left: -29px; top: 12px; width: 14px; height: 14px; border-radius: 50%; background: var(--color-brand); border: 3px solid var(--bg-secondary);"></div>
+              
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                <div>
+                  <strong style="color: var(--text-primary); font-size: 0.88rem;">${log.event}</strong>
+                  <span style="font-size: 0.72rem; color: var(--color-brand); font-weight: 700; margin-left: 0.5rem; background: rgba(99, 102, 241, 0.1); padding: 0.15rem 0.45rem; border-radius: 4px; border: 1px solid rgba(99, 102, 241, 0.2);">${log.module_name}</span>
+                </div>
+                <span style="font-size: 0.78rem; color: var(--text-primary); font-family: monospace; font-weight: 700; background: var(--bg-tertiary); padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">${formattedDate}</span>
               </div>
-              <span style="font-size: 0.75rem; color: var(--text-secondary);">${new Date(log.timestamp && typeof log.timestamp === 'string' ? log.timestamp.replace(/\+00:00Z$/, 'Z') : log.timestamp).toLocaleString()}</span>
+              <div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.4rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+                <span>Performed by: <strong style="color: var(--text-primary);">${log.performed_by}</strong></span>
+                <span>Evidence: <a href="${log.evidence_link}" target="_blank" style="color: var(--color-brand); font-weight: 600; text-decoration: underline;">${log.evidence_link}</a></span>
+              </div>
             </div>
-            <div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.2rem;">
-              Performed by: <strong>${log.performed_by}</strong> | Evidence: <a href="${log.evidence_link}" target="_blank" style="color: var(--color-brand); text-decoration: underline;">Open Link</a>
-            </div>
-          </div>
-        `).join('')}
+          `;
+        }).join('')}
+        ${logs.length === 0 ? `<div style="text-align: center; padding: 2rem; color: var(--text-muted);">No audit logs captured. Click "Recalculate Audit Trail" to aggregate milestone events.</div>` : ''}
       </div>
     </div>
   `;
@@ -1292,7 +1315,7 @@ async function triggerAuditUpdate() {
     const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases/${selectedReleaseId}/audit`, { method: 'POST' });
     if (res.ok) {
       alert("Milestone audit trails consolidated.");
-      navigateToRelease(selectedReleaseId);
+      navigateToRelease(selectedReleaseId, 'audit');
     }
   } catch (err) {
     alert(err.message);
