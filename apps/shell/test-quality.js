@@ -47,7 +47,6 @@ window.renderTestQualityScreen = function () {
   _tqObserver.observe(viewport, { childList: true, subtree: false });
 
   viewport.innerHTML = `
-<<<<<<< HEAD
     <div class="intake-screen" style="padding: 1rem; flex: 1; min-height: 0; box-sizing: border-box; align-items: stretch;">
       <!-- Left Sidebar: Demands Queue & Test & Quality Queue -->
       <aside class="sidebar" style="display: flex; flex-direction: column; gap: 0.75rem; height: 100%; overflow: hidden; width: 300px; align-self: stretch;">
@@ -55,6 +54,7 @@ window.renderTestQualityScreen = function () {
         <div class="panel-card" style="flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
           <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
             <h3 class="sidebar-title" style="margin: 0; font-size: 0.85rem;">Demands Queue</h3>
+            <button class="btn-new" id="tq-refresh-btn" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; background: rgba(255, 255, 255, 0.05); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer;" title="Refresh">&#x21BB;</button>
           </div>
           <ul class="demand-list" id="tq-demand-list-container" style="flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.35rem;">
             <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 1rem;">
@@ -73,30 +73,11 @@ window.renderTestQualityScreen = function () {
               Loading active queue...
             </li>
           </ul>
-=======
-    <div class="intake-screen">
-      <!-- Left Sidebar -->
-      <aside class="sidebar">
-        <div class="sidebar-header">
-          <h3 class="sidebar-title">Test &amp; Quality</h3>
-          <button class="btn-new" id="tq-refresh-btn" title="Refresh">&#x21BB;</button>
->>>>>>> 56cc6dd8739b28d2d42d1a7c3d1e55590562f35a
         </div>
-        <ul class="demand-list" id="tq-sidebar-list">
-          <li class="demand-item" style="text-align:center; color:var(--text-muted); padding:2rem;">
-            Loading demands...
-          </li>
-        </ul>
       </aside>
-<<<<<<< HEAD
       
       <!-- Right Panel: Capabilities Tabbed View -->
       <main class="details-panel" id="tq-panel-container" style="display: flex; flex-direction: column; overflow: hidden; min-height: 0; min-width: 0; height: 100%; align-self: stretch; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);"></main>
-=======
-
-      <!-- Right Detail Panel -->
-      <main class="details-panel" id="tq-panel-container"></main>
->>>>>>> 56cc6dd8739b28d2d42d1a7c3d1e55590562f35a
     </div>
   `;
 
@@ -296,63 +277,57 @@ window.fetchTestQualityData = async function () {
 }
 
 function renderTQQueues(activeDemandIds) {
-  const list = document.getElementById('tq-sidebar-list');
-  if (!list) return;
+  const pendingContainer = document.getElementById('tq-demand-list-container');
+  const activeContainer = document.getElementById('tq-active-queue-list');
+  if (!pendingContainer || !activeContainer) return;
 
-  if (tqDemands.length === 0) {
-    list.innerHTML = `<li style="padding:2rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">No demands found.</li>`;
-    return;
-  }
+  const approvedDemands = tqDemands.filter(d => d.status === 'approved');
+  const pendingDemands = approvedDemands.filter(d => !activeDemandIds.includes(d.demand_id));
+  const activeDemands = approvedDemands.filter(d => activeDemandIds.includes(d.demand_id));
 
-  const activeDemands = tqDemands.filter(d => activeDemandIds.includes(d.demand_id));
-  const otherDemands  = tqDemands.filter(d => !activeDemandIds.includes(d.demand_id));
-
-  let html = '';
-
-  if (activeDemands.length) {
-    html += `<li style="padding:0.4rem 1rem 0.2rem; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#34d399; pointer-events:none;">&#x25CF; Active Test Runs</li>`;
-    html += activeDemands.map(d => _tqSidebarItem(d, activeDemandIds)).join('');
-  }
-
-  if (otherDemands.length) {
-    html += `<li style="padding:0.4rem 1rem 0.2rem; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); margin-top:0.5rem; pointer-events:none;">All Demands</li>`;
-    html += otherDemands.map(d => _tqSidebarItem(d, activeDemandIds)).join('');
-  }
-
-  list.innerHTML = html;
-
-  list.querySelectorAll('.demand-item[data-id]').forEach(item => {
-    item.addEventListener('click', () => selectTQDemand(item.getAttribute('data-id')));
-  });
-}
-
-function _tqSidebarItem(d, activeDemandIds) {
-  const isSelected = d.demand_id === tqSelectedDemandId;
-  const isActive   = activeDemandIds.includes(d.demand_id);
-
-  let statusBadge = '';
-  if (isActive) {
-    statusBadge = `<span style="font-size:0.62rem; padding:1px 5px; border-radius:9999px; font-weight:700; background:rgba(52,211,153,0.15); color:#34d399;">Active</span>`;
+  // Render pending demands
+  if (pendingDemands.length === 0) {
+    pendingContainer.innerHTML = `<li style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">No pending demands.</li>`;
   } else {
-    const statusColor = d.status === 'approved' ? 'var(--color-status-green-text)'
-      : d.status === 'capacity-checked' ? 'var(--color-status-amber-text)'
-      : 'var(--text-muted)';
-    statusBadge = `<span style="font-size:0.62rem; padding:1px 5px; border-radius:9999px; font-weight:700; background:rgba(255,255,255,0.05); color:${statusColor};">${d.status}</span>`;
+    pendingContainer.innerHTML = pendingDemands.map(d => {
+      const isActive = d.demand_id === tqSelectedDemandId;
+      return `
+        <li class="demand-item pending-item ${isActive ? 'active' : ''}" data-id="${d.demand_id}" style="padding: 0.75rem 1rem; border-radius: var(--radius-sm); cursor: pointer; ">
+          <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.25rem;">${d.title}</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: var(--text-secondary);">
+            <span>${d.demand_id}</span>
+            <span class="badge-priority ${d.risk_level}">${d.risk_level}</span>
+          </div>
+        </li>
+      `;
+    }).join('');
   }
 
-  return `
-    <li class="demand-item ${isSelected ? 'active' : ''}" data-id="${d.demand_id}" style="cursor:pointer;">
-      <div class="demand-item-header">
-        <span class="demand-item-id">${d.demand_id}</span>
-        ${statusBadge}
-      </div>
-      <h4 class="demand-item-title" style="margin:0.2rem 0 0 0; font-size:0.82rem;">${d.title}</h4>
-      <div class="demand-item-meta" style="margin-top:0.2rem;">
-        <span>By: ${(d.submitted_by || '').split('@')[0] || 'N/A'}</span>
-        <span>${d.submitted_date || ''}</span>
-      </div>
-    </li>
-  `;
+  // Render active demands
+  if (activeDemands.length === 0) {
+    activeContainer.innerHTML = `<li style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">No active test runs.</li>`;
+  } else {
+    activeContainer.innerHTML = activeDemands.map(d => {
+      const isActive = d.demand_id === tqSelectedDemandId;
+      return `
+        <li class="demand-item active-item ${isActive ? 'active' : ''}" data-id="${d.demand_id}" style="padding: 0.75rem 1rem; border-radius: var(--radius-sm); cursor: pointer; ">
+          <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.25rem;">${d.title}</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: var(--text-secondary);">
+            <span>${d.demand_id}</span>
+            <span class="badge-priority ${d.risk_level}">${d.risk_level}</span>
+          </div>
+        </li>
+      `;
+    }).join('');
+  }
+
+  // Attach event handlers
+  const allItems = [...pendingContainer.querySelectorAll('.demand-item'), ...activeContainer.querySelectorAll('.demand-item')];
+  allItems.forEach(item => {
+    item.addEventListener('click', () => {
+      selectTQDemand(item.getAttribute('data-id'));
+    });
+  });
 }
 
 async function selectTQDemand(id) {
@@ -407,32 +382,12 @@ function renderTQDetailsPanel() {
 
   panel.innerHTML = `
     <!-- Top Header -->
-<<<<<<< HEAD
     <div style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
-      <div>
-        <h2 style="margin: 0; font-size: 1.35rem; font-family: var(--font-display); font-weight: 800;">
-          Test & Quality Assurance Module
-        </h2>
-=======
-    <div style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; flex-wrap: wrap;">
       <div style="flex: 1; min-width: 0;">
-        <h2 style="margin: 0 0 0.35rem 0; font-size: 1.35rem; font-family: var(--font-display); font-weight: 800;">
+        <h2 style="margin: 0; font-size: 1.35rem; font-family: var(--font-display); font-weight: 800;">
           ${demand.title || 'Test & Quality Assurance'}
         </h2>
-        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
-          <span><span style="color:var(--text-muted); text-transform:uppercase; font-size:0.68rem; font-weight:700; letter-spacing:0.05em;">Demand ID</span><br><strong style="color:var(--text-primary);">${demand.demand_id}</strong></span>
-          <span><span style="color:var(--text-muted); text-transform:uppercase; font-size:0.68rem; font-weight:700; letter-spacing:0.05em;">Domain</span><br><strong style="color:var(--text-primary);">${demand.domain || (tqDeliveryContext && tqDeliveryContext.demand ? tqDeliveryContext.demand.domain : '—')}</strong></span>
-          <span><span style="color:var(--text-muted); text-transform:uppercase; font-size:0.68rem; font-weight:700; letter-spacing:0.05em;">Submitted By</span><br><strong style="color:var(--text-primary);">${(demand.submitted_by || '—').split('@')[0]}</strong></span>
-          <span><span style="color:var(--text-muted); text-transform:uppercase; font-size:0.68rem; font-weight:700; letter-spacing:0.05em;">Date</span><br><strong style="color:var(--text-primary);">${demand.submitted_date || '—'}</strong></span>
-          <span><span style="color:var(--text-muted); text-transform:uppercase; font-size:0.68rem; font-weight:700; letter-spacing:0.05em;">Status</span><br>
-            <strong style="color:${demand.status === 'approved' ? 'var(--color-status-green-text)' : 'var(--color-status-amber-text)'};">${demand.status || '—'}</strong>
-          </span>
-          <span><span style="color:var(--text-muted); text-transform:uppercase; font-size:0.68rem; font-weight:700; letter-spacing:0.05em;">Risk</span><br>
-            <strong style="color:${demand.risk_level === 'critical' || demand.risk_level === 'high' ? 'var(--color-status-red-text)' : demand.risk_level === 'medium' ? 'var(--color-status-amber-text)' : 'var(--color-status-green-text)'};">${demand.risk_level || '—'}</strong>
-          </span>
-          ${demand.description ? `<span style="flex-basis:100%; color:var(--text-secondary); font-size:0.8rem; line-height:1.5; margin-top:0.25rem;">${demand.description.substring(0, 180)}${demand.description.length > 180 ? '…' : ''}</span>` : ''}
-        </div>
->>>>>>> 56cc6dd8739b28d2d42d1a7c3d1e55590562f35a
+        ${demand.description ? `<p style="margin: 0.5rem 0 0 0; color: var(--text-secondary); font-size: 0.82rem; line-height: 1.5;">${demand.description}</p>` : ''}
       </div>
 
       <!-- Searchable Dropdown Selector -->
@@ -499,36 +454,6 @@ function renderSearchableDemandDropdown(container, activeDemand) {
       }
     });
   }
-<<<<<<< HEAD
-
-  searchInput.addEventListener('focus', () => {
-    searchInput.value = '';          // clear label so filter shows all
-    showDropdown();
-  });
-  searchInput.addEventListener('blur', () => {
-    hideDropdown();
-    // Restore the selected demand label after blur
-    setTimeout(() => {
-      if (activeDemand && searchInput.value === '') {
-        searchInput.value = `${activeDemand.demand_id} - ${activeDemand.title}`;
-      }
-    }, 300);
-  });
-  searchInput.addEventListener('input', (e) => {
-    dropdownList.style.display = 'block';
-    renderOptions(e.target.value);
-  });
-  toggleBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (dropdownList.style.display === 'block') {
-      dropdownList.style.display = 'none';
-    } else {
-      searchInput.value = '';
-      showDropdown();
-    }
-  });
-=======
->>>>>>> 56cc6dd8739b28d2d42d1a7c3d1e55590562f35a
 }
 
 function renderActiveTabContent(demand) {
@@ -562,12 +487,13 @@ async function renderDashboardTab(container, demand) {
     const res = await fetch(`${TQ_API_BASE}/test-quality/dashboard-stats/${demand.demand_id}`);
     const stats = res.ok ? await res.json() : getMockDashboardStats();
 
-    const isGatePass = stats.quality_gate_status === 'PASS';
-    const isGateFail = stats.quality_gate_status === 'FAIL';
+    const gateStatus = (stats.quality_gate_status || '').toUpperCase();
+    const isGatePass = gateStatus === 'PASS';
+    const isGateFail = gateStatus === 'FAIL' || gateStatus === 'FAILED';
 
     let gateColor = '#4ade80';
     if (isGateFail) gateColor = '#ef4444';
-    else if (stats.quality_gate_status === 'CONDITIONAL_PASS') gateColor = '#fbbf24';
+    else if (gateStatus === 'CONDITIONAL_PASS') gateColor = '#fbbf24';
 
     container.innerHTML = `
       <!-- Dashboard Cards -->
@@ -1138,7 +1064,6 @@ function renderTestDataTab(container, demand) {
                 <td style="padding: 0.5rem; color: var(--text-muted);">${dDate}</td>
                 <td style="padding: 0.5rem;"><span style="color: #4ade80; font-weight: bold;">${dStatus}</span></td>
                 <td style="padding: 0.5rem; text-align: right;">
-                  <button class="btn-tq-data-download tq-btn" data-id="${dId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: var(--text-primary); margin-right: 0.25rem;">Download</button>
                   <button class="btn-tq-data-delete tq-btn" data-id="${dId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); color: #fca5a5;">Delete</button>
                 </td>
               </tr>
@@ -1189,13 +1114,7 @@ function renderTestDataTab(container, demand) {
     }
   });
 
-  // Download handler
-  container.querySelectorAll('.btn-tq-data-download').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.getAttribute('data-id');
-      alert(`Downloading CSV test dataset ${id} in background...`);
-    });
-  });
+
 
   // Delete handler — uses proper DELETE endpoint per record
   container.querySelectorAll('.btn-tq-data-delete').forEach(btn => {
@@ -2124,6 +2043,13 @@ async function renderQualityGateTab(container, demand) {
     return;
   }
 
+  const checks = qg.checks || [];
+  let score = qg.score;
+  if (checks.length > 0) {
+    const passed = checks.filter(c => ['pass', 'passed'].includes((c.result || '').toLowerCase())).length;
+    score = Math.round((passed / checks.length) * 100);
+  }
+
   const isPass = qg.verdict === 'PASS' || qg.verdict === 'pass';
   const isFail = qg.verdict === 'FAIL' || qg.verdict === 'fail';
 
@@ -2166,7 +2092,7 @@ async function renderQualityGateTab(container, demand) {
           <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:0.5rem;">Release ${isPass ? 'APPROVED — all criteria checked.' : 'BLOCKED — threshold breaches detected.'}</div>
         </div>
         <div style="text-align:center;">
-          <div style="font-size:3rem;font-weight:900;color:${verdictColor};">${qg.score}</div>
+          <div style="font-size:3rem;font-weight:900;color:${verdictColor};">${score}</div>
           <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;">Score / 100</div>
         </div>
       </div>
@@ -2349,12 +2275,10 @@ async function loadConsolidatedTQState(demandId) {
       fetch(`${TQ_API_BASE}/test-quality/relational/quality_gate/${demandId}`)
     ]);
 
-    // Test Cases → merge into generatedSuite
+    // Test Cases → merge into generatedSuite ONLY if a suite record was already generated
     if (casesRes.ok) {
       const casesData = await casesRes.json();
-      if (casesData.length > 0) {
-        if (!generatedSuite) generatedSuite = {};
-        // casesData items are the saved payload objects
+      if (casesData.length > 0 && generatedSuite && (generatedSuite.suite_id || generatedSuite.id)) {
         generatedSuite.test_cases = casesData;
       }
     }
@@ -2451,6 +2375,17 @@ async function loadConsolidatedTQState(demandId) {
     }
   } catch (err) {
     console.warn("Error loading relational TQ state (non-fatal):", err);
+  }
+
+  // If no test suite has been generated/saved yet, default all states to clean empty slate
+  if (!generatedSuite || !(generatedSuite.suite_id || generatedSuite.id)) {
+    generatedSuite = null;
+    testDataProvision = null;
+    testRun = null;
+    defectTriage = null;
+    securityScan = null;
+    traceabilityMatrix = null;
+    qualityGate = null;
   }
 }
 
