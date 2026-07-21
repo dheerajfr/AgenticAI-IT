@@ -286,4 +286,6 @@ class ModulePlaceholder extends HTMLElement {
   }
 }
 
-customElements.define('module-placeholder', ModulePlaceholder);
+if (!customElements.get('module-placeholder')) {
+  customElements.define('module-placeholder', ModulePlaceholder);
+}

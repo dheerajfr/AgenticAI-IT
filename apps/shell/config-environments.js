@@ -146,8 +146,8 @@ function renderEnvironmentList() {
           <span class="demand-item-id">${id}</span>
           <div style="display:flex;align-items:center;gap:0.4rem;">
             ${hasDrift
-              ? `<span style="font-size:0.65rem;font-weight:700;color:var(--color-status-red-text);text-transform:uppercase;">Drifted</span>`
-              : `<span style="font-size:0.65rem;font-weight:700;color:var(--color-status-green-text);text-transform:uppercase;">In Sync</span>`}
+        ? `<span style="font-size:0.65rem;font-weight:700;color:var(--color-status-red-text);text-transform:uppercase;">Drifted</span>`
+        : `<span style="font-size:0.65rem;font-weight:700;color:var(--color-status-green-text);text-transform:uppercase;">In Sync</span>`}
             <button type="button" class="env-delete-btn" data-id="${id}"
               style="background:none;border:none;color:var(--color-status-red-text);cursor:pointer;padding:0.15rem;opacity:0.65;display:flex;align-items:center;"
               title="Delete all environment records for ${id}"
@@ -438,13 +438,13 @@ function renderEnvDetail(demand_id) {
         background: none;
         border: none;
         cursor: pointer;
-        color: rgba(255,255,255,0.25);
-        font-size: 0.82rem;
-        padding: 0.1rem 0.2rem;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        padding: 0.1rem 0.3rem;
         flex-shrink: 0;
         line-height: 1;
       }
-      .btn-edit-inline:hover { color: #a5b4fc; }
+      .btn-edit-inline:hover { color: var(--text-primary); }
       .env-field-input {
         flex: 1;
         background: rgba(255,255,255,0.06);
@@ -529,6 +529,18 @@ window.startEdit = function (demand_id, environment, field) {
         </div>
       </div>
     `;
+  } else if (field === 'expected_version') {
+    container.innerHTML = `
+      <div style="display:flex; align-items:stretch; flex:1; gap:0.2rem;">
+        <input id="${inputId}" class="env-field-input" type="text" value="${(currentVal === '—' ? '' : currentVal)}" />
+        <div style="display:flex; flex-direction:column; justify-content:center; gap:2px;">
+          <button style="background:var(--bg-secondary); border:1px solid #6366f1; border-radius:3px; color:var(--text-primary); cursor:pointer; font-size:0.6rem; padding:2px 4px; line-height:1;" onclick="window.bumpVersion('${inputId}', 1)">▲</button>
+          <button style="background:var(--bg-secondary); border:1px solid #6366f1; border-radius:3px; color:var(--text-primary); cursor:pointer; font-size:0.6rem; padding:2px 4px; line-height:1;" onclick="window.bumpVersion('${inputId}', -1)">▼</button>
+        </div>
+      </div>
+      <button class="btn-save-inline" onclick="window.saveField('${demand_id}','${environment}','${field}')">Save</button>
+      <button class="btn-cancel-inline" onclick="window.fetchEnvironments()">Cancel</button>
+    `;
   } else {
     container.innerHTML = `
       <input id="${inputId}" class="env-field-input" type="text" value="${(currentVal === '—' ? '' : currentVal)}" />
@@ -539,6 +551,20 @@ window.startEdit = function (demand_id, environment, field) {
 
   const inp = document.getElementById(inputId);
   if (inp) { inp.focus(); inp.select(); }
+};
+
+window.bumpVersion = function(inputId, dir) {
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  const val = inp.value.trim() || '1.0.0';
+  const match = val.match(/(.*?)(\d+)$/);
+  if (match) {
+    let newNum = parseInt(match[2], 10) + dir;
+    if (newNum < 0) newNum = 0;
+    inp.value = match[1] + newNum;
+  } else {
+    inp.value = val + (dir > 0 ? '.1' : '.0');
+  }
 };
 
 window.saveField = async function (demand_id, environment, field) {

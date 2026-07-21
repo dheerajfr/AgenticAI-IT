@@ -7,8 +7,8 @@ class StageRail extends HTMLElement {
       { id: 'demand-intake', label: 'Demand & intake', status: 'live' },
       { id: 'estimate-shape', label: 'Estimate & shape', status: 'live' },
       { id: 'plan-schedule', label: 'Plan & schedule', status: 'live' },
-      { id: 'dependencies', label: 'Dependencies', status: 'live' },
       { id: 'config-environments', label: 'Config & environments', status: 'live' },
+      { id: 'dependencies', label: 'Dependencies', status: 'live' },
       { id: 'build-deploy', label: 'Build & Deploy', status: 'live' },
       { id: 'test-quality', label: 'Test & Quality', status: 'live' },
       { id: 'release-change', label: 'Release & Change', status: 'live' }
@@ -137,4 +137,6 @@ class StageRail extends HTMLElement {
   }
 }
 
-customElements.define('stage-rail', StageRail);
+if (!customElements.get('stage-rail')) {
+  customElements.define('stage-rail', StageRail);
+}

@@ -151,3 +151,69 @@ def read_environment_state(component_id: str, environment: str) -> Optional[dict
     except Exception as e:
         print(f"Error reading config-env.db for {component_id}/{environment}: {e}")
         return None
+
+def fetch_runbook_context(demand_id: str, component_id: str, environment: str) -> dict:
+    context = {
+        "risk_level": "unknown",
+        "risk_factors": [],
+        "owners": [],
+        "dependencies": [],
+        "expected_requirements": []
+    }
+    db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "source.db"))
+    if not os.path.exists(db_path):
+        return context
+    
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            
+            try:
+                cursor.execute("SELECT data FROM demands WHERE demand_id = ?", (demand_id,))
+                row = cursor.fetchone()
+                if row:
+                    data = json.loads(row[0])
+                    context["risk_level"] = data.get("risk_level", "unknown")
+            except Exception: pass
+            
+            try:
+                cursor.execute("SELECT data FROM estimates WHERE demand_id = ?", (demand_id,))
+                row = cursor.fetchone()
+                if row:
+                    data = json.loads(row[0])
+                    context["risk_factors"] = data.get("risk_factors", [])
+            except Exception: pass
+            
+            try:
+                cursor.execute("SELECT data FROM plans WHERE demand_id = ?", (demand_id,))
+                for row in cursor.fetchall():
+                    data = json.loads(row[0])
+                    for task in data.get("tasks", []):
+                        if task.get("owner"):
+                            for o in task["owner"].split(","):
+                                o = o.strip()
+                                if o and o not in context["owners"] and "unassigned" not in o.lower():
+                                    context["owners"].append(o)
+            except Exception: pass
+            
+            try:
+                cursor.execute("SELECT data FROM dependencies")
+                for row in cursor.fetchall():
+                    data = json.loads(row[0])
+                    if data.get("source_demand_id") == demand_id or data.get("target_demand_id") == demand_id:
+                        context["dependencies"].append(data)
+            except Exception: pass
+            
+            try:
+                cursor.execute("SELECT data FROM environments WHERE environment = ?", (environment,))
+                for row in cursor.fetchall():
+                    data = json.loads(row[0])
+                    if component_id in (data.get("demand_id"), data.get("cmdb_name"), data.get("observed_name"), data.get("component_id")):
+                        context["expected_requirements"] = data.get("expected_requirements", [])
+                        break
+            except Exception: pass
+            
+    except Exception as e:
+        print(f"Error fetching runbook context: {e}")
+        
+    return context

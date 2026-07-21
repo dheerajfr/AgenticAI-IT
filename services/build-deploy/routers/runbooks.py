@@ -1,17 +1,31 @@
 import os
 import sys
+import re
 from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, HTTPException
 
-from database import runbooks_db
+from database import runbooks_db, fetch_runbook_context
 from models import RunbookRecord, RunbookStep, DraftRunbookRequest, UpdateRunbookRequest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from llm_client import call_gemini
 
 router = APIRouter(prefix="/api/deployments/runbooks", tags=["runbook-drafting"])
+
+
+def format_simple_name(comp_id: str) -> str:
+    if not comp_id: return "Unknown"
+    s = comp_id.lower()
+    s = re.sub(r'^svc-', '', s)
+    s = re.sub(r'-api', '', s)
+    s = re.sub(r'-prod.*', '', s)
+    s = re.sub(r'-staging.*', '', s)
+    s = re.sub(r'-test.*', '', s)
+    s = re.sub(r'-dev.*', '', s)
+    s = re.sub(r'-svr.*', '', s)
+    return " ".join(word.capitalize() for word in s.split("-"))
 
 
 def _now_iso() -> str:
@@ -49,6 +63,9 @@ def draft_runbook(req: DraftRunbookRequest):
         if prior:
             prior_steps_context = "\n".join(f"- {s.description} (owner: {s.owner})" for s in prior.steps)
 
+    # Fetch cross-stage context for better AI generation
+    ctx = fetch_runbook_context(req.demand_id, req.component_id, req.environment)
+
     prompt = f"""
     You are a release engineer drafting a deployment runbook specifically for the '{req.environment}' environment.
 
@@ -58,25 +75,32 @@ def draft_runbook(req: DraftRunbookRequest):
     Architecture notes: {req.architecture_notes or "None provided"}
     Prior runbook steps to reuse/adapt where relevant:
     {prior_steps_context or "None available"}
+    
+    Cross-stage Context provided for highly specific runbook generation:
+    - Risk Level: {ctx.get('risk_level', 'unknown')}. If the risk_level is 'high', generate additional rigorous pre-flight checks and ensure the rollback-trigger step requires explicit senior management approval.
+    - Identified Risk Factors: {ctx.get('risk_factors', [])}. Address these specific risk factors by generating explicit verification steps or mitigation tasks in the execution phase.
+    - Available Task Owners (SMEs): {ctx.get('owners', [])}. Assign step ownership using only these available personnel where possible.
+    - Expected Dependencies: {ctx.get('dependencies', [])}. If there are downstream/upstream dependencies, generate pre-execution coordination steps to notify or pause traffic.
+    - Expected Infrastructure Requirements: {ctx.get('expected_requirements', [])}. Create dedicated health-check steps in the 'pre-check' and 'verify' phases for each of these infrastructure components.
 
     Produce 5-8 ordered runbook steps covering pre-checks, execution, verification,
     and a rollback trigger point tailored for this specific environment. Respond STRICTLY in JSON:
     {{
       "title": "short runbook title",
       "steps": [
-        {{"description": "...", "owner": "role or team name", "environment": "{req.environment}", "step_type": "pre-check|execute|verify|rollback-trigger", "estimated_minutes": 10}}
+        {{"description": "...", "owner": "role or team name (prefer from Available Task Owners)", "environment": "{req.environment}", "step_type": "pre-check|execute|verify|rollback-trigger", "estimated_minutes": 10}}
       ]
     }}
     """
 
     try:
         result = call_gemini(prompt=prompt, is_json=True)
-        title = result.get("title") or f"Runbook for {req.component_id} ({req.environment})"
+        title = f"{format_simple_name(req.component_id)} - {req.environment}"
         raw_steps = result.get("steps") or []
         if not raw_steps:
             raise ValueError("LLM returned no steps")
     except Exception:
-        title = f"Runbook for {req.component_id} ({req.environment})"
+        title = f"{format_simple_name(req.component_id)} - {req.environment}"
         raw_steps = [
             {"description": f"Confirm change approval and release-readiness sign-off for {req.environment}", "owner": "release-manager", "environment": req.environment, "step_type": "pre-check", "estimated_minutes": 15},
             {"description": f"Deploy {req.component_id} per change summary to {req.environment}", "owner": "deploy-engineer", "environment": req.environment, "step_type": "execute", "estimated_minutes": 30},

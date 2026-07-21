@@ -127,8 +127,9 @@ window.renderBuildDeployScreen = function () {
     newBtn.addEventListener('click', () => {
       selectedDemandId = null;
       selectedRunbookId = null;
+      selectedRunbookDemandId = null;
       window.renderBuildDeployScreen();
-      window.fetchBuildDeployData();
+      window.fetchBuildDeployData(true);
     });
   }
   document.getElementById('tab-runbooks').addEventListener('click', () => switchDeployTab('runbooks'));
@@ -138,34 +139,46 @@ window.renderBuildDeployScreen = function () {
 
 function switchDeployTab(tab) {
   activeDeployTab = tab;
-  selectedRunbookId = null;
-  selectedCutoverId = null;
-  selectedDeploymentId = null;
+  if (selectedDemandId) {
+    sessionStorage.setItem('selectedDemandId', selectedDemandId);
+  }
   window.renderBuildDeployScreen();
   window.fetchBuildDeployData();
 }
 
-window.fetchBuildDeployData = async function () {
-  selectedDemandId = sessionStorage.getItem('selectedDemandId') || selectedDemandId;
+window.fetchBuildDeployData = async function (forceNew = false) {
+  if (forceNew) {
+    selectedDemandId = null;
+  } else if (!selectedDemandId) {
+    selectedDemandId = sessionStorage.getItem('selectedDemandId') || null;
+  }
   const container = document.getElementById('deploy-list-container');
+  if (!container) return; // Screen not rendered yet
   try {
+    // Fetch all data — treat demand/env failures as non-fatal
     const [rbRes, cutRes, depRes, demandRes, envRes] = await Promise.all([
-      fetch(`${DEPLOY_API_BASE}/runbooks`),
-      fetch(`${DEPLOY_API_BASE}/cutover`),
-      fetch(`${DEPLOY_API_BASE}/orchestration`),
-      fetch(DEMAND_API_BASE),
-      fetch(ENV_API_BASE)
+      fetch(`${DEPLOY_API_BASE}/runbooks`).catch(() => null),
+      fetch(`${DEPLOY_API_BASE}/cutover`).catch(() => null),
+      fetch(`${DEPLOY_API_BASE}/orchestration`).catch(() => null),
+      fetch(DEMAND_API_BASE).catch(() => null),
+      fetch(ENV_API_BASE).catch(() => null)
     ]);
-    if (!rbRes.ok || !cutRes.ok || !depRes.ok) throw new Error(`HTTP Error`);
-    runbooks = await rbRes.json();
+
+    if (!rbRes || !rbRes.ok) throw new Error('Could not reach runbooks endpoint');
+    if (!cutRes || !cutRes.ok) throw new Error('Could not reach cutover endpoint');
+    if (!depRes || !depRes.ok) throw new Error('Could not reach orchestration endpoint');
+
+    runbooks        = await rbRes.json();
     cutoverSessions = await cutRes.json();
-    deployments = await depRes.json();
-    demands = demandRes.ok ? await demandRes.json() : [];
-    envRecords = envRes.ok ? await envRes.json() : [];
+    deployments     = await depRes.json();
+    demands         = (demandRes && demandRes.ok)  ? await demandRes.json() : [];
+    envRecords      = (envRes    && envRes.ok)     ? await envRes.json()    : [];
 
     renderDeployList();
 
-    const activeItems = activeDeployTab === 'runbooks' ? runbooks : activeDeployTab === 'cutover' ? cutoverSessions : deployments;
+    const activeItems = activeDeployTab === 'runbooks' ? runbooks
+      : activeDeployTab === 'cutover' ? cutoverSessions
+      : deployments;
 
     if (activeDeployTab === 'runbooks') {
       if (selectedRunbookId && !runbooks.some(r => r.runbook_id === selectedRunbookId)) selectedRunbookId = null;
@@ -189,12 +202,15 @@ window.fetchBuildDeployData = async function () {
     }
   } catch (err) {
     console.error('Failed to fetch build-deploy data:', err);
-    container.innerHTML = `
-      <li style="padding: 1.5rem; text-align: center; color: var(--color-status-red-text);">
-        <div style="font-weight: 700; margin-bottom: 0.5rem;">Backend Offline</div>
-        <div style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">Make sure gateway server is running.</div>
-      </li>
-    `;
+    const c = document.getElementById('deploy-list-container');
+    if (c) {
+      c.innerHTML = `
+        <li style="padding: 1.5rem; text-align: center; color: var(--color-status-red-text);">
+          <div style="font-weight: 700; margin-bottom: 0.5rem;">Backend Offline</div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">${err.message}<br>Make sure the gateway server is running.</div>
+        </li>
+      `;
+    }
   }
 };
 
@@ -237,6 +253,7 @@ function renderDeployList() {
   container.querySelectorAll('.demand-item[data-did]').forEach(el => {
     el.addEventListener('click', () => {
       selectedDemandId = el.getAttribute('data-did');
+      sessionStorage.setItem('selectedDemandId', selectedDemandId);
       renderDeployList();
       renderDeployContent();
     });
@@ -273,7 +290,7 @@ async function _loadEnvRecordsForDemand(demandId) {
 
 function showNewRunbookForm() {
   const panel = document.getElementById('deploy-panel-container');
-  const priorOptions = runbooks.map(r => `<option value="${r.runbook_id}">${r.runbook_id} — ${r.title}</option>`).join('');
+  const priorOptions = runbooks.map(r => `<option value="${r.runbook_id}">${r.title}</option>`).join('');
 
   // Build component options from distinct component_ids in runbooks and envRecords
   const rawComponentIds = [
@@ -313,6 +330,7 @@ function showNewRunbookForm() {
       </div>
 
       <!-- Step 2: Form fields (pre-populated) -->
+      <div id="rbk-step2" style="display:${selectedRunbookDemandId ? 'block' : 'none'};">
       <div style="border-left:3px solid var(--color-brand);padding-left:0.9rem;margin-bottom:1rem;">
         <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);">② Review &amp; Edit — then Draft</span>
       </div>
@@ -357,6 +375,7 @@ function showNewRunbookForm() {
       <div class="error-message" id="rbk-error"></div>
       <div class="submit-row">
         <button type="button" class="btn-primary" id="btn-draft-runbook">✦ Draft Runbook with AI</button>
+      </div>
       </div>
     </div>
   `;
@@ -418,6 +437,14 @@ function showNewRunbookForm() {
       if (envSelect) {
         envSelect.value = targetEnv;
       }
+
+      // Filter prior runbooks based on the selected demand AND the target environment
+      const priorSelect = document.getElementById('rbk-prior');
+      if (priorSelect) {
+        const relatedRunbooks = runbooks.filter(r => r.demand_id === demandId && getEnvironment(r) === targetEnv);
+        priorSelect.innerHTML = '<option value="">None</option>' + 
+          relatedRunbooks.map(r => `<option value="${r.runbook_id}">${r.title}</option>`).join('');
+      }
     }
 
     compSelect.addEventListener('change', updateTargetEnv);
@@ -426,6 +453,8 @@ function showNewRunbookForm() {
     document.getElementById('rbk-change-summary').value = _buildChangeSummary(demand);
     document.getElementById('rbk-arch-notes').value = _buildArchNotes();
 
+    document.getElementById('rbk-step2').style.display = 'block';
+    
     btn.disabled = false;
     btn.textContent = '↺ Reload';
   });
@@ -462,6 +491,7 @@ function showNewRunbookForm() {
       const record = await res.json();
       selectedRunbookId = record.runbook_id;
       selectedDemandId = record.demand_id || 'Unknown Demand';
+      sessionStorage.setItem('selectedDemandId', selectedDemandId);
       await window.fetchBuildDeployData();
     } catch (err) {
       errorBox.textContent = err.message;
@@ -595,7 +625,7 @@ function renderRunbookDetails(record) {
   if (approveBtn) {
     approveBtn.addEventListener('click', async () => {
       await fetch(`${DEPLOY_API_BASE}/runbooks/${record.runbook_id}/approve`, { method: 'POST' });
-      await window.fetchBuildDeployData();
+      switchDeployTab('orchestration');
     });
   }
 
@@ -883,11 +913,11 @@ function renderCutoverDetails(record) {
         body: JSON.stringify({ status: 'completed' })
       });
       if (record.deployment_id) {
-        activeDeployTab = 'orchestration';
         selectedDeploymentId = record.deployment_id;
-        window.renderBuildDeployScreen();
+        switchDeployTab('orchestration');
+      } else {
+        await window.fetchBuildDeployData();
       }
-      await window.fetchBuildDeployData();
     });
   }
 
@@ -901,11 +931,11 @@ function renderCutoverDetails(record) {
         body: JSON.stringify({ status: 'aborted' })
       });
       if (record.deployment_id) {
-        activeDeployTab = 'orchestration';
         selectedDeploymentId = record.deployment_id;
-        window.renderBuildDeployScreen();
+        switchDeployTab('orchestration');
+      } else {
+        await window.fetchBuildDeployData();
       }
-      await window.fetchBuildDeployData();
     });
   }
 }
@@ -959,14 +989,27 @@ function showNewDeploymentForm(prefillRunbookId) {
       
       <div class="form-group" style="margin-top:1rem;">
         <label for="dep-version">Version to Deploy <span style="font-weight:400;font-size:0.78rem;color:var(--text-muted);">(auto-filled from Stage 5 baseline, but editable)</span></label>
-        <input type="text" id="dep-version" placeholder="e.g. 1.2.0" value="">
+        <div style="display:flex; gap:0.2rem; align-items:stretch; width:100%;">
+          <input type="text" id="dep-version" placeholder="e.g. 1.2.0" value="" style="flex:1;">
+          <div style="display:flex; flex-direction:column; justify-content:center; gap:2px;">
+            <button type="button" style="background:var(--bg-secondary); border:1px solid #6366f1; border-radius:3px; color:var(--text-primary); cursor:pointer; font-size:0.6rem; padding:2px 4px; line-height:1;" onclick="window.bumpDepVersion(1)">▲</button>
+            <button type="button" style="background:var(--bg-secondary); border:1px solid #6366f1; border-radius:3px; color:var(--text-primary); cursor:pointer; font-size:0.6rem; padding:2px 4px; line-height:1;" onclick="window.bumpDepVersion(-1)">▼</button>
+          </div>
+        </div>
+      </div>
+      
+      <div id="req-checklist-container" style="display:none; margin-top:1.5rem;">
+        <span style="font-weight:700;font-size:0.75rem;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:0.5rem;letter-spacing:0.04em;">Upstream Release Requirements</span>
+        <div id="req-checklist" style="background:var(--bg-tertiary); padding:0.8rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+           <!-- checkboxes will be injected here -->
+        </div>
       </div>
       
       <div class="preconditions-list" style="margin-top:1.5rem; background:var(--bg-tertiary); border-radius:var(--radius-sm); padding:1rem; border:1px solid var(--border-color);">
         <span style="font-weight:700;font-size:0.75rem;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:0.5rem;letter-spacing:0.04em;">Automated Preconditions to be Checked</span>
         <ul style="margin:0;padding-left:1.2rem;font-size:0.75rem;color:var(--text-secondary);list-style-type:disc;line-height:1.6;">
-          <li><strong>Version check:</strong> Target version matches Stage 5 environment baseline</li>
-          <li><strong>Requirements check:</strong> All upstream release requirements are met</li>
+          <li id="version-precondition"><strong>Version check:</strong> Target version matches Stage 5 environment baseline</li>
+          <li id="req-precondition"><strong>Requirements check:</strong> <span class="req-status-text">All upstream release requirements are met</span></li>
           <li><strong>Runbook check:</strong> Runbook is SME approved &amp; contains a rollback trigger</li>
           <li><strong>Test execution:</strong> Pre-deployment test suites have passed</li>
           <li><strong>Rollback readiness:</strong> Target environment is in-sync and backups verified</li>
@@ -980,13 +1023,104 @@ function showNewDeploymentForm(prefillRunbookId) {
     </div>
   `;
 
+  window.currentRequirements = [];
+  window.checkedRequirements = new Set();
+  
+  window.renderRequirementsChecklist = function() {
+    const container = document.getElementById('req-checklist-container');
+    const checklist = document.getElementById('req-checklist');
+    const preconditionLi = document.getElementById('req-precondition');
+    if (!container || !checklist || !preconditionLi) return;
+    
+    container.style.display = 'block';
+    checklist.innerHTML = '';
+
+    if (!window.currentRequirements || window.currentRequirements.length === 0) {
+      checklist.innerHTML = '<div style="font-size:0.8rem; color:var(--text-secondary); font-style:italic;">No upstream requirements configured for this environment.</div>';
+      preconditionLi.style.color = '#34d399';
+      preconditionLi.innerHTML = `<strong>Requirements check:</strong> <span class="req-status-text">No upstream dependencies (Satisfied)</span>`;
+      return;
+    }
+    
+    window.currentRequirements.forEach(req => {
+      const label = document.createElement('label');
+      label.style.display = 'flex';
+      label.style.alignItems = 'center';
+      label.style.gap = '0.5rem';
+      label.style.fontSize = '0.82rem';
+      label.style.marginBottom = '0.4rem';
+      label.style.cursor = 'pointer';
+      label.style.color = 'var(--text-primary)';
+      
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.style.accentColor = '#6366f1';
+      cb.checked = window.checkedRequirements.has(req);
+      cb.onchange = (e) => {
+        if (e.target.checked) window.checkedRequirements.add(req);
+        else window.checkedRequirements.delete(req);
+        window.updatePreconditionStatus();
+      };
+      
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(req));
+      checklist.appendChild(label);
+    });
+    
+    window.updatePreconditionStatus();
+  };
+  
+  window.updatePreconditionStatus = function() {
+    const preconditionLi = document.getElementById('req-precondition');
+    if (!preconditionLi || !window.currentRequirements || window.currentRequirements.length === 0) return;
+    
+    const allChecked = window.currentRequirements.length === window.checkedRequirements.size;
+    if (allChecked) {
+      preconditionLi.style.color = '#34d399';
+      preconditionLi.innerHTML = `<strong>Requirements check:</strong> <span class="req-status-text">All ${window.currentRequirements.length} upstream requirements verified! ✓</span>`;
+    } else {
+      preconditionLi.style.color = 'var(--text-secondary)';
+      preconditionLi.innerHTML = `<strong>Requirements check:</strong> <span class="req-status-text">Pending verification (${window.checkedRequirements.size}/${window.currentRequirements.length})</span>`;
+    }
+  };
+
   const runbookSelect = document.getElementById('dep-runbook');
+  const envInput = document.getElementById('dep-environment');
+  const verInput = document.getElementById('dep-version');
+
+  window.baseExpectedVersion = '1.0.0';
+
+  window.updateVersionStatus = function() {
+    const preconditionLi = document.getElementById('version-precondition');
+    if (!preconditionLi || !verInput) return;
+    const currentVal = verInput.value.trim();
+    if (currentVal === window.baseExpectedVersion) {
+      preconditionLi.style.color = 'var(--text-secondary)';
+      preconditionLi.innerHTML = `<strong>Version check:</strong> <span class="ver-status-text">Target version matches Stage 5 environment baseline</span>`;
+    } else {
+      preconditionLi.style.color = '#ef4444';
+      preconditionLi.innerHTML = `<strong>Version check:</strong> <span class="ver-status-text" style="font-weight:600;">Drift detected!</span> (Baseline expects ${window.baseExpectedVersion}, but deploying ${currentVal})`;
+    }
+  };
+
+  if (verInput) verInput.addEventListener('input', window.updateVersionStatus);
+
+  window.bumpDepVersion = function(dir) {
+    const val = verInput.value.trim() || '1.0.0';
+    const match = val.match(/(.*?)(\d+)$/);
+    if (match) {
+      let newNum = parseInt(match[2], 10) + dir;
+      if (newNum < 0) newNum = 0;
+      verInput.value = match[1] + newNum;
+    } else {
+      verInput.value = val + (dir > 0 ? '.1' : '.0');
+    }
+    if (window.updateVersionStatus) window.updateVersionStatus();
+  };
 
   async function updateFromRunbook() {
     const runbookId = runbookSelect.value;
     const compSelect = document.getElementById('dep-component');
-    const envInput = document.getElementById('dep-environment');
-    const verInput = document.getElementById('dep-version');
 
     if (!runbookId) {
       compSelect.value = '';
@@ -1014,15 +1148,39 @@ function showNewDeploymentForm(prefillRunbookId) {
 
     // Auto-fill version from Stage 5 by fetching it live
     try {
+      let baseVersion = '1.0.0';
+      window.currentRequirements = [];
+      if (window.checkedRequirements) window.checkedRequirements.clear();
+      
       const res = await fetch('/api/environments');
       if (res.ok) {
         const allEnvs = await res.json();
-        const rec = allEnvs.find(r => r.environment === targetEnv && (r.cmdb_name === compId || r.observed_name === compId || r.demand_id === compId));
-        if (rec && rec.expected_version) {
-          verInput.value = rec.expected_version;
-          return;
+        const rec = allEnvs.find(r => r.environment === targetEnv && (r.cmdb_name === compId || r.observed_name === compId || r.demand_id === runbook.demand_id));
+        if (rec) {
+          if (rec.expected_version) {
+            baseVersion = rec.expected_version;
+            window.baseExpectedVersion = rec.expected_version;
+          }
+          if (rec.expected_requirements) window.currentRequirements = rec.expected_requirements;
         }
       }
+      if (window.renderRequirementsChecklist) window.renderRequirementsChecklist();
+      
+      // Check if we have deployed this before to auto-increment
+      const pastDeps = deployments.filter(d => d.component_id === compId);
+      if (pastDeps.length > 0) {
+        let lastVer = pastDeps[pastDeps.length - 1].version || baseVersion;
+        const match = lastVer.match(/(.*?)(\d+)$/);
+        if (match) {
+          baseVersion = match[1] + (parseInt(match[2], 10) + 1);
+        } else {
+          baseVersion = lastVer + '.1';
+        }
+      }
+      
+      verInput.value = baseVersion;
+      if (window.updateVersionStatus) window.updateVersionStatus();
+      return;
     } catch (err) {
       console.warn("Failed to fetch environment state for version fallback", err);
     }
@@ -1137,7 +1295,7 @@ function renderDeploymentDetails(record) {
         ` : ''}
         ${record.cutover_id ? `<button type="button" class="btn-secondary" id="btn-view-cutover">View Cutover Bridge</button>` : ''}
         ${record.cutover_id && record.status === 'in-progress' ? `<button type="button" class="btn-primary" id="btn-complete-deployment">Mark Deployment Done</button>` : ''}
-        ${record.status === 'done' ? `<button type="button" class="btn-primary" id="btn-next-stage">Proceed to Release & Change</button>` : ''}
+        ${record.status === 'done' ? `<button type="button" class="btn-primary" id="btn-next-stage">Proceed to Test &amp; Quality →</button>` : ''}
       </div>
     </div>
   `;
@@ -1167,7 +1325,11 @@ function renderDeploymentDetails(record) {
         body: JSON.stringify({ decision, decided_by, stakeholders })
       });
       if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.detail || 'Decision failed.'); }
-      await window.fetchBuildDeployData();
+      if (decision === 'go') {
+        switchDeployTab('cutover');
+      } else {
+        await window.fetchBuildDeployData();
+      }
     } catch (err) {
       errorBox.textContent = err.message;
       errorBox.style.display = 'block';
@@ -1180,10 +1342,8 @@ function renderDeploymentDetails(record) {
   const viewCutoverBtn = document.getElementById('btn-view-cutover');
   if (viewCutoverBtn) {
     viewCutoverBtn.addEventListener('click', () => {
-      activeDeployTab = 'cutover';
       selectedCutoverId = record.cutover_id;
-      window.renderBuildDeployScreen();
-      window.fetchBuildDeployData();
+      switchDeployTab('cutover');
     });
   }
 
@@ -1205,7 +1365,11 @@ function renderDeploymentDetails(record) {
   const nextStageBtn = document.getElementById('btn-next-stage');
   if (nextStageBtn) {
     nextStageBtn.addEventListener('click', () => {
-      window.location.hash = 'release-change';
+      if (window.switchStage) {
+        window.switchStage('test-quality');
+      } else {
+        window.location.hash = 'test-quality';
+      }
     });
   }
 }
@@ -1213,6 +1377,8 @@ function renderDeploymentDetails(record) {
 
 function renderDeployContent() {
   const panel = document.getElementById('deploy-panel-container');
+  if (!panel) return;
+
   if (!selectedDemandId) {
     panel.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text-muted);">Select a Demand from the left sidebar or create a new record.</div>`;
     return;
@@ -1238,20 +1404,21 @@ function renderDeployContent() {
 
   const typeLabel = activeDeployTab === 'runbooks' ? 'Runbook' : activeDeployTab === 'cutover' ? 'Cutover' : 'Deployment';
 
+  // Render the header bar + inner container directly into the panel
   panel.innerHTML = `
     <div style="background:var(--bg-tertiary); padding:1rem; border-bottom:1px solid var(--border-color); display:flex; align-items:center; gap:1rem;">
       <label for="demand-component-select" style="font-weight:600;font-size:0.9rem;">Select ${typeLabel}:</label>
       <select id="demand-component-select" style="flex:1;max-width:400px;padding:0.4rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);background:var(--bg-primary);">
         ${demandItems.map(i => {
-           const cName = formatSimpleName(i.component_id);
-           const env = getEnvironment(i);
-           const label = `${cName} - ${env}`;
-           return `<option value="${i[idField]}" ${i[idField] === activeItem[idField] ? 'selected' : ''}>${label}</option>`;
+          const cName = formatSimpleName(i.component_id);
+          const env = getEnvironment(i);
+          const label = `${cName} - ${env}`;
+          return `<option value="${i[idField]}" ${i[idField] === activeItem[idField] ? 'selected' : ''}>${label}</option>`;
         }).join('')}
       </select>
       <button id="btn-delete-active-item" class="btn-secondary" style="color:var(--color-status-red-text); border-color:var(--color-status-red-text);">Delete Active ${typeLabel}</button>
     </div>
-    <div id="deploy-content-inner" style="flex:1; display:flex; flex-direction:column; min-height:0; overflow:hidden; padding-top:1rem;"></div>
+    <div id="deploy-content-inner" style="flex:1; overflow-y:auto; padding-top:1rem;"></div>
   `;
 
   document.getElementById('demand-component-select').addEventListener('change', (e) => {
@@ -1279,24 +1446,22 @@ function renderDeployContent() {
     }
   });
 
-  const innerContainer = document.getElementById('deploy-content-inner');
-  const tempPanel = Object.defineProperty({}, 'innerHTML', {
-    set(html) { innerContainer.innerHTML = html; },
-    get() { return innerContainer.innerHTML; }
-  });
+  // Render the detail view into the inner container
+  // We pass the inner element directly — no monkey-patching needed
+  const innerEl = document.getElementById('deploy-content-inner');
+  const fakePanel = { get innerHTML() { return innerEl.innerHTML; }, set innerHTML(v) { innerEl.innerHTML = v; } };
 
-  // Actually, a better way is to redefine them to return the inner wrapper.
-  const originalGetElementById = document.getElementById.bind(document);
-  document.getElementById = function (id) {
-    if (id === 'deploy-panel-container') return innerContainer;
-    return originalGetElementById(id);
-  };
+  // Temporarily expose fakePanel under 'deploy-panel-container' id via a data attr trick
+  innerEl.id = 'deploy-panel-container';
+  panel.removeAttribute('id'); // Detach real panel id temporarily
 
   try {
     if (activeDeployTab === 'runbooks') renderRunbookDetails(activeItem);
     else if (activeDeployTab === 'cutover') renderCutoverDetails(activeItem);
     else renderDeploymentDetails(activeItem);
   } finally {
-    document.getElementById = originalGetElementById;
+    // Restore ids
+    panel.id = 'deploy-panel-container';
+    innerEl.id = 'deploy-content-inner';
   }
 }

@@ -77,4 +77,6 @@ class StatusPill extends HTMLElement {
   }
 }
 
-customElements.define('status-pill', StatusPill);
+if (!customElements.get('status-pill')) {
+  customElements.define('status-pill', StatusPill);
+}
