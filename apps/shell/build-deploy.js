@@ -1,6 +1,6 @@
-const DEPLOY_API_BASE = 'http://127.0.0.1:8000/api/deployments';
-const DEMAND_API_BASE = 'http://127.0.0.1:8000/api/demands';
-const ENV_API_BASE = 'http://127.0.0.1:8000/api/environments';
+const DEPLOY_API_BASE = '/api/deployments';
+const DEMAND_API_BASE = '/api/demands';
+const ENV_API_BASE = '/api/environments';
 
 let runbooks = [];
 let cutoverSessions = [];
