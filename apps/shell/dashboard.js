@@ -144,6 +144,11 @@ window.renderDashboardScreen = async function() {
       renderProjectDetails(match.demand_id);
     }
   });
+
+  if (currentProject && currentProject.demandId) {
+    dropdown.value = currentProject.demandId;
+    renderProjectDetails(currentProject.demandId);
+  }
 };
 
 async function renderProjectDetails(demandId) {
@@ -301,7 +306,7 @@ function renderCard(title, moduleId, status, outputsHtml, approvalsHtml, errorsH
           <h4 style="margin: 0; font-family: var(--font-display); color: var(--text-primary); font-size: 1.1rem;">${title}</h4>
           ${statusBadge}
         </div>
-        <button type="button" onclick="window.switchStage('${moduleId}')" style="padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+        <button type="button" onclick="sessionStorage.setItem('selectedDemandId', '${currentProject.demandId}'); window.switchStage('${moduleId}')" style="padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
           View Details &rarr;
         </button>
       </summary>

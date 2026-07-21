@@ -1,7 +1,7 @@
 const TQ_API_BASE = 'http://127.0.0.1:8000/api';
 
 let tqDemands = [];
-let tqSelectedDemandId = null;
+let tqSelectedDemandId = sessionStorage.getItem('selectedDemandId') || null;
 let tqActiveTab = 'dashboard'; // 'dashboard', 'generation', 'data', 'execution', 'triage', 'security', 'traceability', 'quality-gate'
 
 // In-memory states synchronized with DB relational tables
@@ -198,6 +198,7 @@ window.renderTestQualityScreen = function () {
 }
 
 window.fetchTestQualityData = async function () {
+  tqSelectedDemandId = sessionStorage.getItem('selectedDemandId') || tqSelectedDemandId;
   try {
     const resDemands = await fetch(`${TQ_API_BASE}/demands`);
     if (!resDemands.ok) throw new Error(`HTTP Error: ${resDemands.status}`);

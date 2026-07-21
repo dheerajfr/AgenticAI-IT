@@ -127,8 +127,9 @@ window.renderBuildDeployScreen = function () {
     newBtn.addEventListener('click', () => {
       selectedDemandId = null;
       selectedRunbookId = null;
+      selectedRunbookDemandId = null;
       window.renderBuildDeployScreen();
-      window.fetchBuildDeployData();
+      window.fetchBuildDeployData(true);
     });
   }
   document.getElementById('tab-runbooks').addEventListener('click', () => switchDeployTab('runbooks'));
@@ -145,7 +146,12 @@ function switchDeployTab(tab) {
   window.fetchBuildDeployData();
 }
 
-window.fetchBuildDeployData = async function () {
+window.fetchBuildDeployData = async function (forceNew = false) {
+  if (!forceNew) {
+    selectedDemandId = sessionStorage.getItem('selectedDemandId') || selectedDemandId;
+  } else {
+    selectedDemandId = null;
+  }
   const container = document.getElementById('deploy-list-container');
   try {
     const [rbRes, cutRes, depRes, demandRes, envRes] = await Promise.all([
@@ -272,7 +278,7 @@ async function _loadEnvRecordsForDemand(demandId) {
 
 function showNewRunbookForm() {
   const panel = document.getElementById('deploy-panel-container');
-  const priorOptions = runbooks.map(r => `<option value="${r.runbook_id}">${r.runbook_id} — ${r.title}</option>`).join('');
+  const priorOptions = runbooks.map(r => `<option value="${r.runbook_id}">${r.title}</option>`).join('');
 
   // Build component options from distinct component_ids in runbooks and envRecords
   const rawComponentIds = [
@@ -312,6 +318,7 @@ function showNewRunbookForm() {
       </div>
 
       <!-- Step 2: Form fields (pre-populated) -->
+      <div id="rbk-step2" style="display:${selectedRunbookDemandId ? 'block' : 'none'};">
       <div style="border-left:3px solid var(--color-brand);padding-left:0.9rem;margin-bottom:1rem;">
         <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);">② Review &amp; Edit — then Draft</span>
       </div>
@@ -356,6 +363,7 @@ function showNewRunbookForm() {
       <div class="error-message" id="rbk-error"></div>
       <div class="submit-row">
         <button type="button" class="btn-primary" id="btn-draft-runbook">✦ Draft Runbook with AI</button>
+      </div>
       </div>
     </div>
   `;
@@ -417,6 +425,14 @@ function showNewRunbookForm() {
       if (envSelect) {
         envSelect.value = targetEnv;
       }
+
+      // Filter prior runbooks based on the selected demand AND the target environment
+      const priorSelect = document.getElementById('rbk-prior');
+      if (priorSelect) {
+        const relatedRunbooks = runbooks.filter(r => r.demand_id === demandId && getEnvironment(r) === targetEnv);
+        priorSelect.innerHTML = '<option value="">None</option>' + 
+          relatedRunbooks.map(r => `<option value="${r.runbook_id}">${r.title}</option>`).join('');
+      }
     }
 
     compSelect.addEventListener('change', updateTargetEnv);
@@ -425,6 +441,8 @@ function showNewRunbookForm() {
     document.getElementById('rbk-change-summary').value = _buildChangeSummary(demand);
     document.getElementById('rbk-arch-notes').value = _buildArchNotes();
 
+    document.getElementById('rbk-step2').style.display = 'block';
+    
     btn.disabled = false;
     btn.textContent = '↺ Reload';
   });
@@ -958,14 +976,27 @@ function showNewDeploymentForm(prefillRunbookId) {
       
       <div class="form-group" style="margin-top:1rem;">
         <label for="dep-version">Version to Deploy <span style="font-weight:400;font-size:0.78rem;color:var(--text-muted);">(auto-filled from Stage 5 baseline, but editable)</span></label>
-        <input type="text" id="dep-version" placeholder="e.g. 1.2.0" value="">
+        <div style="display:flex; gap:0.2rem; align-items:stretch; width:100%;">
+          <input type="text" id="dep-version" placeholder="e.g. 1.2.0" value="" style="flex:1;">
+          <div style="display:flex; flex-direction:column; justify-content:center; gap:2px;">
+            <button type="button" style="background:var(--bg-secondary); border:1px solid #6366f1; border-radius:3px; color:var(--text-primary); cursor:pointer; font-size:0.6rem; padding:2px 4px; line-height:1;" onclick="window.bumpDepVersion(1)">▲</button>
+            <button type="button" style="background:var(--bg-secondary); border:1px solid #6366f1; border-radius:3px; color:var(--text-primary); cursor:pointer; font-size:0.6rem; padding:2px 4px; line-height:1;" onclick="window.bumpDepVersion(-1)">▼</button>
+          </div>
+        </div>
+      </div>
+      
+      <div id="req-checklist-container" style="display:none; margin-top:1.5rem;">
+        <span style="font-weight:700;font-size:0.75rem;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:0.5rem;letter-spacing:0.04em;">Upstream Release Requirements</span>
+        <div id="req-checklist" style="background:var(--bg-tertiary); padding:0.8rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+           <!-- checkboxes will be injected here -->
+        </div>
       </div>
       
       <div class="preconditions-list" style="margin-top:1.5rem; background:var(--bg-tertiary); border-radius:var(--radius-sm); padding:1rem; border:1px solid var(--border-color);">
         <span style="font-weight:700;font-size:0.75rem;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:0.5rem;letter-spacing:0.04em;">Automated Preconditions to be Checked</span>
         <ul style="margin:0;padding-left:1.2rem;font-size:0.75rem;color:var(--text-secondary);list-style-type:disc;line-height:1.6;">
-          <li><strong>Version check:</strong> Target version matches Stage 5 environment baseline</li>
-          <li><strong>Requirements check:</strong> All upstream release requirements are met</li>
+          <li id="version-precondition"><strong>Version check:</strong> Target version matches Stage 5 environment baseline</li>
+          <li id="req-precondition"><strong>Requirements check:</strong> <span class="req-status-text">All upstream release requirements are met</span></li>
           <li><strong>Runbook check:</strong> Runbook is SME approved &amp; contains a rollback trigger</li>
           <li><strong>Test execution:</strong> Pre-deployment test suites have passed</li>
           <li><strong>Rollback readiness:</strong> Target environment is in-sync and backups verified</li>
@@ -979,13 +1010,104 @@ function showNewDeploymentForm(prefillRunbookId) {
     </div>
   `;
 
+  window.currentRequirements = [];
+  window.checkedRequirements = new Set();
+  
+  window.renderRequirementsChecklist = function() {
+    const container = document.getElementById('req-checklist-container');
+    const checklist = document.getElementById('req-checklist');
+    const preconditionLi = document.getElementById('req-precondition');
+    if (!container || !checklist || !preconditionLi) return;
+    
+    container.style.display = 'block';
+    checklist.innerHTML = '';
+
+    if (!window.currentRequirements || window.currentRequirements.length === 0) {
+      checklist.innerHTML = '<div style="font-size:0.8rem; color:var(--text-secondary); font-style:italic;">No upstream requirements configured for this environment.</div>';
+      preconditionLi.style.color = '#34d399';
+      preconditionLi.innerHTML = `<strong>Requirements check:</strong> <span class="req-status-text">No upstream dependencies (Satisfied)</span>`;
+      return;
+    }
+    
+    window.currentRequirements.forEach(req => {
+      const label = document.createElement('label');
+      label.style.display = 'flex';
+      label.style.alignItems = 'center';
+      label.style.gap = '0.5rem';
+      label.style.fontSize = '0.82rem';
+      label.style.marginBottom = '0.4rem';
+      label.style.cursor = 'pointer';
+      label.style.color = 'var(--text-primary)';
+      
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.style.accentColor = '#6366f1';
+      cb.checked = window.checkedRequirements.has(req);
+      cb.onchange = (e) => {
+        if (e.target.checked) window.checkedRequirements.add(req);
+        else window.checkedRequirements.delete(req);
+        window.updatePreconditionStatus();
+      };
+      
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(req));
+      checklist.appendChild(label);
+    });
+    
+    window.updatePreconditionStatus();
+  };
+  
+  window.updatePreconditionStatus = function() {
+    const preconditionLi = document.getElementById('req-precondition');
+    if (!preconditionLi || !window.currentRequirements || window.currentRequirements.length === 0) return;
+    
+    const allChecked = window.currentRequirements.length === window.checkedRequirements.size;
+    if (allChecked) {
+      preconditionLi.style.color = '#34d399';
+      preconditionLi.innerHTML = `<strong>Requirements check:</strong> <span class="req-status-text">All ${window.currentRequirements.length} upstream requirements verified! ✓</span>`;
+    } else {
+      preconditionLi.style.color = 'var(--text-secondary)';
+      preconditionLi.innerHTML = `<strong>Requirements check:</strong> <span class="req-status-text">Pending verification (${window.checkedRequirements.size}/${window.currentRequirements.length})</span>`;
+    }
+  };
+
   const runbookSelect = document.getElementById('dep-runbook');
+  const envInput = document.getElementById('dep-environment');
+  const verInput = document.getElementById('dep-version');
+
+  window.baseExpectedVersion = '1.0.0';
+
+  window.updateVersionStatus = function() {
+    const preconditionLi = document.getElementById('version-precondition');
+    if (!preconditionLi || !verInput) return;
+    const currentVal = verInput.value.trim();
+    if (currentVal === window.baseExpectedVersion) {
+      preconditionLi.style.color = 'var(--text-secondary)';
+      preconditionLi.innerHTML = `<strong>Version check:</strong> <span class="ver-status-text">Target version matches Stage 5 environment baseline</span>`;
+    } else {
+      preconditionLi.style.color = '#ef4444';
+      preconditionLi.innerHTML = `<strong>Version check:</strong> <span class="ver-status-text" style="font-weight:600;">Drift detected!</span> (Baseline expects ${window.baseExpectedVersion}, but deploying ${currentVal})`;
+    }
+  };
+
+  if (verInput) verInput.addEventListener('input', window.updateVersionStatus);
+
+  window.bumpDepVersion = function(dir) {
+    const val = verInput.value.trim() || '1.0.0';
+    const match = val.match(/(.*?)(\d+)$/);
+    if (match) {
+      let newNum = parseInt(match[2], 10) + dir;
+      if (newNum < 0) newNum = 0;
+      verInput.value = match[1] + newNum;
+    } else {
+      verInput.value = val + (dir > 0 ? '.1' : '.0');
+    }
+    if (window.updateVersionStatus) window.updateVersionStatus();
+  };
 
   async function updateFromRunbook() {
     const runbookId = runbookSelect.value;
     const compSelect = document.getElementById('dep-component');
-    const envInput = document.getElementById('dep-environment');
-    const verInput = document.getElementById('dep-version');
 
     if (!runbookId) {
       compSelect.value = '';
@@ -1013,15 +1135,39 @@ function showNewDeploymentForm(prefillRunbookId) {
 
     // Auto-fill version from Stage 5 by fetching it live
     try {
+      let baseVersion = '1.0.0';
+      window.currentRequirements = [];
+      if (window.checkedRequirements) window.checkedRequirements.clear();
+      
       const res = await fetch('/api/environments');
       if (res.ok) {
         const allEnvs = await res.json();
-        const rec = allEnvs.find(r => r.environment === targetEnv && (r.cmdb_name === compId || r.observed_name === compId || r.demand_id === compId));
-        if (rec && rec.expected_version) {
-          verInput.value = rec.expected_version;
-          return;
+        const rec = allEnvs.find(r => r.environment === targetEnv && (r.cmdb_name === compId || r.observed_name === compId || r.demand_id === runbook.demand_id));
+        if (rec) {
+          if (rec.expected_version) {
+            baseVersion = rec.expected_version;
+            window.baseExpectedVersion = rec.expected_version;
+          }
+          if (rec.expected_requirements) window.currentRequirements = rec.expected_requirements;
         }
       }
+      if (window.renderRequirementsChecklist) window.renderRequirementsChecklist();
+      
+      // Check if we have deployed this before to auto-increment
+      const pastDeps = deployments.filter(d => d.component_id === compId);
+      if (pastDeps.length > 0) {
+        let lastVer = pastDeps[pastDeps.length - 1].version || baseVersion;
+        const match = lastVer.match(/(.*?)(\d+)$/);
+        if (match) {
+          baseVersion = match[1] + (parseInt(match[2], 10) + 1);
+        } else {
+          baseVersion = lastVer + '.1';
+        }
+      }
+      
+      verInput.value = baseVersion;
+      if (window.updateVersionStatus) window.updateVersionStatus();
+      return;
     } catch (err) {
       console.warn("Failed to fetch environment state for version fallback", err);
     }
@@ -1242,11 +1388,19 @@ function renderDeployContent() {
       <label for="demand-component-select" style="font-weight:600;font-size:0.9rem;">Select ${typeLabel}:</label>
       <select id="demand-component-select" style="flex:1;max-width:400px;padding:0.4rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);background:var(--bg-primary);">
         ${demandItems.map(i => {
+<<<<<<< HEAD
            const cName = formatSimpleName(i.component_id);
            const env = getEnvironment(i);
            const label = `${cName} - ${env}`;
            return `<option value="${i[idField]}" ${i[idField] === activeItem[idField] ? 'selected' : ''}>${label}</option>`;
         }).join('')}
+=======
+    const cName = formatSimpleName(i.component_id);
+    const env = getEnvironment(i);
+    const label = `${cName} - ${env}`;
+    return `<option value="${i[idField]}" ${i[idField] === activeItem[idField] ? 'selected' : ''}>${label}</option>`;
+  }).join('')}
+>>>>>>> main
       </select>
       <button id="btn-delete-active-item" class="btn-secondary" style="color:var(--color-status-red-text); border-color:var(--color-status-red-text);">Delete Active ${typeLabel}</button>
     </div>
