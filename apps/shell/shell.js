@@ -1,7 +1,7 @@
 import { getModuleName } from '../../packages/ui-kit/navigation-menu.js';
 
 // App Shell Orchestrator & Screen Router
-const API_BASE = 'http://127.0.0.1:8000/api';
+const API_BASE = '/api';
 
 // Core State
 let activeStage = (window.location.hash ? window.location.hash.substring(1) : sessionStorage.getItem('activeStage')) || 'demand-intake';

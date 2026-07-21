@@ -1,4 +1,4 @@
-const DEPENDENCIES_API_BASE = 'http://127.0.0.1:8000/api';
+const DEPENDENCIES_API_BASE = '/api';
 
 let dependencies = [];
 let selectedDependencyId = null;
