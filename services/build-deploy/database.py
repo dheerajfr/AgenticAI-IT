@@ -143,8 +143,8 @@ def read_environment_state(component_id: str, environment: str) -> Optional[dict
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT data FROM environments WHERE demand_id = ? AND environment = ?",
-                (component_id, environment)
+                "SELECT data FROM environments WHERE environment = ?",
+                (environment,)
             )
             for row in cursor.fetchall():
                 data = json.loads(row[0])
