@@ -103,42 +103,37 @@
   "validation": {
     "validation_id": "RV-0001-1",
     "demand_id": "DEM-2026-0001",
-    "plan_id": "PLN-undefined-1",
-    "validated_at": "2026-07-17T06:51:50Z",
+    "plan_id": "PLN-0001-1",
+    "validated_at": "2026-07-22T09:07:32Z",
     "criteria_results": [
       {
         "criterion": "monitoring_configured",
         "status": "pass",
-        "evidence": "Observability baseline observability://dashboards/ops-readiness-0068 active"
+        "evidence": "PASS: Monitoring plan MON-0001 configured and approved by SRE."
       },
       {
         "criterion": "support_team_briefed",
-        "status": "fail",
-        "evidence": "Support team has not been briefed on this release"
+        "status": "pass",
+        "evidence": "KT session and handover walk-through completed with operations group"
       },
       {
         "criterion": "runbook_reviewed",
-        "status": "fail",
-        "evidence": "Support runbook review is pending"
+        "status": "pass",
+        "evidence": "Operations support runbook drafted and approved by delivery lead"
       },
       {
         "criterion": "known_errors_documented",
-        "status": "warn",
-        "evidence": "Active defects exist that are not documented in KB"
+        "status": "pass",
+        "evidence": "All active defects translated to known error items and documented in KB"
       },
       {
         "criterion": "on_call_assigned",
-        "status": "fail",
-        "evidence": "No resources assigned to the support shift rotation"
+        "status": "pass",
+        "evidence": "On-call roster established and personnel assigned to go-live shift"
       }
     ],
-    "gaps": [
-      "Operations/Support team briefing (KT session) is pending.",
-      "Deployment & support runbook has not been reviewed by operations.",
-      "2 known errors or unresolved defects are pending KB documentation.",
-      "Support on-call schedule has not been assigned for production go-live."
-    ],
-    "overall_status": "fail",
+    "gaps": [],
+    "overall_status": "pass",
     "sign_off_by": null,
     "status": "pending-approval"
   }

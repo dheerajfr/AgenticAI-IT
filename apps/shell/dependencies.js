@@ -287,10 +287,8 @@ function renderDependencyList() {
             <span style="font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;" class="${statusClass}">
               ${dep.status}
             </span>
-            <button type="button" class="btn-delete-dep" data-id="${dep.dependency_id}" title="Delete dependency"
-              style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; opacity: 0.7; transition: opacity 0.2s;"
             <button class="btn-delete-dep" data-id="${dep.dependency_id}" title="Delete dependency"
-              style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; opacity: 0.7; "
+              style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; opacity: 0.7; transition: opacity 0.2s;"
               onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
               <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             </button>
@@ -448,8 +446,6 @@ function renderDependencyDetails(dep) {
 
   let activityLogs = dep.activity_history || [];
   const nudgeMessage = dep.draft_message || '';
-<<<<<<< HEAD
-=======
 
   // AI Intelligence computed data — now driven by computeDynamicRisk() instead of
   // a static snapshot, so it reflects real elapsed time since the last nudge and
@@ -471,8 +467,10 @@ function renderDependencyDetails(dep) {
   const deadlineValue = risk.tracking.deadline || '';
 
   const isChaseCompleted = !!dep.draft_message;
->>>>>>> origin/main
   const isResolveCompleted = dep.status === 'resolved';
+  const hasDraft = !!dep.draft_message;
+  const step2Class = isChaseCompleted ? 'completed' : 'active';
+  const step3Class = isResolveCompleted ? 'completed' : (isChaseCompleted ? 'active' : 'locked');
 
   const completionBanner = isResolveCompleted ? `
     <div style="background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.08)); border: 1px solid rgba(16,185,129,0.35); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
@@ -485,8 +483,6 @@ function renderDependencyDetails(dep) {
           <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.1rem;">All dependencies for this demand have been resolved.</div>
         </div>
       </div>
-<<<<<<< HEAD
-=======
       <div style="display: flex; gap: 0.5rem; align-items: center;">
         <button id="btn-resense-deps" style="display:flex;align-items:center;gap:0.4rem;padding:0.4rem 0.9rem;border-radius:var(--radius-sm);font-size:0.8rem;font-weight:600;cursor:pointer;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-secondary);"
           onmouseover="this.style.borderColor='var(--color-brand)';this.style.color='var(--color-brand)';"
@@ -498,7 +494,6 @@ function renderDependencyDetails(dep) {
           Next: Config Environments &nbsp;&rarr;
         </button>
       </div>
->>>>>>> origin/main
     </div>
   ` : '';
 
@@ -525,6 +520,42 @@ function renderDependencyDetails(dep) {
           <span style="padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; display: inline-block;" class="${statusClass}">
             ${dep.status}
           </span>
+        </div>
+      </div>
+
+      <div class="task-selector-container" style="margin-bottom: 1.5rem; background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+        <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Select Task to View Predecessor Details</label>
+        <select id="detail-task-select" style="width: 100%; padding: 0.5rem; margin-top: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);" onchange="document.getElementById('dynamic-task-details').style.display='block';">
+          <option value="" disabled selected>Loading tasks...</option>
+        </select>
+        
+        <div id="dynamic-task-details" style="margin-top: 1rem; display: none;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Selected Task</div>
+              <strong id="task-detail-current" style="color: var(--text-primary);"></strong>
+            </div>
+            <div>
+              <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Owner</div>
+              <strong id="task-detail-owner" style="color: var(--text-primary);"></strong>
+            </div>
+            <div>
+              <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Predecessor Task</div>
+              <strong id="task-detail-predecessor" style="color: var(--color-status-amber-text);"></strong>
+            </div>
+            <div>
+              <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Predecessor Owner</div>
+              <strong id="task-detail-prev-owner" style="color: var(--text-primary);"></strong>
+            </div>
+            <div>
+              <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Status</div>
+              <strong id="task-detail-status" style="color: var(--text-primary);"></strong>
+            </div>
+            <div>
+              <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Risk Level</div>
+              <strong id="task-detail-risk" style="color: var(--text-primary);"></strong>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -567,8 +598,6 @@ function renderDependencyDetails(dep) {
               <strong style="color: var(--text-primary);">${dep.predecessor_owner || 'N/A'}</strong>
             </div>
           </div>
-<<<<<<< HEAD
-=======
 
           <!-- STEP 2: CHASE COMMITMENTS -->
           <div class="wizard-step ${step2Class}">
@@ -794,7 +823,6 @@ function renderDependencyDetails(dep) {
             </div>
           </div>
 
->>>>>>> origin/main
         </div>
 
         ${(() => {
@@ -1043,6 +1071,8 @@ function renderDependencyDetails(dep) {
       const taskId = document.getElementById('impact-task-select').value;
       const delayDays = parseInt(document.getElementById('impact-delay-days').value, 10) || 5;
       runCrossImpact(dep.plan_id, taskId, delayDays, dep.dependency_id);
+    });
+  }
   // Escalate
   if (document.getElementById('btn-escalate-manager')) {
     document.getElementById('btn-escalate-manager').addEventListener('click', () => { escalateManager(dep.dependency_id); });
@@ -1304,11 +1334,32 @@ async function runCrossImpact(planId, taskId, delayDays, depId) {
     }
   } catch (err) {
     resultBox.innerHTML = `<div class="error-alert" style="margin-top: 0;">${err.message}</div>`;
-  });
+  }
 
   // Task Selector Dynamic Interaction Hook
   const taskSelect = document.getElementById('detail-task-select');
   if (taskSelect) {
+    // Populate dropdown with tasks from the plan
+    fetch(`${DEPENDENCIES_API_BASE}/dependencies/plan/${dep.plan_id}/tasks`)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then(tasks => {
+        if (!Array.isArray(tasks)) throw new Error("API did not return an array");
+        taskSelect.innerHTML = '<option value="" disabled selected>Select a task...</option>';
+        tasks.forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t.task_id;
+          opt.textContent = `${t.task_id} - ${t.name}`;
+          taskSelect.appendChild(opt);
+        });
+      })
+      .catch(err => {
+        console.error("Failed to load tasks", err);
+        taskSelect.innerHTML = `<option value="" disabled selected>Error: ${err.message}</option>`;
+      });
+
     const updateDynamicTaskDetails = async (tId) => {
       try {
         const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/${dep.dependency_id}/task-details?task_id=${tId}`);

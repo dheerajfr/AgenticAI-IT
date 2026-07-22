@@ -1,0 +1,35 @@
+{
+  "demand_id": "DEM-2026-0001",
+  "title": "Agentic AI in SDLC",
+  "description": "Agentic AI in SDLC",
+  "type": "project",
+  "domain": "General Platform",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-22",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Agentic AI in SDLC (DEM-2026-0001)\n\nExecutive Summary: Request addresses Agentic AI in SDLC.\nBusiness Impact: Enhances efficiency and capabilities for General Platform.\nRisk Mitigation: Standard project governance will manage deployment risks.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 96,
+  "earliest_start_date": "2026-08-21",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 4 total active team members evaluated.",
+    "Technical capability profiling: 14 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 0/160 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    }
+  ],
+  "skill_gaps": [
+    "Java",
+    "Cloud"
+  ]
+}

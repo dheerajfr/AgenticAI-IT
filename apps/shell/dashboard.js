@@ -292,6 +292,7 @@ async function renderProjectDetails(demandId) {
       ${renderDeployCard(data)}
       ${renderTestCard(data)}
       ${renderReleaseCard(data)}
+      ${renderOpsReadinessCard(data)}
     </div>
 
     <!-- Always-on Capabilities Accordions -->
@@ -314,7 +315,7 @@ async function renderProjectDetails(demandId) {
 const stageOrder = [
   'demand-intake', 'estimate-shape', 'plan-schedule', 
   'config-environments', 'dependencies', 'build-deploy', 
-  'test-quality', 'release-change'
+  'test-quality', 'release-change', 'ops-readiness'
 ];
 
 function getStageStatus(stage, currentStage, data) {
@@ -582,6 +583,10 @@ function renderReleaseCard(data) {
   return renderCard('Release & Change', 'release-change', status, outputs, approvals, errorsHtml);
 }
 
+
+function renderOpsReadinessCard(data) {
+  return renderCard('Ops Readiness', 'ops-readiness', 'Pending', '<span style="color:var(--text-muted);">Data loading...</span>', '');
+}
 function renderRiskIssuesCard(data) {
   return renderCard('Risk & Issues', 'risk-issues', 'Monitoring', '<span style="color:var(--text-muted);">Live tracking active.</span>', '');
 }

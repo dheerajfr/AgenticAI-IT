@@ -150,8 +150,6 @@ function switchStage(stageId) {
       window.renderTestQualityScreen();
       window.fetchTestQualityData();
     }
-<<<<<<< HEAD
-
   } else if (stageId === 'risk-issues') {
     if (window.renderRiskIssuesScreen) {
       window.renderRiskIssuesScreen();
@@ -176,12 +174,11 @@ function switchStage(stageId) {
     if (window.renderKnowledgeArtifactsScreen) {
       window.renderKnowledgeArtifactsScreen();
       window.fetchKnowledgeArtifactsData();
-=======
+    }
   } else if (stageId === 'ops-readiness') {
     if (window.renderOpsReadinessScreen) {
       window.renderOpsReadinessScreen();
       window.fetchOpsReadinessData();
->>>>>>> main
     }
   } else {
     // Render the placeholder web component for other stages

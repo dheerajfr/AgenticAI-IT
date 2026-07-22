@@ -491,6 +491,11 @@ def sense_dependencies(req: DependencySenseRequest):
         )
         
     raw_edges = graph_output.get("detected_dependencies") or []
+    
+    # User requested a single overarching dependency object instead of multiple.
+    if raw_edges:
+        raw_edges = [raw_edges[0]]
+        
     detected_edges = []
     
     all_plan_tasks = {t.task_id for t in plan.tasks}
@@ -1106,4 +1111,53 @@ def query_dependency_copilot(req: CopilotQueryRequest):
             suggested_followups=["Show blocked dependencies", "Why is deployment blocked?", "Suggest fastest recovery"],
             data_points=[]
         )
+
+
+
+@app.get("/api/dependencies/{dependency_id}/task-details")
+def get_task_details(dependency_id: str, task_id: str):
+    dep = db.get_by_id(dependency_id)
+    if not dep:
+        raise HTTPException(status_code=404, detail="Dependency not found")
+    
+    plan = plan_loader.load_plan_by_id(dep.plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    
+    task = next((t for t in plan.tasks if t.task_id == task_id), None)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    depends_on = "None"
+    depends_on_owner = "N/A"
+    if task.predecessor_task_ids and len(task.predecessor_task_ids) > 0:
+        pred_id = task.predecessor_task_ids[0]
+        depends_on = pred_id
+        pred_task = next((t for t in plan.tasks if t.task_id == pred_id), None)
+        if pred_task:
+            depends_on_owner = pred_task.owner
+            
+    # Calculate mock status/risk for prototype
+    status = "Not Started"
+    risk = "Low"
+    if depends_on != "None":
+        risk = "Medium"
+        
+    return {
+        "selected_task": task.name,
+        "current_owner": task.owner,
+        "depends_on": depends_on,
+        "depends_on_owner": depends_on_owner,
+        "status": status,
+        "risk": risk
+    }
+
+
+
+@app.get("/api/dependencies/plan/{plan_id}/tasks")
+def get_plan_tasks(plan_id: str):
+    plan = plan_loader.load_plan_by_id(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    return [{"task_id": t.task_id, "name": t.name} for t in plan.tasks]
 
