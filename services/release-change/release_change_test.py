@@ -105,6 +105,10 @@ def pp(label, data):
     print()
 
 
+dir_path = os.path.dirname(os.path.abspath(__file__))
+if dir_path not in sys.path:
+    sys.path.insert(0, dir_path)
+
 print("[*] Importing release_change_graph ...")
 from orchestration.release_change_graph import release_change_graph
 print("[OK] Graph compiled\n")

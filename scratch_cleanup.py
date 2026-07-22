@@ -1,5 +1,8 @@
-import sqlite3, json
-conn = sqlite3.connect('c:/Users/2869041/Desktop/AgenticAI-IT/services/build-deploy/build-deploy.db')
+import sqlite3, json, os
+db_path = os.path.join(os.path.dirname(__file__), 'services', 'build-deploy', 'build-deploy.db')
+if not os.path.exists(db_path):
+    db_path = os.path.join(os.path.dirname(__file__), 'services', 'source.db')
+conn = sqlite3.connect(db_path)
 rows = conn.execute('SELECT deployment_id, data FROM deployments').fetchall()
 comps = {}
 deletes = []

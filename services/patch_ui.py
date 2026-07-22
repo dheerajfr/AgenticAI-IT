@@ -101,13 +101,13 @@ function renderDeployContent() {
   
   const typeLabel = activeDeployTab === 'runbooks' ? 'Runbook' : activeDeployTab === 'cutover' ? 'Cutover' : 'Deployment';
   
-  panel.innerHTML = `
+  panel.innerHTML = r`
     <div style="background:var(--bg-tertiary); padding:1rem; border-bottom:1px solid var(--border-color); display:flex; align-items:center; gap:1rem;">
       <label for="demand-component-select" style="font-weight:600;font-size:0.9rem;">Select ${typeLabel}:</label>
       <select id="demand-component-select" style="flex:1;max-width:400px;padding:0.4rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);background:var(--bg-primary);">
         ${demandItems.map(i => {
-           const label = activeDeployTab === 'runbooks' ? (i.environment ? \`\${i.title} (\${i.environment})\` : i.title) : activeDeployTab === 'cutover' ? \`\${i.component_id}\` : \`\${i.component_id} (\${i.environment || 'N/A'})\`;
-           return \`<option value="\${i[idField]}" \${i[idField] === activeItem[idField] ? 'selected' : ''}>\${label}</option>\`;
+           const label = activeDeployTab === 'runbooks' ? (i.environment ? `${i.title} (${i.environment})` : i.title) : activeDeployTab === 'cutover' ? `${i.component_id}` : `${i.component_id} (${i.environment || 'N/A'})`;
+           return `<option value="${i[idField]}" ${i[idField] === activeItem[idField] ? 'selected' : ''}>${label}</option>`;
         }).join('')}
       </select>
       <button id="btn-delete-active-item" class="btn-secondary" style="color:var(--color-status-red-text); border-color:var(--color-status-red-text);">Delete Active ${typeLabel}</button>
@@ -124,10 +124,10 @@ function renderDeployContent() {
   });
   
   document.getElementById('btn-delete-active-item').addEventListener('click', async () => {
-    if(!confirm(\`Delete this ${typeLabel}?\`)) return;
+    if(!confirm(`Delete this ${typeLabel}?`)) return;
     try {
       const apiPath = activeDeployTab === 'runbooks' ? 'runbooks' : activeDeployTab === 'cutover' ? 'cutover' : 'orchestration';
-      const res = await fetch(\`\${DEPLOY_API_BASE}/\${apiPath}/\${encodeURIComponent(activeItem[idField])}\`, { method: 'DELETE' });
+      const res = await fetch(`${DEPLOY_API_BASE}/${apiPath}/${encodeURIComponent(activeItem[idField])}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Delete failed');
       
       if (activeDeployTab === 'runbooks') selectedRunbookId = null;

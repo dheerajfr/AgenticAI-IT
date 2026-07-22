@@ -1,7 +1,7 @@
 import { getModuleName } from '../../packages/ui-kit/navigation-menu.js';
 
 // App Shell Orchestrator & Screen Router
-const API_BASE = 'http://127.0.0.1:8000/api';
+const API_BASE = '/api';
 
 // Core State
 let activeStage = (window.location.hash ? window.location.hash.substring(1) : sessionStorage.getItem('activeStage')) || 'demand-intake';
@@ -150,6 +150,7 @@ function switchStage(stageId) {
       window.renderTestQualityScreen();
       window.fetchTestQualityData();
     }
+<<<<<<< HEAD
 
   } else if (stageId === 'risk-issues') {
     if (window.renderRiskIssuesScreen) {
@@ -175,6 +176,12 @@ function switchStage(stageId) {
     if (window.renderKnowledgeArtifactsScreen) {
       window.renderKnowledgeArtifactsScreen();
       window.fetchKnowledgeArtifactsData();
+=======
+  } else if (stageId === 'ops-readiness') {
+    if (window.renderOpsReadinessScreen) {
+      window.renderOpsReadinessScreen();
+      window.fetchOpsReadinessData();
+>>>>>>> main
     }
   } else {
     // Render the placeholder web component for other stages

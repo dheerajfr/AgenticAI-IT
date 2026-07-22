@@ -53,6 +53,12 @@ def health_check():
     return {"status": "healthy", "stage": 8}
 
 
+@app.get("/api/release-change")
+def get_all_release_change():
+    """Root list endpoint — returns all release records."""
+    return db.get_all_releases()
+
+
 # 1. Change Record Drafting
 @app.post("/api/release-change/draft", response_model=ChangeRecord)
 def draft_change_record(req: ChangeRecordDraftRequest):

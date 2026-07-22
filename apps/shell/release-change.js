@@ -1,4 +1,4 @@
-const RELEASE_CHANGE_API_BASE = 'http://127.0.0.1:8000/api/release-change';
+const RELEASE_CHANGE_API_BASE = '/api/release-change';
 
 let releaseList = [];
 let selectedReleaseId = null;

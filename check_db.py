@@ -16,22 +16,15 @@ c.execute("SELECT * FROM dependencies WHERE demand_id = ?", ("DEM-2026-0072",))
 rows = c.fetchall()
 print(f"  Found {len(rows)} dependencies")
 for r in rows:
-    d = json.loads(r[2])
+    d = json.loads(r[1])
     print(f"  dep_id={r[0]}, status={d.get('status')}, type={d.get('type')}")
 
 print("\n=== Release REL-0072-1 full data ===")
-c.execute("SELECT * FROM release WHERE release_id = 'REL-0072-1'")
+c.execute("SELECT * FROM release_change WHERE release_id = 'REL-0072-1'")
 row = c.fetchone()
 if row:
-    print(f"  release_id={row[0]}, project_id={row[1]}, plan_id={row[2]}")
-    print(f"  status={row[6]}, risk_score={row[9]}, cab_required={row[10]}")
-
-print("\n=== Change request for REL-0072-1 ===")
-c.execute("SELECT change_id, summary, status FROM change_request WHERE release_id = 'REL-0072-1'")
-row = c.fetchone()
-if row:
-    print(f"  change_id={row[0]}, summary={row[1][:80]}, status={row[2]}")
+    print(f"  release_id={row[0]}, data_preview={row[1][:80] if row[1] else ''}")
 else:
-    print("  No change request found")
+    print("  No release_change found for REL-0072-1")
 
 conn.close()

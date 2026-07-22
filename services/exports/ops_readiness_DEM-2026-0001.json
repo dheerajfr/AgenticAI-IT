@@ -1,0 +1,145 @@
+{
+  "demand_id": "DEM-2026-0001",
+  "monitoring": {
+    "monitoring_id": "MON-0001-1",
+    "demand_id": "DEM-2026-0001",
+    "plan_id": "PLN-undefined-1",
+    "environment": "prod",
+    "proposed_alerts": [
+      {
+        "alert_id": "ALT-001",
+        "component_id": "svc-payments-api",
+        "name": "svc-payments-api Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-003",
+        "component_id": "svc-payments-api",
+        "name": "svc-payments-api Availability Drop",
+        "condition": "availability < 99.9%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-002",
+        "component_id": "svc-auth",
+        "name": "svc-auth Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-004",
+        "component_id": "svc-auth",
+        "name": "svc-auth Availability Drop",
+        "condition": "availability < 99.9%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      }
+    ],
+    "proposed_dashboards": [
+      {
+        "dashboard_id": "DSH-001",
+        "title": "svc-payments-api / svc-auth Production Health Dashboard",
+        "panels": [
+          "latency_p50_p95_p99",
+          "error_rate_5m",
+          "throughput_rps",
+          "system_cpu_memory"
+        ]
+      }
+    ],
+    "sre_reviewed": true,
+    "status": "approved"
+  },
+  "handover": {
+    "handover_id": "HO-0001-1",
+    "demand_id": "DEM-2026-0001",
+    "plan_id": "PLN-undefined-1",
+    "created_at": "2026-07-17T06:50:18Z",
+    "support_runbook": {
+      "title": "Ops Support Runbook - Deployment Runbook",
+      "sections": [
+        {
+          "section": "Health Checks",
+          "content": "Verify endpoint `/api/health` status returns 200 OK within 150ms."
+        },
+        {
+          "section": "Log Inspection",
+          "content": "Filter container logs in Splunk or Datadog for keywords: ERROR, EXCEPTION, CRITICAL."
+        },
+        {
+          "section": "Escalation Matrix",
+          "content": "Primary on-call contact: d.chen@company.com, clara.davis@company.com. Support distribution list: ops-support@company.com."
+        }
+      ]
+    },
+    "known_errors": [
+      {
+        "ke_id": "KE-001",
+        "title": "Connection Pool Timeout",
+        "workaround": "Scale out deployment pod replicas or restart services during low traffic",
+        "linked_defect": "BUG-4421"
+      }
+    ],
+    "kt_pack_url": "sharepoint://kt/ops-readiness-0001-20260717",
+    "reviewed_by": "ops-manager@cops-manager@company.comompany.com",
+    "status": "reviewed"
+  },
+  "validation": {
+    "validation_id": "RV-0001-1",
+    "demand_id": "DEM-2026-0001",
+    "plan_id": "PLN-undefined-1",
+    "validated_at": "2026-07-17T06:51:50Z",
+    "criteria_results": [
+      {
+        "criterion": "monitoring_configured",
+        "status": "pass",
+        "evidence": "Observability baseline observability://dashboards/ops-readiness-0068 active"
+      },
+      {
+        "criterion": "support_team_briefed",
+        "status": "fail",
+        "evidence": "Support team has not been briefed on this release"
+      },
+      {
+        "criterion": "runbook_reviewed",
+        "status": "fail",
+        "evidence": "Support runbook review is pending"
+      },
+      {
+        "criterion": "known_errors_documented",
+        "status": "warn",
+        "evidence": "Active defects exist that are not documented in KB"
+      },
+      {
+        "criterion": "on_call_assigned",
+        "status": "fail",
+        "evidence": "No resources assigned to the support shift rotation"
+      }
+    ],
+    "gaps": [
+      "Operations/Support team briefing (KT session) is pending.",
+      "Deployment & support runbook has not been reviewed by operations.",
+      "2 known errors or unresolved defects are pending KB documentation.",
+      "Support on-call schedule has not been assigned for production go-live."
+    ],
+    "overall_status": "fail",
+    "sign_off_by": null,
+    "status": "pending-approval"
+  }
+}

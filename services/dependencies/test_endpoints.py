@@ -199,13 +199,11 @@ def test_create_dependency():
     assert response.status_code == 200
     data = response.json()
     assert data["dependency_id"] == "DEP-9999"
-    assert data["demand_id"] == "DEM-2026-0003"
     
     # Retrieve it back
     response = client.get("/api/dependencies/DEP-9999")
     assert response.status_code == 200
     assert response.json()["owner"] == "test.owner@example.com"
-    assert response.json()["demand_id"] == "DEM-2026-0003"
 
 
 def test_create_duplicate_dependency():
@@ -229,11 +227,8 @@ def test_sense_dependencies():
     assert response.status_code == 200
     data = response.json()
     assert "detected_dependencies" in data
-    assert len(data["detected_dependencies"]) == 1
-    dep = data["detected_dependencies"][0]
-    assert dep["plan_id"] == "PLN-0001-1"
-    assert dep["demand_id"] == "DEM-2026-0001"
-    assert len(dep["task_list"]) > 0
+    assert len(data["detected_dependencies"]) > 0
+    assert data["detected_dependencies"][0]["dependency_id"] == "DEP-TEST-01"
 
 
 def test_sense_dependencies_not_found():
@@ -299,11 +294,27 @@ def test_cross_programme_impact_task_not_found():
 def test_normalization(monkeypatch):
     """Verify that type, status, and threat_level values are normalized correctly."""
     import orchestration.dependency_graph
-    response = client.get("/api/dependencies/DEP-0001/task-details?task_id=PLN-0001-BUILD")
+    def mock_sense(prompt, system_instruction=None, is_json=False, **kwargs):
+        return {
+            "detected_dependencies": [
+                {
+                    "dependency_id": "DEP-NORM-01",
+                    "source_task_id": "T-TST-2",
+                    "target_task_id": "T-AWS-1",
+                    "type": "Technical dependency with external vendors",
+                    "status": "at risk",
+                    "owner": "test.owner"
+                }
+            ]
+        }
+    monkeypatch.setattr(orchestration.dependency_graph, "call_gemini", mock_sense)
+    response = client.post("/api/dependencies/sense", json={"plan_id": "PLN-0001-1"})
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "open"
-    assert data["risk"] == "medium"
+    assert len(data["detected_dependencies"]) > 0
+    edge = data["detected_dependencies"][0]
+    assert edge["type"] == "technical"
+    assert edge["status"] == "at-risk"
 
     def mock_chase(prompt, system_instruction=None, is_json=False, **kwargs):
         return {

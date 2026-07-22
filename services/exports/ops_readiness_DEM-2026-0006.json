@@ -1,0 +1,71 @@
+{
+  "demand_id": "DEM-2026-0006",
+  "monitoring": {
+    "monitoring_id": "MON-0006-1",
+    "demand_id": "DEM-2026-0006",
+    "plan_id": "PLN-undefined-1",
+    "environment": "prod",
+    "proposed_alerts": [
+      {
+        "alert_id": "ALT-001",
+        "component_id": "svc-payments-api",
+        "name": "svc-payments-api Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-003",
+        "component_id": "svc-payments-api",
+        "name": "svc-payments-api Availability Drop",
+        "condition": "availability < 99.9%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-002",
+        "component_id": "svc-auth",
+        "name": "svc-auth Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-004",
+        "component_id": "svc-auth",
+        "name": "svc-auth Availability Drop",
+        "condition": "availability < 99.9%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      }
+    ],
+    "proposed_dashboards": [
+      {
+        "dashboard_id": "DSH-001",
+        "title": "svc-payments-api / svc-auth Production Health Dashboard",
+        "panels": [
+          "latency_p50_p95_p99",
+          "error_rate_5m",
+          "throughput_rps",
+          "system_cpu_memory"
+        ]
+      }
+    ],
+    "sre_reviewed": true,
+    "status": "approved"
+  },
+  "handover": null,
+  "validation": null
+}

@@ -4,9 +4,13 @@ import sqlite3
 import json
 from typing import Optional, List, Dict, Any
 
-# Ensure local test-quality directory is at the front of sys.path to avoid import pollution
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+services_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+tq_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if services_dir not in sys.path:
+    sys.path.insert(0, services_dir)
+if tq_dir in sys.path:
+    sys.path.remove(tq_dir)
+sys.path.insert(0, tq_dir)
 
 from shared_db.connection import get_db
 from models import (
