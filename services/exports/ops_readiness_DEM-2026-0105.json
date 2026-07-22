@@ -2,26 +2,24 @@
   "demand_id": "DEM-2026-0105",
   "monitoring": {
     "monitoring_id": "MON-0105-1",
+    "monitoring_plan_id": "MON-0105",
+    "release_id": "REL-0105-1",
     "demand_id": "DEM-2026-0105",
     "plan_id": "PLN-0105-1",
     "environment": "prod",
+    "monitored_components_scope": [
+      "cache-prod",
+      "auth-service",
+      "svc-dem_2026_0105",
+      "db-prod"
+    ],
     "proposed_alerts": [
       {
         "alert_id": "ALT-001",
-        "component_id": "svc-dem_2026_0105",
-        "name": "svc-dem_2026_0105 Latency Violation",
-        "condition": "p99_latency > 500ms",
-        "severity": "critical",
-        "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
-        ]
-      },
-      {
-        "alert_id": "ALT-005",
-        "component_id": "svc-dem_2026_0105",
-        "name": "svc-dem_2026_0105 Availability Drop",
-        "condition": "availability < 99.95%",
+        "component_id": "cache-prod",
+        "component_type": "microservice",
+        "name": "cache-prod Latency Violation",
+        "condition": "p99_latency > 800ms",
         "severity": "critical",
         "notify": [
           "ops-alerts@company.com",
@@ -30,40 +28,8 @@
       },
       {
         "alert_id": "ALT-002",
-        "component_id": "db-prod",
-        "name": "db-prod Latency Violation",
-        "condition": "p99_latency > 500ms",
-        "severity": "critical",
-        "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
-        ]
-      },
-      {
-        "alert_id": "ALT-006",
-        "component_id": "db-prod",
-        "name": "db-prod Availability Drop",
-        "condition": "availability < 99.95%",
-        "severity": "critical",
-        "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
-        ]
-      },
-      {
-        "alert_id": "ALT-003",
         "component_id": "cache-prod",
-        "name": "cache-prod Latency Violation",
-        "condition": "p99_latency > 500ms",
-        "severity": "critical",
-        "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
-        ]
-      },
-      {
-        "alert_id": "ALT-007",
-        "component_id": "cache-prod",
+        "component_type": "microservice",
         "name": "cache-prod Availability Drop",
         "condition": "availability < 99.95%",
         "severity": "critical",
@@ -73,10 +39,11 @@
         ]
       },
       {
-        "alert_id": "ALT-004",
+        "alert_id": "ALT-003",
         "component_id": "auth-service",
+        "component_type": "microservice",
         "name": "auth-service Latency Violation",
-        "condition": "p99_latency > 500ms",
+        "condition": "p99_latency > 800ms",
         "severity": "critical",
         "notify": [
           "ops-alerts@company.com",
@@ -84,8 +51,9 @@
         ]
       },
       {
-        "alert_id": "ALT-008",
+        "alert_id": "ALT-004",
         "component_id": "auth-service",
+        "component_type": "microservice",
         "name": "auth-service Availability Drop",
         "condition": "availability < 99.95%",
         "severity": "critical",
@@ -93,22 +61,104 @@
           "ops-alerts@company.com",
           "sre-oncall@company.com"
         ]
+      },
+      {
+        "alert_id": "ALT-005",
+        "component_id": "svc-dem_2026_0105",
+        "component_type": "microservice",
+        "name": "svc-dem_2026_0105 Latency Violation",
+        "condition": "p99_latency > 800ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-006",
+        "component_id": "svc-dem_2026_0105",
+        "component_type": "microservice",
+        "name": "svc-dem_2026_0105 Availability Drop",
+        "condition": "availability < 99.95%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-007",
+        "component_id": "db-prod",
+        "component_type": "database",
+        "name": "db-prod Connection Pool Exhaustion",
+        "condition": "connection_pool_utilization > 85%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "dba-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-008",
+        "component_id": "db-prod",
+        "component_type": "database",
+        "name": "db-prod Replication Lag Warning",
+        "condition": "replication_lag_seconds > 5s",
+        "severity": "high",
+        "notify": [
+          "ops-alerts@company.com",
+          "dba-oncall@company.com"
+        ]
       }
     ],
     "proposed_dashboards": [
       {
-        "dashboard_id": "DSH-001",
-        "title": "svc-dem_2026_0105 / db-prod / cache-prod / auth-service Production Health Dashboard",
+        "dashboard_id": "DSH-0105",
+        "title": "DEM-2026-0105 Enterprise Production Monitoring Dashboard",
         "panels": [
           "latency_p50_p95_p99",
           "error_rate_5m",
           "throughput_rps",
-          "system_cpu_memory"
+          "system_cpu_memory",
+          "mongo_connection_pool"
+        ],
+        "widgets": [
+          {
+            "widget_id": "WID-01",
+            "type": "timeseries",
+            "title": "Application Latency (p50, p95, p99)",
+            "query": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 800ms"
+          },
+          {
+            "widget_id": "WID-02",
+            "type": "gauge",
+            "title": "Service Availability SLO Target",
+            "query": "sum(rate(http_requests_total{status!~'5..'}[5m])) / sum(rate(http_requests_total[5m])) * 100 (Target: 99.95%)"
+          },
+          {
+            "widget_id": "WID-03",
+            "type": "stat",
+            "title": "HTTP 5xx Error Spike Rate",
+            "query": "sum(rate(http_requests_total{status=~'5..'}[5m]))"
+          },
+          {
+            "widget_id": "WID-04",
+            "type": "bar",
+            "title": "Database Connection Pool & Replication Lag",
+            "query": "mongodb_ss_connections{conn_type='current'} / mongodb_ss_connections{conn_type='available'}"
+          },
+          {
+            "widget_id": "WID-05",
+            "type": "logs",
+            "title": "Kafka Consumer Lag & Event Queue Saturation",
+            "query": "kafka_consumergroup_lag"
+          }
         ]
       }
     ],
-    "sre_reviewed": true,
-    "status": "approved"
+    "sre_reviewed": false,
+    "sre_reviewed_by": null,
+    "status": "draft"
   },
   "handover": {
     "handover_id": "HO-0105-1",

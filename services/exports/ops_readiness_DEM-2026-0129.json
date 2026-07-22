@@ -1,0 +1,48 @@
+{
+  "demand_id": "DEM-2026-0129",
+  "monitoring": null,
+  "handover": null,
+  "validation": {
+    "validation_id": "RV-0129-1",
+    "demand_id": "DEM-2026-0129",
+    "plan_id": "PLN-0129-1",
+    "validated_at": "2026-07-22T07:19:09Z",
+    "criteria_results": [
+      {
+        "criterion": "monitoring_configured",
+        "status": "fail",
+        "evidence": "FAIL: Monitoring plan not generated."
+      },
+      {
+        "criterion": "support_team_briefed",
+        "status": "fail",
+        "evidence": "Support team has not been briefed on this release"
+      },
+      {
+        "criterion": "runbook_reviewed",
+        "status": "fail",
+        "evidence": "Support runbook review is pending"
+      },
+      {
+        "criterion": "known_errors_documented",
+        "status": "warn",
+        "evidence": "Active defects exist that are not documented in KB"
+      },
+      {
+        "criterion": "on_call_assigned",
+        "status": "fail",
+        "evidence": "No resources assigned to the support shift rotation"
+      }
+    ],
+    "gaps": [
+      "FAIL: Monitoring plan not generated.",
+      "Operations/Support team briefing (KT session) is pending.",
+      "Deployment & support runbook has not been reviewed by operations.",
+      "2 known errors or unresolved defects are pending KB documentation.",
+      "Support on-call schedule has not been assigned for production go-live."
+    ],
+    "overall_status": "fail",
+    "sign_off_by": null,
+    "status": "pending-approval"
+  }
+}
