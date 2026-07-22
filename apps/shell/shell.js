@@ -126,6 +126,11 @@ function switchStage(stageId) {
       window.renderTestQualityScreen();
       window.fetchTestQualityData();
     }
+  } else if (stageId === 'ops-readiness') {
+    if (window.renderOpsReadinessScreen) {
+      window.renderOpsReadinessScreen();
+      window.fetchOpsReadinessData();
+    }
   } else {
     // Render the placeholder web component for other stages
     viewport.innerHTML = `<module-placeholder module-id="${stageId}"></module-placeholder>`;

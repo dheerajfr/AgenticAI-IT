@@ -46,9 +46,14 @@ app.add_middleware(
 def health_check():
     return {"status": "healthy", "stage": 7}
 
-# ==========================================
-# Test Suite Endpoints
-# ==========================================
+
+@app.get("/api/test-quality")
+def get_all_test_quality():
+    """Root list endpoint — returns all test suite records."""
+    return db.get_all_test_suites()
+
+
+
 
 @app.get("/api/test-quality/suites", response_model=List[TestSuiteRecord])
 def get_all_suites():
@@ -97,6 +102,31 @@ def provision_test_data(req: TestDataRequest):
 @app.get("/api/test-quality/defect-triage", response_model=List[DefectTriageRecord])
 def get_all_triages():
     return db.get_all_defect_triages()
+
+@app.get("/api/test-quality/defects")
+def get_all_defects():
+    """Returns all defects from the defects database table across all demands."""
+    try:
+        import json
+        from shared_db.connection import get_db
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT demand_id, id, status, data FROM defects WHERE soft_delete = 0")
+            rows = cursor.fetchall()
+            results = []
+            for r in rows:
+                d_data = json.loads(r[3])
+                d_data["demand_id"] = r[0]
+                d_data["status"] = r[2] or d_data.get("status") or "Open"
+                if "id" not in d_data:
+                    d_data["id"] = r[1]
+                if "defect_id" not in d_data:
+                    d_data["defect_id"] = r[1]
+                results.append(d_data)
+            return results
+    except Exception as e:
+        print(f"[Test-Quality] Error querying defects: {e}")
+        return []
 
 @app.get("/api/test-quality/defect-triage/{triage_id}", response_model=DefectTriageRecord)
 def get_triage(triage_id: str):

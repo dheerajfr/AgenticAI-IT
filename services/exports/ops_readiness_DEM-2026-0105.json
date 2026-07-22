@@ -1,0 +1,186 @@
+{
+  "demand_id": "DEM-2026-0105",
+  "monitoring": {
+    "monitoring_id": "MON-0105-1",
+    "demand_id": "DEM-2026-0105",
+    "plan_id": "PLN-0105-1",
+    "environment": "prod",
+    "proposed_alerts": [
+      {
+        "alert_id": "ALT-001",
+        "component_id": "svc-dem_2026_0105",
+        "name": "svc-dem_2026_0105 Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-005",
+        "component_id": "svc-dem_2026_0105",
+        "name": "svc-dem_2026_0105 Availability Drop",
+        "condition": "availability < 99.95%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-002",
+        "component_id": "db-prod",
+        "name": "db-prod Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-006",
+        "component_id": "db-prod",
+        "name": "db-prod Availability Drop",
+        "condition": "availability < 99.95%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-003",
+        "component_id": "cache-prod",
+        "name": "cache-prod Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-007",
+        "component_id": "cache-prod",
+        "name": "cache-prod Availability Drop",
+        "condition": "availability < 99.95%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-004",
+        "component_id": "auth-service",
+        "name": "auth-service Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-008",
+        "component_id": "auth-service",
+        "name": "auth-service Availability Drop",
+        "condition": "availability < 99.95%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      }
+    ],
+    "proposed_dashboards": [
+      {
+        "dashboard_id": "DSH-001",
+        "title": "svc-dem_2026_0105 / db-prod / cache-prod / auth-service Production Health Dashboard",
+        "panels": [
+          "latency_p50_p95_p99",
+          "error_rate_5m",
+          "throughput_rps",
+          "system_cpu_memory"
+        ]
+      }
+    ],
+    "sre_reviewed": true,
+    "status": "approved"
+  },
+  "handover": {
+    "handover_id": "HO-0105-1",
+    "demand_id": "DEM-2026-0105",
+    "plan_id": "PLN-0105-1",
+    "created_at": "2026-07-21T11:10:30Z",
+    "support_runbook": {
+      "title": "Ops Support Runbook - Runbook for svc-dem_2026_0105-prod-svr-01 (prod)",
+      "sections": [
+        {
+          "section": "Health Checks",
+          "content": "Verify endpoint `/api/health` status returns 200 OK within 150ms."
+        },
+        {
+          "section": "Log Inspection",
+          "content": "Filter container logs in Splunk or Datadog for keywords: ERROR, EXCEPTION, CRITICAL."
+        },
+        {
+          "section": "Escalation Matrix",
+          "content": "Primary on-call contact: huzaifa@example.com. Support distribution list: ops-support@company.com."
+        }
+      ]
+    },
+    "known_errors": [
+      {
+        "ke_id": "KE-001",
+        "title": "Slight DB spike during cache warming",
+        "workaround": "Safe to ignore; clears automatically after 3 minutes",
+        "linked_defect": "None"
+      }
+    ],
+    "kt_pack_url": "sharepoint://kt/ops-readiness-0105-20260721",
+    "reviewed_by": "ops-manager@company.com",
+    "status": "reviewed"
+  },
+  "validation": {
+    "validation_id": "RV-0105-1",
+    "demand_id": "DEM-2026-0105",
+    "plan_id": "PLN-0105-1",
+    "validated_at": "2026-07-21T11:12:47Z",
+    "criteria_results": [
+      {
+        "criterion": "monitoring_configured",
+        "status": "fail",
+        "evidence": "No monitoring dashboard or alert reference configured"
+      },
+      {
+        "criterion": "support_team_briefed",
+        "status": "pass",
+        "evidence": "KT session and handover walk-through completed with operations group"
+      },
+      {
+        "criterion": "runbook_reviewed",
+        "status": "pass",
+        "evidence": "Operations support runbook drafted and approved by delivery lead"
+      },
+      {
+        "criterion": "known_errors_documented",
+        "status": "pass",
+        "evidence": "All active defects translated to known error items and documented in KB"
+      },
+      {
+        "criterion": "on_call_assigned",
+        "status": "pass",
+        "evidence": "On-call roster established and personnel assigned to go-live shift"
+      }
+    ],
+    "gaps": [
+      "Monitoring is not fully configured or referenced in SRE."
+    ],
+    "overall_status": "fail",
+    "sign_off_by": null,
+    "status": "pending-approval"
+  }
+}

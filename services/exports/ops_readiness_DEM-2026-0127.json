@@ -1,0 +1,224 @@
+{
+  "demand_id": "DEM-2026-0127",
+  "monitoring": {
+    "monitoring_id": "MON-0127-1",
+    "demand_id": "DEM-2026-0127",
+    "plan_id": "PLN-0127-1",
+    "environment": "prod",
+    "proposed_alerts": [
+      {
+        "alert_id": "ALT-001",
+        "component_id": "svc-ecom-chatbot",
+        "name": "svc-ecom-chatbot Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-006",
+        "component_id": "svc-ecom-chatbot",
+        "name": "svc-ecom-chatbot Availability Drop",
+        "condition": "availability < 99.95%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-002",
+        "component_id": "nosql-database-mongo-4-2",
+        "name": "nosql-database-mongo-4-2 Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-007",
+        "component_id": "nosql-database-mongo-4-2",
+        "name": "nosql-database-mongo-4-2 Availability Drop",
+        "condition": "availability < 99.95%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-003",
+        "component_id": "realtime-message-queue-kafka-2-6",
+        "name": "realtime-message-queue-kafka-2-6 Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-008",
+        "component_id": "realtime-message-queue-kafka-2-6",
+        "name": "realtime-message-queue-kafka-2-6 Availability Drop",
+        "condition": "availability < 99.95%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-004",
+        "component_id": "oauth2-auth-service",
+        "name": "oauth2-auth-service Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-009",
+        "component_id": "oauth2-auth-service",
+        "name": "oauth2-auth-service Availability Drop",
+        "condition": "availability < 99.95%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-005",
+        "component_id": "external-nlp-api-v2",
+        "name": "external-nlp-api-v2 Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-010",
+        "component_id": "external-nlp-api-v2",
+        "name": "external-nlp-api-v2 Availability Drop",
+        "condition": "availability < 99.95%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      }
+    ],
+    "proposed_dashboards": [
+      {
+        "dashboard_id": "DSH-001",
+        "title": "svc-ecom-chatbot / nosql-database-mongo-4-2 / realtime-message-queue-kafka-2-6 / oauth2-auth-service / external-nlp-api-v2 Production Health Dashboard",
+        "panels": [
+          "latency_p50_p95_p99",
+          "error_rate_5m",
+          "throughput_rps",
+          "system_cpu_memory"
+        ]
+      }
+    ],
+    "sre_reviewed": true,
+    "status": "approved"
+  },
+  "handover": {
+    "handover_id": "HO-0127-1",
+    "demand_id": "DEM-2026-0127",
+    "plan_id": "PLN-0127-1",
+    "created_at": "2026-07-21T10:25:42Z",
+    "support_runbook": {
+      "title": "Ops Support Runbook - Runbook for svc-ecom-chatbot-prod-svr-01 (prod)",
+      "sections": [
+        {
+          "section": "Health Checks",
+          "content": "Verify endpoint `/api/health` status returns 200 OK within 150ms."
+        },
+        {
+          "section": "Log Inspection",
+          "content": "Filter container logs in Splunk or Datadog for keywords: ERROR, EXCEPTION, CRITICAL."
+        },
+        {
+          "section": "Escalation Matrix",
+          "content": "Primary on-call contact: delivery-oncall@company.com. Support distribution list: ops-support@company.com."
+        }
+      ]
+    },
+    "known_errors": [
+      {
+        "ke_id": "KE-BUG-0127-01",
+        "title": "Payment authorization validation returns 500 error",
+        "workaround": "[AI-Generated] Temporarily monitor BUG-0127-01 and apply failover or restart services if degradation occurs.",
+        "linked_defect": "BUG-0127-01",
+        "priority": "Critical",
+        "severity": "Blocker",
+        "assigned_to": "Sarah Jenkins",
+        "status": "Open",
+        "description": "Authorization service fails transaction verification payload bounds check.",
+        "operational_impact": "Potential operational degradation in production when triggering Payment authorization validation returns 500 error."
+      },
+      {
+        "ke_id": "KE-BUG-0127-02",
+        "title": "UI points calculation text overlaps in mobile view",
+        "workaround": "[AI-Generated] Temporarily monitor BUG-0127-02 and apply failover or restart services if degradation occurs.",
+        "linked_defect": "BUG-0127-02",
+        "priority": "Medium",
+        "severity": "Cosmetic",
+        "assigned_to": "Dave Miller",
+        "status": "Open",
+        "description": "Layout boundaries overlap inside transaction sidebar panel.",
+        "operational_impact": "Potential operational degradation in production when triggering UI points calculation text overlaps in mobile view."
+      }
+    ],
+    "kt_pack_url": "sharepoint://kt/ops-readiness-0127-20260721",
+    "reviewed_by": "ops-manager@company.com",
+    "status": "reviewed"
+  },
+  "validation": {
+    "validation_id": "RV-0127-1",
+    "demand_id": "DEM-2026-0127",
+    "plan_id": "PLN-0127-1",
+    "validated_at": "2026-07-21T10:58:15Z",
+    "criteria_results": [
+      {
+        "criterion": "monitoring_configured",
+        "status": "pass",
+        "evidence": "Observability baseline observability://dashboards/ops-readiness-0127 active"
+      },
+      {
+        "criterion": "support_team_briefed",
+        "status": "pass",
+        "evidence": "KT session and handover walk-through completed with operations group"
+      },
+      {
+        "criterion": "runbook_reviewed",
+        "status": "pass",
+        "evidence": "Operations support runbook drafted and approved by delivery lead"
+      },
+      {
+        "criterion": "known_errors_documented",
+        "status": "pass",
+        "evidence": "All active defects translated to known error items and documented in KB"
+      },
+      {
+        "criterion": "on_call_assigned",
+        "status": "pass",
+        "evidence": "On-call roster established and personnel assigned to go-live shift"
+      }
+    ],
+    "gaps": [],
+    "overall_status": "pass",
+    "sign_off_by": "director.delivery@company.com",
+    "status": "approved"
+  }
+}

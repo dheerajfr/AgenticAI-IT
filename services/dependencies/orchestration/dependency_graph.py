@@ -53,51 +53,54 @@ def sense_node(state: DependencyState) -> Dict[str, Any]:
     plan = state.get("plan")
     if not plan:
         return {"error": "Plan record is missing for auto-sensing."}
-        
-    tasks_info = [
-        {
+    
+    # Format tasks list to pass to LLM
+    tasks_info = []
+    for t in plan.tasks:
+        tasks_info.append({
             "task_id": t.task_id,
             "name": t.name,
             "owner": t.owner,
-            "start_date": str(t.start_date),
-            "end_date": str(t.end_date),
+            "start_date": t.start_date,
+            "end_date": t.end_date,
             "predecessor_task_ids": t.predecessor_task_ids
-        }
-        for t in plan.tasks
-    ]
-
+        })
+        
     prompt = f"""
-    You are an AI Project Management Analyst specializing in Knowledge Graph Analytics, NLP Entity Extraction, and Semantic Retrieval.
+    You are an AI Project Management Analyst specializing in dependency risk detection.
     
-    Your task is to automatically discover dependencies and risk links within this project plan by analyzing:
-    1. The project task metadata list.
-    
+    Your task is to automatically discover dependencies AND resource risks within this project plan.
+
     Plan Details:
     - Plan ID: {plan.plan_id}
     - Demand ID: {plan.demand_id}
     - Committed End Date: {plan.end_date}
     
     ---
-    1. Tasks List:
+    Tasks List:
     {json.dumps(tasks_info, indent=2)}
     
     ---
-    Using Knowledge Graph mapping, identify logical/technical dependencies between these tasks (e.g., if one task's work description or predecessor_task_ids indicates it relies on another task being completed first, or if the component architecture requires a database cluster/endpoint setup before API/schema deployment, etc.).
-    Also classify the type of dependency edge as:
-    - "technical"
-    - "resource"
-    - "data"
-    - "external-vendor"
-    
+    Perform two types of analysis:
+
+    1. TECHNICAL dependencies: predecessor/successor relationships between tasks based on
+       predecessor_task_ids, work descriptions, or logical sequencing.
+
+    2. RESOURCE dependencies: identify tasks where the owner is missing, unassigned, "TBD",
+       "Hire required", or where the task requires a skill that the current owner cannot provide.
+       These should be typed as "resource" and given status "open" (unassigned) or "at-risk"
+       (partially staffed).
+
     For each dependency discovered, output a JSON object with:
     - dependency_id: string (generate a unique code like DEP-XXXX)
     - source_task_id: string (task that depends on another)
     - target_task_id: string (task being depended on)
-    - type: string, one of "technical", "resource", "data", "external-vendor"
-    - status: string, "open"
-    - owner: string (name of the owner responsible, usually the source task owner)
-    
-    Return a valid JSON array containing these dependency objects under the key "detected_dependencies".
+    - type: one of "technical", "resource", "data", "external-vendor"
+    - status: "open" (blocked/unassigned) | "at-risk" | "resolved"
+    - owner: string (name of the responsible person, or "" if unassigned)
+    - risk_reason: string (brief reason why this dependency is at risk, e.g. "No frontend engineer assigned", "Predecessor owner has not responded")
+
+    Return a valid JSON object with key "detected_dependencies" containing an array of these objects.
     """
     
     try:
@@ -129,6 +132,24 @@ def sense_node(state: DependencyState) -> Dict[str, Any]:
                 })
                 dep_counter += 1
         return {"detected_dependencies": detected}
+
+
+# ---------------------------------------------------------------------------
+# Helper: detect unowned / hire-required task owners
+# ---------------------------------------------------------------------------
+
+UNOWNED_SIGNALS = ["tbd", "unassigned", "hire required", "n/a", "none", "no owner",
+                   "hire", "vacant", "open", "pending", "unknown"]
+
+def is_unowned(owner_str: Optional[str]) -> bool:
+    """Return True if owner_str indicates no person is assigned."""
+    if not owner_str:
+        return True
+    normalised = owner_str.strip().lower()
+    for sig in UNOWNED_SIGNALS:
+        if sig in normalised:
+            return True
+    return False
 
 
 def calculate_dependency_risk(dep: DependencyEdge, plan: Optional[PlanRecord]) -> Dict[str, Any]:
@@ -197,82 +218,43 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
     plan = state.get("plan")
     tone = state.get("tone") or "friendly"
     channel = state.get("channel") or "email"
-    selected_task = state.get("selected_task")
     
     # Gather task info from plan if available
-    source_id = dep.source_task_id
-    target_id = dep.target_task_id
     source_name = dep.source_task_id
     target_name = dep.target_task_id
     source_owner = None
     target_owner = None
 
-    if plan and selected_task:
-        sel_rec = None
+    if plan:
         for t in plan.tasks:
-            if t.task_id == selected_task:
-                sel_rec = t
-                break
-        if sel_rec:
-            source_id = sel_rec.task_id
-            source_name = sel_rec.name
-            source_owner = sel_rec.owner
-            
-            pred_id = None
-            if sel_rec.predecessor_task_ids:
-                pred_id = sel_rec.predecessor_task_ids[0]
-            else:
-                idx = -1
-                for i, t in enumerate(plan.tasks):
-                    if t.task_id == selected_task:
-                        idx = i
-                        break
-                if idx > 0:
-                    pred_id = plan.tasks[idx - 1].task_id
-            
-            if pred_id:
-                for t in plan.tasks:
-                    if t.task_id == pred_id:
-                        target_id = t.task_id
-                        target_name = t.name
-                        target_owner = t.owner
-                        break
+            if t.task_id == dep.source_task_id:
+                source_name = t.name
+                source_owner = t.owner
+            if t.task_id == dep.target_task_id:
+                target_name = t.name
+                target_owner = t.owner
 
-    # If not resolved via selected_task, resolve via dependency source/target task IDs
+    # If tasks are in different plans (cross-programme), look up across all portfolio plans
     if not source_owner or not target_owner:
-        if plan:
-            for t in plan.tasks:
-                if t.task_id == dep.source_task_id:
+        all_plans = plan_loader.load_all_plans()
+        for p in all_plans:
+            for t in p.tasks:
+                if not source_owner and t.task_id == dep.source_task_id:
                     source_name = t.name
                     source_owner = t.owner
-                if t.task_id == dep.target_task_id:
+                if not target_owner and t.task_id == dep.target_task_id:
                     target_name = t.name
                     target_owner = t.owner
 
-        # If tasks are in different plans (cross-programme), look up across all portfolio plans
-        if not source_owner or not target_owner:
-            all_plans = plan_loader.load_all_plans()
-            for p in all_plans:
-                for t in p.tasks:
-                    if not source_owner and t.task_id == dep.source_task_id:
-                        source_name = t.name
-                        source_owner = t.owner
-                    if not target_owner and t.task_id == dep.target_task_id:
-                        target_name = t.name
-                        target_owner = t.owner
-
     # Fallback to dep.owner if still not found
     if not source_owner:
-        source_owner = dep.owner or "admin@example.com"
+        source_owner = dep.owner
     if not target_owner:
-        target_owner = dep.owner or "admin@example.com"
+        target_owner = dep.owner
 
     # Risk is calculated deterministically by the backend, not the LLM.
     risk = calculate_dependency_risk(dep, plan)
     on_critical_path = risk["on_critical_path"]
-    if plan and selected_task:
-        on_critical_path = source_id in plan.critical_path_task_ids or target_id in plan.critical_path_task_ids
-        
     threat_level = risk["threat_level"]
     escalation_required = risk["escalation_required"]
     days_to_release = risk["days_to_release"]
@@ -283,14 +265,45 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
         is_self_dependency = (source_owner.lower().strip() == target_owner.lower().strip())
 
     # Workflow selection
-    if escalation_required:
+    target_is_unowned = is_unowned(target_owner)
+    source_is_unowned = is_unowned(source_owner)
+    any_unowned = target_is_unowned or source_is_unowned
+
+    if any_unowned:
+        workflow = "no_owner"
+        # Escalate unowned tasks on critical path
+        if on_critical_path:
+            escalation_required = True
+            threat_level = "high"
+    elif escalation_required:
         workflow = "escalation"
     elif is_self_dependency:
         workflow = "self_dependency"
     else:
         workflow = "owner_chase"
 
-    if workflow == "self_dependency":
+    if workflow == "no_owner":
+        missing_roles = []
+        if target_is_unowned:
+            missing_roles.append(f"'{target_name}' (predecessor) — no owner assigned")
+        if source_is_unowned:
+            missing_roles.append(f"'{source_name}' (dependent task) — no owner assigned")
+        missing_roles_str = "\n".join(f"• {r}" for r in missing_roles)
+
+        prompt_instruction = f"""
+        This is a NO-OWNER / RESOURCE SHORTAGE workflow.
+
+        One or more tasks in this dependency chain have no assigned owner:
+        {missing_roles_str}
+
+        Do NOT generate a reminder message addressed to any person.
+        Instead, generate a structured action notice:
+        - State which task has no owner and what role/skill is required.
+        - List 3-5 concrete staffing actions (e.g. Request Resource, Raise Staffing Request, Notify Project Manager, Assign Available Engineer, Delay Project Start).
+        - Include an urgency note if the task is on the critical path.
+        """
+
+    elif workflow == "self_dependency":
         prompt_instruction = f"""
         Since both the predecessor task ('{target_name}') and the downstream task ('{source_name}') are owned by the same person ({target_owner}), this is a SELF-DEPENDENCY workflow.
         
@@ -317,6 +330,7 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
         - Explain that '{source_owner}' (or downstream task '{source_name}') is waiting on the completion of '{target_name}'.
         - Request an updated ETA or status.
         """
+
     prompt = f"""
     You are an Automated Project Manager. You need to write a nudge message to check the status of a dependency.
 
@@ -327,8 +341,8 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
 
     Dependency Details:
     Dependency ID: {dep.dependency_id}
-    Source Task: {source_name} (ID: {source_id}, Owner: {source_owner})
-    Target Task: {target_name} (ID: {target_id}, Owner: {target_owner})
+    Source Task: {source_name} (ID: {dep.source_task_id}, Owner: {source_owner})
+    Target Task: {target_name} (ID: {dep.target_task_id}, Owner: {target_owner})
     Type: {dep.type}
     Status: {dep.status}
     Is either task on Critical Path? {on_critical_path}
@@ -405,11 +419,45 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
         target_display = target_owner.split('@')[0] if '@' in target_owner else target_owner
         source_display = source_owner.split('@')[0] if '@' in source_owner else source_owner
 
-        if workflow == "escalation":
+        if workflow == "no_owner":
+            missing = []
+            if target_is_unowned:
+                missing.append(f"'{target_name}' (ID: {dep.target_task_id})")
+            if source_is_unowned:
+                missing.append(f"'{source_name}' (ID: {dep.source_task_id})")
+            tasks_str = " and ".join(missing)
+
             nudge = (
-                f"Escalation Alert: Dependency {dep.dependency_id} is currently blocking '{source_name}' ({dep.source_task_id}). "
-                f"Predecessor task '{target_name}' ({dep.target_task_id}) is past its scheduled timeline, "
-                f"impacting critical path milestones. Immediate attention and updated ETA required."
+                f"Action Required\n\n"
+                f"No owner has been assigned to {tasks_str}.\n"
+                f"This dependency is currently BLOCKED due to missing resource assignment.\n\n"
+                f"Suggested Actions:\n"
+                f"✓ Request Resource from Resource Manager\n"
+                f"✓ Raise Staffing Request for required skill\n"
+                f"✓ Notify Project Manager of staffing gap\n"
+                f"✓ Adjust Schedule to accommodate hiring timeline\n"
+                f"✓ Escalate Staffing Risk to leadership{' — Critical Path impacted' if on_critical_path else ''}"
+            )
+            return {
+                "nudge_message": nudge,
+                "threat_level": "high" if on_critical_path else threat_level,
+                "escalation_required": on_critical_path,
+                "confidence": 96 if on_critical_path else 88,
+                "confidence_reasons": [
+                    "No owner assigned to task",
+                    "Critical path task blocked" if on_critical_path else "Non-critical task unassigned",
+                    "Downstream tasks cannot start",
+                    "Required skill unavailable in current roster"
+                ]
+            }
+
+        elif workflow == "escalation":
+            nudge = (
+                f"This is a priority follow-up regarding dependency {dep.dependency_id}. "
+                f"'{source_name}' ({dep.source_task_id}) is currently blocked by '{target_name}' "
+                f"({dep.target_task_id}), which is past its scheduled timeline and is impacting "
+                f"the critical path. Please provide an updated completion date or raise any "
+                f"blockers so that we can take appropriate action without further delay."
             )
         elif workflow == "self_dependency":
             if channel in ["teams", "slack"]:
@@ -567,7 +615,13 @@ def impact_node(state: DependencyState) -> Dict[str, Any]:
                 "new_start_date": format_date(new_start),
                 "original_end_date": format_date(orig_end),
                 "new_end_date": format_date(new_end),
-                "on_critical_path": t_id in associated_p.critical_path_task_ids
+                "on_critical_path": t_id in associated_p.critical_path_task_ids,
+                # Real owner/plan so downstream cross-programme analysis can
+                # identify actual affected people and projects instead of
+                # falling back to placeholder data.
+                "owner": t.owner,
+                "plan_id": associated_p.plan_id,
+                "plan_release_name": associated_p.release_name or associated_p.plan_id
             })
             
     # Calculate if the target associated plan's end date slipped

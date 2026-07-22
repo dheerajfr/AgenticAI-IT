@@ -1,0 +1,104 @@
+{
+  "demand_id": "DEM-2026-0126",
+  "monitoring": {
+    "monitoring_id": "MON-0126-1",
+    "demand_id": "DEM-2026-0126",
+    "plan_id": "PLN-0126-1",
+    "environment": "prod",
+    "proposed_alerts": [
+      {
+        "alert_id": "ALT-001",
+        "component_id": "svc-payments-api",
+        "name": "svc-payments-api Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-003",
+        "component_id": "svc-payments-api",
+        "name": "svc-payments-api Availability Drop",
+        "condition": "availability < 99.9%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-002",
+        "component_id": "svc-auth",
+        "name": "svc-auth Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-004",
+        "component_id": "svc-auth",
+        "name": "svc-auth Availability Drop",
+        "condition": "availability < 99.9%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      }
+    ],
+    "proposed_dashboards": [
+      {
+        "dashboard_id": "DSH-001",
+        "title": "svc-payments-api / svc-auth Production Health Dashboard",
+        "panels": [
+          "latency_p50_p95_p99",
+          "error_rate_5m",
+          "throughput_rps",
+          "system_cpu_memory"
+        ]
+      }
+    ],
+    "sre_reviewed": false,
+    "status": "draft"
+  },
+  "handover": {
+    "handover_id": "HO-0126-1",
+    "demand_id": "DEM-2026-0126",
+    "plan_id": "PLN-0126-1",
+    "created_at": "2026-07-21T06:50:30Z",
+    "support_runbook": {
+      "title": "Ops Support Runbook - Deployment Runbook",
+      "sections": [
+        {
+          "section": "Health Checks",
+          "content": "Verify endpoint `/api/health` status returns 200 OK within 150ms."
+        },
+        {
+          "section": "Log Inspection",
+          "content": "Filter container logs in Splunk or Datadog for keywords: ERROR, EXCEPTION, CRITICAL."
+        },
+        {
+          "section": "Escalation Matrix",
+          "content": "Primary on-call contact: john@example.com, sara@example.com. Support distribution list: ops-support@company.com."
+        }
+      ]
+    },
+    "known_errors": [
+      {
+        "ke_id": "KE-001",
+        "title": "Connection Pool Timeout",
+        "workaround": "Scale out deployment pod replicas or restart services during low traffic",
+        "linked_defect": "BUG-1"
+      }
+    ],
+    "kt_pack_url": "sharepoint://kt/ops-readiness-0126-20260721",
+    "reviewed_by": null,
+    "status": "draft"
+  },
+  "validation": null
+}

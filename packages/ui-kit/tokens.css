@@ -1,5 +1,5 @@
 /* Packages Design Tokens */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
 :root {
   /* Color Palette - Premium Slate & Dark Indigo Theme */
@@ -10,8 +10,8 @@
   --border-focus: #4f46e5;
   
   --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
   
   --color-brand: #6366f1;
   --color-brand-hover: #4f46e5;
@@ -35,7 +35,7 @@
   --color-status-red-border: #7f1d1d;
   
   /* Typography */
-  --font-sans: 'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Inter', 'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif;
   --font-display: 'Outfit', sans-serif;
   
   /* Spacing */

@@ -39,6 +39,8 @@ print("Loading build-deploy service...")
 build_deploy_app = load_service("build-deploy")
 print("Loading test-quality service...")
 test_quality_app = load_service("test-quality")
+print("Loading ops-readiness service...")
+ops_readiness_app = load_service("ops-readiness")
 print("Gateway ready.")
 
 from starlette.staticfiles import StaticFiles
@@ -73,6 +75,9 @@ async def app(scope, receive, send):
             return
         elif path.startswith("/api/test-quality"):
             await test_quality_app(scope, receive, send)
+            return
+        elif path.startswith("/api/ops-readiness"):
+            await ops_readiness_app(scope, receive, send)
             return
             
         # 2. Route UI
