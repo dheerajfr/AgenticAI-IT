@@ -379,7 +379,14 @@ function renderDashboardView() {
         </form>
       </div>
     </div>
-  `;
+  
+    <!-- Redirection Footer -->
+    <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
+      <button onclick="window.location.hash = 'dashboard';" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,0.35); font-weight: 700; padding: 0.75rem 1.5rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-family: var(--font-sans); transition: transform 0.2s ease;">
+        Return to Dashboard &rarr;
+      </button>
+    </div>
+`;
 }
 
 function handleFiltersChange() {

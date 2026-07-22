@@ -293,6 +293,18 @@ async function renderProjectDetails(demandId) {
       ${renderTestCard(data)}
       ${renderReleaseCard(data)}
     </div>
+
+    <!-- Always-on Capabilities Accordions -->
+    <div style="margin-top: 1.5rem;">
+      <h3 style="font-family: var(--font-display); font-size: 1rem; color: var(--text-secondary); margin-bottom: 1rem;">Always-on Capabilities</h3>
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        ${renderRiskIssuesCard(data)}
+        ${renderBudgetCostCard(data)}
+        ${renderVendorCoordinationCard(data)}
+        ${renderReportingCommunicationCard(data)}
+        ${renderKnowledgeArtifactsCard(data)}
+      </div>
+    </div>
   `;
 }
 
@@ -568,6 +580,22 @@ function renderReleaseCard(data) {
   }
 
   return renderCard('Release & Change', 'release-change', status, outputs, approvals, errorsHtml);
+}
+
+function renderRiskIssuesCard(data) {
+  return renderCard('Risk & Issues', 'risk-issues', 'Monitoring', '<span style="color:var(--text-muted);">Live tracking active.</span>', '');
+}
+function renderBudgetCostCard(data) {
+  return renderCard('Budget & Cost', 'budget-cost', 'Monitoring', '<span style="color:var(--text-muted);">Financial tracking active.</span>', '');
+}
+function renderVendorCoordinationCard(data) {
+  return renderCard('Vendor Coordination', 'vendor-coordination', 'Monitoring', '<span style="color:var(--text-muted);">Vendor SLA tracking active.</span>', '');
+}
+function renderReportingCommunicationCard(data) {
+  return renderCard('Reporting & Comms', 'reporting-communication', 'Monitoring', '<span style="color:var(--text-muted);">Report generation active.</span>', '');
+}
+function renderKnowledgeArtifactsCard(data) {
+  return renderCard('Knowledge & Artefacts', 'knowledge-artifacts', 'Monitoring', '<span style="color:var(--text-muted);">Knowledge sync active.</span>', '');
 }
 
 // Global style for detail dropdowns

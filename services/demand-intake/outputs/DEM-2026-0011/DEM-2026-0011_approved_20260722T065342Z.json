@@ -1,0 +1,44 @@
+{
+  "demand_id": "DEM-2026-0011",
+  "title": "Agentic AI in HR",
+  "description": "Request related to the application or development of agentic AI within the Human Resources domain.",
+  "type": "project",
+  "domain": "Human Resources",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-22",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": "DEM-2026-0006",
+  "business_case_summary": "Business Case Summary: Agentic AI in HR (DEM-2026-0011)  \nExecutive Summary  \nThis project aims to implement agentic AI within Human Resources to enhance decision-making and operational efficiency. It focuses on leveraging advanced AI capabilities to automate and optimize HR processes.\n\nBusiness Value/Impact  \nThe integration of agentic AI will reduce manual workload, improve recruitment accuracy, and accelerate employee onboarding. This will lead to cost savings and a more agile HR function aligned with strategic goals.\n\nRisk Mitigation  \nMedium risk concerns around data privacy and AI decision transparency will be addressed through strict compliance controls and regular audits. Ongoing monitoring and user training will ensure responsible AI deployment.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 88,
+  "earliest_start_date": "2026-08-21",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 11 total active team members evaluated.",
+    "Technical capability profiling: 26 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 360/440 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Senior Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    }
+  ],
+  "skill_gaps": [
+    "AI",
+    "Machine Learning",
+    "HR Systems",
+    "Backend Development",
+    "Frontend Development",
+    "Data Analysis"
+  ]
+}
