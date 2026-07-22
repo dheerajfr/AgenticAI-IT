@@ -3,119 +3,9 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-# Add current folder and services folder to path, and mock call_gemini globally before app import
+# Add current folder and services folder to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-import llm_client
-
-original_call_gemini = llm_client.call_gemini
-
-def dummy_call_gemini(prompt, system_instruction=None, is_json=False, **kwargs):
-    sys_lower = (system_instruction or "").lower()
-    if is_json:
-        if "quality assurance" in sys_lower:
-            return {
-                "suite_id": "TST-0068-1",
-                "demand_id": "DEM-2026-0068",
-                "plan_id": "PLN-0068-1",
-                "generated_at": "2026-07-13T10:00:00Z",
-                "test_cases": [
-                    {
-                        "test_id": "TC-001",
-                        "story_id": "US-101",
-                        "title": "Successful payment with valid card",
-                        "steps": ["POST /api/payments with valid card", "Assert 200 and transaction_id returned"],
-                        "expected_result": "Payment accepted, transaction recorded",
-                        "priority": "critical",
-                        "type": "functional"
-                    }
-                ],
-                "coverage_summary": {
-                    "total_stories": 1,
-                    "stories_covered": 1,
-                    "total_test_cases": 1,
-                    "critical_path_coverage_pct": 100.0
-                },
-                "status": "draft"
-            }
-        elif "test data" in sys_lower:
-            return {
-                "data_provision_id": "TDP-0068-1",
-                "suite_id": "TST-0068-1",
-                "demand_id": "DEM-2026-0068",
-                "environment": "test",
-                "datasets": [
-                    {
-                        "schema": "db://payments/transactions",
-                        "record_count": 100,
-                        "masking_applied": True,
-                        "location": "test-db://payments/synthetic_20260714"
-                    }
-                ],
-                "privacy_sign_off": None,
-                "signed_off_by": None,
-                "expires_at": "2026-07-16T10:00:00Z",
-                "status": "pending-approval"
-            }
-        elif "defect triage" in sys_lower:
-            return {
-                "triage_id": "TRG-0068-1",
-                "test_run_id": "TR-0068-1",
-                "demand_id": "DEM-2026-0068",
-                "triaged_defects": [
-                    {
-                        "defect_id": "BUG-4421",
-                        "severity": "critical",
-                        "priority": 1,
-                        "cluster": "payments-timeout",
-                        "duplicate_of": None,
-                        "root_cause_hint": "Connection pool exhausted",
-                        "assigned_to": "d.chen",
-                        "recommended_action": "fix-before-release"
-                    }
-                ],
-                "release_risk_summary": "1 critical defect blocks release",
-                "human_confirmed": False,
-                "status": "pending-approval"
-            }
-        elif "devsecops" in sys_lower:
-            return {
-                "security_test_id": "SEC-0068-1",
-                "demand_id": "DEM-2026-0068",
-                "plan_id": "PLN-0068-1",
-                "pipeline_run_id": "CI-RUN-9901",
-                "scanned_at": "2026-07-13T08:00:00Z",
-                "findings": [
-                    {
-                        "finding_id": "FND-001",
-                        "component_id": "svc-payments-api",
-                        "severity": "high",
-                        "category": "SQL Injection",
-                        "location": "src/routes/payments.py:L88",
-                        "exploitable": True,
-                        "draft_fix": "Use parameterised query",
-                        "status": "open"
-                    }
-                ],
-                "summary": {
-                    "critical": 0,
-                    "high": 1,
-                    "medium": 0,
-                    "low": 0
-                },
-                "exploitable_confirmed": False,
-                "signed_off_by": None,
-                "status": "pending-approval"
-            }
-    return {}
-
-llm_client.call_gemini = dummy_call_gemini
-
-@pytest.fixture(autouse=True, scope="module")
-def mock_gemini_global_cleanup():
-    yield
-    llm_client.call_gemini = original_call_gemini
 
 # Clear cached local modules
 for m in list(sys.modules.keys()):
@@ -127,10 +17,20 @@ from context.delivery_context_builder import DeliveryContextBuilder
 
 client = TestClient(app)
 
+# Global variables to share generated IDs across sequential integration test cases
+generated_suite_id = None
+generated_data_provision_id = None
+generated_test_run_id = None
+generated_triage_id = None
+generated_security_test_id = None
+generated_traceability_id = None
+
+
 def test_health_check():
     response = client.get("/api/test-quality/health")
     assert response.status_code == 200
     assert response.json() == {"status": "healthy", "stage": 7}
+
 
 def test_delivery_context_builder():
     # Use real DEM-2026-0001 from the seeded database
@@ -141,7 +41,9 @@ def test_delivery_context_builder():
     assert ctx.estimate is not None
     assert ctx.estimate.estimate_id == "EST-0001-1"
 
+
 def test_test_generation():
+    global generated_suite_id
     payload = {
         "demand_id": "DEM-2026-0001",
         "plan_id": "PLN-0001-1",
@@ -152,19 +54,26 @@ def test_test_generation():
     response = client.post("/api/test-quality/test-generation", json=payload)
     assert response.status_code == 200
     data = response.json()
-    assert data["suite_id"] == "TST-0068-1"
+    assert "suite_id" in data
     assert data["demand_id"] == "DEM-2026-0001"
-    assert len(data["test_cases"]) == 1
-    assert data["test_cases"][0]["title"] == "Successful payment with valid card"
+    assert len(data["test_cases"]) > 0
+    assert "title" in data["test_cases"][0]
+    assert "type" in data["test_cases"][0]
+    
+    generated_suite_id = data["suite_id"]
 
     # Get suite back
-    response_get = client.get("/api/test-quality/suites/TST-0068-1")
+    response_get = client.get(f"/api/test-quality/suites/{generated_suite_id}")
     assert response_get.status_code == 200
-    assert response_get.json()["suite_id"] == "TST-0068-1"
+    assert response_get.json()["suite_id"] == generated_suite_id
+
 
 def test_test_data_provision():
+    global generated_data_provision_id
+    assert generated_suite_id is not None, "Test generation must run first to produce suite_id"
+    
     payload = {
-        "suite_id": "TST-0068-1",
+        "suite_id": generated_suite_id,
         "demand_id": "DEM-2026-0001",
         "target_environment": "test",
         "schema_refs": ["db://payments/transactions"],
@@ -175,19 +84,53 @@ def test_test_data_provision():
     response = client.post("/api/test-quality/test-data", json=payload)
     assert response.status_code == 200
     data = response.json()
-    assert data["data_provision_id"] == "TDP-0068-1"
+    assert "data_provision_id" in data
+    assert data["suite_id"] == generated_suite_id
     assert data["environment"] == "test"
-    assert len(data["datasets"]) == 1
-    assert data["datasets"][0]["schema"] == "db://payments/transactions"
+    assert len(data["datasets"]) > 0
+    
+    generated_data_provision_id = data["data_provision_id"]
 
     # Get provision back
-    response_get = client.get("/api/test-quality/test-data/TDP-0068-1")
+    response_get = client.get(f"/api/test-quality/test-data/{generated_data_provision_id}")
     assert response_get.status_code == 200
-    assert response_get.json()["data_provision_id"] == "TDP-0068-1"
+    assert response_get.json()["data_provision_id"] == generated_data_provision_id
+
+
+def test_test_execution():
+    global generated_test_run_id
+    assert generated_suite_id is not None
+    assert generated_data_provision_id is not None
+    
+    payload = {
+        "suite_id": generated_suite_id,
+        "demand_id": "DEM-2026-0001",
+        "data_provision_id": generated_data_provision_id,
+        "environment": "test",
+        "impact_scope": ["svc-payments-api"],
+        "execution_mode": "impact-based"
+    }
+    response = client.post("/api/test-quality/test-execution", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "test_run_id" in data
+    assert data["suite_id"] == generated_suite_id
+    assert len(data["results"]) > 0
+    
+    generated_test_run_id = data["test_run_id"]
+
+    # Get test run back
+    response_get = client.get(f"/api/test-quality/test-runs/{generated_test_run_id}")
+    assert response_get.status_code == 200
+    assert response_get.json()["test_run_id"] == generated_test_run_id
+
 
 def test_defect_triage():
+    global generated_triage_id
+    assert generated_test_run_id is not None
+    
     payload = {
-        "test_run_id": "TR-0068-1",
+        "test_run_id": generated_test_run_id,
         "demand_id": "DEM-2026-0001",
         "defect_ids": ["BUG-4421"],
         "code_ownership_map": {"svc-payments-api": "d.chen"}
@@ -195,16 +138,20 @@ def test_defect_triage():
     response = client.post("/api/test-quality/defect-triage", json=payload)
     assert response.status_code == 200
     data = response.json()
-    assert data["triage_id"] == "TRG-0068-1"
-    assert len(data["triaged_defects"]) == 1
-    assert data["triaged_defects"][0]["defect_id"] == "BUG-4421"
+    assert "triage_id" in data
+    assert data["test_run_id"] == generated_test_run_id
+    assert len(data["triaged_defects"]) > 0
+    
+    generated_triage_id = data["triage_id"]
 
     # Get triage back
-    response_get = client.get("/api/test-quality/defect-triage/TRG-0068-1")
+    response_get = client.get(f"/api/test-quality/defect-triage/{generated_triage_id}")
     assert response_get.status_code == 200
-    assert response_get.json()["triage_id"] == "TRG-0068-1"
+    assert response_get.json()["triage_id"] == generated_triage_id
+
 
 def test_security_testing():
+    global generated_security_test_id
     payload = {
         "demand_id": "DEM-2026-0001",
         "plan_id": "PLN-0001-1",
@@ -216,11 +163,67 @@ def test_security_testing():
     response = client.post("/api/test-quality/security-testing", json=payload)
     assert response.status_code == 200
     data = response.json()
-    assert data["security_test_id"] == "SEC-0068-1"
-    assert len(data["findings"]) == 1
-    assert data["findings"][0]["finding_id"] == "FND-001"
+    assert "security_test_id" in data
+    assert "findings" in data
+    
+    generated_security_test_id = data["security_test_id"]
 
     # Get security test back
-    response_get = client.get("/api/test-quality/security-testing/SEC-0068-1")
+    response_get = client.get(f"/api/test-quality/security-testing/{generated_security_test_id}")
     assert response_get.status_code == 200
-    assert response_get.json()["security_test_id"] == "SEC-0068-1"
+    assert response_get.json()["security_test_id"] == generated_security_test_id
+
+
+def test_traceability():
+    global generated_traceability_id
+    assert generated_suite_id is not None
+    assert generated_test_run_id is not None
+    
+    payload = {
+        "demand_id": "DEM-2026-0001",
+        "suite_id": generated_suite_id,
+        "test_run_id": generated_test_run_id,
+        "defect_ids": ["BUG-4421"]
+    }
+    response = client.post("/api/test-quality/traceability", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "traceability_id" in data
+    assert data["demand_id"] == "DEM-2026-0001"
+    assert len(data["entries"]) > 0
+    
+    generated_traceability_id = data["traceability_id"]
+
+    # Get traceability back
+    response_get = client.get(f"/api/test-quality/traceability/{generated_traceability_id}")
+    assert response_get.status_code == 200
+    assert response_get.json()["traceability_id"] == generated_traceability_id
+
+
+def test_quality_gate():
+    assert generated_test_run_id is not None
+    assert generated_triage_id is not None
+    assert generated_security_test_id is not None
+    assert generated_traceability_id is not None
+    
+    payload = {
+        "demand_id": "DEM-2026-0001",
+        "test_run_id": generated_test_run_id,
+        "triage_id": generated_triage_id,
+        "security_test_id": generated_security_test_id,
+        "traceability_id": generated_traceability_id,
+        "quality_policy": {
+            "min_pass_rate_pct": 95.0,
+            "max_open_critical_defects": 0,
+            "max_open_high_security_findings": 0,
+            "min_coverage_pct": 90.0
+        }
+    }
+    response = client.post("/api/test-quality/quality-gate", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "gate_id" in data
+    assert data["demand_id"] == "DEM-2026-0001"
+    assert data["test_run_id"] == generated_test_run_id
+    assert "verdict" in data
+    assert data["verdict"] in ["pass", "fail"]

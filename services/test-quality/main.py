@@ -302,16 +302,28 @@ def get_dashboard_stats(demand_id: str):
         quality_gates = db.get_records_by_demand("quality_gate", demand_id)
 
         # Execution stats
-        total_runs = len(executions)
-        passed_runs = sum(1 for e in executions if e.get("status", "").lower() == "passed")
-        failed_runs = sum(1 for e in executions if e.get("status", "").lower() == "failed")
-        blocked_runs = sum(1 for e in executions if e.get("status", "").lower() == "blocked")
-        skipped_runs = sum(1 for e in executions if e.get("status", "").lower() == "skipped")
+        latest_run = executions[-1] if len(executions) > 0 else {}
+        results = latest_run.get("results", []) if latest_run else []
+        if not results and latest_run:
+            results = latest_run.get("executions", [])
+            
+        total_runs = len(results)
+        passed_runs = sum(1 for e in results if e.get("status", "").lower() == "passed")
+        failed_runs = sum(1 for e in results if e.get("status", "").lower() == "failed")
+        blocked_runs = sum(1 for e in results if e.get("status", "").lower() == "blocked")
+        skipped_runs = sum(1 for e in results if e.get("status", "").lower() == "skipped")
         pass_rate = (passed_runs / total_runs * 100) if total_runs > 0 else 0.0
 
         # Defect stats
-        open_defects = sum(1 for d in defects if d.get("status", "").lower() in ["open", "assigned", "in progress", "in-progress"])
-        closed_defects = sum(1 for d in defects if d.get("status", "").lower() in ["closed", "resolved"])
+        open_defects = 0
+        closed_defects = 0
+        for d in defects:
+            status = d.get("status") or d.get("recommended_action") or "open"
+            status_lower = str(status).lower()
+            if status_lower in ["closed", "resolved", "close", "done"]:
+                closed_defects += 1
+            else:
+                open_defects += 1
 
         # Security Findings stats
         critical_findings = sum(1 for f in security_findings if f.get("severity", "").lower() == "critical")
@@ -323,7 +335,7 @@ def get_dashboard_stats(demand_id: str):
         # Quality Gate latest status
         latest_gate = quality_gates[-1] if len(quality_gates) > 0 else {}
         gate_verdict = latest_gate.get("verdict", "N/A")
-        quality_score = latest_gate.get("quality_score", 0)
+        quality_score = latest_gate.get("score") or latest_gate.get("quality_score", 0)
 
         # Traceability coverage
         coverage_pct = 0.0

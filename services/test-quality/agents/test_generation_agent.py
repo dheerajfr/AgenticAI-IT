@@ -49,6 +49,11 @@ class TestGenerationAgent:
         if context.plan_id:
             response_json["plan_id"] = context.plan_id
 
+        # Standardize test case IDs using demand suffix and sequence counter
+        demand_suffix = context.demand_id.split("-")[-1]
+        for idx, tc in enumerate(response_json.get("test_cases", []), start=1):
+            tc["test_id"] = f"TC-{demand_suffix}-{idx:02d}"
+
         # Validate that the response conforms to the TestSuiteRecord Pydantic model
         validated = TestSuiteRecord(**response_json)
         return validated.model_dump()

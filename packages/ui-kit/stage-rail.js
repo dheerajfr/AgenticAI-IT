@@ -7,8 +7,8 @@ class StageRail extends HTMLElement {
       { id: 'demand-intake', label: 'Demand & intake', status: 'live' },
       { id: 'estimate-shape', label: 'Estimate & shape', status: 'live' },
       { id: 'plan-schedule', label: 'Plan & schedule', status: 'live' },
-      { id: 'dependencies', label: 'Dependencies', status: 'live' },
       { id: 'config-environments', label: 'Config & environments', status: 'live' },
+      { id: 'dependencies', label: 'Dependencies', status: 'live' },
       { id: 'build-deploy', label: 'Build & Deploy', status: 'live' },
       { id: 'test-quality', label: 'Test & Quality', status: 'live' },
       { id: 'release-change', label: 'Release & Change', status: 'live' },
@@ -75,7 +75,6 @@ class StageRail extends HTMLElement {
           padding: 1rem 0.5rem;
           cursor: pointer;
           border-bottom: 3px solid transparent;
-          transition: all var(--transition-normal, 0.25s) ease;
           user-select: none;
           text-align: center;
           position: relative;
@@ -106,7 +105,6 @@ class StageRail extends HTMLElement {
           font-weight: 600;
           margin-bottom: 0.5rem;
           color: var(--text-secondary, #94a3b8);
-          transition: color var(--transition-fast, 0.15s) ease;
         }
         .stage-node.active .stage-title {
           color: var(--text-primary, #f8fafc);
@@ -140,4 +138,6 @@ class StageRail extends HTMLElement {
   }
 }
 
-customElements.define('stage-rail', StageRail);
+if (!customElements.get('stage-rail')) {
+  customElements.define('stage-rail', StageRail);
+}

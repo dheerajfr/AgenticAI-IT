@@ -1,0 +1,59 @@
+{
+  "demand_id": "DEM-2026-0007",
+  "title": "Agentic AI in SDLC",
+  "description": "Request to explore or implement agentic artificial intelligence within the Software Development Life Cycle (SDLC).",
+  "type": "project",
+  "domain": "Software Development & Automation",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-17",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": "DEM-2026-0006",
+  "business_case_summary": "Business Case Summary: Agentic AI in SDLC (DEM-2026-0007)\n\nExecutive Summary  \nThis project aims to explore and implement agentic artificial intelligence within the Software Development Life Cycle to enhance automation and decision-making. It will focus on integrating AI agents to improve efficiency and accuracy across development stages.\n\nBusiness Value and Impact  \nAdopting agentic AI can significantly reduce development time and operational costs while increasing software quality through intelligent automation. This innovation positions the company as a leader in advanced software development technologies.\n\nRisk Mitigation  \nMedium risks include integration challenges and reliance on AI decision-making. Mitigation involves phased implementation, rigorous testing, and continuous human oversight to ensure reliability and control.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 71,
+  "earliest_start_date": "2026-08-16",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 11 total active team members evaluated.",
+    "Technical capability profiling: 26 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 120/440 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Senior Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 2
+    },
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 2,
+      "availableCapacity": 3
+    },
+    {
+      "role": "Frontend Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 2
+    },
+    {
+      "role": "QA Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Security Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    }
+  ],
+  "skill_gaps": [
+    "Artificial Intelligence",
+    "Machine Learning",
+    "SDLC",
+    "Backend Development",
+    "Frontend Development",
+    "Automation"
+  ]
+}

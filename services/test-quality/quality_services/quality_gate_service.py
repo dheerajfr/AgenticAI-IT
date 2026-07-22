@@ -53,6 +53,19 @@ class QualityGateService:
             quality_policy=policy
         )
 
+        # Programmatically compute/override the quality gate score and verdict based on actual checks
+        checks = gate_record.get("checks", [])
+        if checks:
+            passed_checks = sum(1 for c in checks if str(c.get("result", "")).lower() in ["pass", "passed"])
+            gate_record["score"] = int((passed_checks / len(checks)) * 100)
+            
+            # Ensure verdict is "pass" only if ALL checks passed
+            all_pass = all(str(c.get("result", "")).lower() in ["pass", "passed"] for c in checks)
+            gate_record["verdict"] = "pass" if all_pass else "fail"
+        else:
+            gate_record["score"] = 0
+            gate_record["verdict"] = "fail"
+
         # Persist to source.db
         db.save_quality_gate(
             gate_id=gate_record["gate_id"],

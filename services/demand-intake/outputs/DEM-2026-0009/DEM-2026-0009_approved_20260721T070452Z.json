@@ -1,0 +1,42 @@
+{
+  "demand_id": "DEM-2026-0009",
+  "title": "Agentic AI in News Analysis",
+  "description": "Request to develop or implement agentic AI capabilities for analyzing news content.",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-21",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": "DEM-2026-0007",
+  "business_case_summary": "Business Case Summary: Agentic AI in News Analysis (DEM-2026-0009)\n\nExecutive Summary  \nThis project aims to develop agentic AI capabilities to enhance the analysis of news content, improving accuracy and insight extraction. Implementing this technology will streamline information processing in the customer digital domain.\n\nBusiness Value  \nAgentic AI will enable faster, more precise news analysis, supporting better decision-making and increasing operational efficiency. This advancement positions the business as a leader in AI-driven digital content management.\n\nRisk Mitigation  \nPotential medium risks will be managed through robust testing, continuous monitoring, and adherence to data privacy standards. Clear protocols will ensure AI outputs remain reliable and unbiased.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 92,
+  "earliest_start_date": "2026-08-20",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 11 total active team members evaluated.",
+    "Technical capability profiling: 26 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 280/440 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Senior Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 2
+    }
+  ],
+  "skill_gaps": [
+    "AI/ML",
+    "Natural Language Processing",
+    "Backend Development",
+    "QA Testing"
+  ]
+}

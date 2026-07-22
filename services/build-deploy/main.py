@@ -30,7 +30,7 @@ app.include_router(rollback_readiness.router)
 app.include_router(deployment_orchestration.router)
 
 
-@app.get("/api/deployments")
+@app.get("/api/deployments/info")
 def service_info():
     """Lightweight index of what's live in Stage 06."""
     return {

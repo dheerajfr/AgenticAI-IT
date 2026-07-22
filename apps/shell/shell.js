@@ -1,8 +1,10 @@
+import { getModuleName } from '../../packages/ui-kit/navigation-menu.js';
+
 // App Shell Orchestrator & Screen Router
-const API_BASE = 'http://127.0.0.1:8000/api';
+const API_BASE = '/api';
 
 // Core State
-let activeStage = sessionStorage.getItem('activeStage') || 'demand-intake';
+let activeStage = (window.location.hash ? window.location.hash.substring(1) : sessionStorage.getItem('activeStage')) || 'demand-intake';
 let demands = [];
 let selectedDemandId = sessionStorage.getItem('selectedDemandId') || null;
 let activeFormTab = 'text'; // 'text' or 'file'
@@ -63,13 +65,17 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function init() {
-  const rail = document.getElementById('pipeline-rail');
-  if (rail) {
-    // Sync the rail with activeStage
-    rail.setAttribute('active-stage', activeStage);
-    rail.addEventListener('stage-change', (e) => {
-      switchStage(e.detail.stageId);
-    });
+  // Sync with Hash Routing
+  window.addEventListener('hashchange', () => {
+    const stageId = window.location.hash.substring(1);
+    if (stageId && stageId !== activeStage) {
+      switchStage(stageId);
+    }
+  });
+
+  // Ensure initial hash is set
+  if (!window.location.hash) {
+    window.location.hash = activeStage;
   }
 
   // Load initial view
@@ -80,15 +86,33 @@ function init() {
 function switchStage(stageId) {
   activeStage = stageId;
   sessionStorage.setItem('activeStage', stageId);
+  window.location.hash = stageId;
+  
   const viewport = document.getElementById('viewport');
 
-  // Sync the stage rail highlight
-  const rail = document.getElementById('pipeline-rail');
-  if (rail && rail.getAttribute('active-stage') !== stageId) {
-    rail.setAttribute('active-stage', stageId);
+  // Sync the navigation drawer highlight
+  const navDrawer = document.getElementById('nav-drawer');
+  if (navDrawer && navDrawer.getAttribute('active-stage') !== stageId) {
+    navDrawer.setAttribute('active-stage', stageId);
   }
   
-  if (stageId === 'demand-intake') {
+  // Update Breadcrumbs
+  const breadcrumbs = document.getElementById('global-breadcrumbs');
+  if (breadcrumbs) {
+    breadcrumbs.style.display = stageId === 'dashboard' ? 'none' : 'flex';
+  }
+  const breadcrumbText = document.getElementById('breadcrumb-current-module');
+  if (breadcrumbText) {
+    breadcrumbText.textContent = getModuleName(stageId);
+  }
+  
+  if (stageId === 'dashboard') {
+    if (window.renderDashboardScreen) {
+      window.renderDashboardScreen();
+    } else {
+      viewport.innerHTML = `<module-placeholder module-id="\${stageId}" module-title="Dashboard" style="animation: fade-in 0.3s ease; display: block; height: 100%;"></module-placeholder>`;
+    }
+  } else if (stageId === 'demand-intake') {
     renderIntakeScreen();
     fetchDemands();
   } else if (stageId === 'estimate-shape') {
@@ -237,7 +261,7 @@ function renderDemandList() {
             <span style="font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;" class="${statusClass}">
               ${demand.status}
             </span>
-            <button type="button" class="btn-queue-delete" data-id="${demand.demand_id}" style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; justify-content: center; opacity: 0.7; transition: opacity 0.2s;" title="Delete Demand" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+            <button type="button" class="btn-queue-delete" data-id="${demand.demand_id}" style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; justify-content: center; opacity: 0.7; " title="Delete Demand" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
               <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             </button>
           </div>
@@ -770,13 +794,13 @@ function renderDemandWizard(demand) {
               </div>
               <!-- Redo + Next Step CTAs -->
               <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color); flex-wrap: wrap;">
-                <button type="button" id="btn-redo-business-case" style="display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.9rem; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-secondary); transition: all 0.15s ease;"
+                <button type="button" id="btn-redo-business-case" style="display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.9rem; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-secondary); "
                   onmouseover="this.style.borderColor='var(--color-brand)';this.style.color='var(--color-brand)';"
                   onmouseout="this.style.borderColor='var(--border-color)';this.style.color='var(--text-secondary)';">
                   ↺ Re-run Business Case
                 </button>
                 <div style="flex:1;"></div>
-                <button type="button" id="btn-proceed-to-estimate" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1.2rem; border-radius: var(--radius-sm); font-size: 0.88rem; font-weight: 700; cursor: pointer; border: none; background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,0.35); transition: all 0.18s ease;"
+                <button type="button" id="btn-proceed-to-estimate" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1.2rem; border-radius: var(--radius-sm); font-size: 0.88rem; font-weight: 700; cursor: pointer; border: none; background: linear-gradient(135deg, #10b981, #059669); color: var(--text-primary); box-shadow: 0 2px 8px rgba(16,185,129,0.35); "
                   onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(16,185,129,0.45)';"
                   onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(16,185,129,0.35)';">
                   <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>

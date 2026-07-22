@@ -1,8 +1,8 @@
 // plan-schedule.js — Stage 03: Plan & Schedule Frontend Module
 // Follows the same pattern as estimate-shape.js
 
-const PLAN_API_BASE = 'http://127.0.0.1:8000/api';
-const ESTIMATE_API_FOR_PLANS = 'http://127.0.0.1:8000/api';
+const PLAN_API_BASE = '/api';
+const ESTIMATE_API_FOR_PLANS = '/api';
 
 let plans = [];
 let availableEstimates = [];
@@ -198,12 +198,15 @@ window.fetchPlans = async function () {
     }
 
     const activeDemandId = sessionStorage.getItem('selectedDemandId');
-    const matchedPlan = activeDemandId ? plans.find(p => p.demand_id === activeDemandId) : null;
-    if (matchedPlan && selectedPlanId === null) {
-      selectPlan(matchedPlan.plan_id);
-    } else if (plans.length > 0 && selectedPlanId === null) {
-      selectPlan(plans[0].plan_id);
-    } else if (selectedPlanId !== null) {
+    if (activeDemandId) {
+      const matchedPlan = plans.find(p => p.demand_id === activeDemandId);
+      if (matchedPlan) selectedPlanId = matchedPlan.plan_id;
+    }
+    if (plans.length > 0 && selectedPlanId === null) {
+      selectedPlanId = plans[0].plan_id;
+    }
+    
+    if (selectedPlanId !== null) {
       selectPlan(selectedPlanId);
     } else {
       showNewPlanForm();
@@ -303,7 +306,7 @@ function renderPlanList() {
         <div class="demand-item-header">
           <span class="demand-item-id">${plan.demand_id}</span>
           <button type="button" class="btn-queue-delete plan-delete-btn" data-id="${plan.plan_id}"
-            style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; opacity: 0.7; transition: opacity 0.2s;"
+            style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; opacity: 0.7; "
             title="Delete Plan"
             onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
             <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
@@ -340,7 +343,7 @@ function renderPlanList() {
       confirmRow.style.cssText = 'display:flex;gap:0.4rem;align-items:center;margin-top:0.4rem;padding:0.4rem 0;border-top:1px solid rgba(239,68,68,0.3);';
       confirmRow.innerHTML = `
         <span style="font-size:0.72rem;color:var(--color-status-red-text);flex:1;font-weight:600;">Delete this plan?</span>
-        <button class="btn-confirm-delete" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:var(--color-status-red-text);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:700;">Yes, Delete</button>
+        <button class="btn-confirm-delete" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:var(--color-status-red-text);color: var(--text-primary);border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:700;">Yes, Delete</button>
         <button class="btn-cancel-delete" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:transparent;color:var(--text-muted);border:1px solid var(--border-color);border-radius:var(--radius-sm);cursor:pointer;">Cancel</button>
       `;
       listItem.appendChild(confirmRow);
@@ -702,16 +705,17 @@ function renderPlanPreview(newPlans, actionsRow) {
         const ownersList = t.owner.split(',').map(o => o.trim());
         const chips = ownersList.map(o => {
           const name = getEmployeeDisplayName(o);
-          return `<span style="display: inline-block; background-color: var(--color-brand-light, #e0f2fe); color: var(--color-brand, #0369a1); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.75rem; margin-right: 0.25rem; font-weight: 500; border: 1px solid var(--color-brand-border, #bae6fd);">${name}</span>`;
+          return `<span style="display: inline-block; background: rgba(99, 102, 241, 0.1); color: var(--color-brand); padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; margin-right: 0.25rem; font-weight: 600; border: 1px solid rgba(99, 102, 241, 0.25);">${name}</span>`;
         }).join('');
         ownerCell = `<td style="padding: 0.35rem 0.5rem;">${chips}</td>`;
       }
 
+      const prevRowBg = ti % 2 === 0 ? 'transparent' : 'var(--bg-tertiary)';
       return `
-                <tr style="border-bottom: 1px solid rgba(46,60,84,0.5);">
-                  <td style="padding: 0.35rem 0.5rem; color: var(--text-primary);">${t.name}</td>
-                  <td style="padding: 0.35rem 0.5rem; font-family: monospace;">${t.start_date}</td>
-                  <td style="padding: 0.35rem 0.5rem; font-family: monospace;">${t.end_date}</td>
+                <tr style="background: ${prevRowBg}; border-bottom: 1px solid var(--border-color);">
+                  <td style="padding: 0.35rem 0.5rem; color: var(--text-primary); font-weight: 600;">${t.name}</td>
+                  <td style="padding: 0.35rem 0.5rem; font-family: monospace; color: var(--text-primary);">${t.start_date}</td>
+                  <td style="padding: 0.35rem 0.5rem; font-family: monospace; color: var(--text-primary);">${t.end_date}</td>
                   ${ownerCell}
                 </tr>
               `;
@@ -975,7 +979,7 @@ function renderPlanPreview(newPlans, actionsRow) {
         nextBanner.innerHTML = `
           <span style="font-size:0.85rem;color:var(--text-secondary);">&#x2713; Plan accepted &mdash; ready for dependency sensing.</span>
           <div style="flex:1;"></div>
-          <button id="btn-proceed-to-deps-preview" style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.2rem;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(139,92,246,0.35);transition:all 0.18s ease;"
+          <button id="btn-proceed-to-deps-preview" style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.2rem;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color: var(--text-primary);box-shadow:0 2px 8px rgba(139,92,246,0.35);"
             onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(139,92,246,0.5)';"
             onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(139,92,246,0.35)';">
             <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
@@ -1162,7 +1166,7 @@ function renderPlanDetail(plan) {
           </button>
           <div style="flex:1;"></div>
           <button type="button" id="btn-proceed-to-deps"
-            style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.2rem;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(139,92,246,0.35);transition:all 0.18s ease;"
+            style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.2rem;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color: var(--text-primary);box-shadow:0 2px 8px rgba(139,92,246,0.35);"
             onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(139,92,246,0.5)';"
             onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(139,92,246,0.35]';">
             <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
@@ -1254,7 +1258,7 @@ function renderPlanDetail(plan) {
           <tbody>
             ${plan.tasks.map((t, idx) => {
     const isCritical = plan.critical_path_task_ids.includes(t.task_id);
-    const rowBg = idx % 2 === 0 ? 'transparent' : 'rgba(30,41,59,0.4)';
+    const rowBg = idx % 2 === 0 ? 'transparent' : 'var(--bg-tertiary)';
     const isCompleted = t.status === 'completed';
 
     let statusCell = '';
@@ -1314,21 +1318,21 @@ function renderPlanDetail(plan) {
       const ownersList = t.owner.split(',').map(o => o.trim());
       ownerDisplay = ownersList.map(o => {
         const name = getEmployeeDisplayName(o);
-        return `<span class="employee-chip" style="display: inline-block; background-color: var(--color-brand-light, #e0f2fe); color: var(--color-brand, #0369a1); padding: 0.15rem 0.45rem; border-radius: 12px; font-size: 0.75rem; margin-right: 0.25rem; font-weight: 600; border: 1px solid var(--color-brand-border, #bae6fd);">${name}</span>`;
+        return `<span class="employee-chip" style="display: inline-block; background: rgba(99, 102, 241, 0.1); color: var(--color-brand); padding: 0.15rem 0.45rem; border-radius: 12px; font-size: 0.75rem; margin-right: 0.25rem; font-weight: 600; border: 1px solid rgba(99, 102, 241, 0.25);">${name}</span>`;
       }).join('');
     }
 
     return `
-                <tr style="background: ${rowBg}; transition: background 0.15s;">
-                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; font-size: 0.75rem; color: ${isCritical ? 'var(--color-brand)' : 'var(--text-secondary)'};">
+                <tr style="background: ${rowBg}; border-bottom: 1px solid var(--border-color);">
+                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; font-size: 0.75rem; font-weight: 600; color: ${isCritical ? 'var(--color-brand)' : 'var(--text-primary)'};">
                     ${t.task_id}
                     ${isCritical ? '<span style="font-size: 0.6rem; margin-left: 4px; color: var(--color-brand);">★ CRIT</span>' : ''}
                   </td>
                   <td style="padding: 0.6rem 0.75rem; color: var(--text-primary); font-weight: 600;">${t.name}</td>
-                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; color: var(--text-secondary);">${t.start_date}</td>
-                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; color: var(--text-secondary);">${t.end_date}</td>
+                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; color: var(--text-primary); font-weight: 500;">${t.start_date}</td>
+                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; color: var(--text-primary); font-weight: 500;">${t.end_date}</td>
                   <td style="padding: 0.6rem 0.75rem;">${ownerDisplay}</td>
-                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; font-size: 0.72rem; color: var(--text-muted);">
+                  <td style="padding: 0.6rem 0.75rem; font-family: monospace; font-size: 0.75rem; color: var(--text-primary); font-weight: 500;">
                     ${(t.predecessor_task_ids && t.predecessor_task_ids.length) ? t.predecessor_task_ids.join(', ') : '—'}
                   </td>
                   <td style="padding: 0.6rem 0.75rem; text-align: center;">
@@ -1580,7 +1584,7 @@ function renderPlanDetail(plan) {
     bar.style.cssText = 'display:flex;gap:0.5rem;align-items:center;margin-top:0.5rem;padding:0.5rem 0.75rem;background:rgba(239,68,68,0.08);border:1px solid var(--color-status-red-text);border-radius:var(--radius-sm);';
     bar.innerHTML = `
       <span style="font-size:0.78rem;color:var(--color-status-red-text);flex:1;font-weight:600;">⚠ Permanently delete this plan?</span>
-      <button id="btn-confirm-delete-yes" style="font-size:0.75rem;padding:0.25rem 0.7rem;background:var(--color-status-red-text);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:700;">Yes, Delete</button>
+      <button id="btn-confirm-delete-yes" style="font-size:0.75rem;padding:0.25rem 0.7rem;background:var(--color-status-red-text);color: var(--text-primary);border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:700;">Yes, Delete</button>
       <button id="btn-confirm-delete-no" style="font-size:0.75rem;padding:0.25rem 0.7rem;background:transparent;color:var(--text-muted);border:1px solid var(--border-color);border-radius:var(--radius-sm);cursor:pointer;">Cancel</button>
     `;
     btn.closest('div').parentElement.insertBefore(bar, btn.closest('div').nextSibling);
@@ -1640,7 +1644,7 @@ function renderPlanDetail(plan) {
           nextBanner.innerHTML = `
             <span style="font-size:0.85rem;color:var(--text-secondary);">Plan accepted — ready for dependency sensing.</span>
             <div style="flex:1;"></div>
-            <button id="btn-proceed-to-deps-detail" style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.2rem;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(139,92,246,0.35);transition:all 0.18s ease;"
+            <button id="btn-proceed-to-deps-detail" style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.2rem;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color: var(--text-primary);box-shadow:0 2px 8px rgba(139,92,246,0.35);"
               onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(139,92,246,0.5)';"
               onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(139,92,246,0.35)';">
               <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
@@ -1834,7 +1838,7 @@ function renderTimelineBars(plan) {
             align-items: center;
             padding-left: 6px;
             font-size: 0.68rem;
-            color: #ffffff;
+            color: var(--text-primary);
             text-shadow: 0px 1px 3px rgba(0,0,0,0.9);
             font-weight: 700;
             white-space: nowrap;

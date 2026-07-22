@@ -8,7 +8,7 @@ endpoints = [
     ("plans", f"{base}/plans"),
     ("dependencies", f"{base}/dependencies"),
     ("release-change", f"{base}/release-change"),
-    ("deployments", f"{base}/deployments"),
+    ("deployments", f"{base}/deployments/orchestration"),
     ("test-quality", f"{base}/test-quality"),
     ("ops-readiness", f"{base}/ops-readiness"),
 ]

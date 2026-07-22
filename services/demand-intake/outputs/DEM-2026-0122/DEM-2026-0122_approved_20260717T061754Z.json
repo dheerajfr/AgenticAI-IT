@@ -1,0 +1,59 @@
+{
+  "demand_id": "DEM-2026-0122",
+  "title": "Agentic AI in IT Delivery",
+  "description": "Project or request focused on the implementation or study of Agentic AI within IT delivery processes. Further details were not provided.",
+  "type": "project",
+  "domain": "Infrastructure",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-17",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Agentic AI in IT Delivery (DEM-2026-0122)\n\nExecutive Summary\nThis project aims to explore and implement Agentic AI within IT delivery processes to enhance automation and decision-making efficiency. The initiative focuses on leveraging AI capabilities to improve infrastructure management and service delivery.\n\nBusiness Value/Impact\nIntegrating Agentic AI will streamline IT operations, reduce manual intervention, and accelerate project timelines, leading to cost savings and improved service quality. Enhanced automation can also increase scalability and responsiveness to business needs.\n\nRisk Mitigation\nTo address medium-level risks, thorough testing and phased implementation will be employed to ensure system stability and data security. Continuous monitoring and staff training will help manage operational challenges and maintain control over AI activities.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 2,
+  "earliest_start_date": "2026-08-16",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 11 total active team members evaluated.",
+    "Technical capability profiling: 26 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 400/440 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 2,
+      "availableCapacity": 0
+    },
+    {
+      "role": "Senior Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    },
+    {
+      "role": "Security Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    },
+    {
+      "role": "QA Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    },
+    {
+      "role": "Frontend Developer",
+      "requiredCapacity": 2,
+      "availableCapacity": 1
+    }
+  ],
+  "skill_gaps": [
+    "AI",
+    "Agentic AI",
+    "IT Delivery",
+    "Backend Development",
+    "QA",
+    "Frontend Development"
+  ]
+}

@@ -4,26 +4,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Delivery Lifecycle Platform</title>
+  <title>Cadence - AI Delivery Lifecycle Platform</title>
   <!-- Import Design Tokens and layout styles -->
   <link rel="stylesheet" href="../../packages/ui-kit/tokens.css">
   <link rel="stylesheet" href="./styles.css">
 
   <!-- Load Web Components as ES Modules -->
-  <script type="module" src="../../packages/ui-kit/status-pill.js"></script>
-  <script type="module" src="../../packages/ui-kit/stage-rail.js"></script>
-  <script type="module" src="../../packages/ui-kit/module-placeholder.js"></script>
+  <script type="module" src="../../packages/ui-kit/status-pill.js?v=10"></script>
+  <script type="module" src="../../packages/ui-kit/module-placeholder.js?v=10"></script>
+  <script type="module" src="../../packages/ui-kit/navigation-menu.js?v=10"></script>
 
   <!-- Load Main Shell script -->
-  <script type="module" src="./estimate-shape.js?v=7"></script>
-  <script type="module" src="./config-environments.js?v=7"></script>
-  <script type="module" src="./plan-schedule.js?v=7"></script>
-  <script type="module" src="./dependencies.js?v=13"></script>
-  <script type="module" src="./build-deploy.js?v=7"></script>
-  <script type="module" src="./test-quality.js?v=7"></script>
-  <script type="module" src="./release-change.js?v=7"></script>
-  <script type="module" src="./ops-readiness.js?v=18"></script>
-  <script type="module" src="./shell.js?v=7"></script>
+  <script type="module" src="./dashboard.js?v=10"></script>
+  <script type="module" src="./estimate-shape.js?v=10"></script>
+  <script type="module" src="./config-environments.js?v=10"></script>
+  <script type="module" src="./plan-schedule.js?v=11"></script>
+  <script type="module" src="./dependencies.js?v=10"></script>
+  <script type="module" src="./build-deploy.js?v=10"></script>
+  <script type="module" src="./test-quality.js?v=10"></script>
+  <script type="module" src="./release-change.js?v=13"></script>
+  <script type="module" src="./shell.js?v=10"></script>
 </head>
 
 <body>
@@ -32,21 +32,31 @@
     <!-- Header -->
     <header>
       <div class="logo-container">
-        <svg class="logo-icon" viewBox="0 0 24 24">
-          <path d="M12 2L2 22h20L12 2zm0 3.99L19.53 19H4.47L12 5.99zM13 16h-2v2h2v-2zm0-6h-2v4h2v-4z" />
-        </svg>
-        <span class="logo-text">AETHER PLATFORM</span>
+        <button id="btn-menu-toggle" style="background: none; border: none; cursor: pointer; color: var(--text-primary); padding: 0.25rem; display: flex; align-items: center; margin-right: 0.5rem;" onclick="window.dispatchEvent(new CustomEvent('toggle-nav-menu'))">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+          </svg>
+        </button>
+        <span class="logo-text">CADENCE</span>
       </div>
-      <div class="user-profile">
-        Developer Mode (Stage 01 Owner)
-      </div>
+      <div class="user-profile" style="display: none;"></div>
     </header>
 
-    <!-- Stage Pipeline Rail -->
-    <stage-rail id="pipeline-rail" active-stage="demand-intake"></stage-rail>
+    <!-- Navigation Drawer -->
+    <navigation-menu id="nav-drawer" active-stage="demand-intake"></navigation-menu>
 
     <!-- Core Viewport -->
     <div class="main-content">
+      <!-- Breadcrumbs -->
+      <div class="breadcrumbs-bar" id="global-breadcrumbs" style="padding: 1rem 1.5rem 0 1.5rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">
+        <a href="#dashboard" style="color: var(--color-brand); text-decoration: none; cursor: pointer; display: flex; align-items: center; gap: 0.3rem; font-weight: 500; transition: color 0.2s ease;" onmouseover="this.style.color='var(--color-brand-dark)'" onmouseout="this.style.color='var(--color-brand)'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> 
+          Back to Dashboard
+        </a>
+        <span style="color: var(--border-color); margin: 0 0.2rem;">/</span>
+        <span id="breadcrumb-current-module" style="font-weight: 600; color: var(--text-primary);">Demand & Intake</span>
+      </div>
+      
       <div id="viewport" class="screen-viewport">
         <!-- Content will be swapped here dynamically by shell.js -->
       </div>

@@ -64,20 +64,31 @@ def start_deployment(req: StartDeploymentRequest):
         record.decided_by = None
         record.updated_at = now
         deployments_db.save(record)
-        return record
+    else:
+        record = DeploymentRecord(
+            deployment_id=deployment_id,
+            demand_id=req.demand_id,
+            component_id=req.component_id,
+            version=req.version,
+            environment=req.environment,
+            runbook_id=req.runbook_id,
+            status="planned",
+            created_at=now,
+            updated_at=now,
+        )
+        deployments_db.save(record)
 
-    record = DeploymentRecord(
-        deployment_id=deployment_id,
-        demand_id=req.demand_id,
-        component_id=req.component_id,
-        version=req.version,
-        environment=req.environment,
-        runbook_id=req.runbook_id,
-        status="planned",
-        created_at=now,
-        updated_at=now,
-    )
-    deployments_db.save(record)
+    # Automatically notify Config Environments of the newly deployed version
+    try:
+        import urllib.request, json
+        payload = json.dumps({"deployed_version": req.version}).encode("utf-8")
+        url = f"http://127.0.0.1:8000/api/environments/{req.demand_id}/{req.environment}"
+        put_req = urllib.request.Request(url, data=payload, method="PUT", headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(put_req, timeout=2) as f:
+            pass
+    except Exception as e:
+        print(f"Failed to update config environment deployed version: {e}")
+
     return record
 
 
@@ -151,7 +162,7 @@ def go_no_go(deployment_id: str, req: GoNoGoRequest):
         raise HTTPException(status_code=400, detail="Cannot go: one or more preconditions failed. Resolve them or record a no-go.")
 
     cutover = start_cutover(StartCutoverRequest(
-        demand_id=deployment_id,
+        demand_id=record.demand_id or "Unknown",
         component_id=record.component_id,
         runbook_id=record.runbook_id,
         stakeholders=req.stakeholders,

@@ -1,11 +1,12 @@
 // config-environments.js — Stage 05: Config & Environments Frontend Module
 // Matches the plan-schedule UI pattern
 
-const ENV_API_BASE = 'http://127.0.0.1:8000/api';
+const ENV_API_BASE = '/api';
 
 let environments = [];
 let demandTitles = {};
-let selectedEnvKey = null;
+let selectedEnvKey = sessionStorage.getItem('selectedDemandId') || null;
+let activeTab = 'summary';
 let allDemandIds = [];
 
 // ─── Screen Entry Point ────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ window.renderConfigEnvironmentsScreen = function () {
 // ─── Fetch ────────────────────────────────────────────────────────────────
 
 window.fetchEnvironments = async function () {
+  selectedEnvKey = sessionStorage.getItem('selectedDemandId') || selectedEnvKey;
   const container = document.getElementById('env-list-container');
   if (!container) return;
   try {
@@ -144,10 +146,10 @@ function renderEnvironmentList() {
           <span class="demand-item-id">${id}</span>
           <div style="display:flex;align-items:center;gap:0.4rem;">
             ${hasDrift
-              ? `<span style="font-size:0.65rem;font-weight:700;color:var(--color-status-red-text);text-transform:uppercase;">Drifted</span>`
-              : `<span style="font-size:0.65rem;font-weight:700;color:var(--color-status-green-text);text-transform:uppercase;">In Sync</span>`}
+        ? `<span style="font-size:0.65rem;font-weight:700;color:var(--color-status-red-text);text-transform:uppercase;">Drifted</span>`
+        : `<span style="font-size:0.65rem;font-weight:700;color:var(--color-status-green-text);text-transform:uppercase;">In Sync</span>`}
             <button type="button" class="env-delete-btn" data-id="${id}"
-              style="background:none;border:none;color:var(--color-status-red-text);cursor:pointer;padding:0.15rem;opacity:0.65;transition:opacity 0.2s;display:flex;align-items:center;"
+              style="background:none;border:none;color:var(--color-status-red-text);cursor:pointer;padding:0.15rem;opacity:0.65;display:flex;align-items:center;"
               title="Delete all environment records for ${id}"
               onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.65'">
               <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
@@ -181,7 +183,7 @@ function renderEnvironmentList() {
       confirmRow.style.cssText = 'display:flex;gap:0.4rem;align-items:center;margin-top:0.4rem;padding:0.4rem 0;border-top:1px solid rgba(239,68,68,0.3);';
       confirmRow.innerHTML = `
         <span style="font-size:0.72rem;color:var(--color-status-red-text);flex:1;font-weight:600;">Delete all records?</span>
-        <button class="btn-confirm-delete" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:var(--color-status-red-text);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:700;">Yes</button>
+        <button class="btn-confirm-delete" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:var(--color-status-red-text);color: var(--text-primary);border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:700;">Yes</button>
         <button class="btn-cancel-delete" style="font-size:0.7rem;padding:0.2rem 0.5rem;background:transparent;color:var(--text-muted);border:1px solid var(--border-color);border-radius:var(--radius-sm);cursor:pointer;">Cancel</button>
       `;
       listItem.appendChild(confirmRow);
@@ -242,7 +244,7 @@ function renderEnvDetail(demand_id) {
             This can only be done once.
           </div>
           <button id="btn-init-envs" class="btn-primary"
-            style="background:linear-gradient(135deg,#059669,#10b981);border:none;color:#fff;padding:0.6rem 1.5rem;border-radius:var(--radius-sm);font-size:0.9rem;font-weight:700;cursor:pointer;">
+            style="background:linear-gradient(135deg,#059669,#10b981);border:none;color: var(--text-primary);padding:0.6rem 1.5rem;border-radius:var(--radius-sm);font-size:0.9rem;font-weight:700;cursor:pointer;">
             ✦ Initialise Environments with AI
           </button>
           <div id="init-status" style="margin-top:1rem; font-size:0.82rem; color:var(--text-muted);"></div>
@@ -410,6 +412,14 @@ function renderEnvDetail(demand_id) {
 
       <!-- Result box for actions -->
       <div id="action-result" style="margin-top:1.25rem; padding:1rem 1.25rem; border-radius:var(--radius-md); font-family:monospace; font-size:0.85rem; display:none; background:rgba(0,0,0,0.25); border:1px solid var(--border-color); line-height:1.5;"></div>
+
+      ${demandEnvs.length > 0 ? `
+      <div style="margin-top:2rem; padding-top:1.5rem; border-top: 1px solid var(--border-color); display:flex; justify-content:flex-end;">
+        <button type="button" onclick="window.switchStage('build-deploy')" style="padding:0.5rem 1.25rem; border-radius:var(--radius-sm); font-size:0.85rem; font-weight:700; cursor:pointer; border:none; background:var(--color-brand); color:var(--text-primary); box-shadow:0 2px 4px rgba(99,102,241,0.2);">
+          Next: Build & Deploy &nbsp;&rarr;
+        </button>
+      </div>
+      ` : ''}
     </div>
   `;
 
@@ -428,14 +438,13 @@ function renderEnvDetail(demand_id) {
         background: none;
         border: none;
         cursor: pointer;
-        color: rgba(255,255,255,0.25);
-        font-size: 0.82rem;
-        padding: 0.1rem 0.2rem;
-        transition: color 0.2s;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        padding: 0.1rem 0.3rem;
         flex-shrink: 0;
         line-height: 1;
       }
-      .btn-edit-inline:hover { color: #a5b4fc; }
+      .btn-edit-inline:hover { color: var(--text-primary); }
       .env-field-input {
         flex: 1;
         background: rgba(255,255,255,0.06);
@@ -466,7 +475,7 @@ function renderEnvDetail(demand_id) {
       }
       .btn-save-inline {
         background: linear-gradient(135deg,#4f46e5,#3b82f6);
-        color: white;
+        color: var(--text-primary);
         border: none;
         padding: 0.25rem 0.6rem;
         border-radius: var(--radius-sm);
@@ -520,6 +529,18 @@ window.startEdit = function (demand_id, environment, field) {
         </div>
       </div>
     `;
+  } else if (field === 'expected_version') {
+    container.innerHTML = `
+      <div style="display:flex; align-items:stretch; flex:1; gap:0.2rem;">
+        <input id="${inputId}" class="env-field-input" type="text" value="${(currentVal === '—' ? '' : currentVal)}" />
+        <div style="display:flex; flex-direction:column; justify-content:center; gap:2px;">
+          <button style="background:var(--bg-secondary); border:1px solid #6366f1; border-radius:3px; color:var(--text-primary); cursor:pointer; font-size:0.6rem; padding:2px 4px; line-height:1;" onclick="window.bumpVersion('${inputId}', 1)">▲</button>
+          <button style="background:var(--bg-secondary); border:1px solid #6366f1; border-radius:3px; color:var(--text-primary); cursor:pointer; font-size:0.6rem; padding:2px 4px; line-height:1;" onclick="window.bumpVersion('${inputId}', -1)">▼</button>
+        </div>
+      </div>
+      <button class="btn-save-inline" onclick="window.saveField('${demand_id}','${environment}','${field}')">Save</button>
+      <button class="btn-cancel-inline" onclick="window.fetchEnvironments()">Cancel</button>
+    `;
   } else {
     container.innerHTML = `
       <input id="${inputId}" class="env-field-input" type="text" value="${(currentVal === '—' ? '' : currentVal)}" />
@@ -530,6 +551,20 @@ window.startEdit = function (demand_id, environment, field) {
 
   const inp = document.getElementById(inputId);
   if (inp) { inp.focus(); inp.select(); }
+};
+
+window.bumpVersion = function(inputId, dir) {
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  const val = inp.value.trim() || '1.0.0';
+  const match = val.match(/(.*?)(\d+)$/);
+  if (match) {
+    let newNum = parseInt(match[2], 10) + dir;
+    if (newNum < 0) newNum = 0;
+    inp.value = match[1] + newNum;
+  } else {
+    inp.value = val + (dir > 0 ? '.1' : '.0');
+  }
 };
 
 window.saveField = async function (demand_id, environment, field) {
@@ -565,7 +600,7 @@ window.saveField = async function (demand_id, environment, field) {
 
 function showToast(msg) {
   const t = document.createElement('div');
-  t.style.cssText = 'position:fixed;bottom:2rem;right:2rem;background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:0.65rem 1.3rem;border-radius:8px;font-size:0.88rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:9999;animation:fadeIn 0.25s ease;';
+  t.style.cssText = 'position:fixed;bottom:2rem;right:2rem;background:linear-gradient(135deg,#059669,#10b981);color: var(--text-primary);padding:0.65rem 1.3rem;border-radius:8px;font-size:0.88rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:9999;';
   t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);

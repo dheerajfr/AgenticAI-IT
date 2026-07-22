@@ -8,6 +8,12 @@ Do not output any markdown formatting, explanation, or notes outside of the JSON
 TEST_GENERATION_PROMPT_TEMPLATE = """
 Given the project's Delivery Context and Test Generation Request parameters, generate a prioritized test suite.
 
+The test suite MUST include a comprehensive mix of:
+- **Functional (Positive & Negative)** test cases:
+  - Positive scenarios: Happy paths, standard inputs, and expected workflows.
+  - Negative scenarios: Error handling, invalid inputs, edge cases, and exception flows.
+- **Non-Functional** test cases: Performance under load, security, reliability, scalability, or environmental constraints.
+
 Prioritize tests using:
 - Business risk
 - Critical path tasks
