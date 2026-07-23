@@ -155,6 +155,20 @@ function switchStage(stageId) {
       window.renderOpsReadinessScreen();
       window.fetchOpsReadinessData();
     }
+  } else if (stageId === 'budget-cost' && window.renderBudgetCostScreen) {
+    window.renderBudgetCostScreen(viewport, { demandId: selectedDemandId, title: demands.find(d => d.demand_id === selectedDemandId)?.title });
+  } else if (stageId === 'risk-issues' && window.renderRiskIssuesScreen) {
+    window.renderRiskIssuesScreen(viewport, { demandId: selectedDemandId, title: demands.find(d => d.demand_id === selectedDemandId)?.title });
+  } else if (stageId === 'vendor-coordination' && window.renderVendorCoordinationScreen) {
+    window.renderVendorCoordinationScreen(viewport, { demandId: selectedDemandId, title: demands.find(d => d.demand_id === selectedDemandId)?.title });
+  } else if (stageId === 'knowledge-artifacts' && window.renderKnowledgeArtifactsScreen) {
+    window.renderKnowledgeArtifactsScreen(viewport, { demandId: selectedDemandId, title: demands.find(d => d.demand_id === selectedDemandId)?.title });
+  } else if (stageId === 'reporting-communication' && window.renderReportingCommunicationScreen) {
+    window.renderReportingCommunicationScreen(viewport, { demandId: selectedDemandId, title: demands.find(d => d.demand_id === selectedDemandId)?.title });
+  } else if (stageId === 'environment-state' && window.renderEnvironmentStateScreen) {
+    window.renderEnvironmentStateScreen(viewport, { demandId: selectedDemandId, title: demands.find(d => d.demand_id === selectedDemandId)?.title });
+  } else if (stageId === 'exports' && window.renderExportsScreen) {
+    window.renderExportsScreen(viewport, { demandId: selectedDemandId, title: demands.find(d => d.demand_id === selectedDemandId)?.title });
   } else {
     // Render the placeholder web component for other stages
     viewport.innerHTML = `<module-placeholder module-id="${stageId}"></module-placeholder>`;

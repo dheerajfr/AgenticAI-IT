@@ -627,7 +627,12 @@ function getNextRecommendedAction(r) {
     return "Change request is pending formal CAB review. Chairperson must review notes in the <strong>CAB Review Tab</strong> and sign off.";
   }
   if (r.status === 'Approved') {
-    return "Release is officially certified. Hand off to Operations module to schedule production deployment.";
+    return `Release is officially certified. Hand off to Operations module to schedule production deployment.
+      <div style="margin-top: 1rem;">
+        <button onclick="if(window.switchStage) window.switchStage('ops-readiness')" class="btn-primary" style="background: var(--color-brand); border: none; padding: 0.5rem 1rem; border-radius: var(--radius-md); font-weight: 600; color: var(--text-primary); cursor: pointer; font-size: 0.8rem;">
+          Proceed to Ops Readiness →
+        </button>
+      </div>`;
   }
   if (r.status === 'Failed') {
     return "Release was rejected or deployment failed. Re-run tests, adjust plan dates, or request exceptions.";

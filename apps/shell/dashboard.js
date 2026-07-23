@@ -31,7 +31,8 @@ async function loadProjectData(demandId) {
     deployCutover,
     tqConsolidated,
     tqQualityGate,
-    releases
+    releases,
+    opsRecords
   ] = await Promise.all([
     fetchSafe(`${BASE_URL}/demands`),
     fetchSafe(`${BASE_URL}/estimates`),
@@ -42,7 +43,8 @@ async function loadProjectData(demandId) {
     fetchSafe(`${BASE_URL}/deployments/cutover`),
     fetchSafe(`${BASE_URL}/test-quality/consolidated/${demandId}`),
     fetchSafe(`${BASE_URL}/test-quality/relational/quality_gate/${demandId}`),
-    fetchSafe(`${BASE_URL}/release-change/releases`)
+    fetchSafe(`${BASE_URL}/release-change/releases`),
+    fetchSafe(`${BASE_URL}/ops-readiness/records/${demandId}`)
   ]);
 
   // Aggregate and Filter
@@ -61,12 +63,15 @@ async function loadProjectData(demandId) {
   data.testQuality = tqConsolidated || null;
   data.qualityGate = tqQualityGate ? tqQualityGate[0] || null : null; // usually returns array
   if (releases) data.releases = releases.filter(r => r.demand_id === demandId);
+  data.opsRecord = opsRecords || null;
 
   return data;
 }
 
 // 2. Logic Calculations
 function determineCurrentStage(data) {
+  if (data.opsRecord && data.opsRecord.validation && data.opsRecord.validation.status === 'approved') return 'ops-readiness';
+  if (data.opsRecord) return 'ops-readiness';
   if (data.releases && data.releases.length > 0) return 'release-change';
   if (data.qualityGate) return 'test-quality';
   if (data.deployments && data.deployments.length > 0) return 'build-deploy';
@@ -89,7 +94,7 @@ function calculateProgress(stage) {
   const stages = [
     'demand-intake', 'estimate-shape', 'plan-schedule', 
     'config-environments', 'dependencies', 'build-deploy', 
-    'test-quality', 'release-change'
+    'test-quality', 'release-change', 'ops-readiness'
   ];
   const idx = stages.indexOf(stage);
   return Math.round(((idx + 1) / stages.length) * 100);
@@ -208,6 +213,8 @@ async function renderProjectDetails(demandId) {
         ${renderTimelineNode('Test Quality', 'test-quality', currentStage, data)}
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('test-quality', currentStage)};"></div>
         ${renderTimelineNode('Release', 'release-change', currentStage, data)}
+        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('release-change', currentStage)};"></div>
+        ${renderTimelineNode('Ops Readiness', 'ops-readiness', currentStage, data)}
       </div>
     </div>
 
@@ -221,6 +228,21 @@ async function renderProjectDetails(demandId) {
       ${renderDeployCard(data)}
       ${renderTestCard(data)}
       ${renderReleaseCard(data)}
+      ${renderOpsCard(data)}
+    </div>
+
+    <!-- Supporting Modules -->
+    <div style="margin-top: 2rem;">
+      <h3 style="font-family: var(--font-display); font-size: 1rem; color: var(--text-secondary); margin-bottom: 1rem;">Supporting Modules</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+        ${renderPlaceholderCard('Budget & Cost', 'budget-cost')}
+        ${renderPlaceholderCard('Risk & Issues', 'risk-issues')}
+        ${renderPlaceholderCard('Vendor Coordination', 'vendor-coordination')}
+        ${renderPlaceholderCard('Knowledge Artifacts', 'knowledge-artifacts')}
+        ${renderPlaceholderCard('Reporting & Comms', 'reporting-communication')}
+        ${renderPlaceholderCard('Environment State', 'environment-state')}
+        ${renderPlaceholderCard('Data Exports', 'exports')}
+      </div>
     </div>
   `;
 }
@@ -231,7 +253,7 @@ async function renderProjectDetails(demandId) {
 const stageOrder = [
   'demand-intake', 'estimate-shape', 'config-environments', 
   'plan-schedule', 'dependencies', 'build-deploy', 
-  'test-quality', 'release-change'
+  'test-quality', 'release-change', 'ops-readiness'
 ];
 
 function getStageStatus(stage, currentStage, data) {
@@ -468,6 +490,42 @@ function renderReleaseCard(data) {
   }
 
   return renderCard('Release & Change', 'release-change', status, outputs, approvals, errorsHtml);
+}
+
+function renderOpsCard(data) {
+  if (!data.opsRecord || data.opsRecord.error) return renderCard('Ops Readiness', 'ops-readiness', 'Pending', '', '');
+  const ops = data.opsRecord;
+  const outputs = `
+    • Handover Pack: ${ops.handover && ops.handover.status ? ops.handover.status : 'Pending'}<br>
+    • Monitoring Config: ${ops.monitoring && ops.monitoring.status ? ops.monitoring.status : 'Pending'}<br>
+    • Readiness ID: ${ops.readiness_id}
+  `;
+  
+  let approvals = 'Sign-off: Pending';
+  let status = 'In Progress';
+  if (ops.validation && ops.validation.status === 'approved') {
+    status = 'Completed';
+    approvals = `Signed off by: <strong>${ops.validation.sign_off_by}</strong>`;
+  }
+
+  return renderCard('Ops Readiness', 'ops-readiness', status, outputs, approvals);
+}
+
+function renderPlaceholderCard(title, moduleId) {
+  return `
+    <div style="background: var(--bg-primary); border: 1px dashed var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h4 style="margin: 0; font-family: var(--font-display); color: var(--text-primary); font-size: 1.05rem;">${title}</h4>
+        <span style="padding: 0.2rem 0.5rem; font-size: 0.7rem; border-radius: 12px; font-weight: 700; background: var(--bg-tertiary); color: var(--text-muted);">NOT INTEGRATED</span>
+      </div>
+      <p style="margin: 0 0 1rem 0; font-size: 0.85rem; color: var(--text-muted);">
+        This module is currently under development and data is not yet available.
+      </p>
+      <button type="button" onclick="sessionStorage.setItem('selectedDemandId', '${currentProject.demandId}'); window.switchStage('${moduleId}')" style="padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-secondary); align-self: flex-start;">
+        Open Module &rarr;
+      </button>
+    </div>
+  `;
 }
 
 // Global style for detail dropdowns

@@ -1,0 +1,35 @@
+{
+  "demand_id": "DEM-2026-0002",
+  "title": "retail chatbot using AgenticAI",
+  "description": "retail chatbot using AgenticAI",
+  "type": "project",
+  "domain": "General Platform",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-22",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: retail chatbot using AgenticAI (DEM-2026-0002)\n\nExecutive Summary: Request addresses retail chatbot using AgenticAI.\nBusiness Impact: Enhances efficiency and capabilities for General Platform.\nRisk Mitigation: Standard project governance will manage deployment risks.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 0,
+  "earliest_start_date": "2026-08-21",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 4 total active team members evaluated.",
+    "Technical capability profiling: 14 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 40/160 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 0
+    }
+  ],
+  "skill_gaps": [
+    "Java",
+    "Cloud"
+  ]
+}

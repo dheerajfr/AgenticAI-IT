@@ -1,0 +1,46 @@
+{
+  "demand_id": "DEM-2026-0003",
+  "title": "Agentic AI in News Analysis",
+  "description": "Agentic AI in News Analysis",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-23",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": "DEM-2026-0001",
+  "business_case_summary": "Business Case Summary: Agentic AI in News Analysis (DEM-2026-0003)\n\nExecutive Summary  \nThis project aims to deploy agentic AI to enhance news analysis capabilities, improving accuracy and efficiency in processing large data volumes. It supports strategic decision-making through advanced AI-driven insights.\n\nBusiness Value/Impact  \nImplementing agentic AI will reduce manual analysis time, increase customer engagement by delivering timely and relevant news, and provide a competitive edge in the digital market. Enhanced data processing will lead to better-informed business decisions.\n\nRisk Mitigation  \nMedium-level risks associated with AI biases and data security will be managed through rigorous testing, continuous monitoring, and compliance with data privacy regulations to ensure reliable and ethical AI operations.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 85,
+  "earliest_start_date": "2026-08-22",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 4 total active team members evaluated.",
+    "Technical capability profiling: 14 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 40/160 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Senior Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Frontend Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 2
+    }
+  ],
+  "skill_gaps": [
+    "AI",
+    "Machine Learning",
+    "Natural Language Processing",
+    "Data Analysis",
+    "Python",
+    "Backend Development",
+    "Frontend Development",
+    "Architecture"
+  ]
+}

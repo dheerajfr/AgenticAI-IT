@@ -1,0 +1,45 @@
+{
+  "demand_id": "DEM-2026-0002",
+  "monitoring": null,
+  "handover": null,
+  "validation": {
+    "validation_id": "RV-0002-1",
+    "demand_id": "DEM-2026-0002",
+    "plan_id": "PLN-0002-1",
+    "validated_at": "2026-07-22T11:57:29Z",
+    "criteria_results": [
+      {
+        "criterion": "monitoring_configured",
+        "status": "fail",
+        "evidence": "FAIL: Monitoring plan not generated."
+      },
+      {
+        "criterion": "support_team_briefed",
+        "status": "pass",
+        "evidence": "KT session and handover walk-through completed with operations group"
+      },
+      {
+        "criterion": "runbook_reviewed",
+        "status": "fail",
+        "evidence": "Support runbook review is pending"
+      },
+      {
+        "criterion": "known_errors_documented",
+        "status": "pass",
+        "evidence": "All active defects translated to known error items and documented in KB"
+      },
+      {
+        "criterion": "on_call_assigned",
+        "status": "pass",
+        "evidence": "On-call roster established and personnel assigned to go-live shift"
+      }
+    ],
+    "gaps": [
+      "FAIL: Monitoring plan not generated.",
+      "Deployment & support runbook has not been reviewed by operations."
+    ],
+    "overall_status": "fail",
+    "sign_off_by": "director.delivery@company.com",
+    "status": "approved"
+  }
+}

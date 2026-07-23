@@ -1438,6 +1438,9 @@ async function submitSignOffValidation() {
     if (!res.ok) throw new Error('API Error');
     await selectOpsDemand(opsSelectedDemandId);
     alert('Operations Readiness has been approved and signed off. Stage 6 Deployment Precondition updated.');
+    if (window.switchStage) {
+      window.switchStage('dashboard');
+    }
   } catch (err) {
     console.error(err);
     alert('Validation sign-off failed.');

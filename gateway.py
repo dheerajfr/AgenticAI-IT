@@ -5,20 +5,40 @@ import importlib.util
 def load_service(service_name):
     # Clear generic local modules from sys.modules to prevent cross-contamination
     # because different services use the same file names (models.py, database.py, etc.)
-    modules_to_remove = [k for k in sys.modules.keys() if k in ['models', 'database', 'orchestration'] or k.startswith('orchestration.')]
+    modules_to_remove = [k for k in sys.modules.keys() if k in ['models', 'database', 'orchestration'] or k.startswith('orchestration.') or k.startswith('models.') or k.startswith('database.')]
     for m in modules_to_remove:
         sys.modules.pop(m, None)
         
     path = os.path.join(os.path.dirname(__file__), "services", service_name, "main.py")
+    service_dir = os.path.dirname(path)
+    
+    if not os.path.exists(path):
+        pyc_dir = os.path.join(service_dir, "__pycache__")
+        if os.path.exists(pyc_dir):
+            for file in os.listdir(pyc_dir):
+                if file.startswith("main.") and file.endswith(".pyc"):
+                    path = os.path.join(pyc_dir, file)
+                    break
+    
     spec = importlib.util.spec_from_file_location(f"{service_name}_main", path)
     mod = importlib.util.module_from_spec(spec)
     sys.modules[f"{service_name}_main"] = mod
     
     # Add service dir to path temporarily so internal imports work
-    service_dir = os.path.dirname(path)
     sys.path.insert(0, service_dir)
+    
+    # Python sourceless imports (where only .pyc exists in __pycache__) might fail for internal modules 
+    # unless __pycache__ is also on sys.path, or if the internal modules are renamed. 
+    # To be safe, we'll also append the pyc_dir.
+    pyc_dir = os.path.join(service_dir, "__pycache__")
+    if os.path.exists(pyc_dir):
+        sys.path.insert(0, pyc_dir)
+        
     spec.loader.exec_module(mod)
+    
     sys.path.pop(0)
+    if os.path.exists(pyc_dir):
+        sys.path.pop(0)
     
     return mod.app
 
@@ -41,6 +61,23 @@ print("Loading test-quality service...")
 test_quality_app = load_service("test-quality")
 print("Loading ops-readiness service...")
 ops_readiness_app = load_service("ops-readiness")
+
+def try_load(name):
+    try:
+        return load_service(name)
+    except Exception as e:
+        print(f"Skipping {name}: {e}")
+        return None
+
+print("Loading supporting services...")
+budget_app = try_load("budget-cost")
+risk_app = try_load("risk-issues")
+vendor_app = try_load("vendor-coordination")
+knowledge_app = try_load("knowledge-artifacts")
+reporting_app = try_load("reporting-communication")
+env_state_app = try_load("environment-state")
+exports_app = try_load("exports")
+
 print("Gateway ready.")
 
 from starlette.staticfiles import StaticFiles
@@ -78,6 +115,27 @@ async def app(scope, receive, send):
             return
         elif path.startswith("/api/ops-readiness"):
             await ops_readiness_app(scope, receive, send)
+            return
+        elif path.startswith("/api/budget-cost") and budget_app:
+            await budget_app(scope, receive, send)
+            return
+        elif path.startswith("/api/risk-issues") and risk_app:
+            await risk_app(scope, receive, send)
+            return
+        elif path.startswith("/api/vendor-coordination") and vendor_app:
+            await vendor_app(scope, receive, send)
+            return
+        elif path.startswith("/api/knowledge-artifacts") and knowledge_app:
+            await knowledge_app(scope, receive, send)
+            return
+        elif path.startswith("/api/reporting-communication") and reporting_app:
+            await reporting_app(scope, receive, send)
+            return
+        elif path.startswith("/api/environment-state") and env_state_app:
+            await env_state_app(scope, receive, send)
+            return
+        elif path.startswith("/api/exports") and exports_app:
+            await exports_app(scope, receive, send)
             return
             
         # 2. Route UI

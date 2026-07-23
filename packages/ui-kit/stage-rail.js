@@ -12,7 +12,14 @@ class StageRail extends HTMLElement {
       { id: 'build-deploy', label: 'Build & Deploy', status: 'live' },
       { id: 'test-quality', label: 'Test & Quality', status: 'live' },
       { id: 'release-change', label: 'Release & Change', status: 'live' },
-      { id: 'ops-readiness', label: 'Ops readiness', status: 'live' }
+      { id: 'ops-readiness', label: 'Ops readiness', status: 'live' },
+      { id: 'budget-cost', label: 'Budget & cost', status: 'live' },
+      { id: 'risk-issues', label: 'Risk & issues', status: 'live' },
+      { id: 'vendor-coordination', label: 'Vendor coordination', status: 'live' },
+      { id: 'knowledge-artifacts', label: 'Knowledge artifacts', status: 'live' },
+      { id: 'reporting-communication', label: 'Reporting & comms', status: 'live' },
+      { id: 'environment-state', label: 'Environment state', status: 'live' },
+      { id: 'exports', label: 'Data exports', status: 'live' }
     ];
   }
 
