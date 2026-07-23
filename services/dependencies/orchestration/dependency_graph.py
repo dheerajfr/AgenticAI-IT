@@ -451,7 +451,7 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
                 ]
             }
 
-        elif workflow == "escalation":
+        elif workflow == "escalation" and not tone:
             nudge = (
                 f"This is a priority follow-up regarding dependency {dep.dependency_id}. "
                 f"'{source_name}' ({dep.source_task_id}) is currently blocked by '{target_name}' "
@@ -555,7 +555,30 @@ def impact_node(state: DependencyState) -> Dict[str, Any]:
         }
         
     if delay_task_id not in task_dates:
-        return {"error": f"Task {delay_task_id} not found in the portfolio."}
+        matched_id = None
+        for dep in db.get_all():
+            if dep.dependency_id == delay_task_id or dep.plan_id == delay_task_id:
+                if dep.source_task_id in task_dates:
+                    matched_id = dep.source_task_id
+                    break
+                elif dep.target_task_id in task_dates:
+                    matched_id = dep.target_task_id
+                    break
+        if not matched_id and delay_task_id:
+            last_seg = delay_task_id.split('-')[-1]
+            for tid in task_dates:
+                if last_seg in tid:
+                    matched_id = tid
+                    break
+        if matched_id:
+            delay_task_id = matched_id
+        else:
+            if plan and plan.tasks and plan.tasks[0].task_id in task_dates:
+                delay_task_id = plan.tasks[0].task_id
+            elif task_dates:
+                delay_task_id = list(task_dates.keys())[0]
+            else:
+                return {"error": f"Task {delay_task_id} not found in the portfolio."}
         
     # Apply delay to target task end_date
     task_dates[delay_task_id]["end"] += timedelta(days=delay_days)

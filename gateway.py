@@ -4,8 +4,13 @@ import importlib.util
 
 def load_service(service_name):
     # Clear generic local modules from sys.modules to prevent cross-contamination
-    # because different services use the same file names (models.py, database.py, etc.)
-    modules_to_remove = [k for k in sys.modules.keys() if k in ['models', 'database', 'orchestration'] or k.startswith('orchestration.')]
+    # because different services use the same file names (models.py, database.py, agents, etc.)
+    modules_to_remove = [
+        k for k in sys.modules.keys() 
+        if k in ['models', 'database', 'orchestration', 'agents'] 
+        or k.startswith('orchestration.') 
+        or k.startswith('agents.')
+    ]
     for m in modules_to_remove:
         sys.modules.pop(m, None)
         

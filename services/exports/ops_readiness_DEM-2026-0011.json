@@ -1,0 +1,114 @@
+{
+  "demand_id": "DEM-2026-0011",
+  "monitoring": {
+    "monitoring_id": "MON-0011-1",
+    "monitoring_plan_id": "MON-0011",
+    "release_id": "REL-0011-1",
+    "demand_id": "DEM-2026-0011",
+    "plan_id": "PLN-0011-1",
+    "environment": "prod",
+    "monitored_components_scope": [
+      "svc-payments-api",
+      "svc-auth"
+    ],
+    "proposed_alerts": [
+      {
+        "alert_id": "ALT-001",
+        "component_id": "svc-payments-api",
+        "component_type": "microservice",
+        "name": "svc-payments-api Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-002",
+        "component_id": "svc-payments-api",
+        "component_type": "microservice",
+        "name": "svc-payments-api Availability Drop",
+        "condition": "availability < 99.95%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-003",
+        "component_id": "svc-auth",
+        "component_type": "microservice",
+        "name": "svc-auth Latency Violation",
+        "condition": "p99_latency > 500ms",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-004",
+        "component_id": "svc-auth",
+        "component_type": "microservice",
+        "name": "svc-auth Availability Drop",
+        "condition": "availability < 99.95%",
+        "severity": "critical",
+        "notify": [
+          "ops-alerts@company.com",
+          "sre-oncall@company.com"
+        ]
+      }
+    ],
+    "proposed_dashboards": [
+      {
+        "dashboard_id": "DSH-0011",
+        "title": "DEM-2026-0011 Enterprise Production Monitoring Dashboard",
+        "panels": [
+          "latency_p50_p95_p99",
+          "error_rate_5m",
+          "throughput_rps",
+          "system_cpu_memory"
+        ],
+        "widgets": [
+          {
+            "widget_id": "WID-01",
+            "type": "timeseries",
+            "title": "Application Latency (p50, p95, p99)",
+            "query": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 500ms"
+          },
+          {
+            "widget_id": "WID-02",
+            "type": "gauge",
+            "title": "Service Availability SLO Target",
+            "query": "sum(rate(http_requests_total{status!~'5..'}[5m])) / sum(rate(http_requests_total[5m])) * 100 (Target: 99.95%)"
+          },
+          {
+            "widget_id": "WID-03",
+            "type": "stat",
+            "title": "HTTP 5xx Error Spike Rate",
+            "query": "sum(rate(http_requests_total{status=~'5..'}[5m]))"
+          },
+          {
+            "widget_id": "WID-04",
+            "type": "bar",
+            "title": "Database Connection Pool & Replication Lag",
+            "query": "mongodb_ss_connections{conn_type='current'} / mongodb_ss_connections{conn_type='available'}"
+          },
+          {
+            "widget_id": "WID-05",
+            "type": "logs",
+            "title": "Kafka Consumer Lag & Event Queue Saturation",
+            "query": "kafka_consumergroup_lag"
+          }
+        ]
+      }
+    ],
+    "sre_reviewed": false,
+    "sre_reviewed_by": null,
+    "status": "draft"
+  },
+  "handover": null,
+  "validation": null
+}

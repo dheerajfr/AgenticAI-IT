@@ -1,0 +1,496 @@
+{
+  "demand_id": "DEM-2026-0128",
+  "monitoring": {
+    "monitoring_id": "MON-0128-1",
+    "monitoring_plan_id": "MON-PLAN-DEM-2026-0128",
+    "release_id": "REL-0128-1",
+    "demand_id": "DEM-2026-0128",
+    "plan_id": "PLN-0128-1",
+    "environment": "production",
+    "monitored_components_scope": [
+      "mongodb-analytics",
+      "rabbitmq-order-queue",
+      "svc-order-api",
+      "postgres-db-cluster",
+      "kafka-event-stream",
+      "redis-cache-cluster"
+    ],
+    "component_specs": [
+      {
+        "component_id": "mongodb-analytics",
+        "component_name": "Mongodb Analytics",
+        "component_type": "mongodb",
+        "criticality": "high",
+        "environment": "production",
+        "technology_stack": "MongoDB Enterprise NoSQL Database",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
+      {
+        "component_id": "rabbitmq-order-queue",
+        "component_name": "Rabbitmq Order Queue",
+        "component_type": "queue",
+        "criticality": "critical",
+        "environment": "production",
+        "technology_stack": "RabbitMQ Message Broker",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
+      {
+        "component_id": "svc-order-api",
+        "component_name": "Svc Order Api",
+        "component_type": "rest_api",
+        "criticality": "critical",
+        "environment": "production",
+        "technology_stack": "Java Spring Boot Microservice",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
+      {
+        "component_id": "postgres-db-cluster",
+        "component_name": "Postgres Db Cluster",
+        "component_type": "postgresql",
+        "criticality": "high",
+        "environment": "production",
+        "technology_stack": "PostgreSQL RDBMS",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
+      {
+        "component_id": "kafka-event-stream",
+        "component_name": "Kafka Event Stream",
+        "component_type": "kafka",
+        "criticality": "high",
+        "environment": "production",
+        "technology_stack": "Apache Kafka Event Streaming Platform",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
+      {
+        "component_id": "redis-cache-cluster",
+        "component_name": "Redis Cache Cluster",
+        "component_type": "redis",
+        "criticality": "high",
+        "environment": "production",
+        "technology_stack": "Redis In-Memory Cache Cluster",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      }
+    ],
+    "slo_targets": [
+      {
+        "component_id": "mongodb-analytics",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 45.0,
+        "latency_p99_ms": 90.0,
+        "error_rate_threshold_pct": 0.1,
+        "cpu_threshold_pct": 90.0,
+        "memory_threshold_pct": 92.0,
+        "source": "ai_technology_tier_analysis"
+      },
+      {
+        "component_id": "rabbitmq-order-queue",
+        "availability_slo_pct": 99.99,
+        "latency_p95_ms": 50.0,
+        "latency_p99_ms": 120.0,
+        "error_rate_threshold_pct": 0.05,
+        "cpu_threshold_pct": 85.0,
+        "memory_threshold_pct": 88.0,
+        "source": "ai_technology_tier_analysis"
+      },
+      {
+        "component_id": "svc-order-api",
+        "availability_slo_pct": 99.99,
+        "latency_p95_ms": 120.0,
+        "latency_p99_ms": 250.0,
+        "error_rate_threshold_pct": 0.05,
+        "cpu_threshold_pct": 85.0,
+        "memory_threshold_pct": 88.0,
+        "source": "ai_technology_tier_analysis"
+      },
+      {
+        "component_id": "postgres-db-cluster",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 45.0,
+        "latency_p99_ms": 90.0,
+        "error_rate_threshold_pct": 0.1,
+        "cpu_threshold_pct": 90.0,
+        "memory_threshold_pct": 92.0,
+        "source": "ai_technology_tier_analysis"
+      },
+      {
+        "component_id": "kafka-event-stream",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 50.0,
+        "latency_p99_ms": 120.0,
+        "error_rate_threshold_pct": 0.1,
+        "cpu_threshold_pct": 90.0,
+        "memory_threshold_pct": 92.0,
+        "source": "ai_technology_tier_analysis"
+      },
+      {
+        "component_id": "redis-cache-cluster",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 15.0,
+        "latency_p99_ms": 35.0,
+        "error_rate_threshold_pct": 0.1,
+        "cpu_threshold_pct": 90.0,
+        "memory_threshold_pct": 92.0,
+        "source": "ai_technology_tier_analysis"
+      }
+    ],
+    "proposed_alerts": [
+      {
+        "alert_id": "ALT-MONGODB_ANALYTICS-CONNPOOL",
+        "component_id": "mongodb-analytics",
+        "component_type": "mongodb",
+        "alert_type": "connection_pool",
+        "name": "Mongodb Analytics Connection Pool Exhaustion",
+        "condition": "connection_pool_utilization > 85%",
+        "threshold": "85%",
+        "severity": "critical",
+        "notify": [
+          "sre-production-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "oncall-production@company.com",
+          "release-leads@company.com",
+          "team-core-engineering@company.com",
+          "dba-oncall-production@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-MONGODB_ANALYTICS-SLOWQUERY",
+        "component_id": "mongodb-analytics",
+        "component_type": "mongodb",
+        "alert_type": "slow_queries",
+        "name": "Mongodb Analytics Slow Query Threshold Exceeded",
+        "condition": "slow_query_duration_ms > 90.0ms",
+        "threshold": "90.0ms",
+        "severity": "high",
+        "notify": [
+          "sre-production-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "oncall-production@company.com",
+          "release-leads@company.com",
+          "team-core-engineering@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-MONGODB_ANALYTICS-REPLAG",
+        "component_id": "mongodb-analytics",
+        "component_type": "mongodb",
+        "alert_type": "replication_lag",
+        "name": "Mongodb Analytics Replication Lag Warning",
+        "condition": "replication_lag_seconds > 5s",
+        "threshold": "5s",
+        "severity": "high",
+        "notify": [
+          "sre-production-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "oncall-production@company.com",
+          "release-leads@company.com",
+          "team-core-engineering@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-RABBITMQ_ORDER_QUEUE-QUEUE-DEPTH",
+        "component_id": "rabbitmq-order-queue",
+        "component_type": "queue",
+        "alert_type": "queue_depth",
+        "name": "Rabbitmq Order Queue Queue Saturation Warning",
+        "condition": "queue_depth_messages > 5000",
+        "threshold": "5000 messages",
+        "severity": "high",
+        "notify": [
+          "sre-production-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "oncall-production@company.com",
+          "release-leads@company.com",
+          "team-core-engineering@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-RABBITMQ_ORDER_QUEUE-DLQ",
+        "component_id": "rabbitmq-order-queue",
+        "component_type": "queue",
+        "alert_type": "dead_letter_queue",
+        "name": "Rabbitmq Order Queue Dead Letter Queue Spike",
+        "condition": "dlq_messages_count > 0",
+        "threshold": "0",
+        "severity": "critical",
+        "notify": [
+          "sre-production-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "oncall-production@company.com",
+          "release-leads@company.com",
+          "team-core-engineering@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_ORDER_API-LATENCY",
+        "component_id": "svc-order-api",
+        "component_type": "rest_api",
+        "alert_type": "latency",
+        "name": "Svc Order Api p99 Latency Violation",
+        "condition": "p99_latency_ms > 250.0ms",
+        "threshold": "250.0ms",
+        "severity": "critical",
+        "notify": [
+          "sre-production-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "oncall-production@company.com",
+          "release-leads@company.com",
+          "team-core-engineering@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_ORDER_API-AVAIL",
+        "component_id": "svc-order-api",
+        "component_type": "rest_api",
+        "alert_type": "availability",
+        "name": "Svc Order Api Availability Drop",
+        "condition": "availability_pct < 99.99%",
+        "threshold": "99.99%",
+        "severity": "critical",
+        "notify": [
+          "sre-production-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "oncall-production@company.com",
+          "release-leads@company.com",
+          "team-core-engineering@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_ORDER_API-5XX",
+        "component_id": "svc-order-api",
+        "component_type": "rest_api",
+        "alert_type": "http_5xx",
+        "name": "Svc Order Api HTTP 5xx Error Rate Spike",
+        "condition": "error_rate_pct > 0.05%",
+        "threshold": "0.05%",
+        "severity": "critical",
+        "notify": [
+          "sre-production-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "oncall-production@company.com",
+          "release-leads@company.com",
+          "team-core-engineering@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-POSTGRES_DB_CLUSTER-CONNPOOL",
+        "component_id": "postgres-db-cluster",
+        "component_type": "postgresql",
+        "alert_type": "connection_pool",
+        "name": "Postgres Db Cluster Connection Pool Exhaustion",
+        "condition": "connection_pool_utilization > 85%",
+        "threshold": "85%",
+        "severity": "critical",
+        "notify": [
+          "sre-production-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "oncall-production@company.com",
+          "release-leads@company.com",
+          "team-core-engineering@company.com",
+          "dba-oncall-production@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-POSTGRES_DB_CLUSTER-SLOWQUERY",
+        "component_id": "postgres-db-cluster",
+        "component_type": "postgresql",
+        "alert_type": "slow_queries",
+        "name": "Postgres Db Cluster Slow Query Threshold Exceeded",
+        "condition": "slow_query_duration_ms > 90.0ms",
+        "threshold": "90.0ms",
+        "severity": "high",
+        "notify": [
+          "sre-production-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "oncall-production@company.com",
+          "release-leads@company.com",
+          "team-core-engineering@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-POSTGRES_DB_CLUSTER-REPLAG",
+        "component_id": "postgres-db-cluster",
+        "component_type": "postgresql",
+        "alert_type": "replication_lag",
+        "name": "Postgres Db Cluster Replication Lag Warning",
+        "condition": "replication_lag_seconds > 5s",
+        "threshold": "5s",
+        "severity": "high",
+        "notify": [
+          "sre-production-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "oncall-production@company.com",
+          "release-leads@company.com",
+          "team-core-engineering@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-KAFKA_EVENT_STREAM-LAG",
+        "component_id": "kafka-event-stream",
+        "component_type": "kafka",
+        "alert_type": "consumer_lag",
+        "name": "Kafka Event Stream Consumer Lag Saturation",
+        "condition": "consumer_lag_messages > 1000",
+        "threshold": "1000 messages",
+        "severity": "critical",
+        "notify": [
+          "sre-production-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "oncall-production@company.com",
+          "release-leads@company.com",
+          "team-core-engineering@company.com",
+          "messaging-oncall-production@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-KAFKA_EVENT_STREAM-ISR",
+        "component_id": "kafka-event-stream",
+        "component_type": "kafka",
+        "alert_type": "broker_isr",
+        "name": "Kafka Event Stream Broker ISR Offline Alert",
+        "condition": "active_brokers < min_in_sync_replicas",
+        "threshold": "min_isr",
+        "severity": "critical",
+        "notify": [
+          "sre-production-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "oncall-production@company.com",
+          "release-leads@company.com",
+          "team-core-engineering@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-REDIS_CACHE_CLUSTER-MEMORY",
+        "component_id": "redis-cache-cluster",
+        "component_type": "redis",
+        "alert_type": "memory_usage",
+        "name": "Redis Cache Cluster Cache Memory Utilization High",
+        "condition": "memory_utilization_pct > 92.0%",
+        "threshold": "92.0%",
+        "severity": "high",
+        "notify": [
+          "sre-production-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "oncall-production@company.com",
+          "release-leads@company.com",
+          "team-core-engineering@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-REDIS_CACHE_CLUSTER-HITRATIO",
+        "component_id": "redis-cache-cluster",
+        "component_type": "redis",
+        "alert_type": "cache_hit_ratio",
+        "name": "Redis Cache Cluster Cache Hit Ratio Degradation",
+        "condition": "cache_hit_ratio_pct < 90%",
+        "threshold": "90%",
+        "severity": "high",
+        "notify": [
+          "sre-production-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "oncall-production@company.com",
+          "release-leads@company.com",
+          "team-core-engineering@company.com"
+        ]
+      }
+    ],
+    "proposed_dashboards": [
+      {
+        "dashboard_id": "DSH-0128",
+        "title": "DEM-2026-0128 Enterprise Production Monitoring Dashboard (PRODUCTION)",
+        "target_technology": "kafka, mongodb, postgresql, queue, redis, rest_api",
+        "panels": [
+          "api-latency",
+          "api-errors",
+          "api-rps",
+          "db-connpool",
+          "db-slowqueries",
+          "kafka-lag",
+          "redis-hitratio",
+          "infra-resources"
+        ],
+        "widgets": [
+          {
+            "widget_id": "WID-API-LATENCY",
+            "type": "timeseries",
+            "title": "Application Response Latency (p50, p95, p99)",
+            "query": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
+            "target_metric": "http_request_duration_seconds"
+          },
+          {
+            "widget_id": "WID-API-ERRORS",
+            "type": "stat",
+            "title": "HTTP 5xx Error Rate %",
+            "query": "sum(rate(http_requests_total{status=~'5..'}[5m])) / sum(rate(http_requests_total[5m])) * 100",
+            "target_metric": "http_requests_total_5xx"
+          },
+          {
+            "widget_id": "WID-API-RPS",
+            "type": "gauge",
+            "title": "Throughput (Requests / Sec)",
+            "query": "sum(rate(http_requests_total[5m]))",
+            "target_metric": "http_requests_throughput"
+          },
+          {
+            "widget_id": "WID-DB-CONNPOOL",
+            "type": "gauge",
+            "title": "Database Connection Pool Utilization",
+            "query": "database_connections_active / database_connections_max * 100",
+            "target_metric": "database_connection_pool"
+          },
+          {
+            "widget_id": "WID-DB-SLOWQUERIES",
+            "type": "bar",
+            "title": "Slow Queries & Lock Contention",
+            "query": "rate(database_slow_queries_total[5m])",
+            "target_metric": "database_slow_queries"
+          },
+          {
+            "widget_id": "WID-KAFKA-LAG",
+            "type": "timeseries",
+            "title": "Kafka Consumer Group Lag & Queue Depth",
+            "query": "sum(kafka_consumergroup_lag) by (consumergroup, topic)",
+            "target_metric": "kafka_consumergroup_lag"
+          },
+          {
+            "widget_id": "WID-REDIS-HITRATIO",
+            "type": "stat",
+            "title": "Redis Cache Hit Ratio %",
+            "query": "rate(redis_keyspace_hits_total[5m]) / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m])) * 100",
+            "target_metric": "redis_cache_hit_ratio"
+          },
+          {
+            "widget_id": "WID-INFRA-RESOURCES",
+            "type": "timeseries",
+            "title": "Cluster Resource Utilization (CPU, Memory, Network I/O)",
+            "query": "sum(container_cpu_usage_seconds_total) by (pod) / sum(container_spec_cpu_quota) by (pod)",
+            "target_metric": "container_cpu_memory"
+          }
+        ]
+      }
+    ],
+    "generated_at": "2026-07-23T06:05:43Z",
+    "sre_reviewed": false,
+    "sre_reviewed_by": null,
+    "status": "draft"
+  },
+  "handover": null,
+  "validation": null
+}

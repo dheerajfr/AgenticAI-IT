@@ -3,6 +3,8 @@ const DEPENDENCIES_API_BASE = '/api';
 let dependencies = [];
 let selectedDependencyId = null;
 let planToDemandMap = {};
+let selectedTone = 'friendly';
+let selectedChannel = 'teams';
 
 // ====== DYNAMIC RISK TRACKING ======
 // Tracks, per dependency, when a nudge was last sent and when the owner last
@@ -229,22 +231,25 @@ window.fetchDependencies = async function () {
     }
 
     const activeDemandId = sessionStorage.getItem('selectedDemandId');
-    if (dependencies.length > 0 && selectedDependencyId === null) {
-      if (activeDemandId) {
-        const matchedDep = dependencies.find(d => planToDemandMap[d.plan_id] === activeDemandId);
-        selectedDependencyId = matchedDep ? matchedDep.dependency_id : dependencies[0].dependency_id;
-      } else {
-        selectedDependencyId = dependencies[0].dependency_id;
-      }
+    let matchedDep = null;
+    if (activeDemandId && dependencies.length > 0) {
+      const lastNum = activeDemandId.split('-').pop();
+      matchedDep = dependencies.find(d => 
+        planToDemandMap[d.plan_id] === activeDemandId ||
+        d.demand_id === activeDemandId ||
+        (lastNum && ((d.plan_id && d.plan_id.includes(lastNum)) || (d.dependency_id && d.dependency_id.includes(lastNum))))
+      );
+    }
+
+    if (matchedDep) {
+      selectedDependencyId = matchedDep.dependency_id;
       selectDependency(selectedDependencyId);
-    } else if (selectedDependencyId !== null) {
-      // If we navigate from another demand, override selectedDependencyId
-      if (activeDemandId) {
-        const matchedDep = dependencies.find(d => planToDemandMap[d.plan_id] === activeDemandId);
-        if (matchedDep) selectedDependencyId = matchedDep.dependency_id;
-      }
+    } else if (dependencies.length > 0 && !activeDemandId) {
+      selectedDependencyId = selectedDependencyId || dependencies[0].dependency_id;
       selectDependency(selectedDependencyId);
     } else {
+      selectedDependencyId = null;
+      clearDependencySidebarSelection();
       showAutoSenseForm();
     }
   } catch (err) {
@@ -338,8 +343,7 @@ function renderDependencyList() {
   });
 }
 
-let selectedTone = 'friendly';
-let selectedChannel = 'teams';
+
 async function selectDependency(id) {
   selectedDependencyId = id;
   clearDependencySidebarSelection();
@@ -448,8 +452,6 @@ function renderDependencyDetails(dep) {
 
   let activityLogs = dep.activity_history || [];
   const nudgeMessage = dep.draft_message || '';
-<<<<<<< HEAD
-=======
 
   // AI Intelligence computed data — now driven by computeDynamicRisk() instead of
   // a static snapshot, so it reflects real elapsed time since the last nudge and
@@ -471,8 +473,10 @@ function renderDependencyDetails(dep) {
   const deadlineValue = risk.tracking.deadline || '';
 
   const isChaseCompleted = !!dep.draft_message;
->>>>>>> origin/main
   const isResolveCompleted = dep.status === 'resolved';
+  const hasDraft = !!dep.draft_message;
+  const step2Class = isChaseCompleted ? 'completed' : 'active';
+  const step3Class = isResolveCompleted ? 'completed' : (isChaseCompleted ? 'active' : 'locked');
 
   const completionBanner = isResolveCompleted ? `
     <div style="background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.08)); border: 1px solid rgba(16,185,129,0.35); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
@@ -485,8 +489,6 @@ function renderDependencyDetails(dep) {
           <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.1rem;">All dependencies for this demand have been resolved.</div>
         </div>
       </div>
-<<<<<<< HEAD
-=======
       <div style="display: flex; gap: 0.5rem; align-items: center;">
         <button id="btn-resense-deps" style="display:flex;align-items:center;gap:0.4rem;padding:0.4rem 0.9rem;border-radius:var(--radius-sm);font-size:0.8rem;font-weight:600;cursor:pointer;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-secondary);"
           onmouseover="this.style.borderColor='var(--color-brand)';this.style.color='var(--color-brand)';"
@@ -498,7 +500,6 @@ function renderDependencyDetails(dep) {
           Next: Config Environments &nbsp;&rarr;
         </button>
       </div>
->>>>>>> origin/main
     </div>
   ` : '';
 
@@ -567,234 +568,6 @@ function renderDependencyDetails(dep) {
               <strong style="color: var(--text-primary);">${dep.predecessor_owner || 'N/A'}</strong>
             </div>
           </div>
-<<<<<<< HEAD
-=======
-
-          <!-- STEP 2: CHASE COMMITMENTS -->
-          <div class="wizard-step ${step2Class}">
-            <div class="wizard-step-header">
-              <h4 class="wizard-step-title">
-                <span class="wizard-step-num">2</span>
-                Chase Commitments (AI)
-              </h4>
-              <span class="wf-badge ${isChaseCompleted ? 'low' : 'medium'}">${isChaseCompleted ? 'Approved' : 'Pending Run'}</span>
-            </div>
-            <div class="wizard-step-body">
-              <div id="chase-workflow-trigger-container" style="display: ${hasDraft ? 'none' : 'block'};">
-                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0; margin-bottom: 1rem;">
-                  Run the commitment chase agent to analyze delay risks, compile context evidence, and generate personalized nudge communications.
-                </p>
-                <button type="button" class="btn-primary" id="btn-open-chase-setup" style="width: 100%;">
-                  Trigger Chase Workflow (AI)
-                </button>
-              </div>
-
-              <!-- Setup options -->
-              <div id="chase-workflow-setup" style="display: none; margin-top: 1rem;">
-                <p class="description-text" style="margin-bottom: 1rem;">Configure the AI chase reminder options:</p>
-
-                <div class="form-group" style="margin-bottom: 1rem;">
-                  <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Message Tone</label>
-                  <div id="chase-tone-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem;">
-                    <button type="button" class="wf-btn-toggle active" data-tone="friendly">😊 Friendly</button>
-                    <button type="button" class="wf-btn-toggle" data-tone="business">💼 Professional</button>
-                    <button type="button" class="wf-btn-toggle" data-tone="technical">🔧 Technical</button>
-                    <button type="button" class="wf-btn-toggle" data-tone="executive">📊 Executive</button>
-                    <button type="button" class="wf-btn-toggle" data-tone="escalation">⚠️ Escalation</button>
-                    <button type="button" class="wf-btn-toggle" data-tone="urgent">🚨 Urgent</button>
-                    <button type="button" class="wf-btn-toggle" data-tone="short">🤝 Diplomatic</button>
-                  </div>
-                </div>
-
-                <div class="form-group" style="margin-bottom: 1rem;">
-                  <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Delivery Channel</label>
-                  <div id="chase-channel-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem;">
-                    <button type="button" class="wf-btn-toggle active" data-channel="teams">💬 Teams</button>
-                    <button type="button" class="wf-btn-toggle" data-channel="email">📧 Email</button>
-                    <button type="button" class="wf-btn-toggle" data-channel="slack">⚡ Slack</button>
-                    <button type="button" class="wf-btn-toggle" data-channel="ado">🔷 ADO</button>
-                  </div>
-                </div>
-
-                <div class="form-group" style="margin-bottom: 1rem;">
-                  <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Schedule</label>
-                  <div id="chase-schedule-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem;">
-                    <button type="button" class="wf-btn-toggle active" data-schedule="now">Send Now</button>
-                    <button type="button" class="wf-btn-toggle" data-schedule="1hour">In 1 Hour</button>
-                    <button type="button" class="wf-btn-toggle" data-schedule="tomorrow">Tomorrow 9am</button>
-                    <button type="button" class="wf-btn-toggle" data-schedule="custom">Custom</button>
-                  </div>
-                </div>
-
-                <div class="form-group" style="margin-bottom: 1rem;">
-                  <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Suggested Recipients</label>
-                  <div id="recipient-list" style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.25rem;">
-                    <label class="ai-pill active" style="cursor: pointer; justify-content: space-between;"><span><input type="checkbox" checked style="display:none;"> ✓ Dependency Owner (${ownerShort})</span><span style="font-size:0.65rem; opacity:0.7;">92%</span></label>
-                    <label class="ai-pill" style="cursor: pointer; justify-content: space-between;"><span><input type="checkbox" style="display:none;"> Program Manager</span><span style="font-size:0.65rem; opacity:0.7;">76%</span></label>
-                    <label class="ai-pill" style="cursor: pointer; justify-content: space-between;"><span><input type="checkbox" style="display:none;"> Architecture Owner</span><span style="font-size:0.65rem; opacity:0.7;">65%</span></label>
-                  </div>
-                </div>
-
-                <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;" id="chase-setup-actions">
-                  <button type="button" class="btn-secondary" id="btn-cancel-chase-setup" style="flex: 1;">Cancel</button>
-                  <button type="button" class="btn-primary" id="btn-run-chase-ai" style="flex: 2;">Generate Nudge Message</button>
-                </div>
-              </div>
-
-              <!-- Generated Message & Metrics -->
-              <div id="chase-workflow-results" style="display: ${hasDraft ? 'block' : 'none'}; margin-top: 1.5rem;">
-                <div id="chase-results-card" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem;">
-                  <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">💡 AI Suggested Next Best Actions</h5>
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem;" id="nba-list">
-                    ${dep.is_self_dependency ? `
-                      <label class="ai-pill active" data-nba="update-predecessor" style="cursor: pointer;"><input type="checkbox" checked style="display:none;"> Update predecessor task</label>
-                      <label class="ai-pill" data-nba="mark-complete" style="cursor: pointer;"><input type="checkbox" style="display:none;"> Mark task complete</label>
-                      <label class="ai-pill" data-nba="revise-eta" style="cursor: pointer;"><input type="checkbox" style="display:none;"> Revise ETA</label>
-                      <label class="ai-pill" data-nba="notify-stakeholders" style="cursor: pointer;"><input type="checkbox" style="display:none;"> Notify stakeholders if delayed</label>
-                    ` : `
-                      <label class="ai-pill ${dep.status !== 'resolved' ? 'active' : ''}" data-nba="send-reminder" style="cursor: pointer;"><input type="checkbox" ${dep.status !== 'resolved' ? 'checked' : ''} style="display:none;"> ✉ Send reminder</label>
-                      <label class="ai-pill" data-nba="schedule-sync" style="cursor: pointer;"><input type="checkbox" style="display:none;"> 📅 Schedule 15 min sync</label>
-                      <label class="ai-pill ${dep.status === 'at-risk' ? 'active' : ''}" data-nba="escalate-lead" style="cursor: pointer;"><input type="checkbox" ${dep.status === 'at-risk' ? 'checked' : ''} style="display:none;"> ⚠️ Escalate to Team Lead</label>
-                      <label class="ai-pill" data-nba="create-risk" style="cursor: pointer;"><input type="checkbox" style="display:none;"> 🚨 Create Risk Item</label>
-                      <label class="ai-pill" data-nba="wait-24h" style="cursor: pointer;"><input type="checkbox" style="display:none;"> ⏳ Wait 24 hrs</label>
-                    `}
-                  </div>
-                  <div style="background: rgba(99,102,241,0.03); border: 1px solid rgba(99,102,241,0.1); border-radius: var(--radius-md); padding: 0.6rem 0.8rem;">
-                    <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">AI Recommendation</div>
-                    <div style="font-size: 0.8rem; color: var(--text-primary); font-weight: 600;">${dep.is_self_dependency ? 'Both tasks are owned by you. Update predecessor task details directly.' : (dep.status === 'at-risk' ? 'Schedule Teams meeting before escalation.' : 'Send friendly reminder first, then follow up in 48hrs.')}</div>
-                  </div>
-                </div>
-
-                <div class="form-group" style="display: ${dep.is_self_dependency ? 'none' : 'block'};">
-                  <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Nudge Message</label>
-                  <textarea class="wf-textarea" id="chase-message-text" placeholder="Generated message will appear here...">${nudgeMessage}</textarea>
-                </div>
-
-                <!-- AI EDITING TOOLBAR -->
-                <div style="display: ${dep.is_self_dependency ? 'none' : 'flex'}; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem;" id="ai-edit-toolbar">
-                  <button class="ai-action-btn" data-edit="edit">✏ Edit</button>
-                  <button class="ai-action-btn" data-edit="regenerate">🔄 Regenerate</button>
-                  <button class="ai-action-btn" data-edit="friendlier">✨ Friendlier</button>
-                  <button class="ai-action-btn" data-edit="professional">💼 Professional</button>
-                  <button class="ai-action-btn" data-edit="urgent">⚡ More Urgent</button>
-                  <button class="ai-action-btn" data-edit="personalize">🧠 Personalize</button>
-                  <button class="ai-action-btn" data-edit="context">➕ Add Context</button>
-                  <button class="ai-action-btn" data-edit="shorten">➖ Shorten</button>
-                  <button class="ai-action-btn" data-edit="summarize">📋 Summarize</button>
-                  <button class="ai-action-btn" data-edit="evidence">📎 Attach Evidence</button>
-                  <button class="ai-action-btn" data-edit="explain">🔍 Explain AI</button>
-                </div>
-
-                <!-- DRAFT COMPARISON -->
-                <div style="display: ${dep.is_self_dependency ? 'none' : 'flex'}; gap: 0.35rem; margin-bottom: 1.25rem;">
-                  <button class="ai-action-btn" id="btn-compare-v1" style="flex: 1; justify-content: center; background: rgba(99,102,241,0.05);">V1: Friendly</button>
-                  <button class="ai-action-btn" id="btn-compare-v2" style="flex: 1; justify-content: center;">V2: Executive</button>
-                  <button class="ai-action-btn" id="btn-compare-v3" style="flex: 1; justify-content: center;">V3: Technical</button>
-                </div>
-
-                <!-- HUMAN APPROVAL BANNER -->
-                <div class="approval-banner" style="margin-bottom: 1.25rem; display: ${dep.is_self_dependency ? 'none' : 'flex'};">
-                  <div style="display: flex; align-items: center; gap: 0.75rem;">
-                    <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand); display: flex; align-items: center; justify-content: center; color: var(--text-primary); font-size: 1rem;">🧠</div>
-                    <div>
-                      <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">AI Recommendation Ready</div>
-                      <div style="font-size: 0.72rem; color: var(--text-secondary);">Pending Human Approval — Review draft and assessment before sending.</div>
-                    </div>
-                  </div>
-                  <div style="display: flex; gap: 0.4rem;" id="approval-actions">
-                    <button class="ai-action-btn" data-approval="approve" style="background: var(--color-status-green-bg); border-color: var(--color-status-green-border); color: var(--color-status-green-text);">✓ Approve</button>
-                    <button class="ai-action-btn" data-approval="modify" style="background: var(--color-status-amber-bg); border-color: var(--color-status-amber-border); color: var(--color-status-amber-text);">✏ Modify</button>
-                    <button class="ai-action-btn" data-approval="reject" style="background: var(--color-status-red-bg); border-color: var(--color-status-red-border); color: var(--color-status-red-text);">✗ Reject</button>
-                  </div>
-                </div>
-
-                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
-                  ${dep.is_self_dependency ? `
-                    <button type="button" class="btn-primary" id="btn-nba-take-action" style="background-color: var(--color-brand); height: 36px; padding: 0 1rem; font-size: 0.85rem; flex-grow: 1;">
-                      Take Action (Update Predecessor Task)
-                    </button>
-                  ` : `
-                    <button type="button" class="btn-secondary" id="btn-save-draft-message" style="height: 36px;">Save Draft</button>
-                    <button type="button" class="btn-primary" id="btn-send-message" style="background-color: var(--color-brand); height: 36px; padding: 0 1rem; font-size: 0.85rem; flex-grow: 1;">
-                      Send via ${selectedChannel.charAt(0).toUpperCase() + selectedChannel.slice(1)}
-                    </button>
-                  `}
-                </div>
-
-                <!-- LEARNING FEEDBACK -->
-                <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
-                  <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Was this suggestion useful?</span>
-                  <button class="ai-action-btn" id="feedback-up" data-feedback="up" style="font-size: 1rem; padding: 0.25rem 0.5rem;">👍</button>
-                  <button class="ai-action-btn" id="feedback-down" data-feedback="down" style="font-size: 1rem; padding: 0.25rem 0.5rem;">👎</button>
-                  <button class="ai-action-btn" id="feedback-improve" data-feedback="improve" style="font-size: 0.75rem;">Needs Improvement</button>
-                  <span style="font-size: 0.7rem; color: var(--text-muted); font-style: italic; margin-left: auto;">AI learns from your feedback</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- STEP 3: CROSS-PROGRAMME IMPACT -->
-          <div class="wizard-step ${step3Class}">
-            <div class="wizard-step-header">
-              <h4 class="wizard-step-title">
-                <span class="wizard-step-num">3</span>
-                Cross-Programme Impact
-              </h4>
-              <span class="wf-badge ${isResolveCompleted ? 'low' : 'medium'}">${isResolveCompleted ? 'Resolved' : (isChaseCompleted ? 'Active' : 'Locked')}</span>
-            </div>
-            <div class="wizard-step-body">
-              <!-- Ripple Impact Analysis -->
-              <h5 style="margin: 0 0 0.5rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">Cross-Programme Ripple Impact Analysis</h5>
-              <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
-                Forecast timeline slippages and schedule relaxation ripples across the program when a task is delayed.
-              </p>
-              <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: end;">
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="impact-task-id">Delayed Task ID</label>
-                  <select id="impact-task-id" style="width: 100%;">
-                    ${(dep.task_list || []).map(tId => `<option value="${tId}">${tId}</option>`).join('')}
-                  </select>
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="impact-delay-days">Delay Days</label>
-                  <input type="number" id="impact-delay-days" value="${dep.status === 'resolved' ? 0 : (dep.status === 'at-risk' ? 15 : 5)}" min="${dep.status === 'resolved' ? 0 : 1}" max="365" style="width: 100%;">
-                </div>
-                <div>
-                  <button type="button" class="btn-secondary" id="btn-check-impact" disabled title="Trigger the &quot;Cross-Programme Impact&quot; agent in AI Insights → Agent Coordination first" style="height: 42px; padding: 0 1rem; opacity: 0.5; cursor: not-allowed;">Forecast Impact</button>
-                </div>
-              </div>
-              <div id="impact-error" class="error-alert" style="display: none; margin-top: 1rem;"></div>
-              <div id="impact-result-container" style="margin-top: 1.5rem;"></div>
-            </div>
-          </div>
-
-          <!-- Critical Path: Escalate Risk -->
-          ${(dep.status === 'at-risk' || dep.status === 'open') ? `
-            <div style="background-color: rgba(248, 113, 113, 0.02); border: 1px solid var(--color-status-red-border); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem;">
-              <h5 style="margin: 0 0 0.5rem 0; font-size: 0.85rem; font-weight: 700; color: var(--color-status-red-text);">Critical Path Action: Escalate Risk</h5>
-              <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 1rem;">
-                This dependency is on the critical path. If task delays threaten project release milestones, immediately escalate to leadership.
-              </p>
-              <button type="button" class="btn-primary" id="btn-escalate-manager" style="background-color: var(--color-status-red-bg); border: 1px solid var(--color-status-red-border); color: var(--color-status-red-text); width: 100%;">
-                Escalate to Manager / Release Lead
-              </button>
-            </div>
-          ` : ''}
-
-          <!-- Quick Actions -->
-          <div style="margin-bottom: 1.5rem;">
-            <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">⚡ Quick Actions</h5>
-            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;" id="quick-actions-panel">
-              <button class="quick-action-btn" data-qaction="risk">🚨 Create Risk</button>
-              <button class="quick-action-btn" data-qaction="ado-bug">🐞 Open ADO Bug</button>
-              <button class="quick-action-btn" data-qaction="meeting">📅 Teams Meeting</button>
-              <button class="quick-action-btn" data-qaction="notify">📢 Notify Manager</button>
-              <button class="quick-action-btn" data-qaction="dashboard">📊 Update Dashboard</button>
-              <button class="quick-action-btn" data-qaction="release-note">📝 Add Release Note</button>
-            </div>
-          </div>
-
->>>>>>> origin/main
         </div>
 
         ${(() => {
@@ -852,9 +625,11 @@ function renderDependencyDetails(dep) {
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
             <div class="form-group" style="margin-bottom: 0;">
               <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Tone Selection</label>
-              <div id="chase-tone-group" style="display: flex; gap: 0.5rem; margin-top: 0.3rem;">
+              <div id="chase-tone-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.3rem;">
                 <button type="button" class="wf-btn-toggle ${selectedTone === 'friendly' ? 'active' : ''}" data-tone="friendly">😊 Friendly</button>
                 <button type="button" class="wf-btn-toggle ${selectedTone === 'business' ? 'active' : ''}" data-tone="business">💼 Professional</button>
+                <button type="button" class="wf-btn-toggle ${selectedTone === 'executive' ? 'active' : ''}" data-tone="executive">📊 Executive</button>
+                <button type="button" class="wf-btn-toggle ${selectedTone === 'technical' ? 'active' : ''}" data-tone="technical">🔧 Technical</button>
                 <button type="button" class="wf-btn-toggle ${selectedTone === 'urgent' ? 'active' : ''}" data-tone="urgent">⚡ Urgent</button>
               </div>
             </div>
@@ -1043,6 +818,8 @@ function renderDependencyDetails(dep) {
       const taskId = document.getElementById('impact-task-select').value;
       const delayDays = parseInt(document.getElementById('impact-delay-days').value, 10) || 5;
       runCrossImpact(dep.plan_id, taskId, delayDays, dep.dependency_id);
+    });
+  }
   // Escalate
   if (document.getElementById('btn-escalate-manager')) {
     document.getElementById('btn-escalate-manager').addEventListener('click', () => { escalateManager(dep.dependency_id); });
@@ -1304,7 +1081,7 @@ async function runCrossImpact(planId, taskId, delayDays, depId) {
     }
   } catch (err) {
     resultBox.innerHTML = `<div class="error-alert" style="margin-top: 0;">${err.message}</div>`;
-  });
+  }
 
   // Task Selector Dynamic Interaction Hook
   const taskSelect = document.getElementById('detail-task-select');

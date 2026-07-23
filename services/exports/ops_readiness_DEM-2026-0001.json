@@ -2,68 +2,213 @@
   "demand_id": "DEM-2026-0001",
   "monitoring": {
     "monitoring_id": "MON-0001-1",
+    "monitoring_plan_id": "MON-PLAN-DEM-2026-0001",
+    "release_id": "REL-0001-1",
     "demand_id": "DEM-2026-0001",
-    "plan_id": "PLN-undefined-1",
+    "plan_id": "PLN-0001-1",
     "environment": "prod",
+    "monitored_components_scope": [
+      "svc-auth",
+      "svc-payments-api"
+    ],
+    "component_specs": [
+      {
+        "component_id": "svc-auth",
+        "component_name": "Svc Auth",
+        "component_type": "rest_api",
+        "criticality": "critical",
+        "environment": "prod",
+        "technology_stack": "Java Spring Boot Microservice",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
+      {
+        "component_id": "svc-payments-api",
+        "component_name": "Svc Payments Api",
+        "component_type": "rest_api",
+        "criticality": "critical",
+        "environment": "prod",
+        "technology_stack": "Java Spring Boot Microservice",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      }
+    ],
+    "slo_targets": [
+      {
+        "component_id": "svc-auth",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 375.0,
+        "latency_p99_ms": 500.0,
+        "error_rate_threshold_pct": 0.05,
+        "cpu_threshold_pct": 85.0,
+        "memory_threshold_pct": 88.0,
+        "source": "user_override_user_latency_override"
+      },
+      {
+        "component_id": "svc-payments-api",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 375.0,
+        "latency_p99_ms": 500.0,
+        "error_rate_threshold_pct": 0.05,
+        "cpu_threshold_pct": 85.0,
+        "memory_threshold_pct": 88.0,
+        "source": "user_override_user_latency_override"
+      }
+    ],
     "proposed_alerts": [
       {
-        "alert_id": "ALT-001",
-        "component_id": "svc-payments-api",
-        "name": "svc-payments-api Latency Violation",
-        "condition": "p99_latency > 500ms",
-        "severity": "critical",
-        "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
-        ]
-      },
-      {
-        "alert_id": "ALT-003",
-        "component_id": "svc-payments-api",
-        "name": "svc-payments-api Availability Drop",
-        "condition": "availability < 99.9%",
-        "severity": "critical",
-        "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
-        ]
-      },
-      {
-        "alert_id": "ALT-002",
+        "alert_id": "ALT-SVC_AUTH-LATENCY",
         "component_id": "svc-auth",
-        "name": "svc-auth Latency Violation",
-        "condition": "p99_latency > 500ms",
+        "component_type": "rest_api",
+        "alert_type": "latency",
+        "name": "Svc Auth p99 Latency Violation",
+        "condition": "p99_latency_ms > 500.0ms",
+        "threshold": "500.0ms",
         "severity": "critical",
         "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
         ]
       },
       {
-        "alert_id": "ALT-004",
+        "alert_id": "ALT-SVC_AUTH-AVAIL",
         "component_id": "svc-auth",
-        "name": "svc-auth Availability Drop",
-        "condition": "availability < 99.9%",
+        "component_type": "rest_api",
+        "alert_type": "availability",
+        "name": "Svc Auth Availability Drop",
+        "condition": "availability_pct < 99.95%",
+        "threshold": "99.95%",
         "severity": "critical",
         "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_AUTH-5XX",
+        "component_id": "svc-auth",
+        "component_type": "rest_api",
+        "alert_type": "http_5xx",
+        "name": "Svc Auth HTTP 5xx Error Rate Spike",
+        "condition": "error_rate_pct > 0.05%",
+        "threshold": "0.05%",
+        "severity": "critical",
+        "notify": [
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_PAYMENTS_API-LATENCY",
+        "component_id": "svc-payments-api",
+        "component_type": "rest_api",
+        "alert_type": "latency",
+        "name": "Svc Payments Api p99 Latency Violation",
+        "condition": "p99_latency_ms > 500.0ms",
+        "threshold": "500.0ms",
+        "severity": "critical",
+        "notify": [
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_PAYMENTS_API-AVAIL",
+        "component_id": "svc-payments-api",
+        "component_type": "rest_api",
+        "alert_type": "availability",
+        "name": "Svc Payments Api Availability Drop",
+        "condition": "availability_pct < 99.95%",
+        "threshold": "99.95%",
+        "severity": "critical",
+        "notify": [
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_PAYMENTS_API-5XX",
+        "component_id": "svc-payments-api",
+        "component_type": "rest_api",
+        "alert_type": "http_5xx",
+        "name": "Svc Payments Api HTTP 5xx Error Rate Spike",
+        "condition": "error_rate_pct > 0.05%",
+        "threshold": "0.05%",
+        "severity": "critical",
+        "notify": [
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
         ]
       }
     ],
     "proposed_dashboards": [
       {
-        "dashboard_id": "DSH-001",
-        "title": "svc-payments-api / svc-auth Production Health Dashboard",
+        "dashboard_id": "DSH-0001",
+        "title": "DEM-2026-0001 Enterprise Production Monitoring Dashboard (PROD)",
+        "target_technology": "rest_api",
         "panels": [
-          "latency_p50_p95_p99",
-          "error_rate_5m",
-          "throughput_rps",
-          "system_cpu_memory"
+          "api-latency",
+          "api-errors",
+          "api-rps",
+          "infra-resources"
+        ],
+        "widgets": [
+          {
+            "widget_id": "WID-API-LATENCY",
+            "type": "timeseries",
+            "title": "Application Response Latency (p50, p95, p99)",
+            "query": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
+            "target_metric": "http_request_duration_seconds"
+          },
+          {
+            "widget_id": "WID-API-ERRORS",
+            "type": "stat",
+            "title": "HTTP 5xx Error Rate %",
+            "query": "sum(rate(http_requests_total{status=~'5..'}[5m])) / sum(rate(http_requests_total[5m])) * 100",
+            "target_metric": "http_requests_total_5xx"
+          },
+          {
+            "widget_id": "WID-API-RPS",
+            "type": "gauge",
+            "title": "Throughput (Requests / Sec)",
+            "query": "sum(rate(http_requests_total[5m]))",
+            "target_metric": "http_requests_throughput"
+          },
+          {
+            "widget_id": "WID-INFRA-RESOURCES",
+            "type": "timeseries",
+            "title": "Cluster Resource Utilization (CPU, Memory, Network I/O)",
+            "query": "sum(container_cpu_usage_seconds_total) by (pod) / sum(container_spec_cpu_quota) by (pod)",
+            "target_metric": "container_cpu_memory"
+          }
         ]
       }
     ],
+    "generated_at": "2026-07-23T06:09:42Z",
     "sre_reviewed": true,
+    "sre_reviewed_by": null,
     "status": "approved"
   },
   "handover": {

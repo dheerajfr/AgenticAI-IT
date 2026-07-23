@@ -817,16 +817,22 @@ def check_cross_programme_impact(req: CrossProgrammeImpactRequest):
             if p.plan_id == req.plan_id:
                 associated_plan = p
                 break
-    if not associated_plan:
+    if not associated_plan and req.task_id:
         for p in all_plans:
             task_ids = [t.task_id for t in (p.tasks or [])]
-            if req.task_id in task_ids:
+            if req.task_id in task_ids or any(req.task_id in t.task_id for t in (p.tasks or [])):
+                associated_plan = p
+                break
+    if not associated_plan and req.plan_id:
+        last_num = req.plan_id.split('-')[-1]
+        for p in all_plans:
+            if last_num in p.plan_id:
                 associated_plan = p
                 break
 
     if not associated_plan and all_plans:
         associated_plan = all_plans[0]
-        if associated_plan.tasks:
+        if not req.task_id and associated_plan.tasks:
             req.task_id = associated_plan.tasks[0].task_id
         
     state_input = {

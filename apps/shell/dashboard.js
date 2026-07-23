@@ -31,7 +31,8 @@ async function loadProjectData(demandId) {
     deployCutover,
     tqConsolidated,
     tqQualityGate,
-    releases
+    releases,
+    opsRecord
   ] = await Promise.all([
     fetchSafe(`${BASE_URL}/demands`),
     fetchSafe(`${BASE_URL}/estimates`),
@@ -42,7 +43,8 @@ async function loadProjectData(demandId) {
     fetchSafe(`${BASE_URL}/deployments/cutover`),
     fetchSafe(`${BASE_URL}/test-quality/consolidated/${demandId}`),
     fetchSafe(`${BASE_URL}/test-quality/relational/quality_gate/${demandId}`),
-    fetchSafe(`${BASE_URL}/release-change/releases`)
+    fetchSafe(`${BASE_URL}/release-change/releases`),
+    fetchSafe(`${BASE_URL}/ops-readiness/records/${demandId}`)
   ]);
 
   // Aggregate and Filter
@@ -50,10 +52,15 @@ async function loadProjectData(demandId) {
   if (estimates) data.estimate = estimates.find(e => e.demand_id === demandId);
   if (plans) data.plan = plans.find(p => p.demand_id === demandId);
   if (environments) data.environments = environments.filter(e => e.demand_id === demandId);
-  if (dependencies) data.dependencies = dependencies.filter(d => (d.plan_id && data.plan && d.plan_id === data.plan.plan_id) || (data.plan && d.plan_id === data.plan.plan_id) || d.demand_id === demandId); 
-  // Fallback if deps map by plan_id
-  if (dependencies && !data.dependencies.length && data.plan) {
-      data.dependencies = dependencies.filter(d => d.plan_id === data.plan.plan_id);
+  if (dependencies) {
+    const demandPlanIds = (plans || []).filter(p => p.demand_id === demandId).map(p => p.plan_id);
+    const lastNum = demandId.split('-').pop();
+    data.dependencies = dependencies.filter(d => {
+      if (d.demand_id === demandId) return true;
+      if (d.plan_id && (demandPlanIds.includes(d.plan_id) || (data.plan && d.plan_id === data.plan.plan_id))) return true;
+      if (lastNum && ((d.plan_id && d.plan_id.includes(lastNum)) || (d.dependency_id && d.dependency_id.includes(lastNum)))) return true;
+      return false;
+    });
   }
   
   if (deployOrch) data.deployments = deployOrch.filter(d => d.demand_id === demandId);
@@ -61,12 +68,14 @@ async function loadProjectData(demandId) {
   data.testQuality = tqConsolidated || null;
   data.qualityGate = tqQualityGate ? tqQualityGate[0] || null : null; // usually returns array
   if (releases) data.releases = releases.filter(r => r.demand_id === demandId);
+  data.opsReadiness = opsRecord || null;
 
   return data;
 }
 
 // 2. Logic Calculations
 function determineCurrentStage(data) {
+  if (data.opsReadiness && (data.opsReadiness.validation || data.opsReadiness.handover || data.opsReadiness.monitoring)) return 'ops-readiness';
   if (data.releases && data.releases.length > 0) return 'release-change';
   if (data.qualityGate) return 'test-quality';
   if (data.deployments && data.deployments.length > 0) return 'build-deploy';
@@ -76,12 +85,12 @@ function determineCurrentStage(data) {
   if (data.estimate) return 'estimate-shape';
   return 'demand-intake';
 }
-
 function calculateHealth(data) {
   if (data.qualityGate && data.qualityGate.verdict === 'FAIL') return 'Blocked';
   if (data.dependencies && data.dependencies.some(d => d.status === 'blocked')) return 'Blocked';
   if (data.deployments && data.deployments.some(d => d.status === 'no-go')) return 'Delayed';
   if (data.releases && data.releases.some(r => r.cab_decision === 'Reject')) return 'At Risk';
+  if (data.opsReadiness && data.opsReadiness.validation && (data.opsReadiness.validation.verdict === 'FAIL' || data.opsReadiness.validation.status === 'REJECTED')) return 'At Risk';
   return 'Healthy';
 }
 
@@ -89,7 +98,7 @@ function calculateProgress(stage) {
   const stages = [
     'demand-intake', 'estimate-shape', 'plan-schedule', 
     'config-environments', 'dependencies', 'build-deploy', 
-    'test-quality', 'release-change'
+    'test-quality', 'release-change', 'ops-readiness'
   ];
   const idx = stages.indexOf(stage);
   return Math.round(((idx + 1) / stages.length) * 100);
@@ -157,6 +166,7 @@ async function renderProjectDetails(demandId) {
   
   const data = await loadProjectData(demandId);
   currentProject = data;
+  window.currentProject = data;
 
   if (!data.demand) {
     content.innerHTML = `<div style="color: var(--color-status-red-text);">Project ${demandId} not found.</div>`;
@@ -197,10 +207,10 @@ async function renderProjectDetails(demandId) {
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('demand-intake', currentStage)};"></div>
         ${renderTimelineNode('Estimate', 'estimate-shape', currentStage, data)}
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('estimate-shape', currentStage)};"></div>
-        ${renderTimelineNode('Config', 'config-environments', currentStage, data)}
-        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('config-environments', currentStage)};"></div>
         ${renderTimelineNode('Plan', 'plan-schedule', currentStage, data)}
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('plan-schedule', currentStage)};"></div>
+        ${renderTimelineNode('Config', 'config-environments', currentStage, data)}
+        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('config-environments', currentStage)};"></div>
         ${renderTimelineNode('Dependencies', 'dependencies', currentStage, data)}
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('dependencies', currentStage)};"></div>
         ${renderTimelineNode('Deploy', 'build-deploy', currentStage, data)}
@@ -208,6 +218,8 @@ async function renderProjectDetails(demandId) {
         ${renderTimelineNode('Test Quality', 'test-quality', currentStage, data)}
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('test-quality', currentStage)};"></div>
         ${renderTimelineNode('Release', 'release-change', currentStage, data)}
+        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('release-change', currentStage)};"></div>
+        ${renderTimelineNode('Ops Readiness', 'ops-readiness', currentStage, data)}
       </div>
     </div>
 
@@ -215,12 +227,13 @@ async function renderProjectDetails(demandId) {
     <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
       ${renderDemandCard(data)}
       ${renderEstimateCard(data)}
-      ${renderConfigCard(data)}
       ${renderPlanCard(data)}
+      ${renderConfigCard(data)}
       ${renderDepsCard(data)}
       ${renderDeployCard(data)}
       ${renderTestCard(data)}
       ${renderReleaseCard(data)}
+      ${renderOpsCard(data)}
     </div>
   `;
 }
@@ -229,9 +242,9 @@ async function renderProjectDetails(demandId) {
 // Timeline Helpers
 // ----------------------------------------------------------------------
 const stageOrder = [
-  'demand-intake', 'estimate-shape', 'config-environments', 
-  'plan-schedule', 'dependencies', 'build-deploy', 
-  'test-quality', 'release-change'
+  'demand-intake', 'estimate-shape', 'plan-schedule', 'config-environments', 
+  'dependencies', 'build-deploy', 
+  'test-quality', 'release-change', 'ops-readiness'
 ];
 
 function getStageStatus(stage, currentStage, data) {
@@ -269,8 +282,9 @@ function renderTimelineNode(label, stageId, currentStage, data) {
     border = 'var(--color-status-red-border)';
   }
 
+  const activeId = data && data.demandId ? data.demandId : '';
   return `
-    <div style="display:flex; flex-direction:column; align-items:center; gap:0.5rem; width: 80px;">
+    <div onclick="if('${activeId}') sessionStorage.setItem('selectedDemandId', '${activeId}'); window.switchStage('${stageId}');" style="display:flex; flex-direction:column; align-items:center; gap:0.5rem; width: 80px; cursor: pointer;">
       <div style="width: 24px; height: 24px; border-radius: 50%; background: ${bg}; border: 2px solid ${border}; display:flex; align-items:center; justify-content:center;">
         ${status === 'completed' ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="color:var(--color-status-green-text)"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>' : ''}
       </div>
@@ -299,6 +313,8 @@ function renderCard(title, moduleId, status, outputsHtml, approvalsHtml, errorsH
     statusBadge = `<span style="padding: 0.2rem 0.6rem; font-size: 0.75rem; border-radius: 12px; font-weight: 700; background: var(--color-status-red-bg); color: var(--color-status-red-text);">${status}</span>`;
   }
 
+  const activeId = (currentProject && currentProject.demandId) ? currentProject.demandId : '';
+
   return `
     <details class="dashboard-card" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden;">
       <summary style="padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: var(--bg-secondary); outline: none; list-style: none;">
@@ -306,7 +322,7 @@ function renderCard(title, moduleId, status, outputsHtml, approvalsHtml, errorsH
           <h4 style="margin: 0; font-family: var(--font-display); color: var(--text-primary); font-size: 1.1rem;">${title}</h4>
           ${statusBadge}
         </div>
-        <button type="button" onclick="sessionStorage.setItem('selectedDemandId', '${currentProject.demandId}'); window.switchStage('${moduleId}')" style="padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+        <button type="button" onclick="event.stopPropagation(); event.preventDefault(); if('${activeId}') { sessionStorage.setItem('selectedDemandId', '${activeId}'); } window.switchStage('${moduleId}');" style="padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
           View Details &rarr;
         </button>
       </summary>
@@ -385,15 +401,35 @@ function renderPlanCard(data) {
 }
 
 function renderDepsCard(data) {
-  if (!data.dependencies || !data.dependencies.length) return renderCard('Dependencies', 'dependencies', 'Pending', '', '');
-  const resolvedCount = data.dependencies.filter(d => d.status === 'resolved').length;
+  if (!data.dependencies || !data.dependencies.length) {
+    const outputs = `
+      • Total Dependencies: <strong>0</strong><br>
+      • AI Auto-Sense: Ready to analyze plan & critical path<br>
+      • Action: Click "View Details" to auto-sense dependencies
+    `;
+    const approvals = 'Status: <strong>Pending Auto-Sense</strong>';
+    return renderCard('Dependencies', 'dependencies', 'Pending', outputs, approvals);
+  }
   const total = data.dependencies.length;
+  const resolvedCount = data.dependencies.filter(d => d.status === 'resolved').length;
+  const blockedCount = data.dependencies.filter(d => d.status === 'blocked' || d.threat_level === 'high' || d.resource_status === 'BLOCKED').length;
+  const atRiskCount = data.dependencies.filter(d => d.status === 'at-risk' || d.threat_level === 'medium').length;
+
   const outputs = `
     • Total Dependencies: <strong>${total}</strong><br>
     • Resolved: ${resolvedCount}<br>
-    • Blocked: ${data.dependencies.filter(d => d.status === 'blocked').length}
+    • At Risk: ${atRiskCount}<br>
+    • Blocked / High Risk: ${blockedCount}
   `;
-  return renderCard('Dependencies', 'dependencies', resolvedCount === total ? 'Completed' : 'In Progress', outputs, '');
+  
+  let approvals = `Status: <strong>${resolvedCount === total ? 'All Resolved' : (blockedCount > 0 ? 'Blocked' : 'In Progress')}</strong>`;
+  let errorsHtml = '';
+  if (blockedCount > 0) {
+    errorsHtml = `⚠️ ${blockedCount} dependency item(s) are blocked or high risk. Open the Dependencies module to resolve staffing or predecessor blocks.`;
+  }
+
+  const status = resolvedCount === total ? 'Completed' : (blockedCount > 0 ? 'Failed' : 'In Progress');
+  return renderCard('Dependencies', 'dependencies', status, outputs, approvals, errorsHtml);
 }
 
 function renderDeployCard(data) {
@@ -468,6 +504,38 @@ function renderReleaseCard(data) {
   }
 
   return renderCard('Release & Change', 'release-change', status, outputs, approvals, errorsHtml);
+}
+
+function renderOpsCard(data) {
+  if (!data.opsReadiness || (!data.opsReadiness.monitoring && !data.opsReadiness.handover && !data.opsReadiness.validation)) {
+    return renderCard('Ops Readiness', 'ops-readiness', 'Pending', '', '');
+  }
+  const ops = data.opsReadiness;
+  const monitoringStatus = ops.monitoring ? (ops.monitoring.status || 'Configured') : 'Pending';
+  const handoverStatus = ops.handover ? (ops.handover.status || 'Pack Created') : 'Pending';
+  const valObj = ops.validation || {};
+  const validationVerdict = valObj.verdict || valObj.status || (valObj.signoff ? 'APPROVED' : 'Evaluated');
+
+  const outputs = `
+    • Monitoring Setup: <strong>${monitoringStatus}</strong><br>
+    • Handover Pack: ${handoverStatus}<br>
+    • Readiness Verdict: <strong>${validationVerdict}</strong>
+  `;
+  
+  let approvals = `Verdict: <strong>${validationVerdict}</strong>`;
+  let errorsHtml = '';
+  let status = 'In Progress';
+
+  if (validationVerdict === 'PASS' || validationVerdict === 'APPROVED' || validationVerdict === 'READY') {
+    status = 'Completed';
+  } else if (validationVerdict === 'FAIL' || validationVerdict === 'REJECTED' || validationVerdict === 'NOT_READY') {
+    status = 'Failed';
+    errorsHtml = 'Operational Readiness check failed. Operational risks must be resolved before Go-Live.';
+  } else if (ops.monitoring || ops.handover || ops.validation) {
+    status = 'In Progress';
+  }
+
+  return renderCard('Ops Readiness', 'ops-readiness', status, outputs, approvals, errorsHtml);
 }
 
 // Global style for detail dropdowns
