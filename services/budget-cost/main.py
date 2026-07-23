@@ -188,18 +188,54 @@ def save_actuals(req: UpdateActualsRequest):
     burn_db.upsert(req.demand_id, data)
     return data
 
+import sqlite3
+import json
+import os
+
+def _get_historical_context(demand_id: str) -> str:
+    db_path = os.environ.get("DATABASE_PATH", os.path.abspath(os.path.join(_THIS_DIR, "..", "source.db")))
+    context = ""
+    try:
+        with sqlite3.connect(db_path) as conn:
+            c = conn.cursor()
+            c.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = [row[0] for row in c.fetchall()]
+            
+            if 'demands' in tables:
+                c.execute("SELECT data FROM demands WHERE demand_id = ?", (demand_id,))
+                row = c.fetchone()
+                if row:
+                    dem = json.loads(row[0])
+                    context += f"\nDemand Context: Title='{dem.get('title')}', Type='{dem.get('type')}', Risk='{dem.get('risk_level')}'.\n"
+            
+            if 'estimates' in tables:
+                c.execute("SELECT data FROM estimates WHERE demand_id = ?", (demand_id,))
+                row = c.fetchone()
+                if row:
+                    est = json.loads(row[0])
+                    context += f"Original Estimate: Cost=${est.get('cost_estimate', 0)}, Effort={est.get('effort_days', 0)} days, Duration={est.get('duration_weeks', 0)} weeks.\n"
+                    if est.get("risk_factors"):
+                        context += f"Risks identified during estimation: {', '.join(est['risk_factors'])}.\n"
+    except Exception as e:
+        print("Error fetching historical context:", e)
+    return context
+
 @app.post("/api/budget-cost/burn/forecast")
 def run_burn_forecast(req: BurnForecastRequest):
     data = burn_db.get(req.demand_id) or {"actuals": [], "forecast": [], "variance_pct": 0, "narrative": "", "committed": False}
     actuals = req.actuals or [{"date": a["date"], "amount": a["amount"], "category": a["category"]}
                                for a in data.get("actuals", [])]
     actual_total = sum(a["amount"] if isinstance(a, dict) else a.amount for a in actuals)
+    
+    historical_context = _get_historical_context(req.demand_id)
+    
     prompt = (
         f"You are a Finance AI assistant. Project {req.demand_id} has spent ${actual_total:,.0f} in actuals. "
         f"Actuals by period: {actuals}. "
+        f"{historical_context}"
         f"Write a 3-paragraph variance narrative: "
-        f"(1) Burn vs plan summary with variance %, "
-        f"(2) Key cost drivers causing overrun or underrun, "
+        f"(1) Burn vs plan summary with variance % (compare actuals vs Original Estimate Cost), "
+        f"(2) Key cost drivers causing overrun or underrun (reference the Demand Context and Risks if relevant), "
         f"(3) Recommended forecast adjustment and risk outlook. "
         f"Be concise and use numbers."
     )
