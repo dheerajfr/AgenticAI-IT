@@ -1,0 +1,406 @@
+{
+  "demand_id": "DEM-2026-0011",
+  "updated_at": "2026-07-22T07:01:03Z",
+  "test_generation": {
+    "suite_id": "TST-DEM-2026-0011-1",
+    "demand_id": "DEM-2026-0011",
+    "plan_id": "PLN-0011-1",
+    "generated_at": "2026-07-22T08:00:00Z",
+    "test_cases": [
+      {
+        "test_id": "TC-0011-01",
+        "story_id": "DEM-2026-0011",
+        "title": "Verify successful AI-driven candidate shortlisting",
+        "steps": [
+          "Log in as HR manager",
+          "Navigate to recruitment AI module",
+          "Upload a valid set of candidate resumes",
+          "Trigger AI shortlisting process",
+          "Review shortlisted candidates list"
+        ],
+        "expected_result": "The AI returns a relevant shortlist of candidates matching job criteria with proper ranking and no errors.",
+        "priority": "critical",
+        "type": "functional"
+      },
+      {
+        "test_id": "TC-0011-02",
+        "story_id": "DEM-2026-0011",
+        "title": "Validate AI decision transparency report generation",
+        "steps": [
+          "Log in as compliance officer",
+          "Access AI decision transparency dashboard",
+          "Select recent recruitment AI decisions",
+          "Generate transparency report"
+        ],
+        "expected_result": "The system generates a detailed transparency report explaining AI decision logic and rationale for each candidate.",
+        "priority": "critical",
+        "type": "functional"
+      },
+      {
+        "test_id": "TC-0011-03",
+        "story_id": "DEM-2026-0011",
+        "title": "Test system behavior with invalid candidate resume file format",
+        "steps": [
+          "Log in as HR user",
+          "Navigate to recruitment AI upload",
+          "Upload a corrupted or unsupported file format",
+          "Trigger AI shortlisting process"
+        ],
+        "expected_result": "The system rejects the file upload and displays an appropriate error message without crashing.",
+        "priority": "high",
+        "type": "functional"
+      },
+      {
+        "test_id": "TC-0011-04",
+        "story_id": "DEM-2026-0011",
+        "title": "Verify AI onboarding automation with incomplete employee data",
+        "steps": [
+          "Log in as HR onboarding user",
+          "Start onboarding process for new employee with some missing required data fields",
+          "Trigger AI-driven onboarding automation"
+        ],
+        "expected_result": "The system detects missing data, prompts user for correction, and does not proceed until mandatory fields are completed.",
+        "priority": "high",
+        "type": "functional"
+      },
+      {
+        "test_id": "TC-0011-05",
+        "story_id": "DEM-2026-0011",
+        "title": "Validate system performance under peak recruitment load",
+        "steps": [
+          "Simulate 100 concurrent HR users accessing recruitment AI module",
+          "Upload multiple large batches of candidate data simultaneously",
+          "Trigger AI processing tasks concurrently"
+        ],
+        "expected_result": "The system maintains response times under 3 seconds per action, no timeouts or crashes occur, and AI completes processing within SLAs.",
+        "priority": "critical",
+        "type": "non-functional"
+      },
+      {
+        "test_id": "TC-0011-06",
+        "story_id": "DEM-2026-0011",
+        "title": "Security test: Validate data privacy compliance during AI decision processing",
+        "steps": [
+          "Intercept communication between frontend and backend during AI decision processing",
+          "Attempt to access candidate personal data without authorization",
+          "Verify encryption and access controls on data in transit and at rest"
+        ],
+        "expected_result": "No unauthorized data access is possible, all sensitive data is encrypted, and access is logged and restricted per compliance guidelines.",
+        "priority": "critical",
+        "type": "non-functional"
+      },
+      {
+        "test_id": "TC-0011-07",
+        "story_id": "DEM-2026-0011",
+        "title": "Reliability test: Validate system recovery after AI module failure",
+        "steps": [
+          "Simulate an AI module crash during candidate shortlisting",
+          "Observe system behavior and logged errors",
+          "Trigger system recovery or restart processes"
+        ],
+        "expected_result": "System gracefully handles failure by logging detailed errors, notifying users, and recovers AI service automatically within defined timeout.",
+        "priority": "high",
+        "type": "non-functional"
+      },
+      {
+        "test_id": "TC-0011-08",
+        "story_id": "DEM-2026-0011",
+        "title": "Test AI decision making for potential bias and fairness with diverse candidate data sets",
+        "steps": [
+          "Prepare candidate data sets with diverse demographic attributes",
+          "Trigger AI shortlisting process",
+          "Analyze AI decisions for disproportionate exclusion or favoritism"
+        ],
+        "expected_result": "AI decision results are balanced and fair, with no statistically significant bias detected in candidate selection.",
+        "priority": "high",
+        "type": "functional"
+      },
+      {
+        "test_id": "TC-0011-09",
+        "story_id": "DEM-2026-0011",
+        "title": "Validate scalability: AI performance when onboarding bulk employees",
+        "steps": [
+          "Simulate onboarding 500 new employee records at once",
+          "Trigger AI-driven onboarding automation",
+          "Monitor system resource utilization and processing time"
+        ],
+        "expected_result": "AI onboarding completes successfully within acceptable time limits without degradation of other system functions.",
+        "priority": "medium",
+        "type": "non-functional"
+      },
+      {
+        "test_id": "TC-0011-10",
+        "story_id": "DEM-2026-0011",
+        "title": "Negative test: Submission of empty or null inputs to AI modules",
+        "steps": [
+          "Log in as HR user",
+          "Navigate to AI input screens",
+          "Submit empty or null form fields for candidate data and onboarding",
+          "Trigger AI processes"
+        ],
+        "expected_result": "System rejects empty inputs gracefully with validation messages and does not invoke AI processing.",
+        "priority": "medium",
+        "type": "functional"
+      }
+    ],
+    "coverage_summary": {
+      "total_stories": 1,
+      "stories_covered": 1,
+      "total_test_cases": 10,
+      "critical_path_coverage_pct": 100.0
+    },
+    "status": "draft"
+  },
+  "test_data": null,
+  "test_execution": {
+    "test_run_id": "TR-DEM-2026-0011-1",
+    "suite_id": "TST-DEM-2026-0011-1",
+    "demand_id": "DEM-2026-0011",
+    "environment": "QA",
+    "executed_at": "2026-07-22T09:30:00Z",
+    "results": [
+      {
+        "test_id": "TC-0011-01",
+        "status": "passed",
+        "duration_ms": 4320,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0011-02",
+        "status": "failed",
+        "duration_ms": 3890,
+        "failure_analysis": "Transparency report generation failed due to null pointer exception during data aggregation."
+      },
+      {
+        "test_id": "TC-0011-03",
+        "status": "passed",
+        "duration_ms": 2150,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0011-04",
+        "status": "passed",
+        "duration_ms": 3100,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0011-05",
+        "status": "failed",
+        "duration_ms": 12000,
+        "failure_analysis": "System exceeded SLA with average response times over 5 seconds under peak recruitment load simulation."
+      },
+      {
+        "test_id": "TC-0011-06",
+        "status": "passed",
+        "duration_ms": 4870,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0011-07",
+        "status": "failed",
+        "duration_ms": 5650,
+        "failure_analysis": "AI module crash recovery timeout exceeded; automatic restart took longer than allowed threshold."
+      },
+      {
+        "test_id": "TC-0011-08",
+        "status": "passed",
+        "duration_ms": 4980,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0011-09",
+        "status": "passed",
+        "duration_ms": 6300,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0011-10",
+        "status": "passed",
+        "duration_ms": 1770,
+        "failure_analysis": null
+      }
+    ],
+    "summary": {
+      "total": 10,
+      "passed": 7,
+      "failed": 3,
+      "skipped": 0,
+      "pass_rate_pct": 70.0
+    },
+    "defect_ids_raised": [
+      "BUG-1",
+      "BUG-2",
+      "BUG-3"
+    ],
+    "human_acceptance": null,
+    "status": "pending-approval"
+  },
+  "defect_triage": {
+    "triage_id": "TRG-2026-0011-1",
+    "test_run_id": "TR-DEM-2026-0011-1",
+    "demand_id": "DEM-2026-0011",
+    "triaged_defects": [
+      {
+        "defect_id": "TC-0011-02",
+        "severity": "high",
+        "priority": 1,
+        "cluster": "UI-display-issue",
+        "duplicate_of": null,
+        "root_cause_hint": "Possible frontend rendering bug in HR dashboard components affecting data visualization.",
+        "assigned_to": "bob@example.com",
+        "recommended_action": "fix-before-release"
+      },
+      {
+        "defect_id": "TC-0011-05",
+        "severity": "high",
+        "priority": 2,
+        "cluster": "UI-display-issue",
+        "duplicate_of": "TC-0011-02",
+        "root_cause_hint": "Duplicate issue with frontend rendering causing UI anomalies on HR dashboard.",
+        "assigned_to": "bob@example.com",
+        "recommended_action": "close"
+      },
+      {
+        "defect_id": "TC-0011-07",
+        "severity": "critical",
+        "priority": 1,
+        "cluster": "AI-decision-logic-error",
+        "duplicate_of": null,
+        "root_cause_hint": "Core AI decision logic may have errors causing incorrect HR process outcomes, risking business impact.",
+        "assigned_to": "james@example.com",
+        "recommended_action": "fix-before-release"
+      }
+    ],
+    "release_risk_summary": "Two clusters identified: UI display issues impacting user experience and a critical AI decision logic error risking HR process accuracy. Immediate fixes required for AI logic and UI bug; duplicate defect TC-0011-05 closed. Given medium project risk and capacity, addressing these defects before release reduces overall risk.",
+    "human_confirmed": false,
+    "status": "pending-approval"
+  },
+  "security_testing": {
+    "security_test_id": "SEC-2026-0011-1",
+    "demand_id": "DEM-2026-0011",
+    "plan_id": "PLN-0011-1",
+    "pipeline_run_id": "PL-0011-0200",
+    "scanned_at": "2026-07-22T07:30:00Z",
+    "findings": [
+      {
+        "finding_id": "FND-001",
+        "component_id": "source-code",
+        "severity": "high",
+        "category": "Injection - SQL Injection",
+        "location": "src/backend/hr_decision_service.py:87",
+        "exploitable": true,
+        "draft_fix": "Use parameterized queries or prepared statements for all database calls to sanitize inputs and prevent SQL injection. Replace direct string concatenation in SQL commands with safe query parameter syntax.",
+        "status": "open"
+      },
+      {
+        "finding_id": "FND-002",
+        "component_id": "source-code",
+        "severity": "medium",
+        "category": "Secrets Exposure",
+        "location": "config/database.yaml:15",
+        "exploitable": true,
+        "draft_fix": "Remove hard-coded credentials from the configuration file. Implement environment variable injection or a secrets management solution to securely handle sensitive credentials.",
+        "status": "open"
+      },
+      {
+        "finding_id": "FND-003",
+        "component_id": "source-code",
+        "severity": "medium",
+        "category": "Cross-Site Scripting (XSS)",
+        "location": "src/frontend/hr_dashboard.js:110-130",
+        "exploitable": true,
+        "draft_fix": "Sanitize all user inputs and encode outputs properly before rendering on the frontend. Use a security library (e.g., DOMPurify) to neutralize any injection vectors in dynamic HTML rendering.",
+        "status": "open"
+      },
+      {
+        "finding_id": "FND-004",
+        "component_id": "source-code",
+        "severity": "low",
+        "category": "Insecure Logging",
+        "location": "src/backend/hr_audit.py:42",
+        "exploitable": false,
+        "draft_fix": "Avoid logging sensitive personal data or AI decision details in plaintext. Implement redaction or encryption of sensitive log entries to comply with privacy requirements.",
+        "status": "open"
+      }
+    ],
+    "summary": {
+      "critical": 0,
+      "high": 1,
+      "medium": 2,
+      "low": 1
+    },
+    "exploitable_confirmed": true,
+    "signed_off_by": null,
+    "status": "pending-approval"
+  },
+  "traceability": {
+    "traceability_id": "TRC-2026-0011-1",
+    "demand_id": "DEM-2026-0011",
+    "last_updated": "2026-07-22T09:30:00Z",
+    "entries": [
+      {
+        "story_id": "DEM-2026-0011",
+        "test_ids": [
+          "TC-0011-01",
+          "TC-0011-02",
+          "TC-0011-03",
+          "TC-0011-04",
+          "TC-0011-05",
+          "TC-0011-06",
+          "TC-0011-07",
+          "TC-0011-08",
+          "TC-0011-09",
+          "TC-0011-10"
+        ],
+        "defect_ids": [
+          "BUG-2",
+          "BUG-1",
+          "BUG-3"
+        ],
+        "coverage_status": "partial",
+        "passing": false
+      }
+    ],
+    "uncovered_stories": [],
+    "coverage_gaps": [],
+    "audit_ready": true
+  },
+  "quality_gate": {
+    "gate_id": "QGT-DEM-2026-0011-1",
+    "demand_id": "DEM-2026-0011",
+    "test_run_id": "TR-DEM-2026-0011-1",
+    "evaluated_at": "2026-07-22T10:00:00Z",
+    "verdict": "fail",
+    "score": 25,
+    "checks": [
+      {
+        "check": "pass_rate",
+        "threshold": "95%",
+        "actual": "70%",
+        "result": "fail"
+      },
+      {
+        "check": "critical_defects",
+        "threshold": "0",
+        "actual": "1",
+        "result": "fail"
+      },
+      {
+        "check": "security_high_findings",
+        "threshold": "0",
+        "actual": "1",
+        "result": "fail"
+      },
+      {
+        "check": "coverage",
+        "threshold": "90%",
+        "actual": "100%",
+        "result": "pass"
+      }
+    ],
+    "gap_explanation": "The release is blocked due to multiple failed critical quality gates: the test pass rate is below the minimum threshold of 95%, a critical defect remains open that requires fix before release, and there is an open high severity security finding (SQL Injection) that must be remediated. Although coverage is sufficient, these issues pose significant risks and must be addressed prior to release.",
+    "human_decision": null,
+    "decided_by": null,
+    "status": "pending-approval"
+  }
+}

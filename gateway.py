@@ -60,6 +60,16 @@ build_deploy_app = load_service("build-deploy")
 print("Loading test-quality service...")
 test_quality_app = load_service("test-quality")
 print("Loading ops-readiness service...")
+print("Loading risk-issues service...")
+risk_issues_app = load_service("risk-issues")
+print("Loading budget-cost service...")
+budget_cost_app = load_service("budget-cost")
+print("Loading vendor-coordination service...")
+vendor_coordination_app = load_service("vendor-coordination")
+print("Loading reporting-communication service...")
+reporting_communication_app = load_service("reporting-communication")
+print("Loading knowledge-artifacts service...")
+knowledge_artifacts_app = load_service("knowledge-artifacts")
 ops_readiness_app = load_service("ops-readiness")
 
 def try_load(name):
@@ -112,6 +122,21 @@ async def app(scope, receive, send):
             return
         elif path.startswith("/api/test-quality"):
             await test_quality_app(scope, receive, send)
+            return
+        elif path.startswith("/api/risk-issues"):
+            await risk_issues_app(scope, receive, send)
+            return
+        elif path.startswith("/api/budget-cost"):
+            await budget_cost_app(scope, receive, send)
+            return
+        elif path.startswith("/api/vendor-coordination"):
+            await vendor_coordination_app(scope, receive, send)
+            return
+        elif path.startswith("/api/reporting-communication"):
+            await reporting_communication_app(scope, receive, send)
+            return
+        elif path.startswith("/api/knowledge-artifacts"):
+            await knowledge_artifacts_app(scope, receive, send)
             return
         elif path.startswith("/api/ops-readiness"):
             await ops_readiness_app(scope, receive, send)

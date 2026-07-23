@@ -1,0 +1,259 @@
+{
+  "demand_id": "DEM-2026-0009",
+  "updated_at": "2026-07-21T10:05:47Z",
+  "test_generation": {
+    "suite_id": "TST-DEM-2026-0009-1",
+    "demand_id": "DEM-2026-0009",
+    "plan_id": "PLN-0009-1",
+    "generated_at": "2026-07-21T12:00:00Z",
+    "test_cases": [
+      {
+        "test_id": "TC-0009-01",
+        "story_id": "DEM-2026-0009",
+        "title": "Validate Agentic AI processes standard news content input correctly",
+        "steps": [
+          "Input a standard news article text into the AI analysis system",
+          "Trigger the analysis process",
+          "Collect the AI-generated insights and summary"
+        ],
+        "expected_result": "AI processes the news content accurately, generating relevant insights and a coherent summary without errors",
+        "priority": "critical",
+        "type": "functional-positive"
+      },
+      {
+        "test_id": "TC-0009-02",
+        "story_id": "DEM-2026-0009",
+        "title": "Handle empty news content input gracefully",
+        "steps": [
+          "Submit an empty news content input to the AI analysis system",
+          "Trigger the analysis process"
+        ],
+        "expected_result": "System returns a meaningful error or warning indicating input cannot be empty without crashing",
+        "priority": "high",
+        "type": "functional-negative"
+      },
+      {
+        "test_id": "TC-0009-03",
+        "story_id": "DEM-2026-0009",
+        "title": "Verify AI system rejects malformed news content input",
+        "steps": [
+          "Input malformed or corrupted news content data (e.g., binary data instead of text)",
+          "Trigger the analysis process"
+        ],
+        "expected_result": "System handles the malformed input by rejecting with an appropriate error message without crashing or producing invalid output",
+        "priority": "high",
+        "type": "functional-negative"
+      },
+      {
+        "test_id": "TC-0009-04",
+        "story_id": "DEM-2026-0009",
+        "title": "Ensure AI output reliability under medium complexity news inputs",
+        "steps": [
+          "Input news articles with complex language and mixed sentiments",
+          "Trigger the analysis process",
+          "Review the AI-generated insights for accuracy, bias, and consistency"
+        ],
+        "expected_result": "AI outputs unbiased, reliable, and consistent analysis aligned with expected business rules",
+        "priority": "critical",
+        "type": "functional-positive"
+      },
+      {
+        "test_id": "TC-0009-05",
+        "story_id": "DEM-2026-0009",
+        "title": "Data privacy compliance verification during AI news analysis",
+        "steps": [
+          "Input news content containing sensitive or personal data",
+          "Trigger the analysis",
+          "Verify data handling and output comply with privacy regulations and masking policies"
+        ],
+        "expected_result": "Sensitive data is processed according to compliance standards, with no leakage or improper exposure",
+        "priority": "critical",
+        "type": "non-functional-security"
+      },
+      {
+        "test_id": "TC-0009-06",
+        "story_id": "DEM-2026-0009",
+        "title": "Performance testing: AI analysis response time under typical load",
+        "steps": [
+          "Simulate multiple concurrent submissions of standard news articles (e.g., 50 simultaneous users)",
+          "Measure AI analysis response and processing time"
+        ],
+        "expected_result": "Response time remains within acceptable SLA thresholds (e.g., under 3 seconds per analysis)",
+        "priority": "high",
+        "type": "non-functional-performance"
+      },
+      {
+        "test_id": "TC-0009-07",
+        "story_id": "DEM-2026-0009",
+        "title": "Scalability testing: AI system behavior under peak load",
+        "steps": [
+          "Simulate a high volume of news content input requests (e.g., 500+ simultaneous users)",
+          "Monitor system stability, throughput, and error rate"
+        ],
+        "expected_result": "System remains stable with acceptable throughput and error rates below 1%",
+        "priority": "medium",
+        "type": "non-functional-scalability"
+      },
+      {
+        "test_id": "TC-0009-08",
+        "story_id": "DEM-2026-0009",
+        "title": "Reliability testing: AI system recovers cleanly from unexpected failure",
+        "steps": [
+          "Force AI system failure during ongoing news analysis",
+          "Observe system recovery and resumption of service"
+        ],
+        "expected_result": "System recovers automatically or with minimal manual intervention, with no data loss or corruption",
+        "priority": "high",
+        "type": "non-functional-reliability"
+      },
+      {
+        "test_id": "TC-0009-09",
+        "story_id": "DEM-2026-0009",
+        "title": "Negative test: Validate system logs and error messages for invalid user authentication",
+        "steps": [
+          "Attempt to access AI analysis functionalities with invalid user credentials",
+          "Attempt to trigger analysis process"
+        ],
+        "expected_result": "Access denied with clear error message; all attempts logged for audit",
+        "priority": "critical",
+        "type": "non-functional-security"
+      },
+      {
+        "test_id": "TC-0009-10",
+        "story_id": "DEM-2026-0009",
+        "title": "Verify AI analysis accuracy on boundary text length inputs",
+        "steps": [
+          "Test AI with news content inputs at minimum allowed length (e.g., one sentence)",
+          "Test AI with news content inputs at maximum allowed length (e.g., large article limit)",
+          "Trigger analysis process each time"
+        ],
+        "expected_result": "System handles boundary inputs properly without errors and produces valid analysis",
+        "priority": "medium",
+        "type": "functional-positive"
+      }
+    ],
+    "coverage_summary": {
+      "total_stories": 1,
+      "stories_covered": 1,
+      "total_test_cases": 10,
+      "critical_path_coverage_pct": 100.0
+    },
+    "status": "draft"
+  },
+  "test_data": null,
+  "test_execution": {
+    "test_run_id": "TR-20260009-1",
+    "suite_id": "TST-DEM-2026-0009-1",
+    "demand_id": "DEM-2026-0009",
+    "environment": "QA",
+    "executed_at": "2026-07-21T13:15:00Z",
+    "results": [
+      {
+        "test_id": "TC-0009-01",
+        "status": "passed",
+        "duration_ms": 1450,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0009-02",
+        "status": "passed",
+        "duration_ms": 1200,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0009-03",
+        "status": "passed",
+        "duration_ms": 1300,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0009-04",
+        "status": "failed",
+        "duration_ms": 3200,
+        "failure_analysis": "AI output exhibited occasional bias in sentiment analysis of mixed language inputs, causing inconsistencies with expected business rules."
+      },
+      {
+        "test_id": "TC-0009-05",
+        "status": "passed",
+        "duration_ms": 1600,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0009-06",
+        "status": "passed",
+        "duration_ms": 2800,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0009-07",
+        "status": "failed",
+        "duration_ms": 5500,
+        "failure_analysis": "Under peak load, system showed increased error rate (~2%) and degraded throughput beyond acceptable thresholds."
+      },
+      {
+        "test_id": "TC-0009-08",
+        "status": "passed",
+        "duration_ms": 4000,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0009-09",
+        "status": "passed",
+        "duration_ms": 900,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0009-10",
+        "status": "passed",
+        "duration_ms": 1750,
+        "failure_analysis": null
+      }
+    ],
+    "summary": {
+      "total": 10,
+      "passed": 8,
+      "failed": 2,
+      "skipped": 0,
+      "pass_rate_pct": 80.0
+    },
+    "defect_ids_raised": [
+      "BUG-1",
+      "BUG-2"
+    ],
+    "human_acceptance": null,
+    "status": "pending-approval"
+  },
+  "defect_triage": {
+    "triage_id": "TRG-2026-0009-1",
+    "test_run_id": "TR-20260009-1",
+    "demand_id": "DEM-2026-0009",
+    "triaged_defects": [
+      {
+        "defect_id": "TC-0009-04",
+        "severity": "medium",
+        "priority": 3,
+        "cluster": "Agentic AI - News Analysis Core Logic",
+        "duplicate_of": null,
+        "root_cause_hint": "Potential issues in AI model integration affecting news content parsing accuracy.",
+        "assigned_to": "bob@example.com",
+        "recommended_action": "fix-before-release"
+      },
+      {
+        "defect_id": "TC-0009-07",
+        "severity": "medium",
+        "priority": 3,
+        "cluster": "Agentic AI - News Analysis Core Logic",
+        "duplicate_of": null,
+        "root_cause_hint": "Likely related to data preprocessing or AI module misconfiguration causing output inconsistencies.",
+        "assigned_to": "bob@example.com",
+        "recommended_action": "fix-before-release"
+      }
+    ],
+    "release_risk_summary": "Current defects indicate medium severity issues in core AI analysis logic impacting output reliability. Given the medium risk profile of the project and critical timeline, these defects should be fixed before release to ensure AI output reliability and data compliance.",
+    "human_confirmed": false,
+    "status": "pending-approval"
+  },
+  "security_testing": null,
+  "traceability": null,
+  "quality_gate": null
+}

@@ -1,0 +1,368 @@
+{
+  "demand_id": "DEM-2026-0008",
+  "updated_at": "2026-07-21T10:26:38Z",
+  "test_generation": {
+    "suite_id": "TST-DEM-2026-0008-01",
+    "demand_id": "DEM-2026-0008",
+    "plan_id": "PLN-0008-1",
+    "generated_at": "2026-07-21T12:00:00Z",
+    "test_cases": [
+      {
+        "test_id": "TC-0008-01",
+        "story_id": "DEM-2026-0008",
+        "title": "Verify user can start a new Golf Battle game successfully",
+        "steps": [
+          "Navigate to Golf Battle homepage",
+          "Click on 'Start New Game'",
+          "Select standard game mode",
+          "Confirm settings and start the game"
+        ],
+        "expected_result": "New game is created and user is taken to the game interface with correct default settings applied.",
+        "priority": "critical",
+        "type": "functional-positive"
+      },
+      {
+        "test_id": "TC-0008-02",
+        "story_id": "DEM-2026-0008",
+        "title": "Verify system handles invalid inputs when creating a game",
+        "steps": [
+          "Navigate to Golf Battle homepage",
+          "Click on 'Start New Game'",
+          "Enter invalid or incomplete settings (e.g., invalid player name, missing parameters)",
+          "Attempt to start the game"
+        ],
+        "expected_result": "System displays appropriate error messages for invalid inputs and prevents game creation until corrected.",
+        "priority": "critical",
+        "type": "functional-negative"
+      },
+      {
+        "test_id": "TC-0008-03",
+        "story_id": "DEM-2026-0008",
+        "title": "Verify gameplay executes with expected interactive elements responding correctly",
+        "steps": [
+          "Start a new game",
+          "Perform standard moves and interactions during Golf Battle gameplay",
+          "Observe UI responsiveness and game state updates"
+        ],
+        "expected_result": "All interactive elements respond correctly; game progresses as designed without errors or freezes.",
+        "priority": "critical",
+        "type": "functional-positive"
+      },
+      {
+        "test_id": "TC-0008-04",
+        "story_id": "DEM-2026-0008",
+        "title": "Validate error handling on unexpected gameplay inputs",
+        "steps": [
+          "During gameplay, input unexpected commands or perform rapid out-of-sequence actions",
+          "Observe system response"
+        ],
+        "expected_result": "System safely handles unexpected inputs and maintains stable game state without crashes.",
+        "priority": "high",
+        "type": "functional-negative"
+      },
+      {
+        "test_id": "TC-0008-05",
+        "story_id": "DEM-2026-0008",
+        "title": "Verify system performance under load with multiple concurrent users",
+        "steps": [
+          "Simulate 100 concurrent users playing Golf Battle concurrently",
+          "Track response times and throughput",
+          "Monitor system resource usage"
+        ],
+        "expected_result": "System remains performant with response times under 2 seconds and no degradation or crashes observed.",
+        "priority": "high",
+        "type": "non-functional-performance"
+      },
+      {
+        "test_id": "TC-0008-06",
+        "story_id": "DEM-2026-0008",
+        "title": "Validate game session persistence and reliability",
+        "steps": [
+          "Start a game session",
+          "Simulate network interruption",
+          "Reconnect and resume the game session"
+        ],
+        "expected_result": "Game session is persisted and resumed correctly without loss of data or state corruption.",
+        "priority": "high",
+        "type": "non-functional-reliability"
+      },
+      {
+        "test_id": "TC-0008-07",
+        "story_id": "DEM-2026-0008",
+        "title": "Security check: Validate unauthorized access denied to game admin functions",
+        "steps": [
+          "Attempt to access admin settings without proper authentication",
+          "Perform unauthorized actions"
+        ],
+        "expected_result": "Access is denied and system logs security violation attempts.",
+        "priority": "critical",
+        "type": "non-functional-security"
+      },
+      {
+        "test_id": "TC-0008-08",
+        "story_id": "DEM-2026-0008",
+        "title": "Verify scalability: System behavior as concurrent users scale from 100 to 500",
+        "steps": [
+          "Gradually increase the number of concurrent users playing Golf Battle from 100 to 500",
+          "Monitor system performance, response times, and error rates"
+        ],
+        "expected_result": "System scales linearly without failures or major performance degradation.",
+        "priority": "medium",
+        "type": "non-functional-scalability"
+      },
+      {
+        "test_id": "TC-0008-09",
+        "story_id": "DEM-2026-0008",
+        "title": "Validate environment consistency across Dev, Test, Staging, and Prod",
+        "steps": [
+          "Check deployed versions in each environment (Dev, Test, Staging, Prod)",
+          "Run version validation scripts",
+          "Confirm environment variables and configurations are consistent"
+        ],
+        "expected_result": "All environments are in-sync with expected versions and configuration, no drift detected.",
+        "priority": "medium",
+        "type": "non-functional-environment"
+      },
+      {
+        "test_id": "TC-0008-10",
+        "story_id": "DEM-2026-0008",
+        "title": "Negative test: Validate system response under invalid backend data response",
+        "steps": [
+          "Simulate backend service returning erroneous or malformed data",
+          "Attempt to continue gameplay or user interactions"
+        ],
+        "expected_result": "System handles backend errors gracefully with appropriate user notifications and no crashes.",
+        "priority": "high",
+        "type": "functional-negative"
+      }
+    ],
+    "coverage_summary": {
+      "total_stories": 1,
+      "stories_covered": 1,
+      "total_test_cases": 10,
+      "critical_path_coverage_pct": 100.0
+    },
+    "status": "draft"
+  },
+  "test_data": null,
+  "test_execution": {
+    "test_run_id": "TR-DEM20260008-1",
+    "suite_id": "TST-DEM-2026-0008-01",
+    "demand_id": "DEM-2026-0008",
+    "environment": "QA",
+    "executed_at": "2026-07-21T15:30:00Z",
+    "results": [
+      {
+        "test_id": "TC-0008-01",
+        "status": "passed",
+        "duration_ms": 3500,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0008-02",
+        "status": "passed",
+        "duration_ms": 2200,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0008-03",
+        "status": "passed",
+        "duration_ms": 5000,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0008-04",
+        "status": "passed",
+        "duration_ms": 2800,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0008-05",
+        "status": "failed",
+        "duration_ms": 15000,
+        "failure_analysis": "System response times exceeded the 2-second threshold under simulated load of 100 concurrent users, indicating potential performance bottlenecks."
+      },
+      {
+        "test_id": "TC-0008-06",
+        "status": "failed",
+        "duration_ms": 4200,
+        "failure_analysis": "Game session failed to resume correctly after network interruption, causing loss of session state and requiring a restart."
+      },
+      {
+        "test_id": "TC-0008-07",
+        "status": "skipped",
+        "duration_ms": 0,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0008-08",
+        "status": "passed",
+        "duration_ms": 12000,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0008-09",
+        "status": "passed",
+        "duration_ms": 3000,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0008-10",
+        "status": "failed",
+        "duration_ms": 3600,
+        "failure_analysis": "System did not handle malformed backend response gracefully; unhandled exception caused gameplay interruption."
+      }
+    ],
+    "summary": {
+      "total": 10,
+      "passed": 6,
+      "failed": 3,
+      "skipped": 1,
+      "pass_rate_pct": 60.0
+    },
+    "defect_ids_raised": [
+      "BUG-1",
+      "BUG-2",
+      "BUG-3"
+    ],
+    "human_acceptance": null,
+    "status": "pending-approval"
+  },
+  "defect_triage": {
+    "triage_id": "TRG-2026-0008-1",
+    "test_run_id": "TR-DEM20260008-1",
+    "demand_id": "DEM-2026-0008",
+    "triaged_defects": [
+      {
+        "defect_id": "TC-0008-05",
+        "severity": "high",
+        "priority": 2,
+        "cluster": "Gameplay Logic Failures",
+        "duplicate_of": null,
+        "root_cause_hint": "Potential incorrect game state updates or race condition in game logic module.",
+        "assigned_to": "huzaifa@example.com",
+        "recommended_action": "fix-before-release"
+      },
+      {
+        "defect_id": "TC-0008-06",
+        "severity": "medium",
+        "priority": 3,
+        "cluster": "Gameplay Logic Failures",
+        "duplicate_of": null,
+        "root_cause_hint": "Boundary case not handled in scoring algorithm leading to incorrect score display.",
+        "assigned_to": "huzaifa@example.com",
+        "recommended_action": "fix-before-release"
+      },
+      {
+        "defect_id": "TC-0008-10",
+        "severity": "minor",
+        "priority": 5,
+        "cluster": "UI/UX Issues",
+        "duplicate_of": null,
+        "root_cause_hint": "Frontend rendering delay or improper event binding causing lag in user interface responsiveness.",
+        "assigned_to": "diana@example.com",
+        "recommended_action": "defer"
+      }
+    ],
+    "release_risk_summary": "The defects clustered under gameplay logic failures (TC-0008-05, TC-0008-06) pose a moderate to high risk impacting core game experience and should be fixed before release. The UI/UX related defect (TC-0008-10) has minor impact and can be deferred to next release given current frontend developer constraints.",
+    "human_confirmed": false,
+    "status": "pending-approval"
+  },
+  "security_testing": {
+    "security_test_id": "SEC-DEM-2026-0008-1",
+    "demand_id": "DEM-2026-0008",
+    "plan_id": "PL-0008-1",
+    "pipeline_run_id": "PL-0008-7574",
+    "scanned_at": "2026-07-21T12:00:00Z",
+    "findings": [
+      {
+        "finding_id": "FND-1",
+        "component_id": "source-code",
+        "severity": "high",
+        "category": "SQL Injection",
+        "location": "src/backend/controllers/gameController.js:120",
+        "exploitable": true,
+        "draft_fix": "Use parameterized queries or ORM query binding to handle user inputs safely instead of concatenating them directly into SQL statements.",
+        "status": "open"
+      },
+      {
+        "finding_id": "FND-2",
+        "component_id": "source-code",
+        "severity": "medium",
+        "category": "Cross-Site Scripting (XSS)",
+        "location": "src/frontend/components/ScoreBoard.jsx:45",
+        "exploitable": true,
+        "draft_fix": "Sanitize and encode all user-supplied data before rendering in the UI. Utilize React's default escaping and avoid using dangerouslySetInnerHTML unless absolutely necessary.",
+        "status": "open"
+      },
+      {
+        "finding_id": "FND-3",
+        "component_id": "database-configurations",
+        "severity": "critical",
+        "category": "Secrets Exposure",
+        "location": "config/database/.env:3",
+        "exploitable": true,
+        "draft_fix": "Remove hardcoded credentials from configuration files. Use secure vault solutions or environment variables managed securely by the infrastructure, and ensure .env files are excluded from source control.",
+        "status": "open"
+      },
+      {
+        "finding_id": "FND-4",
+        "component_id": "source-code",
+        "severity": "low",
+        "category": "Information Disclosure",
+        "location": "src/backend/middleware/logger.js:78",
+        "exploitable": false,
+        "draft_fix": "Avoid logging sensitive information such as tokens or passwords. Mask or redact such data in logs to prevent unintended exposure.",
+        "status": "open"
+      }
+    ],
+    "summary": {
+      "critical": 1,
+      "high": 1,
+      "medium": 1,
+      "low": 1
+    },
+    "exploitable_confirmed": true,
+    "signed_off_by": null,
+    "status": "pending-approval"
+  },
+  "traceability": null,
+  "quality_gate": {
+    "gate_id": "QGT-20260008-1",
+    "demand_id": "DEM-2026-0008",
+    "test_run_id": "TR-DEM20260008-1",
+    "evaluated_at": "2026-07-21T15:30:00Z",
+    "verdict": "fail",
+    "score": 0,
+    "checks": [
+      {
+        "check": "pass_rate",
+        "threshold": "95%",
+        "actual": "60.0%",
+        "result": "fail"
+      },
+      {
+        "check": "critical_defects",
+        "threshold": "0",
+        "actual": "1",
+        "result": "fail"
+      },
+      {
+        "check": "security_high_findings",
+        "threshold": "0",
+        "actual": "2",
+        "result": "fail"
+      },
+      {
+        "check": "coverage",
+        "threshold": "90.0%",
+        "actual": "warn",
+        "result": "warn"
+      }
+    ],
+    "gap_explanation": "Release is blocked due to multiple critical quality gate failures: insufficient test pass rate (60% vs 95% required), presence of open critical defects, and unresolved high severity security findings including a critical secrets exposure. Traceability coverage data is missing, leading to inconclusive coverage check. These issues pose significant risks to product stability, security, and compliance, requiring resolution before release.",
+    "human_decision": null,
+    "decided_by": null,
+    "status": "pending-approval"
+  }
+}

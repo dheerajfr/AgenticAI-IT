@@ -17,7 +17,7 @@ window.renderReleaseChangeScreen = function () {
 
   // Set up the container structure
   viewport.innerHTML = `
-    <div id="release-change-wrapper" style="display: flex; flex-direction: column; gap: 1.5rem; font-family: var(--font-sans);">
+    <div id="release-change-wrapper" style="display: flex; flex-direction: column; gap: 1.5rem; font-family: var(--font-sans); height: 100%; overflow-y: auto; padding-bottom: 2rem; padding-right: 0.5rem;">
       <!-- Rendered dynamically based on state -->
     </div>
   `;
@@ -326,7 +326,7 @@ function renderDashboardView() {
 
     <!-- Modal for Creation -->
     <div id="release-create-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
-      <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); width: 90%; max-width: 600px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+      <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); width: 90%; max-width: 600px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; max-height: 90vh; overflow-y: auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
           <h3 style="margin: 0; font-family: var(--font-display);">Create Release Governance Package</h3>
           <span onclick="closeCreateModal()" style="cursor: pointer; font-size: 1.5rem; color: var(--text-secondary);">&times;</span>
@@ -379,7 +379,14 @@ function renderDashboardView() {
         </form>
       </div>
     </div>
-  `;
+  
+    <!-- Redirection Footer -->
+    <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
+      <button onclick="window.location.hash = 'ops-readiness';" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,0.35); font-weight: 700; padding: 0.75rem 1.5rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-family: var(--font-sans); transition: transform 0.2s ease;">
+        Proceed to Ops Readiness &rarr;
+      </button>
+    </div>
+`;
 }
 
 function handleFiltersChange() {

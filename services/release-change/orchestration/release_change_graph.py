@@ -1016,9 +1016,7 @@ def run_audit_agent(release_id: str, db) -> list[dict]:
         })
         idx += 1
 
-    # Save to DB
-    for ev in events:
-        db.add_audit_log(**ev)
-        
+    # Save to DB (completely replace stale audit logs with fresh compliance records)
+    db.save_audit_logs(release_id, events)
     return events
 

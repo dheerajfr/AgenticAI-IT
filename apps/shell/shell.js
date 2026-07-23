@@ -150,6 +150,31 @@ function switchStage(stageId) {
       window.renderTestQualityScreen();
       window.fetchTestQualityData();
     }
+  } else if (stageId === 'risk-issues') {
+    if (window.renderRiskIssuesScreen) {
+      window.renderRiskIssuesScreen();
+      window.fetchRiskIssuesData();
+    }
+  } else if (stageId === 'budget-cost') {
+    if (window.renderBudgetCostScreen) {
+      window.renderBudgetCostScreen();
+      window.fetchBudgetCostData();
+    }
+  } else if (stageId === 'vendor-coordination') {
+    if (window.renderVendorCoordinationScreen) {
+      window.renderVendorCoordinationScreen();
+      window.fetchVendorCoordinationData();
+    }
+  } else if (stageId === 'reporting-communication') {
+    if (window.renderReportingCommunicationScreen) {
+      window.renderReportingCommunicationScreen();
+      window.fetchReportingCommunicationData();
+    }
+  } else if (stageId === 'knowledge-artifacts') {
+    if (window.renderKnowledgeArtifactsScreen) {
+      window.renderKnowledgeArtifactsScreen();
+      window.fetchKnowledgeArtifactsData();
+    }
   } else if (stageId === 'ops-readiness') {
     if (window.renderOpsReadinessScreen) {
       window.renderOpsReadinessScreen();

@@ -25,6 +25,7 @@ async function loadProjectData(demandId) {
     demandData,
     estimates,
     plans,
+    envByDemand,
     environments,
     dependencies,
     deployOrch,
@@ -37,6 +38,7 @@ async function loadProjectData(demandId) {
     fetchSafe(`${BASE_URL}/demands`),
     fetchSafe(`${BASE_URL}/estimates`),
     fetchSafe(`${BASE_URL}/plans`),
+    fetchSafe(`${BASE_URL}/environments/${demandId}`),
     fetchSafe(`${BASE_URL}/environments`),
     fetchSafe(`${BASE_URL}/dependencies`),
     fetchSafe(`${BASE_URL}/deployments/orchestration`),
@@ -51,7 +53,15 @@ async function loadProjectData(demandId) {
   if (demandData) data.demand = demandData.find(d => d.demand_id === demandId);
   if (estimates) data.estimate = estimates.find(e => e.demand_id === demandId);
   if (plans) data.plan = plans.find(p => p.demand_id === demandId);
-  if (environments) data.environments = environments.filter(e => e.demand_id === demandId);
+  
+  if (envByDemand && Array.isArray(envByDemand) && envByDemand.length > 0) {
+    data.environments = envByDemand;
+  } else if (environments && Array.isArray(environments)) {
+    data.environments = environments.filter(e => e.demand_id === demandId);
+  } else {
+    data.environments = [];
+  }
+
   if (dependencies) data.dependencies = dependencies.filter(d => (d.plan_id && data.plan && d.plan_id === data.plan.plan_id) || (data.plan && d.plan_id === data.plan.plan_id) || d.demand_id === demandId); 
   // Fallback if deps map by plan_id
   if (dependencies && !data.dependencies.length && data.plan) {
@@ -68,8 +78,66 @@ async function loadProjectData(demandId) {
   return data;
 }
 
+// Module Approval Checks
+function isDemandApproved(data) {
+  return !!(data.demand && (data.demand.status === 'approved' || data.demand.status === 'Approved'));
+}
+
+function isEstimateApproved(data) {
+  return !!(data.estimate && (
+    data.estimate.status === 'submitted' ||
+    data.estimate.status === 'approved' ||
+    data.estimate.status === 'accepted' ||
+    data.estimate.status === 'Completed' ||
+    data.estimate.status === 'active'
+  ));
+}
+
+function isPlanApproved(data) {
+  return !!(data.plan && (
+    data.plan.status === 'accepted' ||
+    data.plan.status === 'approved' ||
+    data.plan.status === 'completed' ||
+    data.plan.status === 'Accepted' ||
+    data.plan.status === 'active'
+  ));
+}
+
+function isConfigEnvironmentsApproved(data) {
+  return !!(data.environments && data.environments.length > 0 && data.environments.some(e => 
+    e.drift_status === 'synced' || e.status === 'ready' || e.status === 'active' || e.status === 'configured'
+  ));
+}
+
+function isDependenciesApproved(data) {
+  return !!(data.dependencies && data.dependencies.length > 0 && !data.dependencies.some(d => d.status === 'blocked'));
+}
+
+function isBuildDeployApproved(data) {
+  const hasApprovedDeploy = data.deployments && data.deployments.some(d => 
+    d.status === 'completed' || d.status === 'approved' || d.status === 'go' || d.status === 'deployed'
+  );
+  const hasApprovedCutover = data.cutover && data.cutover.some(c => 
+    c.decision === 'go' || c.status === 'completed' || c.status === 'approved'
+  );
+  return hasApprovedDeploy || hasApprovedCutover;
+}
+
+function isTestQualityApproved(data) {
+  if (!data.qualityGate) return false;
+  const v = (data.qualityGate.verdict || data.qualityGate.status || '').toUpperCase();
+  return v === 'PASS' || v === 'PASSED' || v === 'APPROVED';
+}
+
+function isReleaseApproved(data) {
+  return !!(data.releases && data.releases.some(r => 
+    r.status === 'Approved' || r.status === 'Completed' || r.cab_status === 'approve' || r.cab_status === 'approved'
+  ));
+}
+
 // 2. Logic Calculations
 function determineCurrentStage(data) {
+<<<<<<< HEAD
   if (data.opsRecord && data.opsRecord.validation && data.opsRecord.validation.status === 'approved') return 'ops-readiness';
   if (data.opsRecord) return 'ops-readiness';
   if (data.releases && data.releases.length > 0) return 'release-change';
@@ -79,17 +147,28 @@ function determineCurrentStage(data) {
   if (data.environments && data.environments.length > 0) return 'config-environments';
   if (data.plan) return 'plan-schedule';
   if (data.estimate) return 'estimate-shape';
+=======
+  if (isReleaseApproved(data)) return 'release-change';
+  if (isTestQualityApproved(data)) return 'release-change';
+  if (isBuildDeployApproved(data)) return 'test-quality';
+  if (isDependenciesApproved(data)) return 'build-deploy';
+  if (isConfigEnvironmentsApproved(data)) return 'dependencies';
+  if (isPlanApproved(data)) return 'config-environments';
+  if (isEstimateApproved(data)) return 'plan-schedule';
+  if (isDemandApproved(data)) return 'estimate-shape';
+>>>>>>> Nagaraju
   return 'demand-intake';
 }
 
 function calculateHealth(data) {
-  if (data.qualityGate && data.qualityGate.verdict === 'FAIL') return 'Blocked';
+  if (data.qualityGate && (data.qualityGate.verdict === 'FAIL' || data.qualityGate.verdict === 'Failed')) return 'Blocked';
   if (data.dependencies && data.dependencies.some(d => d.status === 'blocked')) return 'Blocked';
   if (data.deployments && data.deployments.some(d => d.status === 'no-go')) return 'Delayed';
-  if (data.releases && data.releases.some(r => r.cab_decision === 'Reject')) return 'At Risk';
+  if (data.releases && data.releases.some(r => r.cab_decision === 'Reject' || r.status === 'Failed')) return 'At Risk';
   return 'Healthy';
 }
 
+<<<<<<< HEAD
 function calculateProgress(stage) {
   const stages = [
     'demand-intake', 'estimate-shape', 'plan-schedule', 
@@ -98,6 +177,19 @@ function calculateProgress(stage) {
   ];
   const idx = stages.indexOf(stage);
   return Math.round(((idx + 1) / stages.length) * 100);
+=======
+function calculateProgress(data) {
+  let completed = 0;
+  if (isDemandApproved(data)) completed++;
+  if (isEstimateApproved(data)) completed++;
+  if (isPlanApproved(data)) completed++;
+  if (isConfigEnvironmentsApproved(data)) completed++;
+  if (isDependenciesApproved(data)) completed++;
+  if (isBuildDeployApproved(data)) completed++;
+  if (isTestQualityApproved(data)) completed++;
+  if (isReleaseApproved(data)) completed++;
+  return Math.round((completed / 8) * 100);
+>>>>>>> Nagaraju
 }
 
 // 3. UI Renderers
@@ -170,7 +262,7 @@ async function renderProjectDetails(demandId) {
 
   const currentStage = determineCurrentStage(data);
   const health = calculateHealth(data);
-  const progressPct = calculateProgress(currentStage);
+  const progressPct = calculateProgress(data);
 
   content.innerHTML = `
     <!-- High-level Overview -->
@@ -202,10 +294,10 @@ async function renderProjectDetails(demandId) {
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('demand-intake', currentStage)};"></div>
         ${renderTimelineNode('Estimate', 'estimate-shape', currentStage, data)}
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('estimate-shape', currentStage)};"></div>
-        ${renderTimelineNode('Config', 'config-environments', currentStage, data)}
-        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('config-environments', currentStage)};"></div>
         ${renderTimelineNode('Plan', 'plan-schedule', currentStage, data)}
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('plan-schedule', currentStage)};"></div>
+        ${renderTimelineNode('Config', 'config-environments', currentStage, data)}
+        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('config-environments', currentStage)};"></div>
         ${renderTimelineNode('Dependencies', 'dependencies', currentStage, data)}
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('dependencies', currentStage)};"></div>
         ${renderTimelineNode('Deploy', 'build-deploy', currentStage, data)}
@@ -222,12 +314,13 @@ async function renderProjectDetails(demandId) {
     <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
       ${renderDemandCard(data)}
       ${renderEstimateCard(data)}
-      ${renderConfigCard(data)}
       ${renderPlanCard(data)}
+      ${renderConfigCard(data)}
       ${renderDepsCard(data)}
       ${renderDeployCard(data)}
       ${renderTestCard(data)}
       ${renderReleaseCard(data)}
+<<<<<<< HEAD
       ${renderOpsCard(data)}
     </div>
 
@@ -242,6 +335,20 @@ async function renderProjectDetails(demandId) {
         ${renderPlaceholderCard('Reporting & Comms', 'reporting-communication')}
         ${renderPlaceholderCard('Environment State', 'environment-state')}
         ${renderPlaceholderCard('Data Exports', 'exports')}
+=======
+      ${renderOpsReadinessCard(data)}
+    </div>
+
+    <!-- Always-on Capabilities Accordions -->
+    <div style="margin-top: 1.5rem;">
+      <h3 style="font-family: var(--font-display); font-size: 1rem; color: var(--text-secondary); margin-bottom: 1rem;">Always-on Capabilities</h3>
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        ${renderRiskIssuesCard(data)}
+        ${renderBudgetCostCard(data)}
+        ${renderVendorCoordinationCard(data)}
+        ${renderReportingCommunicationCard(data)}
+        ${renderKnowledgeArtifactsCard(data)}
+>>>>>>> Nagaraju
       </div>
     </div>
   `;
@@ -251,24 +358,38 @@ async function renderProjectDetails(demandId) {
 // Timeline Helpers
 // ----------------------------------------------------------------------
 const stageOrder = [
+<<<<<<< HEAD
   'demand-intake', 'estimate-shape', 'config-environments', 
   'plan-schedule', 'dependencies', 'build-deploy', 
+=======
+  'demand-intake', 'estimate-shape', 'plan-schedule', 
+  'config-environments', 'dependencies', 'build-deploy', 
+>>>>>>> Nagaraju
   'test-quality', 'release-change', 'ops-readiness'
 ];
 
 function getStageStatus(stage, currentStage, data) {
-  const currentIdx = stageOrder.indexOf(currentStage);
-  const thisIdx = stageOrder.indexOf(stage);
-
-  if (thisIdx > currentIdx) return 'pending';
-  if (thisIdx === currentIdx) return 'current';
-  
-  // Specific failure checks for past/current stages
-  if (stage === 'test-quality' && data.qualityGate && data.qualityGate.verdict === 'FAIL') return 'failed';
-  if (stage === 'release-change' && data.releases && data.releases.some(r => r.cab_decision === 'Reject')) return 'failed';
-  if (stage === 'build-deploy' && data.deployments && data.deployments.some(d => d.status === 'no-go')) return 'failed';
-  
-  return 'completed';
+  if (stage === 'demand-intake') return isDemandApproved(data) ? 'completed' : (currentStage === 'demand-intake' ? 'current' : 'pending');
+  if (stage === 'estimate-shape') return isEstimateApproved(data) ? 'completed' : (currentStage === 'estimate-shape' ? 'current' : 'pending');
+  if (stage === 'plan-schedule') return isPlanApproved(data) ? 'completed' : (currentStage === 'plan-schedule' ? 'current' : 'pending');
+  if (stage === 'config-environments') return isConfigEnvironmentsApproved(data) ? 'completed' : (currentStage === 'config-environments' ? 'current' : 'pending');
+  if (stage === 'dependencies') {
+    if (data.dependencies && data.dependencies.some(d => d.status === 'blocked')) return 'failed';
+    return isDependenciesApproved(data) ? 'completed' : (currentStage === 'dependencies' ? 'current' : 'pending');
+  }
+  if (stage === 'build-deploy') {
+    if (data.deployments && data.deployments.some(d => d.status === 'no-go')) return 'failed';
+    return isBuildDeployApproved(data) ? 'completed' : (currentStage === 'build-deploy' ? 'current' : 'pending');
+  }
+  if (stage === 'test-quality') {
+    if (data.qualityGate && (data.qualityGate.verdict === 'FAIL' || data.qualityGate.verdict === 'Failed')) return 'failed';
+    return isTestQualityApproved(data) ? 'completed' : (currentStage === 'test-quality' ? 'current' : 'pending');
+  }
+  if (stage === 'release-change') {
+    if (data.releases && data.releases.some(r => r.cab_decision === 'Reject' || r.status === 'Failed')) return 'failed';
+    return isReleaseApproved(data) ? 'completed' : (currentStage === 'release-change' ? 'current' : 'pending');
+  }
+  return 'pending';
 }
 
 function renderTimelineNode(label, stageId, currentStage, data) {
@@ -382,15 +503,35 @@ function renderEstimateCard(data) {
 }
 
 function renderConfigCard(data) {
-  if (!data.environments || !data.environments.length) return renderCard('Config Environments', 'config-environments', 'Pending', '', '');
-  const syncCount = data.environments.filter(e => e.drift_status === 'in-sync').length;
+  if (!data.environments || !data.environments.length) {
+    return renderCard('Config & Environments', 'config-environments', 'Pending', '<span style="color:var(--text-muted);">No environments configured yet for this project.</span>', 'Status: <strong>Pending Configuration</strong>');
+  }
+
+  const syncCount = data.environments.filter(e => e.drift_status === 'in-sync' || e.drift_status === 'synced').length;
   const total = data.environments.length;
+  
+  const envList = data.environments.map(e => `
+    <div style="margin-bottom: 0.35rem; padding: 0.35rem 0.65rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+      <span><strong>${(e.environment || 'ENV').toUpperCase()}</strong> (Version: ${e.deployed_version || 'v1.0.0'})</span>
+      <span style="font-weight: 700; font-size: 0.72rem; padding: 0.1rem 0.4rem; border-radius: 4px; background: ${(e.drift_status === 'in-sync' || e.drift_status === 'synced') ? 'rgba(74,222,128,0.15)' : 'rgba(245,158,11,0.15)'}; color: ${(e.drift_status === 'in-sync' || e.drift_status === 'synced') ? '#4ade80' : '#fcd34d'};">
+        ${(e.drift_status || 'in-sync').toUpperCase()}
+      </span>
+    </div>
+  `).join('');
+
   const outputs = `
-    • Environments Provisioned: <strong>${total}</strong><br>
-    • In-Sync: ${syncCount}<br>
-    • Drifted: ${total - syncCount}
+    • Provisioned Environments: <strong>${total}</strong><br>
+    • In-Sync: <strong>${syncCount}</strong> | Drifted: <strong>${total - syncCount}</strong>
+    <div style="margin-top: 0.65rem;">${envList}</div>
   `;
-  return renderCard('Config Environments', 'config-environments', syncCount === total ? 'Completed' : 'In Progress', outputs, '');
+
+  const approvals = `
+    Configuration Status: <strong>${syncCount > 0 ? 'Configured & Synced' : 'Pending Sync'}</strong><br>
+    Drift Hygiene: <strong>${syncCount === total ? 'Clean (No Drift)' : 'Drift Detected'}</strong><br>
+    Target Demand ID: <strong>${data.demandId}</strong>
+  `;
+
+  return renderCard('Config & Environments', 'config-environments', syncCount > 0 ? 'Completed' : 'In Progress', outputs, approvals);
 }
 
 function renderPlanCard(data) {
@@ -492,6 +633,7 @@ function renderReleaseCard(data) {
   return renderCard('Release & Change', 'release-change', status, outputs, approvals, errorsHtml);
 }
 
+<<<<<<< HEAD
 function renderOpsCard(data) {
   if (!data.opsRecord || data.opsRecord.error) return renderCard('Ops Readiness', 'ops-readiness', 'Pending', '', '');
   const ops = data.opsRecord;
@@ -526,6 +668,26 @@ function renderPlaceholderCard(title, moduleId) {
       </button>
     </div>
   `;
+=======
+
+function renderOpsReadinessCard(data) {
+  return renderCard('Ops Readiness', 'ops-readiness', 'Pending', '<span style="color:var(--text-muted);">Data loading...</span>', '');
+}
+function renderRiskIssuesCard(data) {
+  return renderCard('Risk & Issues', 'risk-issues', 'Monitoring', '<span style="color:var(--text-muted);">Live tracking active.</span>', '');
+}
+function renderBudgetCostCard(data) {
+  return renderCard('Budget & Cost', 'budget-cost', 'Monitoring', '<span style="color:var(--text-muted);">Financial tracking active.</span>', '');
+}
+function renderVendorCoordinationCard(data) {
+  return renderCard('Vendor Coordination', 'vendor-coordination', 'Monitoring', '<span style="color:var(--text-muted);">Vendor SLA tracking active.</span>', '');
+}
+function renderReportingCommunicationCard(data) {
+  return renderCard('Reporting & Comms', 'reporting-communication', 'Monitoring', '<span style="color:var(--text-muted);">Report generation active.</span>', '');
+}
+function renderKnowledgeArtifactsCard(data) {
+  return renderCard('Knowledge & Artefacts', 'knowledge-artifacts', 'Monitoring', '<span style="color:var(--text-muted);">Knowledge sync active.</span>', '');
+>>>>>>> Nagaraju
 }
 
 // Global style for detail dropdowns
