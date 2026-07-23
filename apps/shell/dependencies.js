@@ -164,8 +164,8 @@ window.renderDependenciesScreen = function () {
         <div class="sidebar-header">
           <h3 class="sidebar-title">Dependencies</h3>
           <div style="display: flex; gap: 0.5rem;">
-            <button type="button" class="btn-new" id="btn-new-sense" title="Auto-sense plan dependencies">Generate Dependency</button>
-            <button type="button" class="btn-new" id="btn-new-edge" title="Manually create dependency edge">+New</button>
+            <button class="btn-new" id="btn-new-sense" title="Auto-sense plan dependencies">Generate Dependency</button>
+            <button class="btn-new" id="btn-new-edge" title="Manually create dependency edge">+New</button>
           </div>
         </div>
         <ul class="demand-list" id="dependency-list-container">
@@ -293,7 +293,7 @@ function renderDependencyList() {
               ${dep.status}
             </span>
             <button class="btn-delete-dep" data-id="${dep.dependency_id}" title="Delete dependency"
-              style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; opacity: 0.7; transition: opacity 0.2s;"
+              style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 0.2rem; display: flex; align-items: center; opacity: 0.7; "
               onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
               <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             </button>
@@ -439,6 +439,7 @@ async function renderDependencyGraph(dependencyId, containerId, selectedTask = n
     container.innerHTML = `<div style="padding: 1rem; text-align: center; color: var(--color-status-red-text);">Failed to load graph: ${err.message}</div>`;
   }
 }
+
 function renderDependencyDetails(dep) {
   const container = document.getElementById('dependency-panel-container');
   if (!container) return;
@@ -448,6 +449,7 @@ function renderDependencyDetails(dep) {
   else if (dep.status === 'at-risk') statusClass = 'red';
   else if (dep.status === 'resolved') statusClass = 'green';
 
+  let hasDraft = !!dep.draft_message;
   let activityLogs = dep.activity_history || [];
   const nudgeMessage = dep.draft_message || '';
 
@@ -472,10 +474,12 @@ function renderDependencyDetails(dep) {
 
   const isChaseCompleted = !!dep.draft_message;
   const isResolveCompleted = dep.status === 'resolved';
-  const hasDraft = !!dep.draft_message;
+
+  const step1Class = 'completed';
   const step2Class = isChaseCompleted ? 'completed' : 'active';
   const step3Class = isResolveCompleted ? 'completed' : (isChaseCompleted ? 'active' : 'locked');
 
+  // Pipeline completion banner for resolved dependencies
   const completionBanner = isResolveCompleted ? `
     <div style="background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.08)); border: 1px solid rgba(16,185,129,0.35); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
       <div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -483,7 +487,7 @@ function renderDependencyDetails(dep) {
           <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:#10b981;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
         </div>
         <div>
-          <div style="font-size: 0.85rem; font-weight: 700; color: #10b981;">🎉 Pipeline Complete!</div>
+          <div style="font-size: 0.85rem; font-weight: 700; color: #10b981;">&#x1F389; Pipeline Complete!</div>
           <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.1rem;">All dependencies for this demand have been resolved.</div>
         </div>
       </div>
@@ -502,14 +506,16 @@ function renderDependencyDetails(dep) {
   ` : '';
 
   container.innerHTML = `
+
     <div class="wizard-container">
+
       ${completionBanner}
 
       <!-- ===== HEADER ===== -->
-      <div class="wizard-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+      <div class="wizard-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1rem;">
         <div>
           <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${planToDemandMap[dep.plan_id] || dep.dependency_id}</span>
-          <h2 style="font-family: var(--font-display); font-size: 1.5rem; margin: 0.2rem 0 0 0; color: var(--text-primary);">Dependency Details <span style="font-family: monospace; font-size: 0.85rem; color: var(--text-muted); font-weight: 400;">(${dep.dependency_id})</span></h2>
+          <h2 style="font-family: var(--font-display); font-size: 1.5rem; margin: 0.2rem 0 0 0; color: var(--text-primary);">Dependency Analysis <span style="font-family: monospace; font-size: 0.85rem; color: var(--text-muted); font-weight: 400;">(${dep.dependency_id})</span></h2>
         </div>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
           ${dep.status !== 'resolved' ? `
@@ -527,79 +533,102 @@ function renderDependencyDetails(dep) {
         </div>
       </div>
 
-      <div class="task-selector-container" style="margin-bottom: 1.5rem; background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-        <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Select Task to View Predecessor Details</label>
-        <select id="detail-task-select" style="width: 100%; padding: 0.5rem; margin-top: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);" onchange="document.getElementById('dynamic-task-details').style.display='block';">
-          <option value="" disabled selected>Loading tasks...</option>
-        </select>
-        
-        <div id="dynamic-task-details" style="margin-top: 1rem; display: none;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-            <div>
-              <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Selected Task</div>
-              <strong id="task-detail-current" style="color: var(--text-primary);"></strong>
-            </div>
-            <div>
-              <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Owner</div>
-              <strong id="task-detail-owner" style="color: var(--text-primary);"></strong>
-            </div>
-            <div>
-              <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Predecessor Task</div>
-              <strong id="task-detail-predecessor" style="color: var(--color-status-amber-text);"></strong>
-            </div>
-            <div>
-              <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Predecessor Owner</div>
-              <strong id="task-detail-prev-owner" style="color: var(--text-primary);"></strong>
-            </div>
-            <div>
-              <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Status</div>
-              <strong id="task-detail-status" style="color: var(--text-primary);"></strong>
-            </div>
-            <div>
-              <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Risk Level</div>
-              <strong id="task-detail-risk" style="color: var(--text-primary);"></strong>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- ===== TAB BAR ===== -->
       <div class="dep-tab-bar">
-        <button type="button" class="dep-tab active" data-tab="overview">🧩 Overview</button>
-        <button type="button" class="dep-tab" data-tab="activity">📜 Activity</button>
+        <button class="dep-tab active" data-tab="overview">🧩 Overview</button>
+        <button class="dep-tab" data-tab="ai-insights">🤖 AI Insights</button>
+        <button class="dep-tab" data-tab="activity">📜 Activity</button>
       </div>
 
       <!-- ================================================================
            TAB 1 — OVERVIEW
            ================================================================ -->
       <div id="tab-overview" class="dep-tab-pane active">
-        <!-- General info grid -->
-        <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
-          <h4 style="margin: 0 0 1rem 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">General Properties</h4>
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; font-size: 0.85rem;">
-            <div>
-              <span style="color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Project Plan ID</span>
-              <strong style="color: var(--text-primary); font-family: monospace;">${dep.plan_id}</strong>
+        <div class="pipeline-wizard">
+
+          <!-- STEP 1: SENSE DEPENDENCIES -->
+          <div class="wizard-step ${step1Class}">
+            <div class="wizard-step-header">
+              <h4 class="wizard-step-title">
+                <span class="wizard-step-num">1</span>
+                Sense Dependencies
+              </h4>
+              <span class="wf-badge low">Approved</span>
             </div>
-            <div>
-              <span style="color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Dependency Type</span>
-              <strong style="color: var(--text-primary); text-transform: capitalize;">${dep.type.replace('-', ' ')}</strong>
-            </div>
-            <div>
-              <span style="color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Dependent Task (Source ID)</span>
-              <strong style="color: var(--color-brand); font-family: monospace;">${dep.source_task_id}</strong>
-            </div>
-            <div>
-              <span style="color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Accountable Owner</span>
-              <strong style="color: var(--text-primary);">${dep.owner}</strong>
-            </div>
-            <div>
-              <span style="color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Predecessor Task (Target ID)</span>
-              <strong style="color: var(--color-status-amber-text); font-family: monospace;">${dep.target_task_id}</strong>
-            </div>
-            <div>
-              <span style="color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Predecessor Owner</span>
-              <strong style="color: var(--text-primary);">${dep.predecessor_owner || 'N/A'}</strong>
+            <div class="wizard-step-body">
+              ${dep.is_self_dependency ? `
+                <div style="background-color: rgba(245, 158, 11, 0.05); border: 1px solid var(--color-status-amber-border); border-left: 4px solid var(--color-status-amber-text); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1rem;">
+                  <h5 style="margin: 0 0 0.25rem 0; font-size: 0.85rem; font-weight: 700; color: var(--color-status-amber-text); display: flex; align-items: center; gap: 0.35rem;">
+                    <span>⚠️ Self Dependency</span>
+                  </h5>
+                  <p style="margin: 0; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">
+                    Both tasks are assigned to <strong>${dep.owner}</strong>. Since you own both tasks in this dependency chain, please update your predecessor task status.
+                  </p>
+                </div>
+              ` : ''}
+
+              ${dep.task_list && dep.task_list.length > 0 ? `
+                <div style="margin-bottom: 1.25rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem;">
+                  <label for="detail-task-select" style="font-weight: 700; color: var(--color-brand); display: block; margin-bottom: 0.4rem;">Select Task</label>
+                  <select id="detail-task-select" style="font-size: 0.9rem; padding: 0.4rem; width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-primary); color: var(--text-primary);">
+                    ${(dep.task_list || []).map((tId, idx) => `<option value="${tId}" ${idx === 0 ? 'selected' : ''}>${tId.includes('-') ? tId.split('-')[tId.split('-').length - 1] : tId}</option>`).join('')}
+                  </select>
+                </div>
+
+                <div id="dynamic-task-details-container">
+                  <div class="grid-2col" style="margin-bottom: 1rem;">
+                    <div class="data-item">
+                      <div class="data-label">Current Task</div>
+                      <div class="data-value" id="task-detail-current" style="font-weight: 700; color: var(--color-brand);">Loading...</div>
+                    </div>
+                    <div class="data-item">
+                      <div class="data-label">Owner</div>
+                      <div class="data-value" id="task-detail-owner">Loading...</div>
+                    </div>
+                    <div class="data-item">
+                      <div class="data-label">Depends On</div>
+                      <div class="data-value" id="task-detail-predecessor" style="font-weight: 700; color: var(--text-primary);">Loading...</div>
+                    </div>
+                    <div class="data-item">
+                      <div class="data-label">Previous Owner</div>
+                      <div class="data-value" id="task-detail-prev-owner">Loading...</div>
+                    </div>
+                    <div class="data-item">
+                      <div class="data-label">Dependency Status</div>
+                      <div class="data-value" id="task-detail-status" style="text-transform: capitalize;">Loading...</div>
+                    </div>
+                    <div class="data-item">
+                      <div class="data-label">Risk</div>
+                      <div class="data-value" id="task-detail-risk" style="text-transform: capitalize;">Loading...</div>
+                    </div>
+                  </div>
+                </div>
+              ` : `
+                <div class="grid-2col" style="margin-bottom: 1rem;">
+                  <div class="data-item">
+                    <div class="data-label">Source Task ID (Dependent)</div>
+                    <div class="data-value" style="font-family: monospace; font-weight: 700; color: var(--color-brand);">${dep.source_task_id}</div>
+                  </div>
+                  <div class="data-item">
+                    <div class="data-label">Target Task ID (Predecessor)</div>
+                    <div class="data-value" style="font-family: monospace; font-weight: 700; color: var(--text-primary);">${dep.target_task_id}</div>
+                  </div>
+                  <div class="data-item">
+                    <div class="data-label">Dependency Type</div>
+                    <div class="data-value" style="text-transform: capitalize;">${dep.type.replace('-', ' ')}</div>
+                  </div>
+                  <div class="data-item">
+                    <div class="data-label">Accountable Owner</div>
+                    <div class="data-value">${dep.owner}</div>
+                  </div>
+                </div>
+              `}
+
+              <!-- Dependency Chain Graph -->
+              <div style="border-top: 1px dashed var(--border-color); padding-top: 1rem; margin-top: 0.75rem; margin-bottom: 1.5rem;">
+                <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">Dependency Chain Graph</h5>
+                <div id="dependency-graph-panel" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; min-height: 150px;"></div>
+              </div>
             </div>
           </div>
 <<<<<<< HEAD
@@ -829,60 +858,19 @@ function renderDependencyDetails(dep) {
           </div>
 
         </div>
+      </div>
 
-        ${(() => {
-          const ownerA = (dep.owner || '').toLowerCase().trim();
-          const ownerB = (dep.predecessor_owner || '').toLowerCase().trim();
-          const isSelf = dep.is_self_dependency === true || (ownerA && ownerB && ownerA === ownerB);
-          if (!isSelf) return '';
-          const ri = dep.resource_insight || {};
-          const ownerShort = (dep.owner || '').split('@')[0];
-          const utilPct = ri.utilization_pct || 120;
-          const projCount = ri.projects_assigned_count || 3;
-          const hasConflict = ri.has_conflict !== false;
-          return `
-            <div style="background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(251,191,36,0.04)); border: 1px solid rgba(245,158,11,0.4); border-radius: var(--radius-md); padding: 1.1rem 1.25rem; margin-bottom: 1.5rem;">
-              <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.85rem;">
-                <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(245,158,11,0.18); display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">👤</div>
-                <div>
-                  <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--color-status-amber-text); letter-spacing: 0.05em;">Self Dependency Detected</div>
-                  <div style="font-size: 0.95rem; font-weight: 800; color: var(--text-primary); margin-top: 0.1rem;">Both Tasks Owned by <span style="color: var(--color-status-amber-text);">${ownerShort.charAt(0).toUpperCase() + ownerShort.slice(1)}</span></div>
-                </div>
-                <span style="margin-left: auto; background: rgba(245,158,11,0.15); color: var(--color-status-amber-text); border: 1px solid rgba(245,158,11,0.4); padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.72rem; font-weight: 700; white-space: nowrap;">${utilPct}% Utilisation</span>
-              </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.85rem; font-size: 0.82rem;">
-                <div style="background: rgba(16,185,129,0.07); border: 1px solid rgba(16,185,129,0.2); border-radius: 6px; padding: 0.6rem 0.75rem;">
-                  <div style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; color: #10b981; margin-bottom: 0.3rem;">✓ Benefit</div>
-                  <div style="color: var(--text-secondary); line-height: 1.4;">${ri.benefit || 'No cross-team coordination required.'}</div>
-                </div>
-                <div style="background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.2); border-radius: 6px; padding: 0.6rem 0.75rem;">
-                  <div style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; color: #f87171; margin-bottom: 0.3rem;">⚠ Risk</div>
-                  <div style="color: var(--text-secondary); line-height: 1.4;">${ri.risk || `Single point of failure — if ${ownerShort} becomes unavailable, both tasks will be delayed.`}</div>
-                </div>
-              </div>
-              <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; font-size: 0.8rem; padding-top: 0.6rem; border-top: 1px solid rgba(245,158,11,0.2);">
-                <div><span style="color: var(--text-muted);">Owner</span> <strong style="color: var(--text-primary);">${dep.owner}</strong></div>
-                <div><span style="color: var(--text-muted);">Projects Assigned</span> <strong style="color: var(--color-status-amber-text);">${projCount}</strong></div>
-                ${hasConflict ? `<div><span style="background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.3); padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">⚠ Scheduling Conflict</span></div>` : ''}
-                <div style="margin-left: auto; color: var(--text-muted); font-size: 0.75rem; font-style: italic;">Workflow: self-dependency</div>
-              </div>
-            </div>`;
-        })()}
+      <!-- ================================================================
+           TAB 2 — AI INSIGHTS
+           ================================================================ -->
+      <div id="tab-ai-insights" class="dep-tab-pane">
 
-        <!-- Dependency Graph Panel -->
-        <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
-          <h4 style="margin: 0 0 0.75rem 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">Dependency Chain Graph</h4>
-          <div id="dependency-graph-panel" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; min-height: 120px;"></div>
-        </div>
-
-        <!-- Chase Commitments section -->
-        <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem;">
-          <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">Chase Commitments Workflow</h4>
-          <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 1.25rem;">
-            Draft follow-up nudges or status checking reminders using generative AI and send them directly to predecessor owners.
-          </p>
+        <!-- AI Risk Assessment -->
+        <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; border-left: 4px solid var(--color-status-${threatColorVar}-text);">
+          <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary);">🧠 AI Risk Assessment</h5>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+<<<<<<< HEAD
             <div class="form-group" style="margin-bottom: 0;">
               <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Tone Selection</label>
               <div id="chase-tone-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.3rem;">
@@ -892,89 +880,81 @@ function renderDependencyDetails(dep) {
                 <button type="button" class="wf-btn-toggle ${selectedTone === 'technical' ? 'active' : ''}" data-tone="technical">🔧 Technical</button>
                 <button type="button" class="wf-btn-toggle ${selectedTone === 'urgent' ? 'active' : ''}" data-tone="urgent">⚡ Urgent</button>
               </div>
+=======
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; text-align: center;">
+              <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Threat Level</div>
+              <div style="font-size: 1.4rem;">${threatEmoji}</div>
+              <div style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--color-status-${threatColorVar}-text); margin-top: 0.2rem;">${threatLevel}</div>
+>>>>>>> Nagaraju
             </div>
-            <div class="form-group" style="margin-bottom: 0;">
-              <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Channel Selection</label>
-              <div id="chase-channel-group" style="display: flex; gap: 0.5rem; margin-top: 0.3rem;">
-                <button type="button" class="wf-btn-toggle ${selectedChannel === 'teams' ? 'active' : ''}" data-channel="teams">Teams</button>
-                <button type="button" class="wf-btn-toggle ${selectedChannel === 'email' ? 'active' : ''}" data-channel="email">Email</button>
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; text-align: center;">
+              <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Sensing Confidence</div>
+              <div style="font-size: 1.4rem; font-weight: 800; color: var(--color-brand);">${confidenceVal}%</div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                <div class="conf-bar"><div class="conf-bar-fill" style="width: ${confidenceVal}%; background: ${confidenceVal > 80 ? 'var(--color-status-green-text)' : confidenceVal > 60 ? 'var(--color-status-amber-text)' : 'var(--color-status-red-text)'};"></div></div>
               </div>
             </div>
           </div>
 
-          <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
-            <button type="button" class="btn-primary" id="btn-run-chase-ai" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
-              ✦ Generate Chase Nudge with AI
-            </button>
+          <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; margin-bottom: 0.75rem;">
+            <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.4rem;">Sensing Rationale</div>
+            <ul style="list-style: none; padding: 0; margin: 0;" id="sensing-rationale-list">
+              <li style="padding: 0.2rem 0; font-size: 0.8rem; color: var(--text-primary);">✓ Dependency owner has not responded for ${daysSinceUpdate} day${daysSinceUpdate === 1 ? '' : 's'}</li>
+              ${confidenceReasons.map(r => `<li style="padding: 0.2rem 0; font-size: 0.8rem; color: var(--text-primary);">✓ ${r}</li>`).join('')}
+            </ul>
           </div>
 
-          <div id="chase-setup-actions" style="display:none; margin-bottom:1rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.75rem; font-size: 0.8rem; color: var(--text-primary);"></div>
-
-          <div class="form-group" style="margin-bottom: 1rem;">
-            <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; display: block; margin-bottom: 0.3rem;">Nudge Message</label>
-            <textarea class="wf-textarea" id="chase-message-text" rows="5" placeholder="Generated nudge message will appear here...">${nudgeMessage}</textarea>
-          </div>
-
-          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <button type="button" class="btn-primary" id="btn-send-message" style="background-color: var(--color-brand); height: 36px; padding: 0 1rem; font-size: 0.85rem; flex-grow: 1;">
-              ✓ Send via ${selectedChannel.toUpperCase()}
-            </button>
-            <button type="button" class="btn-secondary" id="btn-save-draft-message" style="height: 36px;">Save Draft</button>
+          <!-- Live tracking controls: these are what actually drive the numbers above,
+               recomputed from real timestamps every time this panel renders. -->
+          <div class="risk-deadline-row">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="risk-deadline-input" style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted);">Deadline</label>
+              <input type="date" id="risk-deadline-input" value="${deadlineValue}" style="height: 34px;">
+            </div>
+            <button type="button" class="ai-action-btn" id="btn-save-deadline">💾 Save Deadline</button>
+            <button type="button" class="ai-action-btn" id="btn-mark-responded" title="Record that the owner replied just now">✓ Owner Responded Today</button>
+            <span style="font-size: 0.7rem; color: var(--text-muted); align-self: center;">
+              ${risk.tracking.lastSentAt ? `Last nudge sent ${new Date(risk.tracking.lastSentAt).toLocaleDateString()}` : 'No nudge sent yet'}
+            </span>
           </div>
         </div>
 
-        <!-- ===== CROSS PROGRAMME IMPACT (inline in Overview) ===== -->
-        <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-top: 1.5rem;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-            <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">🌍 Cross Programme Impact</h4>
-          </div>
-          <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 1.25rem;">
-            Simulate a delay on a task and see the ripple effect across the portfolio.
-          </p>
-          <div style="display: grid; grid-template-columns: 1fr auto auto; gap: 0.75rem; align-items: flex-end; margin-bottom: 1rem;">
-            <div class="form-group" style="margin-bottom: 0;">
-              <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Delayed Task</label>
-              <select id="impact-task-select" style="margin-top: 0.3rem;">
-                <option value="${dep.source_task_id}">${dep.source_task_id} (Dependent Task)</option>
-                <option value="${dep.target_task_id}">${dep.target_task_id} (Predecessor Task)</option>
-              </select>
+        <!-- Agent Coordination -->
+        <div style="margin-bottom: 1.5rem;">
+          <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">🕸️ Agent Coordination</h5>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div class="coord-agent" data-agent="cross-impact" style="cursor: pointer;">
+              <span class="agent-dot" style="background: var(--color-brand);"></span>
+              <span class="agent-name" style="flex: 1;">Cross-Programme Impact</span>
+              <span class="agent-status" style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">Idle — click to trigger</span>
             </div>
-            <div class="form-group" style="margin-bottom: 0;">
-              <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Delay (Days)</label>
-              <input type="number" id="impact-delay-days" value="5" min="1" max="90" style="margin-top: 0.3rem; width: 90px;">
+            <div class="coord-agent" data-agent="sensing" style="cursor: pointer;">
+              <span class="agent-dot" style="background: var(--color-status-green-text);"></span>
+              <span class="agent-name" style="flex: 1;">Dependency Sensing</span>
+              <span class="agent-status" style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">Complete</span>
             </div>
-            <button type="button" class="btn-primary" id="btn-run-impact" style="height: 38px; padding: 0 1rem; font-size: 0.85rem; white-space: nowrap;">
-              ⚡ Run Analysis
-            </button>
+            <div class="coord-agent" data-agent="chase" style="cursor: pointer;">
+              <span class="agent-dot" style="background: ${isChaseCompleted ? 'var(--color-status-green-text)' : 'var(--color-status-amber-text)'};"></span>
+              <span class="agent-name" style="flex: 1;">Commitment Chase</span>
+              <span class="agent-status" style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">${isChaseCompleted ? 'Complete' : 'Pending'}</span>
+            </div>
           </div>
-          <div id="impact-result-box"></div>
+        </div>
+
+        <!-- Evidence Sources -->
+        <div style="margin-bottom: 0.5rem;">
+          <button type="button" class="ai-action-btn" id="btn-view-sources">📎 View Evidence Sources</button>
         </div>
       </div>
 
       <!-- ================================================================
-           TAB 2 — ACTIVITY
+           TAB 3 — ACTIVITY
            ================================================================ -->
       <div id="tab-activity" class="dep-tab-pane">
-        <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">📜 Activity History Timeline</h5>
+        <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">📜 Activity History</h5>
         ${activityLogs.length === 0 ? `
           <div style="padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">No activity recorded yet.</div>
         ` : `
-          <div class="vertical-activity-timeline" style="position: relative; padding-left: 1.5rem; border-left: 2px solid var(--border-color); margin-left: 0.5rem; display: flex; flex-direction: column; gap: 1rem;">
-            ${activityLogs.slice().reverse().map((entry, idx) => {
-              const text = typeof entry === 'string' ? entry : (entry.activity || entry.text || JSON.stringify(entry));
-              const nowTime = new Date();
-              const minutesAgo = (idx + 1) * 5;
-              nowTime.setMinutes(nowTime.getMinutes() - minutesAgo);
-              const timeStr = nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-              return `
-                <div style="position: relative;">
-                  <div style="position: absolute; left: -1.95rem; top: 0.15rem; width: 12px; height: 12px; border-radius: 50%; background: var(--color-brand); border: 2px solid var(--bg-primary);"></div>
-                  <div style="font-size: 0.7rem; font-weight: 700; color: var(--color-brand); margin-bottom: 0.1rem;">${timeStr}</div>
-                  <div style="font-size: 0.82rem; color: var(--text-primary); font-weight: 600;">${text}</div>
-                </div>
-              `;
-            }).join('')}
-          </div>
           <ul class="hist-timeline" style="list-style: none; padding: 0; margin: 0;">
             ${activityLogs.slice().reverse().map(entry => {
     const text = typeof entry === 'string' ? entry : (entry.activity || entry.text || JSON.stringify(entry));
@@ -992,6 +972,7 @@ function renderDependencyDetails(dep) {
           </ul>
         `}
       </div>
+
     </div>
   `;
 
@@ -1012,6 +993,27 @@ function renderDependencyDetails(dep) {
   // Draw the dependency graph path
   renderDependencyGraph(dep.dependency_id, 'dependency-graph-panel');
 
+  // Chase setup toggle
+  const btnOpenSetup = document.getElementById('btn-open-chase-setup');
+  const setupContainer = document.getElementById('chase-workflow-setup');
+  const triggerContainer = document.getElementById('chase-workflow-trigger-container');
+  const btnCancelSetup = document.getElementById('btn-cancel-chase-setup');
+  const btnRunChase = document.getElementById('btn-run-chase-ai');
+
+  if (btnOpenSetup) {
+    btnOpenSetup.addEventListener('click', () => {
+      triggerContainer.style.display = 'none';
+      setupContainer.style.display = 'block';
+    });
+  }
+
+  if (btnCancelSetup) {
+    btnCancelSetup.addEventListener('click', () => {
+      setupContainer.style.display = 'none';
+      triggerContainer.style.display = 'block';
+    });
+  }
+
   // Tone toggles
   document.querySelectorAll('#chase-tone-group button').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1022,32 +1024,65 @@ function renderDependencyDetails(dep) {
   });
 
   // Channel toggles
+  const sendBtnEl = document.getElementById('btn-send-message');
   document.querySelectorAll('#chase-channel-group button').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('#chase-channel-group button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       selectedChannel = btn.getAttribute('data-channel');
-      const sendBtnEl = document.getElementById('btn-send-message');
       if (sendBtnEl) {
-        sendBtnEl.textContent = `✓ Send via ${selectedChannel.toUpperCase()}`;
+        sendBtnEl.textContent = `Send via ${selectedChannel.charAt(0).toUpperCase() + selectedChannel.slice(1)}`;
+      }
+    });
+  });
+
+  // Schedule toggles
+  document.querySelectorAll('#chase-schedule-group button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#chase-schedule-group button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  // Recipient pill toggles
+  document.querySelectorAll('#recipient-list .ai-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      pill.classList.toggle('active');
+      const cb = pill.querySelector('input[type=checkbox]');
+      if (cb) cb.checked = pill.classList.contains('active');
+    });
+  });
+
+  // Next Best Action pill toggles
+  document.querySelectorAll('#nba-list .ai-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      pill.classList.toggle('active');
+      const cb = pill.querySelector('input[type=checkbox]');
+      if (cb) cb.checked = pill.classList.contains('active');
+      if (pill.classList.contains('active')) {
+        const nba = pill.getAttribute('data-nba');
+        if (nba === 'send-reminder') nbaSendReminder(dep);
+        else if (nba === 'schedule-sync') nbaScheduleSync(dep);
+        else if (nba === 'escalate-lead') nbaEscalateTeamLead(dep);
+        else if (nba === 'create-risk') nbaCreateRiskItem(dep);
+        else if (nba === 'wait-24h') nbaWait24h(dep);
+        else if (nba === 'update-predecessor') nbaUpdatePredecessor(dep);
+        else if (nba === 'mark-complete') nbaMarkComplete(dep);
+        else if (nba === 'revise-eta') nbaReviseEta(dep);
+        else if (nba === 'notify-stakeholders') nbaNotifyStakeholders(dep);
       }
     });
   });
 
   // Run chase
-  const btnRunChase = document.getElementById('btn-run-chase-ai');
   if (btnRunChase) {
-    btnRunChase.addEventListener('click', async () => {
+    btnRunChase.addEventListener('click', () => {
       const actionsRow = document.getElementById('chase-setup-actions');
-      if (actionsRow) {
-        actionsRow.style.display = 'block';
-        actionsRow.innerHTML = `<span class="loader" style="width: 100%; text-align: center;"><span class="spinner"></span> Generative AI drafting nudge...</span>`;
-      }
-      try {
-        await triggerChaseFlow(dep.dependency_id, selectedTone, selectedChannel);
-      } finally {
-        if (actionsRow) actionsRow.style.display = 'none';
-      }
+      const originalActions = actionsRow.innerHTML;
+      actionsRow.innerHTML = `<span class="loader" style="width: 100%; text-align: center;"><span class="spinner"></span> Generative AI drafting nudge...</span>`;
+      triggerChaseFlow(dep.dependency_id, selectedTone, selectedChannel).finally(() => {
+        actionsRow.innerHTML = originalActions;
+      });
     });
   }
 
@@ -1063,6 +1098,14 @@ function renderDependencyDetails(dep) {
     btnSend.addEventListener('click', () => { sendMessage(dep); });
   }
 
+  // Take Action button for self dependency
+  const btnTakeAction = document.getElementById('btn-nba-take-action');
+  if (btnTakeAction) {
+    btnTakeAction.addEventListener('click', () => {
+      nbaUpdatePredecessor(dep);
+    });
+  }
+
   // Mark Resolved / Undo Resolve
   if (document.getElementById('btn-mark-resolved')) {
     document.getElementById('btn-mark-resolved').addEventListener('click', () => { markResolved(dep.dependency_id); });
@@ -1071,15 +1114,6 @@ function renderDependencyDetails(dep) {
     document.getElementById('btn-undo-resolved').addEventListener('click', () => { undoResolved(dep.dependency_id); });
   }
 
-  // Cross Programme Impact
-  const btnRunImpact = document.getElementById('btn-run-impact');
-  if (btnRunImpact) {
-    btnRunImpact.addEventListener('click', () => {
-      const taskId = document.getElementById('impact-task-select').value;
-      const delayDays = parseInt(document.getElementById('impact-delay-days').value, 10) || 5;
-      runCrossImpact(dep.plan_id, taskId, delayDays, dep.dependency_id);
-    });
-  }
   // Escalate
   if (document.getElementById('btn-escalate-manager')) {
     document.getElementById('btn-escalate-manager').addEventListener('click', () => { escalateManager(dep.dependency_id); });
@@ -1126,247 +1160,94 @@ function renderDependencyDetails(dep) {
       showAutoSenseForm();
     });
   }
-}
 
-async function runCrossImpact(planId, taskId, delayDays, depId) {
-  const resultBox = document.getElementById('impact-result-box');
-  if (!resultBox) return;
+  // Undo resolved button
+  const undoBtn = document.getElementById('btn-undo-resolved');
+  if (undoBtn) {
+    undoBtn.addEventListener('click', () => undoResolved(dep.dependency_id));
+  }
 
-  resultBox.innerHTML = `<div style="padding: 1.5rem; text-align: center; color: var(--text-secondary);"><span class="loader"><span class="spinner"></span> Analysing ripple impact across portfolio...</span></div>`;
+  // Mark resolved button
+  const markResolvedBtn = document.getElementById('btn-mark-resolved');
+  if (markResolvedBtn) {
+    markResolvedBtn.addEventListener('click', () => markResolved(dep.dependency_id));
+  }
 
-  try {
-    const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/impact`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ task_id: taskId, delay_days: delayDays, plan_id: planId })
+  // Agent Coordination
+  document.querySelectorAll('.coord-agent').forEach(item => {
+    item.addEventListener('click', () => {
+      const agent = item.getAttribute('data-agent');
+      if (agent === 'cross-impact') {
+        // Don't auto-run anything here — just unlock the Forecast Impact tool.
+        const impactBtn = document.getElementById('btn-check-impact');
+        if (impactBtn) {
+          impactBtn.disabled = false;
+          impactBtn.title = '';
+          impactBtn.style.opacity = '1';
+          impactBtn.style.cursor = 'pointer';
+        }
+        const statusEl = item.querySelector('.agent-status');
+        if (statusEl) statusEl.textContent = 'Triggered';
+      } else {
+        const agentName = item.querySelector('.agent-name')?.textContent || 'Agent';
+        sendAgentStatusMail(agentName, dep);
+      }
     });
+  });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `HTTP ${res.status}`);
-    }
+  // View sources
+  if (document.getElementById('btn-view-sources')) {
+    document.getElementById('btn-view-sources').addEventListener('click', () => {
+      alert('Evidence sources panel: Plan Schedule DB, Dependency Graph, ADO Work Items, Activity History, Critical Path Analysis. Connected integrations expand this automatically.');
+    });
+  }
 
-    const data = await res.json();
-    const hasConflict = data.has_cross_programme_conflict;
+  // Live risk tracking controls: deadline + "owner responded" — these feed
+  // computeDynamicRisk() so Threat Level / Sensing Confidence / Rationale
+  // update automatically, without needing any backend changes.
+  const btnSaveDeadline = document.getElementById('btn-save-deadline');
+  if (btnSaveDeadline) {
+    btnSaveDeadline.addEventListener('click', () => {
+      const input = document.getElementById('risk-deadline-input');
+      const val = input ? input.value : '';
+      setChaseTracking(dep.dependency_id, { deadline: val || null });
+      selectDependencyAndRestoreScroll(dep.dependency_id);
+    });
+  }
 
-    const riskColors = {
-      low:      { bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.35)', text: '#10b981' },
-      medium:   { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.35)', text: '#f59e0b' },
-      high:     { bg: 'rgba(239,68,68,0.12)',  border: 'rgba(239,68,68,0.35)',  text: '#f87171' },
-      critical: { bg: 'rgba(244,63,94,0.12)',  border: 'rgba(244,63,94,0.35)',  text: '#f43f5e' }
-    };
-    const rc = riskColors[data.overall_risk] || riskColors.low;
+  const btnMarkResponded = document.getElementById('btn-mark-responded');
+  if (btnMarkResponded) {
+    btnMarkResponded.addEventListener('click', () => {
+      setChaseTracking(dep.dependency_id, { lastResponseAt: new Date().toISOString() });
+      logActivity(dep.dependency_id, `✓ Owner response recorded manually`);
+      selectDependencyAndRestoreScroll(dep.dependency_id);
+    });
+  }
 
-    // ── 1. Status Banner ──────────────────────────────────────────────────
-    const statusBanner = hasConflict
-      ? `<div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.35); border-radius: var(--radius-md); padding: 0.85rem 1.25rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.75rem;">
-           <span style="font-size: 1.2rem;">⚠️</span>
-           <div>
-             <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #f87171; margin-bottom: 0.1rem;">Cross Programme Status</div>
-             <div style="font-size: 1rem; font-weight: 800; color: #f87171;">Conflict Detected</div>
-           </div>
-         </div>`
-      : `<div style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3); border-radius: var(--radius-md); padding: 0.85rem 1.25rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.75rem;">
-           <span style="font-size: 1.2rem;">✅</span>
-           <div>
-             <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #10b981; margin-bottom: 0.1rem;">Cross Programme Status</div>
-             <div style="font-size: 1rem; font-weight: 800; color: #10b981;">No Cross-Programme Conflicts Detected</div>
-           </div>
-         </div>`;
-
-    // ── 2. Impacted Projects ──────────────────────────────────────────────
-    const projects = data.portfolio_projects_impacted || [];
-    const projectsHtml = projects.length > 0
-      ? projects.map(p => `<div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0; font-size: 0.85rem; color: var(--text-primary);"><span style="color: var(--color-brand);">▸</span> ${p}</div>`).join('')
-      : `<div style="font-size: 0.82rem; color: var(--text-muted);">No external projects impacted</div>`;
-
-    // ── 3. Shared Resource Conflicts ─────────────────────────────────────
-    const resources = data.shared_resources_conflicts || [];
-    const resourcesHtml = resources.length > 0
-      ? resources.map(r => `
-          <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
-            <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(239,68,68,0.15); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; color: #f87171; flex-shrink: 0;">${r.employee.charAt(0).toUpperCase()}</div>
-            <div style="flex: 1; min-width: 0;">
-              <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">${r.employee}</div>
-              <div style="font-size: 0.78rem; color: var(--text-muted);">${(r.projects || []).join(', ')}</div>
-            </div>
-            <span style="background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.3); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; white-space: nowrap;">${r.utilization_pct}% Utilisation</span>
-          </div>`).join('')
-      : `<div style="font-size: 0.82rem; color: var(--text-muted);">✓ No shared resource conflicts</div>`;
-
-    // ── 4. Shared Asset Conflicts ─────────────────────────────────────────
-    const assets = data.shared_assets_impacted || [];
-    const assetsHtml = assets.length > 0
-      ? assets.map(a => `
-          <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.82rem;">
-            <span style="font-size: 1rem;">🗄️</span>
-            <div style="flex: 1;"><strong style="color: var(--text-primary);">${a.asset_name || a.name || 'Infrastructure Asset'}</strong></div>
-            <span style="color: var(--text-muted);">Used by ${a.project_count || '2'} projects</span>
-          </div>`).join('')
-      : `<div style="font-size: 0.82rem; color: var(--text-muted);">✓ No shared infrastructure assets detected</div>`;
-
-    // ── 5. Delay & Cost ───────────────────────────────────────────────────
-    const costStr = data.cost_impact_usd > 0 ? `+$${data.cost_impact_usd.toLocaleString()}` : '$0';
-
-    // ── 6. Overall Risk ───────────────────────────────────────────────────
-    const riskLabel = (data.overall_risk || 'low').toUpperCase();
-
-    // ── 7. AI Explanation ─────────────────────────────────────────────────
-    const explanation = data.explanation || data.business_impact || 'No conflicts detected in the current portfolio scope.';
-
-    // ── 8. Recommendations ────────────────────────────────────────────────
-    const defaultRecs = hasConflict
-      ? ['Assign alternate engineer to unblock tasks', 'Replan schedule with updated dependencies', 'Escalate to Programme Manager']
-      : ['No action required', 'Continue monitoring dependency health'];
-    const recItems = defaultRecs.map(r => `
-      <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0; font-size: 0.85rem; color: var(--text-primary);">
-        <span style="color: #10b981; font-weight: 700;">✓</span> ${r}
-      </div>`).join('');
-
-    // ── No conflict state ─────────────────────────────────────────────────
-    if (!hasConflict) {
-      const checklist = [
-        '✓ No cross-programme conflicts detected',
-        '✓ No shared resources over-allocated',
-        '✓ No shared infrastructure assets at risk',
-        '✓ No release date collisions with other programmes'
-      ].map(s => `<div style="font-size: 0.82rem; color: var(--color-status-green-text); padding: 0.25rem 0;">${s}</div>`).join('');
-
-      resultBox.innerHTML = `
-        ${statusBanner}
-        <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem;">
-          <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 0.5rem;">Portfolio Health Check</div>
-          ${checklist}
-        </div>
-        <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem; display: flex; gap: 2rem; flex-wrap: wrap;">
-          <div><div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Overall Risk</div><div style="font-size: 1.1rem; font-weight: 800; color: #10b981;">LOW</div></div>
-          <div><div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Delay</div><div style="font-size: 1.1rem; font-weight: 800; color: var(--text-primary);">${delayDays} Days</div></div>
-          <div><div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Cost Impact</div><div style="font-size: 1.1rem; font-weight: 800; color: var(--text-primary);">$0</div></div>
-        </div>
-        <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5;">
-          <strong style="color: var(--text-primary);">AI Explanation: </strong>${explanation}
-        </div>`;
-      return;
-    }
-
-    // ── Conflict detected — full layout ───────────────────────────────────
-    resultBox.innerHTML = `
-      ${statusBanner}
-
-      <!-- Metrics row -->
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
-        <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.85rem; text-align: center;">
-          <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 0.3rem;">Estimated Delay</div>
-          <div style="font-size: 1.5rem; font-weight: 800; color: var(--color-status-amber-text);">${delayDays}</div>
-          <div style="font-size: 0.7rem; color: var(--text-muted);">Days</div>
-        </div>
-        <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.85rem; text-align: center;">
-          <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 0.3rem;">Cost Impact</div>
-          <div style="font-size: 1.5rem; font-weight: 800; color: #f87171;">${costStr}</div>
-          <div style="font-size: 0.7rem; color: var(--text-muted);">Estimated</div>
-        </div>
-        <div style="background: ${rc.bg}; border: 1px solid ${rc.border}; border-radius: var(--radius-md); padding: 0.85rem; text-align: center;">
-          <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 0.3rem;">Overall Risk</div>
-          <div style="font-size: 1.5rem; font-weight: 800; color: ${rc.text};">${riskLabel}</div>
-          <div style="font-size: 0.7rem; color: var(--text-muted);">Portfolio</div>
-        </div>
-      </div>
-
-      <!-- Projects Impacted + Shared Resource side by side -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
-        <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem;">
-          <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 0.6rem;">
-            🏗️ Projects Impacted <span style="background: rgba(99,102,241,0.15); color: var(--color-brand); padding: 0.1rem 0.4rem; border-radius: 10px; font-size: 0.7rem;">${projects.length}</span>
-          </div>
-          ${projectsHtml}
-        </div>
-        <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem;">
-          <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 0.6rem;">👤 Shared Resource</div>
-          ${resourcesHtml}
-        </div>
-      </div>
-
-      <!-- Shared Asset -->
-      <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem;">
-        <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 0.6rem;">🗄️ Shared Asset Conflict</div>
-        ${assetsHtml}
-      </div>
-
-      <!-- AI Explanation -->
-      <div style="background: linear-gradient(135deg, rgba(99,102,241,0.06), rgba(139,92,246,0.06)); border: 1px solid rgba(99,102,241,0.2); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem;">
-        <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--color-brand); margin-bottom: 0.4rem;">🤖 AI Explanation</div>
-        <div style="font-size: 0.85rem; color: var(--text-primary); line-height: 1.6; font-style: italic;">"${explanation}"</div>
-      </div>
-
-      <!-- Recommendations -->
-      <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem;">
-        <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 0.6rem;">💡 Recommended Actions</div>
-        ${recItems}
-      </div>
-
-      <!-- Auto-Replan Button -->
-      <div style="text-align: center; margin-top: 0.5rem;" id="auto-replan-section">
-        <button type="button" id="btn-auto-replan" class="btn-primary" style="width: 100%; padding: 0.75rem; font-size: 0.9rem; font-weight: 700; letter-spacing: 0.03em; background: linear-gradient(135deg, #6366f1, #8b5cf6);">
-          🔄 Trigger Auto-Replan
-        </button>
-      </div>
-    `;
-
-    // Wire up auto-replan
-    const btnReplan = document.getElementById('btn-auto-replan');
-    if (btnReplan && depId) {
-      btnReplan.addEventListener('click', async () => {
-        btnReplan.innerHTML = `<span class="loader"><span class="spinner"></span> Generating replan...</span>`;
-        btnReplan.disabled = true;
-        try {
-          const rRes = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/${depId}/replan`, { method: 'POST' });
-          if (!rRes.ok) throw new Error('Replan failed');
-          const rData = await rRes.json();
-          document.getElementById('auto-replan-section').innerHTML = `
-            <div style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3); border-radius: var(--radius-md); padding: 1rem; text-align: left;">
-              <div style="font-size: 0.8rem; font-weight: 700; color: #10b981; margin-bottom: 0.5rem;">✅ Auto-Replan Generated</div>
-              <div style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.5rem;">${rData.message}</div>
-              <div style="display: flex; gap: 2rem; margin-top: 0.5rem;">
-                <div><span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">New Forecast</span><br><strong style="color: var(--text-primary);">${rData.new_forecast_finish}</strong></div>
-                <div><span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Buffer Added</span><br><strong style="color: var(--color-status-amber-text);">+${rData.schedule_adjusted_days} days</strong></div>
-              </div>
-              ${rData.recommendations ? `<div style="margin-top: 0.75rem;">${rData.recommendations.map(r => `<div style="font-size: 0.78rem; color: var(--text-secondary); padding: 0.15rem 0;">▸ ${r}</div>`).join('')}</div>` : ''}
-            </div>`;
-        } catch (e) {
-          btnReplan.innerHTML = '🔄 Trigger Auto-Replan';
-          btnReplan.disabled = false;
-          alert('Replan error: ' + e.message);
+  // Draft comparison
+  ['btn-compare-v1', 'btn-compare-v2', 'btn-compare-v3'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[id^=btn-compare-v]').forEach(b => b.style.background = 'var(--bg-primary)');
+        btn.style.background = 'rgba(99,102,241,0.1)';
+        const textarea = document.getElementById('chase-message-text');
+        if (!textarea) return;
+        const currentTask = window.currentSelectedTaskId || dep.source_task_id || "BUILD";
+        if (id === 'btn-compare-v1') {
+          textarea.value = dep.draft_message || nudgeMessage || `Hi, just a friendly follow-up on this dependency. Could you share an update?`;
+        } else if (id === 'btn-compare-v2') {
+          textarea.value = `Executive Summary: Dependency ${dep.dependency_id} requires immediate attention. Task ${currentTask} requires status check. Impact: critical path at risk. Action required: Updated ETA by EOD.`;
+        } else {
+          textarea.value = `Technical Follow-up [${dep.dependency_id}]: Task ${currentTask} is awaiting predecessor status. Please confirm completion status, share blockers, deployment logs, or endpoint readiness details.`;
         }
       });
     }
-  } catch (err) {
-    resultBox.innerHTML = `<div class="error-alert" style="margin-top: 0;">${err.message}</div>`;
-  }
+  });
 
   // Task Selector Dynamic Interaction Hook
   const taskSelect = document.getElementById('detail-task-select');
   if (taskSelect) {
-    // Populate dropdown with tasks from the plan
-    fetch(`${DEPENDENCIES_API_BASE}/dependencies/plan/${dep.plan_id}/tasks`)
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then(tasks => {
-        if (!Array.isArray(tasks)) throw new Error("API did not return an array");
-        taskSelect.innerHTML = '<option value="" disabled selected>Select a task...</option>';
-        tasks.forEach(t => {
-          const opt = document.createElement('option');
-          opt.value = t.task_id;
-          opt.textContent = `${t.task_id} - ${t.name}`;
-          taskSelect.appendChild(opt);
-        });
-      })
-      .catch(err => {
-        console.error("Failed to load tasks", err);
-        taskSelect.innerHTML = `<option value="" disabled selected>Error: ${err.message}</option>`;
-      });
-
     const updateDynamicTaskDetails = async (tId) => {
       try {
         const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/${dep.dependency_id}/task-details?task_id=${tId}`);
@@ -1579,103 +1460,28 @@ function hidePreviewModal() {
   if (modal) modal.classList.remove('open');
 }
 
-async function handleCopilotQuery(query) {
-  const answerCard = document.getElementById('copilot-answer-card');
-  const copilotInput = document.getElementById('copilot-input');
-  if (!answerCard) return;
-
-  if (copilotInput) copilotInput.value = query;
-
-  answerCard.style.display = 'block';
-  answerCard.innerHTML = `
-    <div style="padding: 0.85rem; background: rgba(99, 102, 241, 0.05); border: 1px solid var(--color-brand); border-radius: 6px; font-size: 0.82rem; color: var(--text-primary); font-family: 'Inter', system-ui, sans-serif;">
-      <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--color-brand); font-weight: 700;">
-        <span style="display: inline-block; width: 14px; height: 14px; border: 2px solid var(--color-brand); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
-        <span>🤖 AI Delivery Bot is analyzing governance data...</span>
-      </div>
-    </div>
-  `;
-
-  try {
-    const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/copilot`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: query, plan_id: selectedDependencyId })
-    });
-
-    if (!res.ok) {
-      throw new Error(`Server returned HTTP ${res.status}`);
-    }
-
-    const data = await res.json();
-
-    const followupsHtml = (data.suggested_followups || []).map(f => `
-      <button type="button" class="ai-action-btn copilot-chip" style="font-size: 0.73rem; padding: 0.2rem 0.5rem;" onclick="window.handleCopilotQuery('${f.replace(/'/g, "\\'")}')">${f}</button>
-    `).join(' ');
-
-    answerCard.innerHTML = `
-      <div style="background: rgba(99, 102, 241, 0.05); border: 1px solid var(--color-brand); border-radius: 6px; padding: 0.85rem; font-family: 'Inter', system-ui, sans-serif;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-          <div style="display: flex; align-items: center; gap: 0.4rem; font-weight: 700; color: var(--color-brand); font-size: 0.85rem;">
-            <span>🤖 AI Delivery Bot</span>
-            <span style="font-size: 0.65rem; background: rgba(16, 185, 129, 0.15); color: var(--color-status-green-text); padding: 0.1rem 0.45rem; border-radius: 10px; font-weight: 600;">🟢 Bot Response</span>
-          </div>
-          <span style="font-size: 0.7rem; font-weight: 700; color: var(--color-brand); background: rgba(99, 102, 241, 0.1); padding: 0.15rem 0.45rem; border-radius: 4px;">
-            🎯 ${data.confidence || 96}% AI Confidence
-          </span>
-        </div>
-
-        <div style="font-size: 0.83rem; color: var(--text-primary); line-height: 1.55; margin-bottom: 0.65rem;">
-          ${(data.answer || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}
-        </div>
-
-        ${data.suggested_followups && data.suggested_followups.length > 0 ? `
-          <div style="border-top: 1px dashed var(--border-color); padding-top: 0.5rem; margin-top: 0.5rem;">
-            <div style="font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.35rem;">Suggested Follow-up Questions</div>
-            <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">${followupsHtml}</div>
-          </div>
-        ` : ''}
-      </div>
-    `;
-  } catch (err) {
-    answerCard.innerHTML = `
-      <div style="color: var(--color-status-red-text); font-size: 0.8rem; padding: 0.6rem; background: rgba(239, 68, 68, 0.08); border: 1px solid var(--color-status-red-border); border-radius: 6px;">
-        🤖 AI Bot Query Error: ${err.message}
-      </div>
-    `;
-  }
-}
-window.handleCopilotQuery = handleCopilotQuery;
-
 async function handleCheckImpact() {
-  const taskSelect = document.getElementById('impact-task-id');
-  const delayInput = document.getElementById('impact-delay-days');
+  const taskId = document.getElementById('impact-task-id').value.trim();
+  const delayDays = parseInt(document.getElementById('impact-delay-days').value);
   const errorAlert = document.getElementById('impact-error');
   const resultContainer = document.getElementById('impact-result-container');
   const btn = document.getElementById('btn-check-impact');
 
-  if (!resultContainer) return;
-
-  if (errorAlert) errorAlert.style.display = 'none';
-
-  let taskId = taskSelect ? taskSelect.value.trim() : '';
-  let delayDays = delayInput ? parseInt(delayInput.value, 10) : 15;
-  if (isNaN(delayDays)) delayDays = 15;
+  errorAlert.style.display = 'none';
+  resultContainer.innerHTML = '';
 
   if (!taskId) {
-    const activeDep = (dependencies || []).find(d => d.dependency_id === selectedDependencyId);
-    taskId = activeDep ? (activeDep.source_task_id || activeDep.target_task_id) : 'PLN-0001-BUILD';
+    errorAlert.textContent = "Please enter a task ID.";
+    errorAlert.style.display = 'block';
+    return;
   }
 
-  const originalBtnText = btn ? btn.innerHTML : 'Forecast Impact';
-  if (btn) {
-    btn.innerHTML = `<span class="spinner" style="display: inline-block; width: 12px; height: 12px; margin-right: 4px; vertical-align: middle;"></span> Analyzing...`;
-    btn.disabled = true;
-  }
+  const originalBtnText = btn.innerHTML;
+  btn.innerHTML = `<span class="spinner" style="display: inline-block; width: 12px; height: 12px; margin-right: 4px; vertical-align: middle;"></span> Analyzing...`;
+  btn.disabled = true;
 
-  resultContainer.innerHTML = `<div style="padding: 1rem; text-align: center; color: var(--text-muted);"><span class="spinner"></span> Analyzing cross-programme ripple impact...</div>`;
-
-  const activeDep = (dependencies || []).find(d => d.dependency_id === selectedDependencyId);
+  // Retrieve plan_id from the selected dependency record to resolve duplicate task IDs correctly
+  const activeDep = dependencies.find(d => d.dependency_id === selectedDependencyId);
   const planId = activeDep ? activeDep.plan_id : null;
 
   try {
@@ -1686,132 +1492,121 @@ async function handleCheckImpact() {
     });
 
     if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.detail || "Ripple impact analysis failed.");
+      const data = await res.json();
+      throw new Error(data.detail || "Ripple impact analysis failed.");
     }
     const data = await res.json();
 
-    if (!data.has_cross_programme_conflict) {
-      resultContainer.innerHTML = `
-        <div style="background-color: rgba(16, 185, 129, 0.08); border: 1px solid var(--color-status-green-border); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.25rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-            <h4 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--color-status-green-text); display: flex; align-items: center; gap: 0.5rem;">
-              <span>✓ Cross-Programme Impact</span>
-            </h4>
-            <span class="wf-badge low" style="font-size: 0.8rem; padding: 0.2rem 0.6rem;">Overall Risk: Low</span>
-          </div>
-          
-          <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.75rem;">
-            Status: <span style="color: var(--color-status-green-text);">${data.cross_programme_status || 'No cross-programme conflicts detected'}</span>
-          </div>
-
-          <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.85rem; margin-bottom: 0.85rem;">
-            <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">
-              📋 Analysis Summary
-            </div>
-            <ul style="margin: 0; padding-left: 0.2rem; list-style: none; font-size: 0.82rem; color: var(--text-primary); display: flex; flex-direction: column; gap: 0.35rem;">
-              ${(data.analysis_summary || [
-                '✓ No shared resources identified',
-                '✓ No shared release milestones',
-                '✓ No shared infrastructure conflicts',
-                '✓ No downstream programme impact detected'
-              ]).map(item => `<li>${item}</li>`).join('')}
-            </ul>
-          </div>
-
-          <div style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 0.6rem 0.8rem; border-radius: 4px;">
-            💡 <strong>Analysis Confirmation:</strong> ${data.explanation || 'No resource, component, release date or schedule collisions were detected across other active programs.'}
+    let alertHtml = '';
+    if (data.project_end_date_slipped) {
+      alertHtml = `
+        <div style="background-color: var(--color-status-red-bg); border: 1px solid var(--color-status-red-border); color: var(--color-status-red-text); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; display: flex; align-items: start; gap: 0.75rem;">
+          <svg style="width: 20px; height: 20px; fill: currentColor; margin-top: 2px;" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+          </svg>
+          <div>
+            <h5 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; font-weight: 700;">Project Schedule Slipped!</h5>
+            <p style="margin: 0; font-size: 0.85rem; opacity: 0.9;">
+              The delay on task <strong>${taskId}</strong> ripples through the dependency path and postpones the committed project end date by <strong>${delayDays} days</strong>.
+            </p>
           </div>
         </div>
       `;
-      return;
+    } else {
+      alertHtml = `
+        <div style="background-color: var(--color-status-green-bg); border: 1px solid var(--color-status-green-border); color: var(--color-status-green-text); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; display: flex; align-items: start; gap: 0.75rem;">
+          <svg style="width: 20px; height: 20px; fill: currentColor; margin-top: 2px;" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          <div>
+            <h5 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; font-weight: 700;">No committed schedule impact</h5>
+            <p style="margin: 0; font-size: 0.85rem; opacity: 0.9;">
+              The delay was successfully absorbed by existing slack/buffer. The target committed delivery deadline remains intact.
+            </p>
+          </div>
+        </div>
+      `;
     }
 
-    // Render Cross-Programme Conflicts when detected
-    const sharedResCards = (data.shared_resources_conflicts || []).map(r => `
-      <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid var(--color-status-red-border); border-left: 4px solid var(--color-status-red-text); border-radius: 6px; padding: 0.85rem; margin-bottom: 0.75rem;">
-        <h5 style="margin: 0 0 0.35rem 0; font-size: 0.85rem; font-weight: 700; color: var(--color-status-red-text);">🚨 Shared Resource Conflict</h5>
-        <div style="font-size: 0.78rem; color: var(--text-primary); margin-bottom: 0.35rem;">
-          Employee: <strong>${r.employee || r.resource_name || 'Karthik'}</strong> | Utilization: <strong style="color: var(--color-status-red-text);">${r.utilization_pct || 120}%</strong>
-        </div>
-        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem;">
-          Projects: <strong>${(r.projects || ['E-commerce Website', 'Cloud Migration']).join(' • ')}</strong>
-        </div>
-        <div style="font-size: 0.75rem; color: var(--color-status-red-text); margin-bottom: 0.35rem;">
-          <strong>Impact:</strong> ${r.impact || 'Delay in Build phase may affect both projects.'}
-        </div>
-        <div style="font-size: 0.75rem; color: var(--text-secondary); background: var(--bg-primary); border: 1px solid var(--border-color); padding: 0.4rem; border-radius: 4px;">
-          💡 <strong>Recommendation:</strong> ${r.recommendation || 'Assign alternate engineer or replan schedule.'}
-        </div>
-      </div>
-    `).join('');
-
-    const sharedAssetCards = (data.shared_assets_impacted || []).map(a => `
-      <div style="background: rgba(245, 158, 11, 0.05); border: 1px solid var(--color-status-amber-border); border-left: 4px solid var(--color-status-amber-text); border-radius: 6px; padding: 0.85rem; margin-bottom: 0.75rem;">
-        <h5 style="margin: 0 0 0.35rem 0; font-size: 0.85rem; font-weight: 700; color: var(--color-status-amber-text);">🗄️ Shared Asset Conflict</h5>
-        <div style="font-size: 0.78rem; color: var(--text-primary); margin-bottom: 0.35rem;">
-          Component: <strong>${a.asset_name || 'Aurora PostgreSQL Cluster'}</strong>
-        </div>
-        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem;">
-          Used By: <strong>${(a.used_by || ['E-commerce Website', 'Customer Loyalty Portal']).join(' • ')}</strong>
-        </div>
-        <div style="font-size: 0.75rem; color: var(--color-status-amber-text);">
-          <strong>Risk:</strong> ${a.risk || 'Concurrent deployment scheduled'} | <strong>Impact:</strong> ${a.impact || 'Potential production outage'}
-        </div>
-      </div>
-    `).join('');
+    let tasksTableRows = '<tr><td colspan="4" style="text-align: center; padding: 1rem; color: var(--text-muted);">No other tasks affected.</td></tr>';
+    if (data.affected_tasks && data.affected_tasks.length > 0) {
+      tasksTableRows = data.affected_tasks.map(t => {
+        return `
+          <tr style="border-bottom: 1px solid var(--border-color);">
+            <td style="padding: 0.75rem 0.5rem; font-weight: 600; color: var(--text-primary); font-family: monospace;">${t.task_id}</td>
+            <td style="padding: 0.75rem 0.5rem;">${t.name}</td>
+            <td style="padding: 0.75rem 0.5rem; color: var(--text-secondary); font-size: 0.85rem;">
+              <div>${t.original_start_date} &rarr; ${t.new_start_date}</div>
+              <div>${t.original_end_date} &rarr; ${t.new_end_date}</div>
+            </td>
+            <td style="padding: 0.75rem 0.5rem; text-align: center;">
+              ${t.on_critical_path ? `
+                <span class="red" style="font-size: 0.6rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;">
+                  YES
+                </span>
+              ` : `
+                <span class="gray" style="font-size: 0.6rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; text-transform: uppercase; opacity: 0.5;">
+                  NO
+                </span>
+              `}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
 
     resultContainer.innerHTML = `
-      <div style="background-color: rgba(239, 68, 68, 0.08); border: 1px solid var(--color-status-red-border); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.25rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-          <h4 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--color-status-red-text); display: flex; align-items: center; gap: 0.5rem;">
-            <span>⚠️ Cross-Programme Impact</span>
-          </h4>
-          <span class="wf-badge high" style="font-size: 0.8rem; padding: 0.2rem 0.6rem;">Overall Risk: HIGH</span>
-        </div>
-        <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.75rem;">
-          Status: <span style="color: var(--color-status-red-text);">${data.cross_programme_status || 'Cross-programme conflicts detected'}</span>
-        </div>
+      ${alertHtml}
 
-        ${sharedResCards}
-        ${sharedAssetCards}
-
-        <!-- Financial Cost & Portfolio Projects Cards -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; text-align: center; margin-top: 0.75rem;">
-          <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 0.5rem;">
-            <div style="font-size: 0.62rem; color: var(--text-muted);">Impacted Projects</div>
-            <div style="font-size: 0.95rem; font-weight: 800; color: var(--color-brand);">${(data.portfolio_projects_impacted || ['E-commerce', 'Cloud Migration']).length} Projects</div>
-          </div>
-          <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 0.5rem;">
-            <div style="font-size: 0.62rem; color: var(--text-muted);">Shared Engineer</div>
-            <div style="font-size: 0.95rem; font-weight: 800; color: var(--color-status-amber-text);">Karthik</div>
-          </div>
-          <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 0.5rem;">
-            <div style="font-size: 0.62rem; color: var(--text-muted);">Shared Asset</div>
-            <div style="font-size: 0.95rem; font-weight: 800; color: var(--text-primary);">Aurora Postgres</div>
-          </div>
-          <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 0.5rem;">
-            <div style="font-size: 0.62rem; color: var(--text-muted);">Financial Cost</div>
-            <div style="font-size: 0.95rem; font-weight: 800; color: var(--color-status-red-text);">+$${data.cost_impact_usd || 4000}</div>
-          </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+        <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+          <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Original Committed End Date</div>
+          <div style="font-size: 1.25rem; font-weight: 700; font-family: monospace; color: var(--text-secondary);">${data.original_project_end_date}</div>
         </div>
-
-        <div style="font-size: 0.8rem; color: var(--text-primary); line-height: 1.5; background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 0.6rem 0.8rem; border-radius: 4px; margin-top: 0.75rem;">
-          🤖 <strong>AI Explanation:</strong> ${data.explanation}
+        <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+          <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">New Estimated End Date</div>
+          <div style="font-size: 1.25rem; font-weight: 700; font-family: monospace; color: ${data.project_end_date_slipped ? 'var(--color-status-red-text)' : 'var(--color-status-green-text)'};">${data.new_project_end_date}</div>
         </div>
+      </div>
+
+      <div style="margin-bottom: 1.5rem;">
+        <h5 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; font-weight: 600; color: var(--text-secondary);">Affected Schedule Tasks</h5>
+        <div style="max-height: 250px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+            <thead>
+              <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border-color);">
+                <th style="padding: 0.5rem; font-weight: 600; color: var(--text-secondary);">ID</th>
+                <th style="padding: 0.5rem; font-weight: 600; color: var(--text-secondary);">Task Name</th>
+                <th style="padding: 0.5rem; font-weight: 600; color: var(--text-secondary);">Timeline Ripple</th>
+                <th style="padding: 0.5rem; font-weight: 600; color: var(--text-secondary); text-align: center;">Critical Path</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tasksTableRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="background-color: rgba(99, 102, 241, 0.04); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+          <svg style="width: 18px; height: 18px; fill: var(--color-brand);" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+          </svg>
+          <span style="font-weight: 600; font-size: 0.85rem; color: var(--color-brand); text-transform: uppercase;">AI Impact Explanation Summary</span>
+        </div>
+        <p style="margin: 0; font-size: 0.9rem; line-height: 1.6; color: var(--text-primary);">
+          ${data.explanation}
+        </p>
       </div>
     `;
 
   } catch (err) {
-    if (errorAlert) {
-      errorAlert.textContent = err.message;
-      errorAlert.style.display = 'block';
-    }
+    errorAlert.textContent = err.message;
+    errorAlert.style.display = 'block';
   } finally {
-    if (btn) {
-      btn.innerHTML = originalBtnText;
-      btn.disabled = false;
-    }
+    btn.innerHTML = originalBtnText;
+    btn.disabled = false;
   }
 }
 
@@ -1975,8 +1770,6 @@ async function handleRunSense() {
   }
 }
 
-let newEdgePlansList = [];
-
 function showNewEdgeForm() {
   const container = document.getElementById('dependency-panel-container');
   container.innerHTML = `
@@ -2005,36 +1798,19 @@ function showNewEdgeForm() {
               <input type="text" id="edge-id-custom" placeholder="Leave empty to auto-generate (DEP-XXXX)">
             </div>
             <div class="form-group">
-              <label for="edge-source-task-id">Dependent Task (Source Task ID)</label>
-              <select id="edge-source-task-id">
-                <option value="">Select a plan first...</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="edge-target-task-id">Predecessor Task (Target Task ID)</label>
-              <select id="edge-target-task-id">
-                <option value="">Select a plan first...</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="edge-type">Dependency Type</label>
-              <select id="edge-type">
-                <option value="technical" selected>Technical</option>
-                <option value="resource">Resource</option>
-                <option value="data">Data</option>
-                <option value="external-vendor">External Vendor</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="edge-owner">Accountable Owner</label>
-              <input type="text" id="edge-owner" placeholder="e.g. owner@company.com">
-            </div>
-            <div class="form-group">
               <label for="edge-status">Status</label>
               <select id="edge-status">
-                <option value="open" selected>Open</option>
+                <option value="open">Open</option>
                 <option value="at-risk">At Risk</option>
                 <option value="resolved">Resolved</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="edge-risk">Risk Level</label>
+              <select id="edge-risk">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
               </select>
             </div>
           </div>
@@ -2051,14 +1827,13 @@ function showNewEdgeForm() {
   fetch(`${DEPENDENCIES_API_BASE}/plans`)
     .then(res => res.json())
     .then(plansList => {
-      newEdgePlansList = plansList;
       const select = document.getElementById('edge-plan-id');
       const btn = document.getElementById('btn-save-edge');
       if (select) {
         if (!plansList || plansList.length === 0) {
           select.innerHTML = '<option value="">No active plans found</option>';
         } else {
-          select.innerHTML = '<option value="">-- Select Project Plan --</option>' + plansList.map((p, idx) => {
+          select.innerHTML = plansList.map((p, idx) => {
             const planName = p.release_name || `Plan ${idx + 1}: ${p.demand_id}`;
             return `<option value="${p.plan_id}">${planName} (${p.demand_id})</option>`;
           }).join('');
@@ -2071,7 +1846,6 @@ function showNewEdgeForm() {
       const select = document.getElementById('edge-plan-id');
       if (select) {
         select.innerHTML = `
-          <option value="">-- Select Project Plan --</option>
           <option value="PLN-0001-1">Plan 1: Loyalty Portal Integration (PLN-0001-1)</option>
           <option value="PLN-0003-1">Plan 3: Security & SAST Pipelines (PLN-0003-1)</option>
         `;
@@ -2080,44 +1854,13 @@ function showNewEdgeForm() {
       if (btn) btn.disabled = false;
     });
 
-  document.getElementById('edge-plan-id').addEventListener('change', (e) => {
-    const selectedPlanId = e.target.value;
-    const plan = newEdgePlansList.find(p => p.plan_id === selectedPlanId);
-    const sourceSelect = document.getElementById('edge-source-task-id');
-    const targetSelect = document.getElementById('edge-target-task-id');
-    const ownerInput = document.getElementById('edge-owner');
-    
-    if (plan && plan.tasks && plan.tasks.length > 0) {
-      const optionsHtml = plan.tasks.map(t => `<option value="${t.task_id}" data-owner="${t.owner}">${t.name} (${t.task_id})</option>`).join('');
-      sourceSelect.innerHTML = optionsHtml;
-      targetSelect.innerHTML = optionsHtml;
-      if (ownerInput) {
-        ownerInput.value = plan.tasks[0].owner;
-      }
-    } else {
-      sourceSelect.innerHTML = '<option value="">-- Select Task --</option>';
-      targetSelect.innerHTML = '<option value="">-- Select Task --</option>';
-    }
-  });
-
-  document.getElementById('edge-source-task-id').addEventListener('change', (e) => {
-    const selectedOption = e.target.options[e.target.selectedIndex];
-    const taskOwner = selectedOption.getAttribute('data-owner');
-    if (taskOwner) {
-      document.getElementById('edge-owner').value = taskOwner;
-    }
-  });
-
   document.getElementById('btn-save-edge').addEventListener('click', handleSaveEdge);
 }
 
 async function handleSaveEdge() {
   const planId = document.getElementById('edge-plan-id').value;
-  const sourceTaskId = document.getElementById('edge-source-task-id').value;
-  const targetTaskId = document.getElementById('edge-target-task-id').value;
-  const type = document.getElementById('edge-type').value;
-  const owner = document.getElementById('edge-owner').value.trim();
   const status = document.getElementById('edge-status').value;
+  const risk = document.getElementById('edge-risk').value;
   let customId = document.getElementById('edge-id-custom').value.trim();
 
   const errorAlert = document.getElementById('edge-error');
@@ -2127,26 +1870,6 @@ async function handleSaveEdge() {
 
   if (!planId) {
     errorAlert.textContent = "Please select a Project Plan.";
-    errorAlert.style.display = 'block';
-    return;
-  }
-  if (!sourceTaskId) {
-    errorAlert.textContent = "Please select a Dependent Task.";
-    errorAlert.style.display = 'block';
-    return;
-  }
-  if (!targetTaskId) {
-    errorAlert.textContent = "Please select a Predecessor Task.";
-    errorAlert.style.display = 'block';
-    return;
-  }
-  if (sourceTaskId === targetTaskId) {
-    errorAlert.textContent = "Dependent and Predecessor tasks cannot be the same.";
-    errorAlert.style.display = 'block';
-    return;
-  }
-  if (!owner) {
-    errorAlert.textContent = "Please enter an accountable owner.";
     errorAlert.style.display = 'block';
     return;
   }
@@ -2161,11 +1884,8 @@ async function handleSaveEdge() {
     const payload = {
       dependency_id: customId,
       plan_id: planId,
-      source_task_id: sourceTaskId,
-      target_task_id: targetTaskId,
-      type: type,
       status: status,
-      owner: owner
+      risk: risk
     };
 
     const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies`, {
@@ -2459,8 +2179,6 @@ async function handleQuickAction(action, depId) {
     alert('Error: ' + err.message);
   }
 }
-
-
 
 // Re-render the currently open dependency panel periodically so "days since
 // last contact" / "days to deadline" (and the threat level they drive) keep
