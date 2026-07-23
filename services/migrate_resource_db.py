@@ -132,11 +132,7 @@ with get_db() as conn:
             None, None
         ))
 
-<<<<<<< HEAD
-        print(f"  [+] Inserted {emp_id} | {name} | {role} | {status} ({allocation_pct}%)")
-=======
         print(f"  [OK] Inserted {emp_id} | {name} | {role} | {status} ({allocation_pct}%)")
->>>>>>> main
 
     conn.commit()
 
@@ -156,8 +152,4 @@ with get_db() as conn:
     for r in rows:
         print(f"  {r}")
 
-<<<<<<< HEAD
-print("\n[+] Migration complete. Original data preserved in 'resources_backup'.")
-=======
 print("\n[DONE] Migration complete. Original data preserved in 'resources_backup'.")
->>>>>>> main

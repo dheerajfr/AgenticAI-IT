@@ -137,17 +137,6 @@ function isReleaseApproved(data) {
 
 // 2. Logic Calculations
 function determineCurrentStage(data) {
-<<<<<<< HEAD
-  if (data.opsRecord && data.opsRecord.validation && data.opsRecord.validation.status === 'approved') return 'ops-readiness';
-  if (data.opsRecord) return 'ops-readiness';
-  if (data.releases && data.releases.length > 0) return 'release-change';
-  if (data.qualityGate) return 'test-quality';
-  if (data.deployments && data.deployments.length > 0) return 'build-deploy';
-  if (data.dependencies && data.dependencies.length > 0) return 'dependencies';
-  if (data.environments && data.environments.length > 0) return 'config-environments';
-  if (data.plan) return 'plan-schedule';
-  if (data.estimate) return 'estimate-shape';
-=======
   if (isReleaseApproved(data)) return 'release-change';
   if (isTestQualityApproved(data)) return 'release-change';
   if (isBuildDeployApproved(data)) return 'test-quality';
@@ -156,7 +145,6 @@ function determineCurrentStage(data) {
   if (isPlanApproved(data)) return 'config-environments';
   if (isEstimateApproved(data)) return 'plan-schedule';
   if (isDemandApproved(data)) return 'estimate-shape';
->>>>>>> Nagaraju
   return 'demand-intake';
 }
 
@@ -168,16 +156,6 @@ function calculateHealth(data) {
   return 'Healthy';
 }
 
-<<<<<<< HEAD
-function calculateProgress(stage) {
-  const stages = [
-    'demand-intake', 'estimate-shape', 'plan-schedule', 
-    'config-environments', 'dependencies', 'build-deploy', 
-    'test-quality', 'release-change', 'ops-readiness'
-  ];
-  const idx = stages.indexOf(stage);
-  return Math.round(((idx + 1) / stages.length) * 100);
-=======
 function calculateProgress(data) {
   let completed = 0;
   if (isDemandApproved(data)) completed++;
@@ -189,7 +167,6 @@ function calculateProgress(data) {
   if (isTestQualityApproved(data)) completed++;
   if (isReleaseApproved(data)) completed++;
   return Math.round((completed / 8) * 100);
->>>>>>> Nagaraju
 }
 
 // 3. UI Renderers
@@ -320,22 +297,6 @@ async function renderProjectDetails(demandId) {
       ${renderDeployCard(data)}
       ${renderTestCard(data)}
       ${renderReleaseCard(data)}
-<<<<<<< HEAD
-      ${renderOpsCard(data)}
-    </div>
-
-    <!-- Supporting Modules -->
-    <div style="margin-top: 2rem;">
-      <h3 style="font-family: var(--font-display); font-size: 1rem; color: var(--text-secondary); margin-bottom: 1rem;">Supporting Modules</h3>
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
-        ${renderPlaceholderCard('Budget & Cost', 'budget-cost')}
-        ${renderPlaceholderCard('Risk & Issues', 'risk-issues')}
-        ${renderPlaceholderCard('Vendor Coordination', 'vendor-coordination')}
-        ${renderPlaceholderCard('Knowledge Artifacts', 'knowledge-artifacts')}
-        ${renderPlaceholderCard('Reporting & Comms', 'reporting-communication')}
-        ${renderPlaceholderCard('Environment State', 'environment-state')}
-        ${renderPlaceholderCard('Data Exports', 'exports')}
-=======
       ${renderOpsReadinessCard(data)}
     </div>
 
@@ -348,7 +309,6 @@ async function renderProjectDetails(demandId) {
         ${renderVendorCoordinationCard(data)}
         ${renderReportingCommunicationCard(data)}
         ${renderKnowledgeArtifactsCard(data)}
->>>>>>> Nagaraju
       </div>
     </div>
   `;
@@ -358,13 +318,8 @@ async function renderProjectDetails(demandId) {
 // Timeline Helpers
 // ----------------------------------------------------------------------
 const stageOrder = [
-<<<<<<< HEAD
-  'demand-intake', 'estimate-shape', 'config-environments', 
-  'plan-schedule', 'dependencies', 'build-deploy', 
-=======
   'demand-intake', 'estimate-shape', 'plan-schedule', 
   'config-environments', 'dependencies', 'build-deploy', 
->>>>>>> Nagaraju
   'test-quality', 'release-change', 'ops-readiness'
 ];
 
@@ -633,42 +588,6 @@ function renderReleaseCard(data) {
   return renderCard('Release & Change', 'release-change', status, outputs, approvals, errorsHtml);
 }
 
-<<<<<<< HEAD
-function renderOpsCard(data) {
-  if (!data.opsRecord || data.opsRecord.error) return renderCard('Ops Readiness', 'ops-readiness', 'Pending', '', '');
-  const ops = data.opsRecord;
-  const outputs = `
-    • Handover Pack: ${ops.handover && ops.handover.status ? ops.handover.status : 'Pending'}<br>
-    • Monitoring Config: ${ops.monitoring && ops.monitoring.status ? ops.monitoring.status : 'Pending'}<br>
-    • Readiness ID: ${ops.readiness_id}
-  `;
-  
-  let approvals = 'Sign-off: Pending';
-  let status = 'In Progress';
-  if (ops.validation && ops.validation.status === 'approved') {
-    status = 'Completed';
-    approvals = `Signed off by: <strong>${ops.validation.sign_off_by}</strong>`;
-  }
-
-  return renderCard('Ops Readiness', 'ops-readiness', status, outputs, approvals);
-}
-
-function renderPlaceholderCard(title, moduleId) {
-  return `
-    <div style="background: var(--bg-primary); border: 1px dashed var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h4 style="margin: 0; font-family: var(--font-display); color: var(--text-primary); font-size: 1.05rem;">${title}</h4>
-        <span style="padding: 0.2rem 0.5rem; font-size: 0.7rem; border-radius: 12px; font-weight: 700; background: var(--bg-tertiary); color: var(--text-muted);">NOT INTEGRATED</span>
-      </div>
-      <p style="margin: 0 0 1rem 0; font-size: 0.85rem; color: var(--text-muted);">
-        This module is currently under development and data is not yet available.
-      </p>
-      <button type="button" onclick="sessionStorage.setItem('selectedDemandId', '${currentProject.demandId}'); window.switchStage('${moduleId}')" style="padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-secondary); align-self: flex-start;">
-        Open Module &rarr;
-      </button>
-    </div>
-  `;
-=======
 
 function renderOpsReadinessCard(data) {
   return renderCard('Ops Readiness', 'ops-readiness', 'Pending', '<span style="color:var(--text-muted);">Data loading...</span>', '');
@@ -687,7 +606,6 @@ function renderReportingCommunicationCard(data) {
 }
 function renderKnowledgeArtifactsCard(data) {
   return renderCard('Knowledge & Artefacts', 'knowledge-artifacts', 'Monitoring', '<span style="color:var(--text-muted);">Knowledge sync active.</span>', '');
->>>>>>> Nagaraju
 }
 
 // Global style for detail dropdowns
