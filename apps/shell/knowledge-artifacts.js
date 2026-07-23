@@ -102,6 +102,67 @@ window.fetchKnowledgeArtifactsData = async function() {
   }
 };
 
+// -------------------------------------------------------
+// Helper: builds the artefact list + register form HTML
+// Kept separate to avoid deeply-nested template literal issues
+// -------------------------------------------------------
+function _buildArtefactRows(artefacts, demandId) {
+  let rows = '';
+  if (artefacts.length === 0) {
+    rows = '<span style="font-size:0.82rem;color:var(--text-muted);">No artefacts registered yet. Add one below.</span>';
+  } else {
+    artefacts.forEach(function(a) {
+      const isApproved  = a.status === 'approved';
+      const statusColor = isApproved ? '#10b981' : '#f59e0b';
+      const statusBg    = isApproved ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)';
+      const statusIcon  = isApproved ? '\u2713' : '\u23f3';
+      const statusLabel = isApproved ? 'Approved' : 'Pending Review';
+      const urlLink     = a.url
+        ? '<a href="' + a.url + '" target="_blank" style="color:var(--color-brand);margin-left:4px;text-decoration:none;font-size:0.75rem;">&#8599; Open</a>'
+        : '';
+      const approveBtn  = !isApproved
+        ? '<button class="ka-approve-btn" data-demand="' + demandId + '" data-name="' + a.name.replace(/"/g, '&quot;') + '" style="font-size:0.7rem;padding:2px 8px;border-radius:6px;border:1px solid #10b981;background:rgba(16,185,129,0.1);color:#10b981;cursor:pointer;font-family:inherit;">Approve</button>'
+        : '';
+      rows += '<div style="display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.75rem;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);gap:0.75rem;">'
+        + '<div style="display:flex;align-items:center;gap:0.5rem;min-width:0;">'
+        + '<span style="font-size:0.85rem;">&#128196;</span>'
+        + '<span style="font-size:0.82rem;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + a.name + '</span>'
+        + '<span style="font-size:0.72rem;color:var(--text-muted);">' + a.type + (a.version ? ' v' + a.version : '') + '</span>'
+        + urlLink
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">'
+        + '<span style="font-size:0.68rem;padding:2px 7px;border-radius:8px;background:' + statusBg + ';color:' + statusColor + ';font-weight:700;white-space:nowrap;">' + statusIcon + ' ' + statusLabel + '</span>'
+        + approveBtn
+        + '</div>'
+        + '</div>';
+    });
+  }
+
+  const registerForm = '<div style="border-top:1px solid var(--border-color);padding-top:1rem;">'
+    + '<h4 style="margin:0 0 0.75rem 0;font-size:0.88rem;color:var(--text-secondary);">+ Register Artefact</h4>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.5rem;">'
+    + '<input type="text" id="art-name" placeholder="Document name (e.g. BRD_v2.pdf)" style="padding:0.4rem 0.65rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:0.8rem;">'
+    + '<select id="art-type" style="padding:0.4rem 0.65rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:0.8rem;">'
+    + '<option value="Requirements">Requirements</option>'
+    + '<option value="Architecture">Architecture</option>'
+    + '<option value="Test Evidence">Test Evidence</option>'
+    + '<option value="Runbook">Runbook</option>'
+    + '<option value="ADR">ADR</option>'
+    + '<option value="Post-Mortem">Post-Mortem</option>'
+    + '<option value="Onboarding Guide">Onboarding Guide</option>'
+    + '<option value="Other">Other</option>'
+    + '</select></div>'
+    + '<div style="display:grid;grid-template-columns:2fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">'
+    + '<input type="text" id="art-url" placeholder="URL (optional)" style="padding:0.4rem 0.65rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:0.8rem;">'
+    + '<input type="text" id="art-version" placeholder="Version (e.g. 1.0)" style="padding:0.4rem 0.65rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:0.8rem;">'
+    + '</div>'
+    + '<button id="ka-register-btn" data-demand="' + demandId + '" class="btn-primary" style="padding:0.45rem 1.25rem;font-size:0.82rem;">Register</button>'
+    + '<span id="art-feedback" style="font-size:0.78rem;margin-left:0.75rem;color:var(--text-muted);"></span>'
+    + '</div>';
+
+  return '<div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1.5rem;">' + rows + '</div>' + registerForm;
+}
+
 window.renderKnowledgeArtifactsScreen = function() {
   const demandId = sessionStorage.getItem('selectedDemandId');
   const demands = window.allDemandsList || [];
@@ -209,6 +270,30 @@ window.renderKnowledgeArtifactsScreen = function() {
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
         
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          <!-- Artefact Index & Search -->
+          <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; flex: 1;">
+            <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
+              <span>Artefact Index &amp; Search</span>
+              <span style="font-size: 0.75rem; background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 2px 6px; border-radius: 4px;">Human Directs</span>
+            </h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+              Unified vector search across all documents, specs, and wikis.
+            </p>
+            
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
+              <input type="text" id="search-query" placeholder="Ask a question..." style="flex: 1; padding: 0.6rem 1rem; border-radius: 20px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 0.9rem;">
+              <button onclick="searchArtefacts()" class="btn-primary" style="padding: 0.6rem 1.5rem; border-radius: 20px; font-size: 0.9rem;">Search</button>
+            </div>
+            
+            <div id="search-results" style="display: flex; flex-direction: column; gap: 1rem;">
+              <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center;">Try searching: "What architecture documents do we have?"</div>
+            </div>
+            <h4 style="margin: 2rem 0 0.5rem 0; font-size: 0.9rem;">Indexed Artefacts for ${demandId}</h4>
+            ${_buildArtefactRows(artefacts, demandId)}
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
           <!-- Cross-project Learning -->
           <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem;">
             <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
@@ -255,37 +340,7 @@ window.renderKnowledgeArtifactsScreen = function() {
             </div>
           </div>
         </div>
-
-        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-          <!-- Global Search -->
-          <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; flex: 1;">
-            <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
-              <span>Artefact Index & Search</span>
-              <span style="font-size: 0.75rem; background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 2px 6px; border-radius: 4px;">Human Directs</span>
-            </h3>
-            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
-              Unified vector search across all documents, specs, and wikis.
-            </p>
-            
-            <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
-              <input type="text" id="search-query" placeholder="Ask a question..." style="flex: 1; padding: 0.6rem 1rem; border-radius: 20px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 0.9rem;">
-              <button onclick="searchArtefacts()" class="btn-primary" style="padding: 0.6rem 1.5rem; border-radius: 20px; font-size: 0.9rem;">Search</button>
-            </div>
-            
-            <div id="search-results" style="display: flex; flex-direction: column; gap: 1rem;">
-              <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center;">Try searching: "How does the cache layer work?"</div>
-            </div>
-            
-            <h4 style="margin: 2rem 0 0.5rem 0; font-size: 0.9rem;">Indexed Artefacts for ${demandId}</h4>
-            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-              ${artefacts.map(a => `
-                <span style="font-size: 0.75rem; padding: 0.25rem 0.6rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-secondary);">
-                  📄 ${a.name}
-                </span>
-              `).join('')}
-            </div>
-          </div>
-        </div>
+      </div>
       </div>
     </div>` + layoutSuffix;
 };
@@ -317,34 +372,117 @@ window.syncOnboarding = async function(demandId) {
 window.searchArtefacts = async function() {
   const query = document.getElementById('search-query').value;
   if (!query) return;
-  
+  const demandId = sessionStorage.getItem('selectedDemandId');
+
   const resultsDiv = document.getElementById('search-results');
-  resultsDiv.innerHTML = '<div class="loader"><span class="spinner"></span> Searching vector space...</div>';
-  
+  resultsDiv.innerHTML = '<div class="loader"><span class="spinner"></span> Searching artefacts...</div>';
+
   try {
     const res = await fetch(`${BASE_URL}/knowledge-artifacts/search`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ query: query })
+      body: JSON.stringify({ query: query, demand_id: demandId })
     });
     const data = await res.json();
-    
+    const realResults = data.results || [];
+
     resultsDiv.innerHTML = `
-      <div style="padding: 1rem; background: rgba(99,102,241,0.05); border: 1px solid var(--color-brand); border-radius: var(--radius-sm);">
-        <div style="font-size: 0.75rem; font-weight: 700; color: var(--color-brand); margin-bottom: 0.5rem;">AI Synthesis</div>
-        <div style="font-size: 0.85rem; color: var(--text-primary);">${data.ai_summary}</div>
+      <div style="padding:1rem;background:rgba(99,102,241,0.05);border:1px solid var(--color-brand);border-radius:var(--radius-sm);margin-bottom:0.75rem;">
+        <div style="font-size:0.72rem;font-weight:700;color:var(--color-brand);margin-bottom:0.4rem;">AI SYNTHESIS</div>
+        <div style="font-size:0.85rem;color:var(--text-primary);line-height:1.55;">${data.ai_summary}</div>
       </div>
       <div>
-        <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.5rem;">Sources</div>
-        ${data.results.map(r => `
-          <div style="margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--text-secondary);">
-            <a href="#" style="color: var(--color-brand); font-weight: 600;">${r.doc}</a> - "${r.snippet}"
-          </div>
-        `).join('')}
+        <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);margin-bottom:0.5rem;">SOURCES (${data.total_artefacts_searched || 0} artefact(s) searched)</div>
+        ${realResults.length === 0
+          ? '<div style="font-size:0.8rem;color:var(--text-muted);">No artefacts indexed for this project yet.</div>'
+          : realResults.map(r => {
+              const statusColor = r.status === 'approved' ? '#10b981' : '#f59e0b';
+              const urlTag = r.url ? `<a href="${r.url}" target="_blank" style="color:var(--color-brand);margin-left:6px;font-size:0.75rem;">↗ Open</a>` : '';
+              return `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0.6rem;margin-bottom:0.35rem;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);">
+                  <div>
+                    <span style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">📄 ${r.doc}</span>
+                    <span style="font-size:0.72rem;color:var(--text-muted);margin-left:6px;">${r.type}</span>
+                    ${urlTag}
+                  </div>
+                  <span style="font-size:0.68rem;padding:1px 6px;border-radius:6px;background:rgba(0,0,0,0.15);color:${statusColor};font-weight:700;">${r.status}</span>
+                </div>`;
+            }).join('')
+        }
       </div>
     `;
-  } catch(e) { 
-    console.error(e); 
-    resultsDiv.innerHTML = '<div style="color: red;">Search failed.</div>';
+  } catch(e) {
+    console.error(e);
+    resultsDiv.innerHTML = '<div style="color:red;">Search failed.</div>';
   }
 };
+
+window.registerArtefact = async function(demandId) {
+  const name    = (document.getElementById('art-name')?.value || '').trim();
+  const type    = document.getElementById('art-type')?.value || 'Other';
+  const url     = (document.getElementById('art-url')?.value || '').trim() || null;
+  const version = (document.getElementById('art-version')?.value || '').trim() || '1.0';
+  const fb      = document.getElementById('art-feedback');
+
+  if (!name) { if(fb) fb.textContent = 'Please enter a document name.'; return; }
+
+  if(fb) { fb.style.color = 'var(--text-muted)'; fb.textContent = 'Registering...'; }
+  try {
+    const res = await fetch(`${BASE_URL}/knowledge-artifacts/artefacts/${demandId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, type, url, version })
+    });
+    if (res.ok) {
+      if(fb) { fb.style.color = '#10b981'; fb.textContent = `'${name}' registered — pending approval.`; }
+      // Clear inputs
+      ['art-name','art-url','art-version'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+      window.fetchKnowledgeArtifactsData();
+    } else {
+      const err = await res.json();
+      if(fb) { fb.style.color = 'red'; fb.textContent = err.detail || 'Registration failed.'; }
+    }
+  } catch(e) {
+    console.error(e);
+    if(fb) { fb.style.color = 'red'; fb.textContent = 'Network error.'; }
+  }
+};
+
+window.approveArtefact = async function(demandId, artefactName) {
+  const approvedBy = prompt('Approve "' + artefactName + '"\n\nEnter your name / username:');
+  if (!approvedBy || !approvedBy.trim()) return;
+
+  try {
+    const res = await fetch(`${BASE_URL}/knowledge-artifacts/artefacts/${demandId}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ artefact_name: artefactName, approved_by: approvedBy.trim() })
+    });
+    if (res.ok) {
+      window.fetchKnowledgeArtifactsData();
+    } else {
+      const err = await res.json();
+      alert('Approval failed: ' + (err.detail || 'Unknown error'));
+    }
+  } catch(e) {
+    console.error(e);
+    alert('Network error during approval.');
+  }
+};
+
+// Event delegation for buttons built by _buildArtefactRows (data-attribute pattern)
+document.addEventListener('click', function(e) {
+  // Approve button
+  const approveBtn = e.target.closest('.ka-approve-btn');
+  if (approveBtn) {
+    const demand = approveBtn.dataset.demand;
+    const name   = approveBtn.dataset.name;
+    if (demand && name) window.approveArtefact(demand, name);
+  }
+  // Register button
+  const registerBtn = e.target.closest('#ka-register-btn');
+  if (registerBtn) {
+    const demand = registerBtn.dataset.demand;
+    if (demand) window.registerArtefact(demand);
+  }
+});
