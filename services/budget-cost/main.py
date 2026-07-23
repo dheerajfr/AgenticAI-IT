@@ -281,13 +281,16 @@ def get_burn(demand_id: str):
     data = burn_db.get(demand_id)
     if not data:
         data = {
-            "actuals": [],
+            "actuals": _get_auto_populated_months(demand_id),
             "forecast": [],
             "variance_pct": 0,
             "narrative": "",
             "committed": False
         }
         burn_db.upsert(demand_id, data)
+    elif len(data.get("actuals", [])) == 0:
+        data["actuals"] = _get_auto_populated_months(demand_id)
+        
     return data
 
 class UpdateActualsRequest(BaseModel):
