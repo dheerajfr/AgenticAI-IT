@@ -21,20 +21,6 @@ window.renderBudgetCostScreen = function() {
   const viewport = document.getElementById('viewport');
   viewport.style.cssText = 'overflow:hidden;display:flex;flex-direction:column;padding:0;height:100%;';
 
-  // Build sidebar items
-  const sidebarHtml = demands.length === 0
-    ? '<li style="padding:1.5rem;text-align:center;color:var(--text-muted);font-size:0.85rem;">No demands found.</li>'
-    : demands.map(d => {
-        const active = d.demand_id === demandId;
-        return `<li onclick="sessionStorage.setItem('selectedDemandId','${d.demand_id}');bcActiveTab='burn';window.fetchBudgetCostData();"
-          style="cursor:pointer;padding:0.75rem 0.85rem;border-bottom:1px solid rgba(255,255,255,0.05);
-            border-left:${active ? '3px solid var(--color-brand)' : '3px solid transparent'};
-            background:${active ? 'rgba(99,102,241,0.1)' : 'transparent'};">
-          <div style="font-family:monospace;font-weight:700;color:var(--color-brand);font-size:0.78rem;">${d.demand_id}</div>
-          <div style="margin:0;font-size:0.83rem;font-weight:600;color:var(--text-primary);line-height:1.3;">${d.title || 'Untitled'}</div>
-        </li>`;
-      }).join('');
-
   const tabs = [
     { id: 'burn',    icon: '🔥', label: 'Burn & Forecast' },
     { id: 'invoice', icon: '📄', label: 'Invoice & PO Match' },
@@ -49,50 +35,47 @@ window.renderBudgetCostScreen = function() {
       ${t.icon} ${t.label}
     </button>`).join('');
 
-  viewport.innerHTML = `
-    <div style="display:flex;height:100%;overflow:hidden;">
-      <!-- Sidebar -->
-      <aside style="width:220px;min-width:220px;background:var(--bg-primary);border-right:1px solid var(--border-color);display:flex;flex-direction:column;overflow:hidden;">
-        <div style="padding:1rem;border-bottom:1px solid var(--border-color);">
-          <h3 style="margin:0;font-size:0.95rem;font-weight:700;color:var(--text-primary);">Budget &amp; Cost</h3>
-          <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.2rem;">Always-on</div>
-        </div>
-        <ul style="flex:1;overflow-y:auto;padding:0;margin:0;list-style:none;">${sidebarHtml}</ul>
-      </aside>
+  const dropdownHtml = `
+    <select onchange="sessionStorage.setItem('selectedDemandId', this.value); bcActiveTab='burn'; window.fetchBudgetCostData();"
+      style="padding:0.4rem 0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:0.85rem;font-family:var(--font-sans);cursor:pointer;outline:none;">
+      <option value="">Select a project...</option>
+      ${demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === demandId ? 'selected' : ''}>${d.demand_id} - ${d.title || 'Untitled'}</option>`).join('')}
+    </select>
+  `;
 
-      <!-- Main panel -->
-      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
-        <!-- Header + tabs -->
-        <div style="padding:1rem 1.5rem 0;border-bottom:1px solid var(--border-color);background:var(--bg-primary);">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+  viewport.innerHTML = `
+    <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--bg-primary);">
+      <!-- Header + tabs -->
+      <div style="padding:1rem 1.5rem 0;border-bottom:1px solid var(--border-color);background:var(--bg-primary);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+          <div style="display:flex;align-items:center;gap:1.5rem;">
             <div>
-              <h2 style="margin:0;font-family:var(--font-display);color:var(--text-primary);font-size:1.25rem;">
-                ${demandId ? demandId : 'Select a project'}
-              </h2>
+              <h2 style="margin:0;font-family:var(--font-display);color:var(--text-primary);font-size:1.25rem;">Budget &amp; Cost</h2>
               <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.15rem;">Financial Intelligence</div>
             </div>
-            <status-pill status="${demandId ? 'Monitoring' : 'Idle'}"></status-pill>
+            ${dropdownHtml}
           </div>
-          <div style="display:flex;gap:0.35rem;padding-bottom:0.75rem;">${tabBar}</div>
+          <status-pill status="${demandId ? 'Monitoring' : 'Idle'}"></status-pill>
         </div>
+        <div style="display:flex;gap:0.35rem;padding-bottom:0.75rem;">${tabBar}</div>
+      </div>
 
-        <!-- Tab content -->
-        <div id="bc-tab-content" style="flex:1;overflow-y:auto;padding:1.5rem;"></div>
+      <!-- Tab content -->
+      <div id="bc-tab-content" style="flex:1;overflow-y:auto;padding:1.5rem;background:var(--bg-secondary);"></div>
 
-        <!-- Footer nav -->
-        <div style="padding:1rem 1.5rem;border-top:1px solid var(--border-color);display:flex;justify-content:flex-end;">
-          <button onclick="window.location.hash='vendor-coordination';"
-            style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;padding:0.65rem 1.4rem;border-radius:var(--radius-md);border:none;cursor:pointer;font-family:var(--font-sans);">
-            Proceed to Vendor Coordination →
-          </button>
-        </div>
+      <!-- Footer nav -->
+      <div style="padding:1rem 1.5rem;border-top:1px solid var(--border-color);background:var(--bg-primary);display:flex;justify-content:flex-end;">
+        <button onclick="window.location.hash='vendor-coordination';"
+          style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;padding:0.65rem 1.4rem;border-radius:var(--radius-md);border:none;cursor:pointer;font-family:var(--font-sans);">
+          Proceed to Vendor Coordination →
+        </button>
       </div>
     </div>`;
 
   if (!demandId) {
     document.getElementById('bc-tab-content').innerHTML = `
       <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:0.9rem;">
-        ← Select a project from the sidebar to begin
+        Please select a project from the dropdown above to begin.
       </div>`;
     return;
   }
