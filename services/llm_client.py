@@ -38,23 +38,22 @@ def call_gemini(
             "The 'openai' or 'azure-identity' package is not installed."
         )
 
-    endpoint = os.getenv("AZURE_OPENAI_ENDPOINT") or "https://pravallika-ai-foundry.services.ai.azure.com/openai/v1"
-    deployment_name = model_name or os.getenv("AZURE_MODEL_NAME") or "gpt-4.1-mini"
+    endpoint = "https://karthiksajja9098-2712-resource.services.ai.azure.com/openai/v1"
+    deployment_name = model_name or "gpt-4.1-mini"
     
-    # Try AZURE_OPENAI_API_KEY, then AZURE_API_KEY (.env default), then GEMINI_API_KEY
-    env_api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("AZURE_API_KEY") or os.getenv("GEMINI_API_KEY")
+    # Try using AZURE_OPENAI_API_KEY, else use Entra ID token provider
+    env_api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("GEMINI_API_KEY")
 
     if env_api_key:
         client = OpenAI(
             base_url=endpoint,
-            api_key=env_api_key,
-            default_headers={"api-key": env_api_key}
+            api_key=env_api_key
         )
     else:
         token_provider = get_bearer_token_provider(DefaultAzureCredential(), "https://ai.azure.com/.default")
         client = OpenAI(
             base_url=endpoint,
-            api_key=token_provider()
+            api_key=token_provider
         )
 
     messages = []
@@ -78,14 +77,10 @@ def call_gemini(
         try:
             return json.loads(text)
         except Exception:
-            clean_text = text.strip()
-            if clean_text.startswith("```"):
-                lines = clean_text.splitlines()
-                if lines and lines[0].startswith("```"):
-                    lines = lines[1:]
-                if lines and lines[-1].startswith("```"):
-                    lines = lines[:-1]
-                clean_text = "\n".join(lines).strip()
-            return json.loads(clean_text)
+            if text.startswith("```json"):
+                text = text[7:]
+            if text.endswith("```"):
+                text = text[:-3]
+            return json.loads(text.strip())
     else:
         return text

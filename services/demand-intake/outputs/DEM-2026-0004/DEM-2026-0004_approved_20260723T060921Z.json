@@ -1,0 +1,47 @@
+{
+  "demand_id": "DEM-2026-0004",
+  "title": "retail chatbot using Agents",
+  "description": "retail chatbot using Agents",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-23",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: retail chatbot using Agents (DEM-2026-0004)\n\nExecutive Summary  \nThis project aims to develop a retail chatbot using intelligent agents to enhance customer engagement and streamline support. It will improve digital interaction within the customer domain.\n\nBusiness Value / Impact  \nThe chatbot will increase customer satisfaction by providing instant responses and personalized assistance, potentially boosting sales and reducing operational costs. It supports scalable, 24/7 customer service without increasing headcount.\n\nRisk Mitigation  \nMedium risks primarily involve technology integration and data privacy. These will be addressed through thorough testing, secure data handling practices, and compliance with relevant regulations.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 85,
+  "earliest_start_date": "2026-08-22",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 4 total active team members evaluated.",
+    "Technical capability profiling: 14 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 40/160 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Senior Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Frontend Developer",
+      "requiredCapacity": 2,
+      "availableCapacity": 2
+    }
+  ],
+  "skill_gaps": [
+    "Python",
+    "Natural Language Processing",
+    "Agents",
+    "Chatbot Development",
+    "Backend Development",
+    "Frontend Development",
+    "Architecture",
+    "AI Integration",
+    "UI Design"
+  ]
+}
