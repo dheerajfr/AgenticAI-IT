@@ -1,35 +1,68 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal, Dict, Any
 
-# --- 1. Monitoring Setup ---
+# --- 1. Dynamic Monitoring Setup & Plan ---
 class SLOItem(BaseModel):
     component_id: str
     availability_pct: float
     latency_p99_ms: int
 
-class MonitoringSetupRequest(BaseModel):
-    demand_id: str
-    plan_id: str
-    component_ids: List[str]
-    slos: List[SLOItem]
-    environment: str
-    target_availability_slo: Optional[float] = 99.95
-    target_latency_p99_ms: Optional[int] = 500
+class ComponentSpec(BaseModel):
+    component_id: str
+    component_name: str
+    component_type: str = "rest_api"  # rest_api, postgresql, mongodb, redis, kafka, queue, infrastructure
+    criticality: str = "standard"  # critical, high, standard
+    environment: str = "production"
+    technology_stack: str = "java-spring-boot"
+    owner_team: Optional[str] = "core-engineering"
+    owner_email: Optional[str] = "team-core@company.com"
+    historical_p99_latency_ms: Optional[float] = None
+    historical_availability_pct: Optional[float] = None
+
+class SLOTargetSpec(BaseModel):
+    component_id: str
+    availability_slo_pct: float
+    latency_p95_ms: float
+    latency_p99_ms: float
+    error_rate_threshold_pct: float
+    cpu_threshold_pct: float
+    memory_threshold_pct: float
+    source: str = "ai_dynamic_analysis"  # ai_dynamic_analysis or historical_baseline
 
 class ProposedAlert(BaseModel):
     alert_id: str
     component_id: str
-    component_type: Optional[str] = "microservice"
+    component_type: Optional[str] = "rest_api"
+    alert_type: Optional[str] = "latency"
     name: str
     condition: str
-    severity: str
+    threshold: Optional[str] = None
+    severity: str  # critical, high, medium, low
     notify: List[str]
+
+class WidgetSpec(BaseModel):
+    widget_id: str
+    type: str  # timeseries, gauge, stat, bar, logs
+    title: str
+    query: str
+    target_metric: Optional[str] = None
+    component_id: Optional[str] = None
 
 class ProposedDashboard(BaseModel):
     dashboard_id: str
     title: str
+    target_technology: Optional[str] = "multi-tech"
     panels: List[str]
     widgets: Optional[List[Dict[str, Any]]] = []
+
+class MonitoringSetupRequest(BaseModel):
+    demand_id: str
+    plan_id: str
+    component_ids: Optional[List[str]] = []
+    slos: Optional[List[SLOItem]] = []
+    environment: Optional[str] = "production"
+    target_availability_slo: Optional[float] = None
+    target_latency_p99_ms: Optional[int] = None
 
 class MonitoringConfigRecord(BaseModel):
     monitoring_id: str
@@ -39,11 +72,14 @@ class MonitoringConfigRecord(BaseModel):
     plan_id: str
     environment: str
     monitored_components_scope: Optional[List[str]] = []
+    component_specs: Optional[List[ComponentSpec]] = []
+    slo_targets: Optional[List[SLOTargetSpec]] = []
     proposed_alerts: List[ProposedAlert]
     proposed_dashboards: List[ProposedDashboard]
+    generated_at: Optional[str] = None
     sre_reviewed: bool = False
     sre_reviewed_by: Optional[str] = None
-    status: str = "draft"
+    status: str = "draft"  # draft, approved, rejected
 
 class SreReviewRequest(BaseModel):
     reviewed_by: str

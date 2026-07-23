@@ -110,12 +110,12 @@
     "validation_id": "RV-0130-1",
     "demand_id": "DEM-2026-0130",
     "plan_id": "PLN-0130-1",
-    "validated_at": "2026-07-21T06:10:41Z",
+    "validated_at": "2026-07-22T10:46:48Z",
     "criteria_results": [
       {
         "criterion": "monitoring_configured",
         "status": "pass",
-        "evidence": "Observability baseline observability://dashboards/ops-readiness-0130 active"
+        "evidence": "PASS: Monitoring plan MON-0130 configured and approved by SRE."
       },
       {
         "criterion": "support_team_briefed",

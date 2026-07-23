@@ -29,9 +29,46 @@ def test_monitoring():
     assert response.status_code == 200
     data = response.json()
     assert data["monitoring_id"] == "MON-0068-1"
+    assert data["monitoring_plan_id"] == "MON-PLAN-DEM-2026-0068"
     assert len(data["proposed_alerts"]) > 0
     assert len(data["proposed_dashboards"]) > 0
     assert data["sre_reviewed"] is False
+
+def test_dynamic_multi_tech_monitoring():
+    payload = {
+        "demand_id": "DEM-2026-0128",
+        "plan_id": "PLN-0128-1",
+        "component_ids": [
+            "svc-order-api",
+            "postgres-db-cluster",
+            "mongodb-analytics",
+            "kafka-event-stream",
+            "redis-cache-cluster",
+            "rabbitmq-order-queue"
+        ],
+        "environment": "production"
+    }
+    response = client.post("/api/ops-readiness/monitoring", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["monitoring_plan_id"] == "MON-PLAN-DEM-2026-0128"
+    assert len(data["component_specs"]) == 6
+    assert len(data["slo_targets"]) == 6
+
+    # Verify alerts for different technologies
+    alert_ids = [a["alert_id"] for a in data["proposed_alerts"]]
+    assert any("LATENCY" in aid for aid in alert_ids)
+    assert any("CONNPOOL" in aid for aid in alert_ids)
+    assert any("LAG" in aid for aid in alert_ids)
+    assert any("MEMORY" in aid for aid in alert_ids)
+    assert any("QUEUE-DEPTH" in aid for aid in alert_ids)
+    assert any("DLQ" in aid for aid in alert_ids)
+
+    # Verify dashboards contain widget specs
+    dashboards = data["proposed_dashboards"]
+    assert len(dashboards) > 0
+    widgets = dashboards[0].get("widgets", [])
+    assert len(widgets) > 0
 
 def test_sre_review():
     payload = {"reviewed_by": "sre-lead@company.com"}

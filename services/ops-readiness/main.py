@@ -10,6 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from models import (
     MonitoringSetupRequest,
     MonitoringConfigRecord,
+    ComponentSpec,
+    SLOTargetSpec,
     ProposedAlert,
     ProposedDashboard,
     SreReviewRequest,
@@ -115,199 +117,26 @@ def get_ops_readiness_record(demand_id: str):
             print(f"[Ops-Readiness] Error reconciling record defects: {e}")
     return rec
 
+# Import MonitoringSetupAgent from local agents module
+from agents.monitoring_agent import MonitoringSetupAgent
+
+monitoring_agent_service = MonitoringSetupAgent()
+
 # ==========================================
-# 09-C: Monitoring Setup Agent
+# 09-C: Monitoring Setup Agent (Dynamic & AI-Driven)
 # ==========================================
 @app.post("/api/ops-readiness/monitoring", response_model=MonitoringConfigRecord)
 def setup_monitoring(req: MonitoringSetupRequest):
+    """
+    Stage 09-C: Dynamic & AI-Driven Monitoring Setup Endpoint.
+    Gathers context across SDLC stages (Stage 03 Architecture, Stage 05 Environment,
+    Stage 06 Deployment Scope, Stage 07 Performance/Testing, Stage 08 Release Metadata)
+    and dynamically generates monitoring plan, SLO targets, alerts, and dashboard specs.
+    """
     demand_id = req.demand_id
-    plan_id = req.plan_id
-    env = req.environment
-    suffix = demand_id.split('-')[-1]
-    monitoring_id = f"MON-{suffix}-1"
-    monitoring_plan_id = f"MON-{suffix}"
-    release_id = f"REL-{suffix}-1"
-
-    target_avail = req.target_availability_slo or 99.95
-    target_latency = req.target_latency_p99_ms or 500
-
-    # 1. Gather SDLC Context dynamically across database tables
-    sdlc_components = set(req.component_ids or [])
-    arch_dependencies = []
-    env_components = []
-    test_defects = []
-    risk_rating = "Medium"
-
-    try:
-        with get_db() as conn:
-            cursor = conn.cursor()
-            
-            # Stage 03: Architecture & Dependencies
-            try:
-                cursor.execute("SELECT data FROM dependencies WHERE demand_id = ? AND soft_delete = 0", (demand_id,))
-                for row in cursor.fetchall():
-                    dep_d = json.loads(row[0])
-                    arch_dependencies.append(dep_d)
-                    if dep_d.get("service"): sdlc_components.add(dep_d.get("service"))
-                    if dep_d.get("depends_on"): sdlc_components.add(dep_d.get("depends_on"))
-            except Exception as e:
-                print(f"[Ops-Readiness] Stage 03 query note: {e}")
-
-            # Stage 05: Environments & CMDB
-            try:
-                cursor.execute("SELECT data FROM environments WHERE demand_id = ? AND soft_delete = 0", (demand_id,))
-                for row in cursor.fetchall():
-                    env_d = json.loads(row[0])
-                    env_components.append(env_d)
-                    cmdb = env_d.get("cmdb_server_name")
-                    if cmdb: sdlc_components.add(cmdb)
-                    reqs = env_d.get("expected_requirements") or []
-                    for r in reqs: sdlc_components.add(r)
-            except Exception as e:
-                print(f"[Ops-Readiness] Stage 05 query note: {e}")
-
-            # Stage 07: Test & Quality defects & bottlenecks
-            try:
-                cursor.execute("SELECT data FROM defects WHERE demand_id = ? AND soft_delete = 0", (demand_id,))
-                for row in cursor.fetchall():
-                    df_d = json.loads(row[0])
-                    test_defects.append(df_d)
-            except Exception as e:
-                print(f"[Ops-Readiness] Stage 07 query note: {e}")
-
-            # Stage 08: Release & Change risk rating
-            try:
-                cursor.execute("SELECT data FROM release_change WHERE demand_id = ? AND soft_delete = 0", (demand_id,))
-                row = cursor.fetchone()
-                if row:
-                    rel_d = json.loads(row[0])
-                    risk_rating = rel_d.get("risk_rating") or rel_d.get("risk") or "Medium"
-            except Exception as e:
-                print(f"[Ops-Readiness] Stage 08 query note: {e}")
-
-    except Exception as e:
-        print(f"[Ops-Readiness] SDLC context gathering exception: {e}")
-
-    monitored_scope = list(sdlc_components) if sdlc_components else req.component_ids
-    if not monitored_scope:
-        monitored_scope = ["svc-ecom-chatbot", "nosql-database-mongo-4-2", "realtime-message-queue-kafka-2-6", "oauth2-auth-service", "external-nlp-api-v2"]
-
-    # 2. Dynamic Component-Specific Alerts Generation
-    proposed_alerts = []
-    alt_idx = 1
-    for comp in monitored_scope:
-        comp_lower = comp.lower()
-        if any(k in comp_lower for k in ["mongo", "database", "sql", "db"]):
-            comp_type = "database"
-            proposed_alerts.append(ProposedAlert(
-                alert_id=f"ALT-{alt_idx:03d}", component_id=comp, component_type=comp_type,
-                name=f"{comp} Connection Pool Exhaustion", condition="connection_pool_utilization > 85%",
-                severity="critical", notify=["ops-alerts@company.com", "dba-oncall@company.com"]
-            ))
-            alt_idx += 1
-            proposed_alerts.append(ProposedAlert(
-                alert_id=f"ALT-{alt_idx:03d}", component_id=comp, component_type=comp_type,
-                name=f"{comp} Replication Lag Warning", condition="replication_lag_seconds > 5s",
-                severity="high", notify=["ops-alerts@company.com", "dba-oncall@company.com"]
-            ))
-            alt_idx += 1
-        elif any(k in comp_lower for k in ["kafka", "queue", "mq"]):
-            comp_type = "queue"
-            proposed_alerts.append(ProposedAlert(
-                alert_id=f"ALT-{alt_idx:03d}", component_id=comp, component_type=comp_type,
-                name=f"{comp} High Consumer Lag", condition="consumer_lag_messages > 1000",
-                severity="critical", notify=["ops-alerts@company.com", "messaging-oncall@company.com"]
-            ))
-            alt_idx += 1
-            proposed_alerts.append(ProposedAlert(
-                alert_id=f"ALT-{alt_idx:03d}", component_id=comp, component_type=comp_type,
-                name=f"{comp} Broker Offline Alert", condition="active_brokers < min_isr",
-                severity="critical", notify=["ops-alerts@company.com", "sre-oncall@company.com"]
-            ))
-            alt_idx += 1
-        else:
-            comp_type = "microservice"
-            proposed_alerts.append(ProposedAlert(
-                alert_id=f"ALT-{alt_idx:03d}", component_id=comp, component_type=comp_type,
-                name=f"{comp} Latency Violation", condition=f"p99_latency > {target_latency}ms",
-                severity="critical", notify=["ops-alerts@company.com", "sre-oncall@company.com"]
-            ))
-            alt_idx += 1
-            proposed_alerts.append(ProposedAlert(
-                alert_id=f"ALT-{alt_idx:03d}", component_id=comp, component_type=comp_type,
-                name=f"{comp} Availability Drop", condition=f"availability < {target_avail}%",
-                severity="critical", notify=["ops-alerts@company.com", "sre-oncall@company.com"]
-            ))
-            alt_idx += 1
-
-    # 3. Dynamic Widget-based Dashboard Recommendation
-    panels = ["latency_p50_p95_p99", "error_rate_5m", "throughput_rps", "system_cpu_memory"]
-    if any("kafka" in c.lower() for c in monitored_scope): panels.append("kafka_consumer_lag")
-    if any("mongo" in c.lower() or "db" in c.lower() for c in monitored_scope): panels.append("mongo_connection_pool")
-
-    widgets = [
-        {"widget_id": "WID-01", "type": "timeseries", "title": "Application Latency (p50, p95, p99)", "query": f"histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > {target_latency}ms"},
-        {"widget_id": "WID-02", "type": "gauge", "title": "Service Availability SLO Target", "query": f"sum(rate(http_requests_total{{status!~'5..'}}[5m])) / sum(rate(http_requests_total[5m])) * 100 (Target: {target_avail}%)"},
-        {"widget_id": "WID-03", "type": "stat", "title": "HTTP 5xx Error Spike Rate", "query": "sum(rate(http_requests_total{status=~'5..'}[5m]))"},
-        {"widget_id": "WID-04", "type": "bar", "title": "Database Connection Pool & Replication Lag", "query": "mongodb_ss_connections{conn_type='current'} / mongodb_ss_connections{conn_type='available'}"},
-        {"widget_id": "WID-05", "type": "logs", "title": "Kafka Consumer Lag & Event Queue Saturation", "query": "kafka_consumergroup_lag"}
-    ]
-
-    proposed_dashboards = [
-        ProposedDashboard(
-            dashboard_id=f"DSH-{suffix}",
-            title=f"{demand_id} Enterprise Production Monitoring Dashboard",
-            panels=panels,
-            widgets=widgets
-        )
-    ]
-
-    # Try utilizing LLM to refine AI alerts & dashboards if available
-    try:
-        sdlc_summary = f"""
-        Components to Monitor: {monitored_scope}
-        Target Availability SLO: {target_avail}%
-        Target p99 Latency SLO: {target_latency}ms
-        Stage 08 Risk Rating: {risk_rating}
-        Known Open Defects: {[d.get('summary', 'defect') for d in test_defects]}
-        """
-        prompt = f"""
-        You are a Principal SRE Architect. Create a Production Monitoring Plan.
-        Context:
-        {sdlc_summary}
-        
-        Generate a JSON response matching:
-        {{
-          "proposed_alerts": [
-            {{ "alert_id": "ALT-001", "component_id": "svc-ecom-chatbot", "component_type": "microservice", "name": "svc-ecom-chatbot High Latency", "condition": "p99_latency > 500ms", "severity": "critical", "notify": ["ops-alerts@company.com"] }}
-          ],
-          "proposed_dashboards": [
-            {{ "dashboard_id": "DSH-0127", "title": "Production Dashboard...", "panels": ["latency", "error_rate"], "widgets": [] }}
-          ]
-        }}
-        """
-        response_json = call_gemini(prompt=prompt, is_json=True)
-        if "proposed_alerts" in response_json and "proposed_dashboards" in response_json:
-            proposed_alerts = [ProposedAlert(**a) for a in response_json["proposed_alerts"]]
-            proposed_dashboards = [ProposedDashboard(**d) for d in response_json["proposed_dashboards"]]
-    except Exception as e:
-        print(f"[Ops-Readiness] LLM call for monitoring setup fallback note: {e}")
-
-    monitoring_record = MonitoringConfigRecord(
-        monitoring_id=monitoring_id,
-        monitoring_plan_id=monitoring_plan_id,
-        release_id=release_id,
-        demand_id=demand_id,
-        plan_id=plan_id,
-        environment=env,
-        monitored_components_scope=monitored_scope,
-        proposed_alerts=proposed_alerts,
-        proposed_dashboards=proposed_dashboards,
-        sre_reviewed=False,
-        sre_reviewed_by=None,
-        status="draft"
-    )
-
+    monitoring_record = monitoring_agent_service.create_monitoring_plan(req)
+    
+    # Save section to sqlite ops_readiness table
     db.update_section(demand_id, "monitoring", monitoring_record.model_dump())
     return monitoring_record
 
@@ -619,21 +448,35 @@ def validate_readiness(req: ReadinessValidationRequest):
     criteria_results = []
     gaps = []
 
-    # Criterion 1: Monitoring Configured (validates MON-XXXX plan)
+    # Criterion 1: Monitoring Plan & Component Scope Configured
     rec_record = db.get_record(demand_id)
     mon_rec = rec_record.get("monitoring") if rec_record else None
     
     if not mon_rec:
         mon_status = "fail"
         mon_evidence = "FAIL: Monitoring plan not generated."
-    elif not mon_rec.get("sre_reviewed"):
-        mon_plan_str = mon_rec.get("monitoring_plan_id") or f"MON-{demand_id.split('-')[-1]}"
+    elif not mon_rec.get("monitoring_plan_id"):
         mon_status = "fail"
-        mon_evidence = f"FAIL: Monitoring configured ({mon_plan_str}). Awaiting SRE approval."
+        mon_evidence = "FAIL: Monitoring plan ID missing."
+    elif not mon_rec.get("monitored_components_scope") or len(mon_rec.get("monitored_components_scope", [])) == 0:
+        mon_status = "fail"
+        mon_evidence = "FAIL: Monitored components scope is empty."
+    elif not mon_rec.get("proposed_alerts") or len(mon_rec.get("proposed_alerts", [])) == 0:
+        mon_status = "fail"
+        mon_evidence = "FAIL: Dynamic alerts not generated for components."
+    elif not mon_rec.get("proposed_dashboards") or len(mon_rec.get("proposed_dashboards", [])) == 0:
+        mon_status = "fail"
+        mon_evidence = "FAIL: Monitoring dashboard specification not generated."
+    elif not mon_rec.get("sre_reviewed") or mon_rec.get("status") != "approved":
+        mon_plan_str = mon_rec.get("monitoring_plan_id") or f"MON-PLAN-{demand_id}"
+        mon_status = "fail"
+        mon_evidence = f"FAIL: Monitoring plan ({mon_plan_str}) generated with {len(mon_rec.get('proposed_alerts', []))} alerts, awaiting SRE approval."
     else:
-        mon_plan_str = mon_rec.get("monitoring_plan_id") or f"MON-{demand_id.split('-')[-1]}"
+        mon_plan_str = mon_rec.get("monitoring_plan_id") or f"MON-PLAN-{demand_id}"
+        num_alerts = len(mon_rec.get("proposed_alerts", []))
+        num_components = len(mon_rec.get("monitored_components_scope", []))
         mon_status = "pass"
-        mon_evidence = f"PASS: Monitoring plan {mon_plan_str} configured and approved by SRE."
+        mon_evidence = f"PASS: Monitoring plan {mon_plan_str} validated (✓ Monitoring Plan exists, ✓ {num_components} components covered, ✓ Dashboard generated, ✓ {num_alerts} dynamic alerts generated, ✓ SRE Approval completed)."
 
     criteria_results.append(CriterionResult(criterion="monitoring_configured", status=mon_status, evidence=mon_evidence))
     if mon_status == "fail":

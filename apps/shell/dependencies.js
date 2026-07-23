@@ -3,6 +3,8 @@ const DEPENDENCIES_API_BASE = '/api';
 let dependencies = [];
 let selectedDependencyId = null;
 let planToDemandMap = {};
+let selectedTone = 'friendly';
+let selectedChannel = 'teams';
 
 // ====== DYNAMIC RISK TRACKING ======
 // Tracks, per dependency, when a nudge was last sent and when the owner last
@@ -229,22 +231,25 @@ window.fetchDependencies = async function () {
     }
 
     const activeDemandId = sessionStorage.getItem('selectedDemandId');
-    if (dependencies.length > 0 && selectedDependencyId === null) {
-      if (activeDemandId) {
-        const matchedDep = dependencies.find(d => planToDemandMap[d.plan_id] === activeDemandId);
-        selectedDependencyId = matchedDep ? matchedDep.dependency_id : dependencies[0].dependency_id;
-      } else {
-        selectedDependencyId = dependencies[0].dependency_id;
-      }
+    let matchedDep = null;
+    if (activeDemandId && dependencies.length > 0) {
+      const lastNum = activeDemandId.split('-').pop();
+      matchedDep = dependencies.find(d => 
+        planToDemandMap[d.plan_id] === activeDemandId ||
+        d.demand_id === activeDemandId ||
+        (lastNum && ((d.plan_id && d.plan_id.includes(lastNum)) || (d.dependency_id && d.dependency_id.includes(lastNum))))
+      );
+    }
+
+    if (matchedDep) {
+      selectedDependencyId = matchedDep.dependency_id;
       selectDependency(selectedDependencyId);
-    } else if (selectedDependencyId !== null) {
-      // If we navigate from another demand, override selectedDependencyId
-      if (activeDemandId) {
-        const matchedDep = dependencies.find(d => planToDemandMap[d.plan_id] === activeDemandId);
-        if (matchedDep) selectedDependencyId = matchedDep.dependency_id;
-      }
+    } else if (dependencies.length > 0 && !activeDemandId) {
+      selectedDependencyId = selectedDependencyId || dependencies[0].dependency_id;
       selectDependency(selectedDependencyId);
     } else {
+      selectedDependencyId = null;
+      clearDependencySidebarSelection();
       showAutoSenseForm();
     }
   } catch (err) {
@@ -336,8 +341,7 @@ function renderDependencyList() {
   });
 }
 
-let selectedTone = 'friendly';
-let selectedChannel = 'teams';
+
 async function selectDependency(id) {
   selectedDependencyId = id;
   clearDependencySidebarSelection();
@@ -598,6 +602,7 @@ function renderDependencyDetails(dep) {
               <strong style="color: var(--text-primary);">${dep.predecessor_owner || 'N/A'}</strong>
             </div>
           </div>
+<<<<<<< HEAD
 
           <!-- STEP 2: CHASE COMMITMENTS -->
           <div class="wizard-step ${step2Class}">
@@ -880,9 +885,11 @@ function renderDependencyDetails(dep) {
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
             <div class="form-group" style="margin-bottom: 0;">
               <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Tone Selection</label>
-              <div id="chase-tone-group" style="display: flex; gap: 0.5rem; margin-top: 0.3rem;">
+              <div id="chase-tone-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.3rem;">
                 <button type="button" class="wf-btn-toggle ${selectedTone === 'friendly' ? 'active' : ''}" data-tone="friendly">😊 Friendly</button>
                 <button type="button" class="wf-btn-toggle ${selectedTone === 'business' ? 'active' : ''}" data-tone="business">💼 Professional</button>
+                <button type="button" class="wf-btn-toggle ${selectedTone === 'executive' ? 'active' : ''}" data-tone="executive">📊 Executive</button>
+                <button type="button" class="wf-btn-toggle ${selectedTone === 'technical' ? 'active' : ''}" data-tone="technical">🔧 Technical</button>
                 <button type="button" class="wf-btn-toggle ${selectedTone === 'urgent' ? 'active' : ''}" data-tone="urgent">⚡ Urgent</button>
               </div>
             </div>

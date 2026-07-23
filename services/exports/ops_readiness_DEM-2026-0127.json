@@ -2,141 +2,451 @@
   "demand_id": "DEM-2026-0127",
   "monitoring": {
     "monitoring_id": "MON-0127-1",
+    "monitoring_plan_id": "MON-PLAN-DEM-2026-0127",
+    "release_id": "REL-0127-1",
     "demand_id": "DEM-2026-0127",
     "plan_id": "PLN-0127-1",
     "environment": "prod",
+    "monitored_components_scope": [
+      "nosql-database-mongo-4-2",
+      "svc-ecom-chatbot",
+      "realtime-message-queue-kafka-2-6",
+      "oauth2-auth-service",
+      "external-nlp-api-v2"
+    ],
+    "component_specs": [
+      {
+        "component_id": "nosql-database-mongo-4-2",
+        "component_name": "Nosql Database Mongo 4 2",
+        "component_type": "mongodb",
+        "criticality": "high",
+        "environment": "prod",
+        "technology_stack": "MongoDB Enterprise NoSQL Database",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
+      {
+        "component_id": "svc-ecom-chatbot",
+        "component_name": "Svc Ecom Chatbot",
+        "component_type": "rest_api",
+        "criticality": "high",
+        "environment": "prod",
+        "technology_stack": "Java Spring Boot Microservice",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
+      {
+        "component_id": "realtime-message-queue-kafka-2-6",
+        "component_name": "Realtime Message Queue Kafka 2 6",
+        "component_type": "kafka",
+        "criticality": "high",
+        "environment": "prod",
+        "technology_stack": "Apache Kafka Event Streaming Platform",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
+      {
+        "component_id": "oauth2-auth-service",
+        "component_name": "Oauth2 Auth Service",
+        "component_type": "rest_api",
+        "criticality": "critical",
+        "environment": "prod",
+        "technology_stack": "Java Spring Boot Microservice",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
+      {
+        "component_id": "external-nlp-api-v2",
+        "component_name": "External Nlp Api V2",
+        "component_type": "rest_api",
+        "criticality": "high",
+        "environment": "prod",
+        "technology_stack": "Java Spring Boot Microservice",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      }
+    ],
+    "slo_targets": [
+      {
+        "component_id": "nosql-database-mongo-4-2",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 375.0,
+        "latency_p99_ms": 500.0,
+        "error_rate_threshold_pct": 0.1,
+        "cpu_threshold_pct": 90.0,
+        "memory_threshold_pct": 92.0,
+        "source": "user_override_user_latency_override"
+      },
+      {
+        "component_id": "svc-ecom-chatbot",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 375.0,
+        "latency_p99_ms": 500.0,
+        "error_rate_threshold_pct": 0.1,
+        "cpu_threshold_pct": 90.0,
+        "memory_threshold_pct": 92.0,
+        "source": "user_override_user_latency_override"
+      },
+      {
+        "component_id": "realtime-message-queue-kafka-2-6",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 375.0,
+        "latency_p99_ms": 500.0,
+        "error_rate_threshold_pct": 0.1,
+        "cpu_threshold_pct": 90.0,
+        "memory_threshold_pct": 92.0,
+        "source": "user_override_user_latency_override"
+      },
+      {
+        "component_id": "oauth2-auth-service",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 375.0,
+        "latency_p99_ms": 500.0,
+        "error_rate_threshold_pct": 0.05,
+        "cpu_threshold_pct": 85.0,
+        "memory_threshold_pct": 88.0,
+        "source": "user_override_user_latency_override"
+      },
+      {
+        "component_id": "external-nlp-api-v2",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 375.0,
+        "latency_p99_ms": 500.0,
+        "error_rate_threshold_pct": 0.1,
+        "cpu_threshold_pct": 90.0,
+        "memory_threshold_pct": 92.0,
+        "source": "user_override_user_latency_override"
+      }
+    ],
     "proposed_alerts": [
       {
-        "alert_id": "ALT-001",
-        "component_id": "svc-ecom-chatbot",
-        "name": "svc-ecom-chatbot Latency Violation",
-        "condition": "p99_latency > 500ms",
-        "severity": "critical",
-        "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
-        ]
-      },
-      {
-        "alert_id": "ALT-006",
-        "component_id": "svc-ecom-chatbot",
-        "name": "svc-ecom-chatbot Availability Drop",
-        "condition": "availability < 99.95%",
-        "severity": "critical",
-        "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
-        ]
-      },
-      {
-        "alert_id": "ALT-002",
+        "alert_id": "ALT-NOSQL_DATABASE_MONGO_4_2-CONNPOOL",
         "component_id": "nosql-database-mongo-4-2",
-        "name": "nosql-database-mongo-4-2 Latency Violation",
-        "condition": "p99_latency > 500ms",
+        "component_type": "mongodb",
+        "alert_type": "connection_pool",
+        "name": "Nosql Database Mongo 4 2 Connection Pool Exhaustion",
+        "condition": "connection_pool_utilization > 85%",
+        "threshold": "85%",
         "severity": "critical",
         "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com",
+          "dba-oncall-prod@company.com"
         ]
       },
       {
-        "alert_id": "ALT-007",
+        "alert_id": "ALT-NOSQL_DATABASE_MONGO_4_2-SLOWQUERY",
         "component_id": "nosql-database-mongo-4-2",
-        "name": "nosql-database-mongo-4-2 Availability Drop",
-        "condition": "availability < 99.95%",
-        "severity": "critical",
+        "component_type": "mongodb",
+        "alert_type": "slow_queries",
+        "name": "Nosql Database Mongo 4 2 Slow Query Threshold Exceeded",
+        "condition": "slow_query_duration_ms > 500.0ms",
+        "threshold": "500.0ms",
+        "severity": "high",
         "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
         ]
       },
       {
-        "alert_id": "ALT-003",
+        "alert_id": "ALT-NOSQL_DATABASE_MONGO_4_2-REPLAG",
+        "component_id": "nosql-database-mongo-4-2",
+        "component_type": "mongodb",
+        "alert_type": "replication_lag",
+        "name": "Nosql Database Mongo 4 2 Replication Lag Warning",
+        "condition": "replication_lag_seconds > 5s",
+        "threshold": "5s",
+        "severity": "high",
+        "notify": [
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_ECOM_CHATBOT-LATENCY",
+        "component_id": "svc-ecom-chatbot",
+        "component_type": "rest_api",
+        "alert_type": "latency",
+        "name": "Svc Ecom Chatbot p99 Latency Violation",
+        "condition": "p99_latency_ms > 500.0ms",
+        "threshold": "500.0ms",
+        "severity": "high",
+        "notify": [
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_ECOM_CHATBOT-AVAIL",
+        "component_id": "svc-ecom-chatbot",
+        "component_type": "rest_api",
+        "alert_type": "availability",
+        "name": "Svc Ecom Chatbot Availability Drop",
+        "condition": "availability_pct < 99.95%",
+        "threshold": "99.95%",
+        "severity": "critical",
+        "notify": [
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_ECOM_CHATBOT-5XX",
+        "component_id": "svc-ecom-chatbot",
+        "component_type": "rest_api",
+        "alert_type": "http_5xx",
+        "name": "Svc Ecom Chatbot HTTP 5xx Error Rate Spike",
+        "condition": "error_rate_pct > 0.1%",
+        "threshold": "0.1%",
+        "severity": "high",
+        "notify": [
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-REALTIME_MESSAGE_QUEUE_KAFKA_2_6-LAG",
         "component_id": "realtime-message-queue-kafka-2-6",
-        "name": "realtime-message-queue-kafka-2-6 Latency Violation",
-        "condition": "p99_latency > 500ms",
+        "component_type": "kafka",
+        "alert_type": "consumer_lag",
+        "name": "Realtime Message Queue Kafka 2 6 Consumer Lag Saturation",
+        "condition": "consumer_lag_messages > 1000",
+        "threshold": "1000 messages",
         "severity": "critical",
         "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com",
+          "messaging-oncall-prod@company.com"
         ]
       },
       {
-        "alert_id": "ALT-008",
+        "alert_id": "ALT-REALTIME_MESSAGE_QUEUE_KAFKA_2_6-ISR",
         "component_id": "realtime-message-queue-kafka-2-6",
-        "name": "realtime-message-queue-kafka-2-6 Availability Drop",
-        "condition": "availability < 99.95%",
+        "component_type": "kafka",
+        "alert_type": "broker_isr",
+        "name": "Realtime Message Queue Kafka 2 6 Broker ISR Offline Alert",
+        "condition": "active_brokers < min_in_sync_replicas",
+        "threshold": "min_isr",
         "severity": "critical",
         "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
         ]
       },
       {
-        "alert_id": "ALT-004",
+        "alert_id": "ALT-OAUTH2_AUTH_SERVICE-LATENCY",
         "component_id": "oauth2-auth-service",
-        "name": "oauth2-auth-service Latency Violation",
-        "condition": "p99_latency > 500ms",
+        "component_type": "rest_api",
+        "alert_type": "latency",
+        "name": "Oauth2 Auth Service p99 Latency Violation",
+        "condition": "p99_latency_ms > 500.0ms",
+        "threshold": "500.0ms",
         "severity": "critical",
         "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
         ]
       },
       {
-        "alert_id": "ALT-009",
+        "alert_id": "ALT-OAUTH2_AUTH_SERVICE-AVAIL",
         "component_id": "oauth2-auth-service",
-        "name": "oauth2-auth-service Availability Drop",
-        "condition": "availability < 99.95%",
+        "component_type": "rest_api",
+        "alert_type": "availability",
+        "name": "Oauth2 Auth Service Availability Drop",
+        "condition": "availability_pct < 99.95%",
+        "threshold": "99.95%",
         "severity": "critical",
         "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
         ]
       },
       {
-        "alert_id": "ALT-005",
-        "component_id": "external-nlp-api-v2",
-        "name": "external-nlp-api-v2 Latency Violation",
-        "condition": "p99_latency > 500ms",
+        "alert_id": "ALT-OAUTH2_AUTH_SERVICE-5XX",
+        "component_id": "oauth2-auth-service",
+        "component_type": "rest_api",
+        "alert_type": "http_5xx",
+        "name": "Oauth2 Auth Service HTTP 5xx Error Rate Spike",
+        "condition": "error_rate_pct > 0.05%",
+        "threshold": "0.05%",
         "severity": "critical",
         "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
         ]
       },
       {
-        "alert_id": "ALT-010",
+        "alert_id": "ALT-EXTERNAL_NLP_API_V2-LATENCY",
         "component_id": "external-nlp-api-v2",
-        "name": "external-nlp-api-v2 Availability Drop",
-        "condition": "availability < 99.95%",
+        "component_type": "rest_api",
+        "alert_type": "latency",
+        "name": "External Nlp Api V2 p99 Latency Violation",
+        "condition": "p99_latency_ms > 500.0ms",
+        "threshold": "500.0ms",
+        "severity": "high",
+        "notify": [
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-EXTERNAL_NLP_API_V2-AVAIL",
+        "component_id": "external-nlp-api-v2",
+        "component_type": "rest_api",
+        "alert_type": "availability",
+        "name": "External Nlp Api V2 Availability Drop",
+        "condition": "availability_pct < 99.95%",
+        "threshold": "99.95%",
         "severity": "critical",
         "notify": [
-          "ops-alerts@company.com",
-          "sre-oncall@company.com"
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-EXTERNAL_NLP_API_V2-5XX",
+        "component_id": "external-nlp-api-v2",
+        "component_type": "rest_api",
+        "alert_type": "http_5xx",
+        "name": "External Nlp Api V2 HTTP 5xx Error Rate Spike",
+        "condition": "error_rate_pct > 0.1%",
+        "threshold": "0.1%",
+        "severity": "high",
+        "notify": [
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "release-leads@company.com"
         ]
       }
     ],
     "proposed_dashboards": [
       {
-        "dashboard_id": "DSH-001",
-        "title": "svc-ecom-chatbot / nosql-database-mongo-4-2 / realtime-message-queue-kafka-2-6 / oauth2-auth-service / external-nlp-api-v2 Production Health Dashboard",
+        "dashboard_id": "DSH-0127",
+        "title": "DEM-2026-0127 Enterprise Production Monitoring Dashboard (PROD)",
+        "target_technology": "kafka, mongodb, rest_api",
         "panels": [
-          "latency_p50_p95_p99",
-          "error_rate_5m",
-          "throughput_rps",
-          "system_cpu_memory"
+          "api-latency",
+          "api-errors",
+          "api-rps",
+          "db-connpool",
+          "db-slowqueries",
+          "kafka-lag",
+          "infra-resources"
+        ],
+        "widgets": [
+          {
+            "widget_id": "WID-API-LATENCY",
+            "type": "timeseries",
+            "title": "Application Response Latency (p50, p95, p99)",
+            "query": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
+            "target_metric": "http_request_duration_seconds"
+          },
+          {
+            "widget_id": "WID-API-ERRORS",
+            "type": "stat",
+            "title": "HTTP 5xx Error Rate %",
+            "query": "sum(rate(http_requests_total{status=~'5..'}[5m])) / sum(rate(http_requests_total[5m])) * 100",
+            "target_metric": "http_requests_total_5xx"
+          },
+          {
+            "widget_id": "WID-API-RPS",
+            "type": "gauge",
+            "title": "Throughput (Requests / Sec)",
+            "query": "sum(rate(http_requests_total[5m]))",
+            "target_metric": "http_requests_throughput"
+          },
+          {
+            "widget_id": "WID-DB-CONNPOOL",
+            "type": "gauge",
+            "title": "Database Connection Pool Utilization",
+            "query": "database_connections_active / database_connections_max * 100",
+            "target_metric": "database_connection_pool"
+          },
+          {
+            "widget_id": "WID-DB-SLOWQUERIES",
+            "type": "bar",
+            "title": "Slow Queries & Lock Contention",
+            "query": "rate(database_slow_queries_total[5m])",
+            "target_metric": "database_slow_queries"
+          },
+          {
+            "widget_id": "WID-KAFKA-LAG",
+            "type": "timeseries",
+            "title": "Kafka Consumer Group Lag & Queue Depth",
+            "query": "sum(kafka_consumergroup_lag) by (consumergroup, topic)",
+            "target_metric": "kafka_consumergroup_lag"
+          },
+          {
+            "widget_id": "WID-INFRA-RESOURCES",
+            "type": "timeseries",
+            "title": "Cluster Resource Utilization (CPU, Memory, Network I/O)",
+            "query": "sum(container_cpu_usage_seconds_total) by (pod) / sum(container_spec_cpu_quota) by (pod)",
+            "target_metric": "container_cpu_memory"
+          }
         ]
       }
     ],
-    "sre_reviewed": true,
-    "status": "approved"
+    "generated_at": "2026-07-23T06:09:56Z",
+    "sre_reviewed": false,
+    "sre_reviewed_by": null,
+    "status": "draft"
   },
   "handover": {
     "handover_id": "HO-0127-1",
     "demand_id": "DEM-2026-0127",
     "plan_id": "PLN-0127-1",
-    "created_at": "2026-07-21T10:25:42Z",
+    "created_at": "2026-07-23T05:47:00Z",
     "support_runbook": {
       "title": "Ops Support Runbook - Runbook for svc-ecom-chatbot-prod-svr-01 (prod)",
       "sections": [
@@ -150,7 +460,7 @@
         },
         {
           "section": "Escalation Matrix",
-          "content": "Primary on-call contact: delivery-oncall@company.com. Support distribution list: ops-support@company.com."
+          "content": "Primary on-call contact: alice@example.com, james@example.com, fardeen@example.com. Support distribution list: ops-support@company.com."
         }
       ]
     },
@@ -165,7 +475,7 @@
         "assigned_to": "Sarah Jenkins",
         "status": "Open",
         "description": "Authorization service fails transaction verification payload bounds check.",
-        "operational_impact": "Potential operational degradation in production when triggering Payment authorization validation returns 500 error."
+        "operational_impact": "[AI-Generated] Potential operational degradation in production when triggering Payment authorization validation returns 500 error."
       },
       {
         "ke_id": "KE-BUG-0127-02",
@@ -177,10 +487,10 @@
         "assigned_to": "Dave Miller",
         "status": "Open",
         "description": "Layout boundaries overlap inside transaction sidebar panel.",
-        "operational_impact": "Potential operational degradation in production when triggering UI points calculation text overlaps in mobile view."
+        "operational_impact": "[AI-Generated] Potential operational degradation in production when triggering UI points calculation text overlaps in mobile view."
       }
     ],
-    "kt_pack_url": "sharepoint://kt/ops-readiness-0127-20260721",
+    "kt_pack_url": "sharepoint://kt/ops-readiness-0127-20260723",
     "reviewed_by": "ops-manager@company.com",
     "status": "reviewed"
   },
