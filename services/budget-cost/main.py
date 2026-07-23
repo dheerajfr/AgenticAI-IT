@@ -159,6 +159,56 @@ def model_roi(req: ROIRequest):
     db.save(record)
     return {"status": "success", "roi_model": record["roi_model"], "record": record}
 
+def _get_auto_populated_months(demand_id: str) -> list:
+    db_path = os.environ.get("DATABASE_PATH", os.path.abspath(os.path.join(_THIS_DIR, "..", "source.db")))
+    try:
+        with sqlite3.connect(db_path) as conn:
+            c = conn.cursor()
+            c.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = [row[0] for row in c.fetchall()]
+            
+            start_date_str = None
+            end_date_str = None
+            
+            if 'demands' in tables:
+                c.execute("SELECT data FROM demands WHERE demand_id = ?", (demand_id,))
+                row = c.fetchone()
+                if row:
+                    dem = json.loads(row[0])
+                    start_date_str = dem.get("earliest_start_date")
+            if 'plans' in tables:
+                c.execute("SELECT data FROM plans WHERE demand_id = ?", (demand_id,))
+                row = c.fetchone()
+                if row:
+                    plan = json.loads(row[0])
+                    end_date_str = plan.get("end_date")
+            
+            if start_date_str and end_date_str:
+                from datetime import datetime
+                start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+                end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+                
+                # Calculate months difference
+                months_count = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month) + 1
+                
+                auto_actuals = []
+                for i in range(months_count):
+                    m = start_date.month - 1 + i
+                    y = start_date.year + m // 12
+                    m = m % 12 + 1
+                    
+                    # Format as YYYY-MM
+                    date_str = f"{y}-{m:02d}"
+                    auto_actuals.append({
+                        "date": date_str,
+                        "amount": 0,
+                        "category": "capex"
+                    })
+                return auto_actuals
+    except Exception as e:
+        print("Error calculating auto-populated months:", e)
+    return []
+
 # ── Burn & Forecast Endpoints ──────────────────────────────────────────────────
 
 @app.get("/api/budget-cost/burn/{demand_id}")
@@ -166,13 +216,16 @@ def get_burn(demand_id: str):
     data = burn_db.get(demand_id)
     if not data:
         data = {
-            "actuals": [],
+            "actuals": _get_auto_populated_months(demand_id),
             "forecast": [],
             "variance_pct": 0,
             "narrative": "",
             "committed": False
         }
         burn_db.upsert(demand_id, data)
+    elif len(data.get("actuals", [])) == 0:
+        data["actuals"] = _get_auto_populated_months(demand_id)
+        
     return data
 
 class UpdateActualsRequest(BaseModel):
