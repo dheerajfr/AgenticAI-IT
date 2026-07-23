@@ -407,42 +407,9 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
 
         if workflow == "escalation":
             nudge = (
-<<<<<<< HEAD
-                f"Action Required\n\n"
-                f"No owner has been assigned to {tasks_str}.\n"
-                f"This dependency is currently BLOCKED due to missing resource assignment.\n\n"
-                f"Suggested Actions:\n"
-                f"✓ Request Resource from Resource Manager\n"
-                f"✓ Raise Staffing Request for required skill\n"
-                f"✓ Notify Project Manager of staffing gap\n"
-                f"✓ Adjust Schedule to accommodate hiring timeline\n"
-                f"✓ Escalate Staffing Risk to leadership{' — Critical Path impacted' if on_critical_path else ''}"
-            )
-            return {
-                "nudge_message": nudge,
-                "threat_level": "high" if on_critical_path else threat_level,
-                "escalation_required": on_critical_path,
-                "confidence": 96 if on_critical_path else 88,
-                "confidence_reasons": [
-                    "No owner assigned to task",
-                    "Critical path task blocked" if on_critical_path else "Non-critical task unassigned",
-                    "Downstream tasks cannot start",
-                    "Required skill unavailable in current roster"
-                ]
-            }
-
-        elif workflow == "escalation" and not tone:
-            nudge = (
-                f"This is a priority follow-up regarding dependency {dep.dependency_id}. "
-                f"'{source_name}' ({dep.source_task_id}) is currently blocked by '{target_name}' "
-                f"({dep.target_task_id}), which is past its scheduled timeline and is impacting "
-                f"the critical path. Please provide an updated completion date or raise any "
-                f"blockers so that we can take appropriate action without further delay."
-=======
                 f"Escalation Alert: Dependency {dep.dependency_id} is currently blocking '{source_name}' ({dep.source_task_id}). "
                 f"Predecessor task '{target_name}' ({dep.target_task_id}) is past its scheduled timeline, "
                 f"impacting critical path milestones. Immediate attention and updated ETA required."
->>>>>>> Nagaraju
             )
         elif workflow == "self_dependency":
             if channel in ["teams", "slack"]:

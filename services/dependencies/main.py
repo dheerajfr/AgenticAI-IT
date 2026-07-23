@@ -683,23 +683,6 @@ def check_cross_programme_impact(req: CrossProgrammeImpactRequest):
                 break
     if not associated_plan and req.task_id:
         for p in all_plans:
-<<<<<<< HEAD
-            task_ids = [t.task_id for t in (p.tasks or [])]
-            if req.task_id in task_ids or any(req.task_id in t.task_id for t in (p.tasks or [])):
-                associated_plan = p
-                break
-    if not associated_plan and req.plan_id:
-        last_num = req.plan_id.split('-')[-1]
-        for p in all_plans:
-            if last_num in p.plan_id:
-                associated_plan = p
-                break
-
-    if not associated_plan and all_plans:
-        associated_plan = all_plans[0]
-        if not req.task_id and associated_plan.tasks:
-            req.task_id = associated_plan.tasks[0].task_id
-=======
             task_ids = [t.task_id for t in p.tasks]
             if req.task_id in task_ids:
                 associated_plan = p
@@ -710,7 +693,6 @@ def check_cross_programme_impact(req: CrossProgrammeImpactRequest):
             status_code=404,
             detail=f"No plan found containing task ID {req.task_id}."
         )
->>>>>>> Nagaraju
         
     state_input = {
         "task": "impact",
