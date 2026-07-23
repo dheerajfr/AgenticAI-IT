@@ -17,6 +17,11 @@ let businessCaseSuggestion = null;
 let demandPanelScrollTop = 0;
 let demandPanelScrollId = null;
 
+// Global navigation helper
+window.switchStage = function(stageId) {
+  window.location.hash = stageId;
+};
+
 function saveDemandScrollPosition(id) {
   const panelCard = document.querySelector('#details-panel-container .panel-card');
   if (panelCard) {
