@@ -10,9 +10,10 @@ _THIS_DIR = Path(__file__).parent
 if str(_THIS_DIR) not in sys.path:
     sys.path.insert(0, str(_THIS_DIR))
 
+from pydantic import BaseModel
 from models import (
     BudgetRequest, ROIRequest,
-    BurnForecastRequest,
+    BurnForecastRequest, ActualEntry,
     InvoiceMatchRequest, InvoiceApproveRequest,
     CapexOpexRequest, CapexOpexSignOffRequest
 )
@@ -164,14 +165,32 @@ def model_roi(req: ROIRequest):
 def get_burn(demand_id: str):
     data = burn_db.get(demand_id)
     if not data:
-        seeded = _seed_burn_data(demand_id)
-        burn_db.upsert(demand_id, seeded)
-        data = burn_db.get(demand_id)
+        data = {
+            "actuals": [],
+            "forecast": [],
+            "variance_pct": 0,
+            "narrative": "",
+            "committed": False
+        }
+        burn_db.upsert(demand_id, data)
+    return data
+
+class UpdateActualsRequest(BaseModel):
+    demand_id: str
+    actuals: list[ActualEntry]
+
+@app.post("/api/budget-cost/burn/actuals")
+def save_actuals(req: UpdateActualsRequest):
+    data = burn_db.get(req.demand_id)
+    if not data:
+        data = {"actuals": [], "forecast": [], "variance_pct": 0, "narrative": "", "committed": False}
+    data["actuals"] = [a.dict() for a in req.actuals]
+    burn_db.upsert(req.demand_id, data)
     return data
 
 @app.post("/api/budget-cost/burn/forecast")
 def run_burn_forecast(req: BurnForecastRequest):
-    data = burn_db.get(req.demand_id) or _seed_burn_data(req.demand_id)
+    data = burn_db.get(req.demand_id) or {"actuals": [], "forecast": [], "variance_pct": 0, "narrative": "", "committed": False}
     actuals = req.actuals or [{"date": a["date"], "amount": a["amount"], "category": a["category"]}
                                for a in data.get("actuals", [])]
     actual_total = sum(a["amount"] if isinstance(a, dict) else a.amount for a in actuals)

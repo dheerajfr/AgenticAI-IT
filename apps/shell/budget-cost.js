@@ -127,6 +127,9 @@ async function bcLoadTab(tab, demandId) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB 1 — Burn & Forecast
 // ═══════════════════════════════════════════════════════════════════════════════
+window.bcBurnEditMode = false;
+window.bcBurnEditData = [];
+
 async function bcRenderBurn(demandId, content) {
   let data = {};
   try {
@@ -136,6 +139,47 @@ async function bcRenderBurn(demandId, content) {
 
   const actuals  = data.actuals  || [];
   const forecast = data.forecast || [];
+  
+  if (actuals.length === 0 && forecast.length === 0 && !window.bcBurnEditMode) {
+    window.bcBurnEditMode = true;
+    window.bcBurnEditData = [];
+  }
+
+  if (window.bcBurnEditMode) {
+    // ── EDIT MODE ─────────────────────────────────────────────────────────────
+    const rows = window.bcBurnEditData.map((a, i) => `
+      <div style="display:flex;align-items:center;gap:1rem;background:var(--bg-primary);padding:0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);margin-bottom:0.5rem;">
+        <input type="month" value="${a.date}" onchange="window.bcBurnEditData[${i}].date = this.value; window.bcRenderBurn('${demandId}', document.getElementById('bc-tab-content'))"
+          style="background:transparent;border:1px solid var(--border-color);color:var(--text-primary);padding:0.4rem;border-radius:4px;font-family:var(--font-sans);">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <button onclick="bcAdjustAmount(${i}, -1000, '${demandId}')" style="background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-primary);width:30px;height:30px;border-radius:4px;cursor:pointer;">-</button>
+          <div style="font-family:monospace;font-size:0.9rem;width:80px;text-align:center;">$${a.amount.toLocaleString()}</div>
+          <button onclick="bcAdjustAmount(${i}, 1000, '${demandId}')" style="background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-primary);width:30px;height:30px;border-radius:4px;cursor:pointer;">+</button>
+        </div>
+        <button onclick="bcRemoveMonth(${i}, '${demandId}')" style="background:transparent;border:none;color:#ef4444;cursor:pointer;margin-left:auto;">❌</button>
+      </div>
+    `).join('');
+
+    content.innerHTML = `
+      <div style="max-width:600px;margin:0 auto;display:flex;flex-direction:column;gap:1.5rem;">
+        <div>
+          <h3 style="margin:0 0 0.5rem 0;font-size:1.1rem;">Enter Actual Spend</h3>
+          <p style="margin:0;font-size:0.85rem;color:var(--text-secondary);">Input monthly actuals before generating an AI forecast.</p>
+        </div>
+        <div>
+          ${rows || '<div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">No data entered yet.</div>'}
+          <button onclick="bcAddMonth('${demandId}')" style="background:var(--bg-secondary);border:1px dashed var(--border-color);color:var(--text-primary);padding:0.6rem 1rem;border-radius:4px;cursor:pointer;width:100%;font-weight:600;">+ Add Month</button>
+        </div>
+        <div style="display:flex;gap:1rem;justify-content:flex-end;">
+          ${actuals.length > 0 ? `<button onclick="window.bcBurnEditMode=false;bcLoadTab('burn','${demandId}')" style="background:transparent;border:1px solid var(--border-color);color:var(--text-primary);padding:0.5rem 1rem;border-radius:4px;cursor:pointer;">Cancel</button>` : ''}
+          <button onclick="bcSaveActuals('${demandId}')" style="background:var(--color-brand);color:#fff;border:none;padding:0.5rem 1rem;border-radius:4px;cursor:pointer;font-weight:600;">Save Actuals</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // ── VIEW MODE ─────────────────────────────────────────────────────────────
   const all      = [...actuals, ...forecast];
   const maxAmt   = all.length ? Math.max(...all.map(a => a.amount)) : 1;
   const varPct   = data.variance_pct ?? 0;
@@ -174,6 +218,7 @@ async function bcRenderBurn(demandId, content) {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
           <h3 style="margin:0;font-size:1rem;">Burn vs Forecast</h3>
           <div style="display:flex;gap:0.75rem;font-size:0.75rem;">
+            <button onclick="bcEditActuals('${demandId}')" style="background:transparent;border:1px solid var(--border-color);color:var(--text-primary);padding:0.2rem 0.6rem;border-radius:4px;cursor:pointer;font-size:0.7rem;">✏️ Edit Data</button>
             <span style="display:flex;align-items:center;gap:0.3rem;"><span style="width:10px;height:10px;border-radius:2px;background:var(--color-brand);display:inline-block;"></span>Actuals</span>
             <span style="display:flex;align-items:center;gap:0.3rem;"><span style="width:10px;height:10px;border-radius:2px;background:rgba(99,102,241,0.3);display:inline-block;"></span>Forecast</span>
           </div>
@@ -203,6 +248,52 @@ async function bcRenderBurn(demandId, content) {
       </div>
     </div>`;
 }
+
+window.bcEditActuals = async function(demandId) {
+  try {
+    const res = await fetch(`${BC_API}/burn/${demandId}`);
+    if (res.ok) {
+      const data = await res.json();
+      window.bcBurnEditData = [...(data.actuals || [])];
+    }
+  } catch(e) { window.bcBurnEditData = []; }
+  window.bcBurnEditMode = true;
+  bcLoadTab('burn', demandId);
+};
+
+window.bcAddMonth = function(demandId) {
+  let nextDate = '2026-01';
+  if (window.bcBurnEditData.length > 0) {
+    const last = window.bcBurnEditData[window.bcBurnEditData.length - 1].date;
+    const [y, m] = last.split('-');
+    const nextM = parseInt(m) + 1;
+    if (nextM > 12) nextDate = `${parseInt(y) + 1}-01`;
+    else nextDate = `${y}-${nextM.toString().padStart(2, '0')}`;
+  }
+  window.bcBurnEditData.push({ date: nextDate, amount: 10000, category: 'blended' });
+  bcRenderBurn(demandId, document.getElementById('bc-tab-content'));
+};
+
+window.bcRemoveMonth = function(idx, demandId) {
+  window.bcBurnEditData.splice(idx, 1);
+  bcRenderBurn(demandId, document.getElementById('bc-tab-content'));
+};
+
+window.bcAdjustAmount = function(idx, delta, demandId) {
+  window.bcBurnEditData[idx].amount = Math.max(0, window.bcBurnEditData[idx].amount + delta);
+  bcRenderBurn(demandId, document.getElementById('bc-tab-content'));
+};
+
+window.bcSaveActuals = async function(demandId) {
+  try {
+    await fetch(`${BC_API}/burn/actuals`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ demand_id: demandId, actuals: window.bcBurnEditData })
+    });
+    window.bcBurnEditMode = false;
+    await bcLoadTab('burn', demandId);
+  } catch(e) { console.error(e); }
+};
 
 window.bcRunForecast = async function(demandId) {
   const btn = document.getElementById('bc-forecast-btn');
