@@ -65,21 +65,6 @@ window.renderBudgetCostScreen = function(targetContainer) {
     </select>
   `;
 
-<<<<<<< HEAD
-  viewport.innerHTML = `
-    <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--bg-primary);">
-      <!-- Header + tabs -->
-      <div style="padding:1rem 1.5rem 0;border-bottom:1px solid var(--border-color);background:var(--bg-primary);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
-          <div style="display:flex;align-items:center;gap:1.5rem;">
-            <div>
-              <h2 style="margin:0;font-family:var(--font-display);color:var(--text-primary);font-size:1.25rem;">Budget &amp; Cost</h2>
-              <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.15rem;">Financial Intelligence</div>
-            </div>
-            ${dropdownHtml}
-          </div>
-          <status-pill status="${demandId ? 'Monitoring' : 'Idle'}"></status-pill>
-=======
   const viewport = targetContainer || window.currentModuleTargetContainer || document.getElementById('viewport');
   const _origOverflow = viewport.style.overflow;
   const _origOverflowY = viewport.style.overflowY;
@@ -118,32 +103,49 @@ window.renderBudgetCostScreen = function(targetContainer) {
     }).join('');
   }
 
-  const layoutPrefix = `
+  viewport.innerHTML = `
     <div class="intake-screen" style="padding: 1rem; height: 100%; box-sizing: border-box;">
       <aside class="sidebar">
         <div class="sidebar-header">
           <h3 class="sidebar-title">Budget & Cost</h3>
->>>>>>> Nagaraju
         </div>
-        <div style="display:flex;gap:0.35rem;padding-bottom:0.75rem;">${tabBar}</div>
-      </div>
+        <ul class="demand-list" style="padding: 0; margin: 0; list-style: none;">
+          ${sidebarItemsHtml}
+        </ul>
+      </aside>
+      <main class="details-panel" id="budget-panel-container" style="display: flex; flex-direction: column; overflow-y: auto; height: 100%; align-self: stretch; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+        <!-- Header + tabs -->
+        <div style="padding:1rem 1.5rem 0;border-bottom:1px solid var(--border-color);background:var(--bg-primary);border-radius: var(--radius-md) var(--radius-md) 0 0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+            <div style="display:flex;align-items:center;gap:1.5rem;">
+              <div>
+                <h2 style="margin:0;font-family:var(--font-display);color:var(--text-primary);font-size:1.25rem;">Budget &amp; Cost</h2>
+                <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.15rem;">Financial Intelligence</div>
+              </div>
+              ${dropdownHtml}
+            </div>
+            <status-pill status="${demandId ? 'Monitoring' : 'Idle'}"></status-pill>
+          </div>
+          <div style="display:flex;gap:0.35rem;padding-bottom:0.75rem;">${tabBar}</div>
+        </div>
 
-      <!-- Tab content -->
-      <div id="bc-tab-content" style="flex:1;overflow-y:auto;padding:1.5rem;background:var(--bg-secondary);"></div>
+        <!-- Tab content -->
+        <div id="bc-tab-content" style="flex:1;overflow-y:auto;padding:1.5rem;background:var(--bg-secondary);"></div>
 
-      <!-- Footer nav -->
-      <div style="padding:1rem 1.5rem;border-top:1px solid var(--border-color);background:var(--bg-primary);display:flex;justify-content:flex-end;">
-        <button onclick="window.location.hash='vendor-coordination';"
-          style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;padding:0.65rem 1.4rem;border-radius:var(--radius-md);border:none;cursor:pointer;font-family:var(--font-sans);">
-          Proceed to Vendor Coordination →
-        </button>
-      </div>
+        <!-- Footer nav -->
+        <div style="padding:1rem 1.5rem;border-top:1px solid var(--border-color);background:var(--bg-primary);display:flex;justify-content:flex-end;border-radius: 0 0 var(--radius-md) var(--radius-md);">
+          <button onclick="window.location.hash='vendor-coordination';"
+            style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;padding:0.65rem 1.4rem;border-radius:var(--radius-md);border:none;cursor:pointer;font-family:var(--font-sans);">
+            Proceed to Vendor Coordination →
+          </button>
+        </div>
+      </main>
     </div>`;
 
   if (!demandId) {
     document.getElementById('bc-tab-content').innerHTML = `
       <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:0.9rem;">
-        Please select a project from the dropdown above to begin.
+        Please select a project from the left sidebar or the dropdown to begin.
       </div>`;
     return;
   }
