@@ -626,34 +626,6 @@ async function generateMonitoringConfig() {
     alert('Failed to generate monitoring config proposal.');
     btn.disabled = false;
     btn.textContent = 'Generate Monitoring Plan via AI Agent';
-
-  const btn = document.getElementById('ops-gen-mon-btn');
-  btn.disabled = true;
-  btn.textContent = 'Generating Monitoring Plan via AI Agent...';
-
-  const planId = opsPlan ? opsPlan.plan_id : `PLN-${opsSelectedDemandId.split('-').pop()}-1`;
-
-  try {
-    const res = await fetch(`${OPS_API_BASE}/monitoring`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        demand_id: opsSelectedDemandId,
-        plan_id: planId,
-        component_ids,
-        slos,
-        environment: env || 'prod',
-        target_availability_slo: availability,
-        target_latency_p99_ms: latency
-      })
-    });
-    if (!res.ok) throw new Error('API Error');
-    await selectOpsDemand(opsSelectedDemandId);
-  } catch (err) {
-    console.error(err);
-    alert('Failed to generate monitoring config proposal.');
-    btn.disabled = false;
-    btn.textContent = 'Generate Monitoring Proposal via AI';
   }
 }
 

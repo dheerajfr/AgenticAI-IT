@@ -82,3 +82,4 @@ Any capability involving multi-step reasoning, extraction, routing, or drafting 
     )
     ```
 4.  **Human-in-the-loop**: Never auto-promote transitions. Every stage is configured with separate *evaluation* and *approval* endpoints in FastAPI. The frontend calls the evaluation node first to display suggested outputs, and waits for a user action (click "Approve") before posting to the approval endpoint to commit the state to memory.
+.....
