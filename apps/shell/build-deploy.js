@@ -106,10 +106,10 @@ window.renderBuildDeployScreen = function () {
             <button class="btn-new" id="btn-refresh-deploy">↻ Refresh</button>
           </div>
         </div>
-        <div class="tabs-container" style="margin: 0 1rem;">
-          <button class="tab-btn ${activeDeployTab === 'runbooks' ? 'active' : ''}" id="tab-runbooks">Runbooks</button>
-          <button class="tab-btn ${activeDeployTab === 'cutover' ? 'active' : ''}" id="tab-cutover">Cutover Bridge</button>
-          <button class="tab-btn ${activeDeployTab === 'orchestration' ? 'active' : ''}" id="tab-orchestration">Orchestration</button>
+        <div class="tabs-container" style="margin: 0 1rem; display: flex; justify-content: space-between; gap: 0.2rem; border-bottom: 1px solid var(--border-color);">
+          <button class="tab-btn ${activeDeployTab === 'runbooks' ? 'active' : ''}" id="tab-runbooks" style="padding: 0.4rem 0.2rem; flex: 1; font-size: 0.75rem; text-align: center;">Runbooks</button>
+          <button class="tab-btn ${activeDeployTab === 'cutover' ? 'active' : ''}" id="tab-cutover" style="padding: 0.4rem 0.2rem; flex: 1; font-size: 0.75rem; text-align: center;">Cutover Bridge</button>
+          <button class="tab-btn ${activeDeployTab === 'orchestration' ? 'active' : ''}" id="tab-orchestration" style="padding: 0.4rem 0.2rem; flex: 1; font-size: 0.75rem; text-align: center;">Orchestration</button>
         </div>
         <ul class="demand-list" id="deploy-list-container">
           <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 2rem;">Loading...</li>

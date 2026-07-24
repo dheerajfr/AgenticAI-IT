@@ -116,7 +116,7 @@ window.fetchVendorCoordinationData = async function() {
   }
 };
 
-window.renderVendorCoordinationScreen = function() {
+window.renderVendorCoordinationScreen = function(targetContainer) {
   const demandId = sessionStorage.getItem('selectedDemandId');
   const demands = window.allDemandsList || [];
   const optionsHtml = demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === demandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
@@ -127,7 +127,7 @@ window.renderVendorCoordinationScreen = function() {
     </select>
   `;
 
-  const viewport = document.getElementById('viewport');
+  const viewport = targetContainer || window.currentModuleTargetContainer || document.getElementById('viewport');
   const _origOverflow = viewport.style.overflow;
   const _origOverflowY = viewport.style.overflowY;
   const _origDisplay = viewport.style.display;

@@ -1,0 +1,487 @@
+{
+  "demand_id": "DEM-2026-0005",
+  "monitoring": {
+    "monitoring_id": "MON-0005-1",
+    "monitoring_plan_id": "MON-PLAN-DEM-2026-0005",
+    "release_id": "REL-0005-1",
+    "demand_id": "DEM-2026-0005",
+    "plan_id": "PLN-0005-1",
+    "environment": "prod",
+    "monitored_components_scope": [
+      "postgresql-db",
+      "oauth2-auth-service",
+      "svc-genai-hr-ops",
+      "hr-analytics-api",
+      "redis-cache"
+    ],
+    "component_specs": [
+      {
+        "component_id": "postgresql-db",
+        "component_name": "Postgresql Db",
+        "component_type": "postgresql",
+        "criticality": "high",
+        "environment": "prod",
+        "technology_stack": "PostgreSQL RDBMS",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
+      {
+        "component_id": "oauth2-auth-service",
+        "component_name": "Oauth2 Auth Service",
+        "component_type": "rest_api",
+        "criticality": "critical",
+        "environment": "prod",
+        "technology_stack": "Java Spring Boot Microservice",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
+      {
+        "component_id": "svc-genai-hr-ops",
+        "component_name": "Svc Genai Hr Ops",
+        "component_type": "rest_api",
+        "criticality": "high",
+        "environment": "prod",
+        "technology_stack": "Java Spring Boot Microservice",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
+      {
+        "component_id": "hr-analytics-api",
+        "component_name": "Hr Analytics Api",
+        "component_type": "rest_api",
+        "criticality": "high",
+        "environment": "prod",
+        "technology_stack": "Java Spring Boot Microservice",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
+      {
+        "component_id": "redis-cache",
+        "component_name": "Redis Cache",
+        "component_type": "redis",
+        "criticality": "high",
+        "environment": "prod",
+        "technology_stack": "Redis In-Memory Cache Cluster",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      }
+    ],
+    "slo_targets": [
+      {
+        "component_id": "postgresql-db",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 45.0,
+        "latency_p99_ms": 90.0,
+        "error_rate_threshold_pct": 0.1,
+        "cpu_threshold_pct": 90.0,
+        "memory_threshold_pct": 92.0,
+        "source": "ai_technology_tier_analysis"
+      },
+      {
+        "component_id": "oauth2-auth-service",
+        "availability_slo_pct": 99.99,
+        "latency_p95_ms": 120.0,
+        "latency_p99_ms": 250.0,
+        "error_rate_threshold_pct": 0.05,
+        "cpu_threshold_pct": 85.0,
+        "memory_threshold_pct": 88.0,
+        "source": "ai_technology_tier_analysis"
+      },
+      {
+        "component_id": "svc-genai-hr-ops",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 180.0,
+        "latency_p99_ms": 350.0,
+        "error_rate_threshold_pct": 0.1,
+        "cpu_threshold_pct": 90.0,
+        "memory_threshold_pct": 92.0,
+        "source": "ai_technology_tier_analysis"
+      },
+      {
+        "component_id": "hr-analytics-api",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 180.0,
+        "latency_p99_ms": 350.0,
+        "error_rate_threshold_pct": 0.1,
+        "cpu_threshold_pct": 90.0,
+        "memory_threshold_pct": 92.0,
+        "source": "ai_technology_tier_analysis"
+      },
+      {
+        "component_id": "redis-cache",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 15.0,
+        "latency_p99_ms": 35.0,
+        "error_rate_threshold_pct": 0.1,
+        "cpu_threshold_pct": 90.0,
+        "memory_threshold_pct": 92.0,
+        "source": "ai_technology_tier_analysis"
+      }
+    ],
+    "proposed_alerts": [
+      {
+        "alert_id": "ALT-POSTGRESQL_DB-CONNPOOL",
+        "component_id": "postgresql-db",
+        "component_type": "postgresql",
+        "alert_type": "connection_pool",
+        "name": "Postgresql Db Connection Pool Exhaustion",
+        "condition": "connection_pool_utilization > 85%",
+        "threshold": "85%",
+        "severity": "critical",
+        "notify": [
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com",
+          "dba-oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-POSTGRESQL_DB-SLOWQUERY",
+        "component_id": "postgresql-db",
+        "component_type": "postgresql",
+        "alert_type": "slow_queries",
+        "name": "Postgresql Db Slow Query Threshold Exceeded",
+        "condition": "slow_query_duration_ms > 90.0ms",
+        "threshold": "90.0ms",
+        "severity": "high",
+        "notify": [
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-POSTGRESQL_DB-REPLAG",
+        "component_id": "postgresql-db",
+        "component_type": "postgresql",
+        "alert_type": "replication_lag",
+        "name": "Postgresql Db Replication Lag Warning",
+        "condition": "replication_lag_seconds > 5s",
+        "threshold": "5s",
+        "severity": "high",
+        "notify": [
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-OAUTH2_AUTH_SERVICE-LATENCY",
+        "component_id": "oauth2-auth-service",
+        "component_type": "rest_api",
+        "alert_type": "latency",
+        "name": "Oauth2 Auth Service p99 Latency Violation",
+        "condition": "p99_latency_ms > 250.0ms",
+        "threshold": "250.0ms",
+        "severity": "critical",
+        "notify": [
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-OAUTH2_AUTH_SERVICE-AVAIL",
+        "component_id": "oauth2-auth-service",
+        "component_type": "rest_api",
+        "alert_type": "availability",
+        "name": "Oauth2 Auth Service Availability Drop",
+        "condition": "availability_pct < 99.99%",
+        "threshold": "99.99%",
+        "severity": "critical",
+        "notify": [
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-OAUTH2_AUTH_SERVICE-5XX",
+        "component_id": "oauth2-auth-service",
+        "component_type": "rest_api",
+        "alert_type": "http_5xx",
+        "name": "Oauth2 Auth Service HTTP 5xx Error Rate Spike",
+        "condition": "error_rate_pct > 0.05%",
+        "threshold": "0.05%",
+        "severity": "critical",
+        "notify": [
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_GENAI_HR_OPS-LATENCY",
+        "component_id": "svc-genai-hr-ops",
+        "component_type": "rest_api",
+        "alert_type": "latency",
+        "name": "Svc Genai Hr Ops p99 Latency Violation",
+        "condition": "p99_latency_ms > 350.0ms",
+        "threshold": "350.0ms",
+        "severity": "high",
+        "notify": [
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_GENAI_HR_OPS-AVAIL",
+        "component_id": "svc-genai-hr-ops",
+        "component_type": "rest_api",
+        "alert_type": "availability",
+        "name": "Svc Genai Hr Ops Availability Drop",
+        "condition": "availability_pct < 99.95%",
+        "threshold": "99.95%",
+        "severity": "critical",
+        "notify": [
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_GENAI_HR_OPS-5XX",
+        "component_id": "svc-genai-hr-ops",
+        "component_type": "rest_api",
+        "alert_type": "http_5xx",
+        "name": "Svc Genai Hr Ops HTTP 5xx Error Rate Spike",
+        "condition": "error_rate_pct > 0.1%",
+        "threshold": "0.1%",
+        "severity": "high",
+        "notify": [
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-HR_ANALYTICS_API-LATENCY",
+        "component_id": "hr-analytics-api",
+        "component_type": "rest_api",
+        "alert_type": "latency",
+        "name": "Hr Analytics Api p99 Latency Violation",
+        "condition": "p99_latency_ms > 350.0ms",
+        "threshold": "350.0ms",
+        "severity": "high",
+        "notify": [
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-HR_ANALYTICS_API-AVAIL",
+        "component_id": "hr-analytics-api",
+        "component_type": "rest_api",
+        "alert_type": "availability",
+        "name": "Hr Analytics Api Availability Drop",
+        "condition": "availability_pct < 99.95%",
+        "threshold": "99.95%",
+        "severity": "critical",
+        "notify": [
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-HR_ANALYTICS_API-5XX",
+        "component_id": "hr-analytics-api",
+        "component_type": "rest_api",
+        "alert_type": "http_5xx",
+        "name": "Hr Analytics Api HTTP 5xx Error Rate Spike",
+        "condition": "error_rate_pct > 0.1%",
+        "threshold": "0.1%",
+        "severity": "high",
+        "notify": [
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-REDIS_CACHE-MEMORY",
+        "component_id": "redis-cache",
+        "component_type": "redis",
+        "alert_type": "memory_usage",
+        "name": "Redis Cache Cache Memory Utilization High",
+        "condition": "memory_utilization_pct > 92.0%",
+        "threshold": "92.0%",
+        "severity": "high",
+        "notify": [
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-REDIS_CACHE-HITRATIO",
+        "component_id": "redis-cache",
+        "component_type": "redis",
+        "alert_type": "cache_hit_ratio",
+        "name": "Redis Cache Cache Hit Ratio Degradation",
+        "condition": "cache_hit_ratio_pct < 90%",
+        "threshold": "90%",
+        "severity": "high",
+        "notify": [
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "oncall-prod@company.com"
+        ]
+      }
+    ],
+    "proposed_dashboards": [
+      {
+        "dashboard_id": "DSH-0005",
+        "title": "DEM-2026-0005 Enterprise Production Monitoring Dashboard (PROD)",
+        "target_technology": "postgresql, redis, rest_api",
+        "panels": [
+          "api-latency",
+          "api-errors",
+          "api-rps",
+          "db-connpool",
+          "db-slowqueries",
+          "redis-hitratio",
+          "infra-resources"
+        ],
+        "widgets": [
+          {
+            "widget_id": "WID-API-LATENCY",
+            "type": "timeseries",
+            "title": "Application Response Latency (p50, p95, p99)",
+            "query": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
+            "target_metric": "http_request_duration_seconds"
+          },
+          {
+            "widget_id": "WID-API-ERRORS",
+            "type": "stat",
+            "title": "HTTP 5xx Error Rate %",
+            "query": "sum(rate(http_requests_total{status=~'5..'}[5m])) / sum(rate(http_requests_total[5m])) * 100",
+            "target_metric": "http_requests_total_5xx"
+          },
+          {
+            "widget_id": "WID-API-RPS",
+            "type": "gauge",
+            "title": "Throughput (Requests / Sec)",
+            "query": "sum(rate(http_requests_total[5m]))",
+            "target_metric": "http_requests_throughput"
+          },
+          {
+            "widget_id": "WID-DB-CONNPOOL",
+            "type": "gauge",
+            "title": "Database Connection Pool Utilization",
+            "query": "database_connections_active / database_connections_max * 100",
+            "target_metric": "database_connection_pool"
+          },
+          {
+            "widget_id": "WID-DB-SLOWQUERIES",
+            "type": "bar",
+            "title": "Slow Queries & Lock Contention",
+            "query": "rate(database_slow_queries_total[5m])",
+            "target_metric": "database_slow_queries"
+          },
+          {
+            "widget_id": "WID-REDIS-HITRATIO",
+            "type": "stat",
+            "title": "Redis Cache Hit Ratio %",
+            "query": "rate(redis_keyspace_hits_total[5m]) / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m])) * 100",
+            "target_metric": "redis_cache_hit_ratio"
+          },
+          {
+            "widget_id": "WID-INFRA-RESOURCES",
+            "type": "timeseries",
+            "title": "Cluster Resource Utilization (CPU, Memory, Network I/O)",
+            "query": "sum(container_cpu_usage_seconds_total) by (pod) / sum(container_spec_cpu_quota) by (pod)",
+            "target_metric": "container_cpu_memory"
+          }
+        ]
+      }
+    ],
+    "generated_at": "2026-07-24T07:13:15Z",
+    "sre_reviewed": true,
+    "sre_reviewed_by": null,
+    "status": "approved"
+  },
+  "handover": null,
+  "validation": {
+    "validation_id": "RV-0005-1",
+    "demand_id": "DEM-2026-0005",
+    "plan_id": "PLN-0005-1",
+    "validated_at": "2026-07-24T07:14:05Z",
+    "criteria_results": [
+      {
+        "criterion": "monitoring_configured",
+        "status": "pass",
+        "evidence": "PASS: Monitoring plan MON-PLAN-DEM-2026-0005 validated (\u2713 Monitoring Plan exists, \u2713 5 components covered, \u2713 Dashboard generated, \u2713 14 dynamic alerts generated, \u2713 SRE Approval completed)."
+      },
+      {
+        "criterion": "support_team_briefed",
+        "status": "fail",
+        "evidence": "Support team has not been briefed on this release"
+      },
+      {
+        "criterion": "runbook_reviewed",
+        "status": "fail",
+        "evidence": "Support runbook review is pending"
+      },
+      {
+        "criterion": "known_errors_documented",
+        "status": "warn",
+        "evidence": "Active defects exist that are not documented in KB"
+      },
+      {
+        "criterion": "on_call_assigned",
+        "status": "fail",
+        "evidence": "No resources assigned to the support shift rotation"
+      }
+    ],
+    "gaps": [
+      "Operations/Support team briefing (KT session) is pending.",
+      "Deployment & support runbook has not been reviewed by operations.",
+      "2 known errors or unresolved defects are pending KB documentation.",
+      "Support on-call schedule has not been assigned for production go-live."
+    ],
+    "overall_status": "fail",
+    "sign_off_by": "director.delivery@company.com",
+    "status": "approved"
+  }
+}
