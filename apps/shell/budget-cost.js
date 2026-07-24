@@ -10,11 +10,33 @@ window.fetchBudgetCostData = async function() {
     const demRes = await fetch('/api/demands');
     if (demRes.ok) window.allDemandsList = await demRes.json();
   } catch(e) { console.warn('Could not fetch demands', e); }
+  
+  const demandId = sessionStorage.getItem('selectedDemandId');
+  if (demandId) {
+    try {
+      const invRes = await fetch(`/api/budget-cost/project/${demandId}/invoices`);
+      if (invRes.ok) {
+        window.currentInvoicesList = await invRes.json();
+      } else {
+        window.currentInvoicesList = [];
+      }
+    } catch (invErr) {
+      console.error("Invoices fetch error", invErr);
+      window.currentInvoicesList = [];
+    }
+  } else {
+    window.currentInvoicesList = [];
+  }
+  
   window.renderBudgetCostScreen();
 };
 
+<<<<<<< HEAD
 // ── Main render ───────────────────────────────────────────────────────────────
 window.renderBudgetCostScreen = function() {
+=======
+window.renderBudgetCostScreen = function(targetContainer) {
+>>>>>>> Nagaraju
   const demandId = sessionStorage.getItem('selectedDemandId');
   const demands  = window.allDemandsList || [];
 
@@ -43,6 +65,7 @@ window.renderBudgetCostScreen = function() {
     </select>
   `;
 
+<<<<<<< HEAD
   viewport.innerHTML = `
     <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--bg-primary);">
       <!-- Header + tabs -->
@@ -56,6 +79,51 @@ window.renderBudgetCostScreen = function() {
             ${dropdownHtml}
           </div>
           <status-pill status="${demandId ? 'Monitoring' : 'Idle'}"></status-pill>
+=======
+  const viewport = targetContainer || window.currentModuleTargetContainer || document.getElementById('viewport');
+  const _origOverflow = viewport.style.overflow;
+  const _origOverflowY = viewport.style.overflowY;
+  const _origDisplay = viewport.style.display;
+  const _origFlexDir = viewport.style.flexDirection;
+  const _origPadding = viewport.style.padding;
+
+  viewport.style.overflow = 'hidden';
+  viewport.style.overflowY = 'hidden';
+  viewport.style.display = 'flex';
+  viewport.style.flexDirection = 'column';
+  viewport.style.padding = '0';
+
+  const _observer = new MutationObserver(() => {
+    if (!document.getElementById('budget-panel-container')) {
+      viewport.style.overflow = _origOverflow;
+      viewport.style.overflowY = _origOverflowY;
+      viewport.style.display = _origDisplay;
+      viewport.style.flexDirection = _origFlexDir;
+      viewport.style.padding = _origPadding;
+      _observer.disconnect();
+    }
+  });
+  _observer.observe(viewport, { childList: true, subtree: false });
+
+  let sidebarItemsHtml = '<li style="padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">No demands found.</li>';
+  if (demands && demands.length > 0) {
+    sidebarItemsHtml = demands.map(d => {
+      const isActive = d.demand_id === demandId;
+      return `
+        <li class="demand-item ${isActive ? 'active' : ''}" onclick="sessionStorage.setItem('selectedDemandId', '${d.demand_id}'); window.fetchBudgetCostData();" style="cursor: pointer; padding: 0.75rem 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.05); border-left: ${isActive ? '3px solid var(--color-brand)' : '3px solid transparent'}; background: ${isActive ? 'rgba(99,102,241,0.1)' : 'transparent'};">
+          <div style="font-family: monospace; font-weight: 700; color: var(--color-brand); font-size: 0.78rem;">${d.demand_id}</div>
+          <h4 style="margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); line-height: 1.3;">${d.title || 'Untitled Demand'}</h4>
+        </li>
+      `;
+    }).join('');
+  }
+
+  const layoutPrefix = `
+    <div class="intake-screen" style="padding: 1rem; height: 100%; box-sizing: border-box;">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h3 class="sidebar-title">Budget & Cost</h3>
+>>>>>>> Nagaraju
         </div>
         <div style="display:flex;gap:0.35rem;padding-bottom:0.75rem;">${tabBar}</div>
       </div>
@@ -385,6 +453,71 @@ async function bcRenderInvoice(demandId, content) {
           <tbody>${rows || '<tr><td colspan="6" style="padding:2rem;text-align:center;color:var(--text-muted);">No invoices found</td></tr>'}</tbody>
         </table>
       </div>
+
+      <!-- Monthly Project Billing Invoices (Generated from Plan) -->
+      <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:1.5rem;">
+        <h3 style="margin: 0 0 1rem 0; font-size: 1rem; display: flex; justify-content: space-between; align-items: center;">
+          <span>Monthly Billing Invoices (From Schedule Plan)</span>
+          <button onclick="window.generateInvoices('${demandId}')" class="btn-primary" style="padding: 0.4rem 0.85rem; font-size: 0.78rem; background: linear-gradient(135deg, var(--color-brand), #4f46e5); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600;">
+            Generate Monthly Invoices
+          </button>
+        </h3>
+        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+          Generate monthly billing invoices based on active tasks and scheduled timelines (start to end date) for this project.
+        </p>
+        
+        <div>
+          ${(() => {
+            const billingInvoices = window.currentInvoicesList || [];
+            if (billingInvoices.length > 0) {
+              return `
+                <div style="overflow-x: auto;">
+                  <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                    <thead>
+                      <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted); font-weight: 600; background: var(--bg-primary);">
+                        <th style="padding: 0.6rem 0.5rem; font-size: 0.73rem; text-transform: uppercase;">Invoice ID</th>
+                        <th style="padding: 0.6rem 0.5rem; font-size: 0.73rem; text-transform: uppercase;">Month</th>
+                        <th style="padding: 0.6rem 0.5rem; font-size: 0.73rem; text-transform: uppercase;">Billing Period</th>
+                        <th style="padding: 0.6rem 0.5rem; font-size: 0.73rem; text-transform: uppercase; text-align: right;">Amount</th>
+                        <th style="padding: 0.6rem 0.5rem; font-size: 0.73rem; text-transform: uppercase; text-align: center;">Status</th>
+                        <th style="padding: 0.6rem 0.5rem; font-size: 0.73rem; text-transform: uppercase; text-align: center;">Details</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${billingInvoices.map(inv => {
+                        const detailsList = inv.details || [];
+                        const detailsStr = detailsList.map(d => `${d.item}: $${d.amount.toLocaleString()}`).join('\\n');
+                        return `
+                          <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text-primary);">
+                            <td style="padding: 0.75rem 0.5rem; font-family: monospace; font-weight: 700; color: var(--color-brand);">${inv.invoice_id}</td>
+                            <td style="padding: 0.75rem 0.5rem; font-weight: 600;">${inv.month}</td>
+                            <td style="padding: 0.75rem 0.5rem; color: var(--text-secondary);">${inv.billing_start} to ${inv.billing_end}</td>
+                            <td style="padding: 0.75rem 0.5rem; text-align: right; font-weight: 700; color: var(--text-primary);">$${inv.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td style="padding: 0.75rem 0.5rem; text-align: center;">
+                              <span style="font-size: 0.75rem; background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 2px 6px; border-radius: 4px; font-weight: 600;">${inv.status}</span>
+                            </td>
+                            <td style="padding: 0.75rem 0.5rem; text-align: center;">
+                              <button onclick="alert('Invoice Line Items:\\n\\n${detailsStr}')" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;">
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        `;
+                      }).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              `;
+            } else {
+              return `
+                <div style="padding: 1.5rem; text-align: center; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); color: var(--text-muted); font-size: 0.8rem;">
+                  No monthly billing invoices generated yet. Click 'Generate Monthly Invoices' above to create them.
+                </div>
+              `;
+            }
+          })()}
+        </div>
+      </div>
     </div>`;
 }
 
@@ -498,4 +631,21 @@ window.bcSignOff = async function(demandId) {
     });
     await bcLoadTab('capex', demandId);
   } catch(e) { console.error(e); }
+};
+
+window.generateInvoices = async function(demandId) {
+  try {
+    const res = await fetch(`${BASE_URL}/budget-cost/project/${demandId}/invoices/generate`, {
+      method: 'POST'
+    });
+    if (res.ok) {
+      window.fetchBudgetCostData();
+    } else {
+      const err = await res.json();
+      alert("Error: " + (err.detail || "Failed to generate invoices. Check if project plan is generated."));
+    }
+  } catch(e) {
+    console.error(e);
+    alert("Connection error: " + e.message);
+  }
 };

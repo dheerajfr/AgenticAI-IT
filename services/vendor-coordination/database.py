@@ -1,13 +1,17 @@
 import sqlite3
 import json
 import os
+import sys
 from pathlib import Path
 from typing import List, Optional, Dict
 
-DB_PATH = Path(__file__).parent / "vendor_coordination.db"
+_ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(_ROOT_DIR) not in sys.path:
+    sys.path.append(str(_ROOT_DIR))
+from shared_db.connection import get_db
 
 def _get_conn():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     conn.row_factory = sqlite3.Row
     return conn
 

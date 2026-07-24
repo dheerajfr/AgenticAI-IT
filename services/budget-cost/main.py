@@ -159,55 +159,120 @@ def model_roi(req: ROIRequest):
     db.save(record)
     return {"status": "success", "roi_model": record["roi_model"], "record": record}
 
-def _get_auto_populated_months(demand_id: str) -> list:
-    db_path = os.environ.get("DATABASE_PATH", os.path.abspath(os.path.join(_THIS_DIR, "..", "source.db")))
+# Invoice generation & retrieval endpoints (Project Billing breakdown)
+import json
+import calendar
+
+# Helper to import get_db from shared_db
+_ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(_ROOT_DIR) not in sys.path:
+    sys.path.append(str(_ROOT_DIR))
+from shared_db.connection import get_db
+
+@app.get("/api/budget-cost/project/{demand_id}/invoices")
+def get_project_billing_invoices(demand_id: str):
+    return db.get_invoices(demand_id)
+
+@app.post("/api/budget-cost/project/{demand_id}/invoices/generate")
+def generate_project_billing_invoices(demand_id: str):
+    # 1. Fetch corresponding plan from services/source.db
+    with get_db() as conn:
+        row = conn.execute("SELECT data FROM plans WHERE demand_id = ?", (demand_id,)).fetchone()
+        if not row:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"No plan record found for project {demand_id}. Please generate a plan in Plan & Schedule first."
+            )
+        plan_data = json.loads(row[0])
+    
+    tasks = plan_data.get("tasks", [])
+    if not tasks:
+        raise HTTPException(status_code=404, detail="No tasks found in the plan. Cannot determine start/end dates.")
+    
+    # 2. Extract earliest start_date and latest end_date from tasks
+    start_dates = [t.get("start_date") for t in tasks if t.get("start_date")]
+    end_dates = [t.get("end_date") for t in tasks if t.get("end_date")]
+    if not start_dates or not end_dates:
+        raise HTTPException(status_code=400, detail="Start or end dates are missing in plan tasks.")
+        
+    start_date_str = min(start_dates)
+    end_date_str = max(end_dates)
+    
     try:
-        with sqlite3.connect(db_path) as conn:
-            c = conn.cursor()
-            c.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            tables = [row[0] for row in c.fetchall()]
-            
-            start_date_str = None
-            end_date_str = None
-            
-            if 'demands' in tables:
-                c.execute("SELECT data FROM demands WHERE demand_id = ?", (demand_id,))
-                row = c.fetchone()
-                if row:
-                    dem = json.loads(row[0])
-                    start_date_str = dem.get("earliest_start_date")
-            if 'plans' in tables:
-                c.execute("SELECT data FROM plans WHERE demand_id = ?", (demand_id,))
-                row = c.fetchone()
-                if row:
-                    plan = json.loads(row[0])
-                    end_date_str = plan.get("end_date")
-            
-            if start_date_str and end_date_str:
-                from datetime import datetime
-                start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
-                end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
-                
-                # Calculate months difference
-                months_count = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month) + 1
-                
-                auto_actuals = []
-                for i in range(months_count):
-                    m = start_date.month - 1 + i
-                    y = start_date.year + m // 12
-                    m = m % 12 + 1
-                    
-                    # Format as YYYY-MM
-                    date_str = f"{y}-{m:02d}"
-                    auto_actuals.append({
-                        "date": date_str,
-                        "amount": 0,
-                        "category": "capex"
-                    })
-                return auto_actuals
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
     except Exception as e:
-        print("Error calculating auto-populated months:", e)
-    return []
+        raise HTTPException(status_code=400, detail=f"Invalid date format in plan: {e}")
+        
+    if start_date > end_date:
+        raise HTTPException(status_code=400, detail="Plan start date cannot be after end date.")
+        
+    # 3. Retrieve budget estimate for billing allocation
+    record = _get_or_create(demand_id)
+    est = record.get("cost_estimation", {})
+    infra = est.get("infrastructure_cost", 0)
+    vendor = est.get("vendor_cost", 0)
+    resource = est.get("resource_cost", 0)
+    total_cost = infra + vendor + resource
+    
+    # 4. Compute months between start_date and end_date (inclusive)
+    months = []
+    curr_year = start_date.year
+    curr_month = start_date.month
+    
+    while True:
+        months.append((curr_year, curr_month))
+        if curr_year == end_date.year and curr_month == end_date.month:
+            break
+        curr_month += 1
+        if curr_month > 12:
+            curr_month = 1
+            curr_year += 1
+            
+    num_months = len(months)
+    if num_months == 0:
+        num_months = 1
+        
+    # Monthly values rounded to 2 decimal places
+    monthly_infra = round(infra / num_months, 2)
+    monthly_vendor = round(vendor / num_months, 2)
+    monthly_resource = round(resource / num_months, 2)
+    monthly_total = round(total_cost / num_months, 2)
+    
+    # 5. Generate monthly invoices
+    generated_invoices = []
+    for i, (yr, mo) in enumerate(months):
+        month_str = f"{yr}-{mo:02d}"
+        
+        if i == 0:
+            billing_start = start_date_str
+        else:
+            billing_start = f"{yr}-{mo:02d}-01"
+            
+        if i == num_months - 1:
+            billing_end = end_date_str
+        else:
+            last_day = calendar.monthrange(yr, mo)[1]
+            billing_end = f"{yr}-{mo:02d}-{last_day}"
+            
+        invoice = {
+            "invoice_id": f"INV-{demand_id}-{month_str}",
+            "demand_id": demand_id,
+            "month": month_str,
+            "amount": monthly_total,
+            "status": "Generated",
+            "billing_start": billing_start,
+            "billing_end": billing_end,
+            "details": [
+                {"item": "Infrastructure Cost Allocation", "amount": monthly_infra},
+                {"item": "Resource Cost Allocation", "amount": monthly_resource},
+                {"item": "Vendor Services Allocation", "amount": monthly_vendor}
+            ]
+        }
+        db.save_invoice(invoice)
+        generated_invoices.append(invoice)
+        
+    return {"status": "success", "invoices": generated_invoices}
 
 # ── Burn & Forecast Endpoints ──────────────────────────────────────────────────
 

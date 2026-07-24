@@ -95,6 +95,20 @@ window.fetchVendorCoordinationData = async function() {
     const res = await fetch(`${BASE_URL}/vendor-coordination/project/${demandId}`);
     if (res.ok) {
       window.currentVendorData = await res.json();
+      
+      // Fetch generated invoices for the project to display invoice count
+      try {
+        const invRes = await fetch(`${BASE_URL}/budget-cost/project/${demandId}/invoices`);
+        if (invRes.ok) {
+          window.currentInvoicesList = await invRes.json();
+        } else {
+          window.currentInvoicesList = [];
+        }
+      } catch (invErr) {
+        console.error("Failed to fetch invoices in Vendor Coordination", invErr);
+        window.currentInvoicesList = [];
+      }
+      
       window.renderVendorCoordinationScreen();
     }
   } catch (err) {
@@ -102,7 +116,7 @@ window.fetchVendorCoordinationData = async function() {
   }
 };
 
-window.renderVendorCoordinationScreen = function() {
+window.renderVendorCoordinationScreen = function(targetContainer) {
   const demandId = sessionStorage.getItem('selectedDemandId');
   const demands = window.allDemandsList || [];
   const optionsHtml = demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === demandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
@@ -113,7 +127,7 @@ window.renderVendorCoordinationScreen = function() {
     </select>
   `;
 
-  const viewport = document.getElementById('viewport');
+  const viewport = targetContainer || window.currentModuleTargetContainer || document.getElementById('viewport');
   const _origOverflow = viewport.style.overflow;
   const _origOverflowY = viewport.style.overflowY;
   const _origDisplay = viewport.style.display;
@@ -226,6 +240,10 @@ window.renderVendorCoordinationScreen = function() {
               <div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Actual Outputs</div>
                 <div style="font-size: 1.5rem; font-weight: 700; color: ${(sla.vendor_claims > sla.actual_outputs) ? 'var(--color-status-amber-text)' : 'var(--color-status-green-text)'};">${sla.actual_outputs || 0} items</div>
+              </div>
+              <div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Generated Invoices</div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: var(--color-brand);">${(window.currentInvoicesList || []).length} invoices</div>
               </div>
             </div>
             ${(sla.vendor_claims > sla.actual_outputs) ? '<div style="font-size: 0.85rem; color: var(--color-status-amber-text);">Discrepancy detected between claims and outputs.</div>' : ''}
