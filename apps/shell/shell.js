@@ -268,7 +268,7 @@ function renderAlwaysOnWrapper(activeTab) {
       </div>
       
       <!-- Module Viewport with Transition -->
-      <div id="ao-content-viewport" class="page-transition-enter" style="flex: 1; overflow-y: auto;">
+      <div id="ao-content-viewport" class="page-transition-enter" style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
         <!-- Module content will be rendered here -->
       </div>
     </div>
