@@ -23,6 +23,11 @@ def init_db() -> None:
                 onboarding_updates TEXT
             )
         ''')
+        # Check if validated_qas column exists, if not, add it
+        try:
+            conn.execute("SELECT validated_qas FROM knowledge_records LIMIT 1")
+        except sqlite3.OperationalError:
+            conn.execute("ALTER TABLE knowledge_records ADD COLUMN validated_qas TEXT")
         conn.commit()
 
 init_db()
@@ -43,6 +48,8 @@ class DB:
                 d['lessons_learned']    = json.loads(d['lessons_learned'])    if d['lessons_learned']    else []
                 d['indexed_artefacts']  = json.loads(d['indexed_artefacts'])  if d['indexed_artefacts']  else []
                 d['onboarding_updates'] = json.loads(d['onboarding_updates']) if d['onboarding_updates'] else []
+                # Handle migrations for newly added validated_qas field
+                d['validated_qas']      = json.loads(d['validated_qas'])      if ('validated_qas' in d and d['validated_qas']) else []
                 return d
             return None
 
@@ -52,18 +59,20 @@ class DB:
         with _get_conn() as conn:
             conn.execute('''
                 INSERT INTO knowledge_records
-                    (id, demand_id, lessons_learned, indexed_artefacts, onboarding_updates)
-                VALUES (?, ?, ?, ?, ?)
+                    (id, demand_id, lessons_learned, indexed_artefacts, onboarding_updates, validated_qas)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     lessons_learned    = excluded.lessons_learned,
                     indexed_artefacts  = excluded.indexed_artefacts,
-                    onboarding_updates = excluded.onboarding_updates
+                    onboarding_updates = excluded.onboarding_updates,
+                    validated_qas      = excluded.validated_qas
             ''', (
                 record.get('id'),
                 record.get('demand_id'),
                 json.dumps(record.get('lessons_learned')    or []),
                 json.dumps(record.get('indexed_artefacts')  or []),
                 json.dumps(record.get('onboarding_updates') or []),
+                json.dumps(record.get('validated_qas')        or []),
             ))
             conn.commit()
 
@@ -115,5 +124,19 @@ class DB:
         record["indexed_artefacts"] = artefacts
         DB.save(record)
         return record
+
+    @staticmethod
+    def delete_artefact(demand_id: str, artefact_name: str) -> bool:
+        """Remove an artefact from the index by name. Returns True if removed."""
+        record = DB.get_by_demand(demand_id)
+        if not record:
+            return False
+        artefacts = record.get("indexed_artefacts", [])
+        new_artefacts = [a for a in artefacts if a.get("name") != artefact_name]
+        if len(new_artefacts) == len(artefacts):
+            return False  # nothing removed
+        record["indexed_artefacts"] = new_artefacts
+        DB.save(record)
+        return True
 
 db = DB()
