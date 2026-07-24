@@ -631,7 +631,6 @@ function renderDependencyDetails(dep) {
               </div>
             </div>
           </div>
-<<<<<<< HEAD
 
           <!-- STEP 2: CHASE COMMITMENTS -->
           <div class="wizard-step ${step2Class}">
@@ -870,22 +869,10 @@ function renderDependencyDetails(dep) {
           <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary);">🧠 AI Risk Assessment</h5>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-<<<<<<< HEAD
-            <div class="form-group" style="margin-bottom: 0;">
-              <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Tone Selection</label>
-              <div id="chase-tone-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.3rem;">
-                <button type="button" class="wf-btn-toggle ${selectedTone === 'friendly' ? 'active' : ''}" data-tone="friendly">😊 Friendly</button>
-                <button type="button" class="wf-btn-toggle ${selectedTone === 'business' ? 'active' : ''}" data-tone="business">💼 Professional</button>
-                <button type="button" class="wf-btn-toggle ${selectedTone === 'executive' ? 'active' : ''}" data-tone="executive">📊 Executive</button>
-                <button type="button" class="wf-btn-toggle ${selectedTone === 'technical' ? 'active' : ''}" data-tone="technical">🔧 Technical</button>
-                <button type="button" class="wf-btn-toggle ${selectedTone === 'urgent' ? 'active' : ''}" data-tone="urgent">⚡ Urgent</button>
-              </div>
-=======
             <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; text-align: center;">
               <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Threat Level</div>
               <div style="font-size: 1.4rem;">${threatEmoji}</div>
               <div style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--color-status-${threatColorVar}-text); margin-top: 0.2rem;">${threatLevel}</div>
->>>>>>> Nagaraju
             </div>
             <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; text-align: center;">
               <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Sensing Confidence</div>

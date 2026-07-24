@@ -186,9 +186,11 @@ async function bcRenderBurn(demandId, content) {
   const actuals  = data.actuals  || [];
   const forecast = data.forecast || [];
   
-  if (actuals.length === 0 && forecast.length === 0 && !window.bcBurnEditMode) {
+  const totalActuals = actuals.reduce((sum, a) => sum + (a.amount || 0), 0);
+  
+  if (totalActuals === 0 && forecast.length === 0 && !window.bcBurnEditMode) {
     window.bcBurnEditMode = true;
-    window.bcBurnEditData = [];
+    window.bcBurnEditData = [...actuals];
   }
 
   if (window.bcBurnEditMode) {
