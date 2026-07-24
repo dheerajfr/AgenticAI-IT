@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import List, Optional, Dict
 
-DB_PATH = Path(__file__).parent / "reporting_communication.db"
+DB_PATH = Path(__file__).parent.parent / "source.db"
 
 def _get_conn():
     conn = sqlite3.connect(DB_PATH)
