@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "localtrace"
+version = "0.1.0"
+description = "Local-first, framework-agnostic AI tracing: OpenInference/OTel spans appended to JSONL logs with a DuckDB query layer. No network calls, no external services."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+keywords = ["tracing", "observability", "openinference", "opentelemetry", "llm", "duckdb", "jsonl"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "openinference-semantic-conventions>=0.1.9",
+    "duckdb>=0.10.0",
+]
+
+[project.optional-dependencies]
+openai = ["openinference-instrumentation-openai"]
+anthropic = ["openinference-instrumentation-anthropic"]
+bedrock = ["openinference-instrumentation-bedrock"]
+google-genai = ["openinference-instrumentation-google-genai"]
+vertexai = ["openinference-instrumentation-vertexai"]
+mistralai = ["openinference-instrumentation-mistralai"]
+groq = ["openinference-instrumentation-groq"]
+litellm = ["openinference-instrumentation-litellm"]
+langchain = ["openinference-instrumentation-langchain"]
+llama-index = ["openinference-instrumentation-llama-index"]
+crewai = ["openinference-instrumentation-crewai"]
+dspy = ["openinference-instrumentation-dspy"]
+haystack = ["openinference-instrumentation-haystack"]
+autogen = ["openinference-instrumentation-autogen"]
+openai-agents = ["openinference-instrumentation-openai-agents"]
+smolagents = ["openinference-instrumentation-smolagents"]
+pydantic-ai = ["openinference-instrumentation-pydantic-ai"]
+instructor = ["openinference-instrumentation-instructor"]
+mcp = ["openinference-instrumentation-mcp"]
+http = [
+    "opentelemetry-instrumentation-requests",
+    "opentelemetry-instrumentation-httpx",
+]
+all = [
+    "openinference-instrumentation-openai",
+    "openinference-instrumentation-anthropic",
+    "openinference-instrumentation-bedrock",
+    "openinference-instrumentation-google-genai",
+    "openinference-instrumentation-vertexai",
+    "openinference-instrumentation-mistralai",
+    "openinference-instrumentation-groq",
+    "openinference-instrumentation-litellm",
+    "openinference-instrumentation-langchain",
+    "openinference-instrumentation-llama-index",
+    "openinference-instrumentation-crewai",
+    "openinference-instrumentation-dspy",
+    "openinference-instrumentation-haystack",
+    "openinference-instrumentation-autogen",
+    "openinference-instrumentation-openai-agents",
+    "openinference-instrumentation-smolagents",
+    "openinference-instrumentation-pydantic-ai",
+    "openinference-instrumentation-instructor",
+    "openinference-instrumentation-mcp",
+    "opentelemetry-instrumentation-requests",
+    "opentelemetry-instrumentation-httpx",
+]
+examples = ["openai>=1.40.0", "httpx>=0.27.0"]
+dev = ["pytest>=8.0.0"]
+
+[project.scripts]
+localtrace = "localtrace.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["localtrace*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

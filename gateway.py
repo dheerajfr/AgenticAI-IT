@@ -2,6 +2,9 @@ import sys
 import os
 import importlib.util
 
+import localtrace
+localtrace.init(project="agenticai-it")
+
 def load_service(service_name):
     # Clear generic local modules from sys.modules to prevent cross-contamination
     # because different services use the same file names (models.py, database.py, agents, etc.)

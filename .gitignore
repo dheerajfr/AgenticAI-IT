@@ -12,3 +12,4 @@ venv/
 .idea/
 services/demand-intake/orchestration/__pycache__/
 services/demand-intake/orchestration/__pycache__/business_case.cpython-314.pyc
+localtrace_logs/
