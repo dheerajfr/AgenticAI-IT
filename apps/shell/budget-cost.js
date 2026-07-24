@@ -95,6 +95,20 @@ window.fetchBudgetCostData = async function() {
     const res = await fetch(`${BASE_URL}/budget-cost/project/${demandId}`);
     if (res.ok) {
       window.currentBudgetData = await res.json();
+      
+      // Fetch invoices for the project
+      try {
+        const invRes = await fetch(`${BASE_URL}/budget-cost/project/${demandId}/invoices`);
+        if (invRes.ok) {
+          window.currentInvoicesList = await invRes.json();
+        } else {
+          window.currentInvoicesList = [];
+        }
+      } catch (invErr) {
+        console.error("Invoices fetch error", invErr);
+        window.currentInvoicesList = [];
+      }
+      
       window.renderBudgetCostScreen();
     }
   } catch (err) {
@@ -293,6 +307,71 @@ window.renderBudgetCostScreen = function() {
           </div>
         </div>
       </div>
+
+      <!-- Project Invoices -->
+      <div style="margin-top: 2rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem;">
+        <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
+          <span>Project Invoices</span>
+          <button onclick="window.generateInvoices('${demandId}')" class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem; background: linear-gradient(135deg, var(--color-brand), #4f46e5); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600;">
+            Generate Monthly Invoices
+          </button>
+        </h3>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+          Generate monthly billing invoices based on active tasks and scheduled timelines (start to end date) for this project.
+        </p>
+        
+        <div>
+          ${(() => {
+            const invoices = window.currentInvoicesList || [];
+            if (invoices.length > 0) {
+              return `
+                <div style="overflow-x: auto;">
+                  <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                    <thead>
+                      <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted); font-weight: 600;">
+                        <th style="padding: 0.75rem 0.5rem;">Invoice ID</th>
+                        <th style="padding: 0.75rem 0.5rem;">Month</th>
+                        <th style="padding: 0.75rem 0.5rem;">Billing Period</th>
+                        <th style="padding: 0.75rem 0.5rem; text-align: right;">Amount</th>
+                        <th style="padding: 0.75rem 0.5rem; text-align: center;">Status</th>
+                        <th style="padding: 0.75rem 0.5rem; text-align: center;">Details</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${invoices.map(inv => {
+                        const detailsList = inv.details || [];
+                        const detailsStr = detailsList.map(d => `${d.item}: $${d.amount.toLocaleString()}`).join('\\n');
+                        return `
+                          <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text-primary);">
+                            <td style="padding: 0.75rem 0.5rem; font-family: monospace; font-weight: 700; color: var(--color-brand);">${inv.invoice_id}</td>
+                            <td style="padding: 0.75rem 0.5rem; font-weight: 600;">${inv.month}</td>
+                            <td style="padding: 0.75rem 0.5rem; color: var(--text-secondary);">${inv.billing_start} to ${inv.billing_end}</td>
+                            <td style="padding: 0.75rem 0.5rem; text-align: right; font-weight: 700; color: var(--text-primary);">$${inv.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td style="padding: 0.75rem 0.5rem; text-align: center;">
+                              <span style="font-size: 0.75rem; background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 2px 6px; border-radius: 4px; font-weight: 600;">${inv.status}</span>
+                            </td>
+                            <td style="padding: 0.75rem 0.5rem; text-align: center;">
+                              <button onclick="alert('Invoice Line Items:\\n\\n${detailsStr}')" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;">
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        `;
+                      }).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              `;
+            } else {
+              return `
+                <div style="padding: 2rem; text-align: center; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); color: var(--text-muted); font-size: 0.85rem;">
+                  No monthly invoices generated yet for this project.
+                </div>
+              `;
+            }
+          })()}
+        </div>
+      </div>
     </div>` + layoutSuffix;
 };
 
@@ -316,4 +395,21 @@ window.modelROI = async function(demandId) {
     });
     window.fetchBudgetCostData();
   } catch(e) { console.error(e); }
+};
+
+window.generateInvoices = async function(demandId) {
+  try {
+    const res = await fetch(`${BASE_URL}/budget-cost/project/${demandId}/invoices/generate`, {
+      method: 'POST'
+    });
+    if (res.ok) {
+      window.fetchBudgetCostData();
+    } else {
+      const err = await res.json();
+      alert("Error: " + (err.detail || "Failed to generate invoices. Check if project plan is generated."));
+    }
+  } catch(e) {
+    console.error(e);
+    alert("Connection error: " + e.message);
+  }
 };
