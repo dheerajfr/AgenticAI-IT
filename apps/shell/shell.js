@@ -155,46 +155,13 @@ function switchStage(stageId) {
       window.renderTestQualityScreen();
       window.fetchTestQualityData();
     }
-  } else if (stageId === 'risk-issues') {
-    if (window.renderRiskIssuesScreen) {
-      window.renderRiskIssuesScreen();
-      window.fetchRiskIssuesData();
-    }
-  } else if (stageId === 'budget-cost') {
-    if (window.renderBudgetCostScreen) {
-      window.renderBudgetCostScreen();
-      window.fetchBudgetCostData();
-    }
-  } else if (stageId === 'vendor-coordination') {
-    if (window.renderVendorCoordinationScreen) {
-      window.renderVendorCoordinationScreen();
-      window.fetchVendorCoordinationData();
-    }
-  } else if (stageId === 'reporting-communication') {
-    if (window.renderReportingCommunicationScreen) {
-      window.renderReportingCommunicationScreen();
-      window.fetchReportingCommunicationData();
-    }
-  } else if (stageId === 'knowledge-artifacts') {
-    if (window.renderKnowledgeArtifactsScreen) {
-      window.renderKnowledgeArtifactsScreen();
-      window.fetchKnowledgeArtifactsData();
-    }
+  } else if (['always-on', 'risk-issues', 'budget-cost', 'vendor-coordination', 'reporting-communication', 'knowledge-artifacts'].includes(stageId)) {
+    renderAlwaysOnWrapper(stageId === 'always-on' ? 'risk-issues' : stageId);
   } else if (stageId === 'ops-readiness') {
     if (window.renderOpsReadinessScreen) {
       window.renderOpsReadinessScreen();
       window.fetchOpsReadinessData();
     }
-  } else if (stageId === 'budget-cost' && window.renderBudgetCostScreen) {
-    window.renderBudgetCostScreen(viewport, { demandId: selectedDemandId, title: demands.find(d => d.demand_id === selectedDemandId)?.title });
-  } else if (stageId === 'risk-issues' && window.renderRiskIssuesScreen) {
-    window.renderRiskIssuesScreen(viewport, { demandId: selectedDemandId, title: demands.find(d => d.demand_id === selectedDemandId)?.title });
-  } else if (stageId === 'vendor-coordination' && window.renderVendorCoordinationScreen) {
-    window.renderVendorCoordinationScreen(viewport, { demandId: selectedDemandId, title: demands.find(d => d.demand_id === selectedDemandId)?.title });
-  } else if (stageId === 'knowledge-artifacts' && window.renderKnowledgeArtifactsScreen) {
-    window.renderKnowledgeArtifactsScreen(viewport, { demandId: selectedDemandId, title: demands.find(d => d.demand_id === selectedDemandId)?.title });
-  } else if (stageId === 'reporting-communication' && window.renderReportingCommunicationScreen) {
-    window.renderReportingCommunicationScreen(viewport, { demandId: selectedDemandId, title: demands.find(d => d.demand_id === selectedDemandId)?.title });
   } else if (stageId === 'environment-state' && window.renderEnvironmentStateScreen) {
     window.renderEnvironmentStateScreen(viewport, { demandId: selectedDemandId, title: demands.find(d => d.demand_id === selectedDemandId)?.title });
   } else if (stageId === 'exports' && window.renderExportsScreen) {
@@ -207,6 +174,173 @@ function switchStage(stageId) {
 
 // Expose switchStage globally so stage modules can redirect (e.g. HITL accept → Stage 04)
 window.switchStage = switchStage;
+
+function renderAlwaysOnWrapper(activeTab) {
+  const viewport = document.getElementById('viewport');
+  
+  const options = [
+    { id: 'risk-issues', label: 'Risk & Issues', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z' },
+    { id: 'budget-cost', label: 'Budget & Cost', icon: 'M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z' },
+    { id: 'vendor-coordination', label: 'Vendor Coordination', icon: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' },
+    { id: 'reporting-communication', label: 'Reporting & Comms', icon: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' },
+    { id: 'knowledge-artifacts', label: 'Knowledge & Artefacts', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z' }
+  ];
+  
+  const activeOption = options.find(o => o.id === activeTab) || options[0];
+  
+  const navItemsHtml = options.map((item, index) => {
+    const isActive = item.id === activeTab;
+    return `
+      <div class="ao-nav-item ${isActive ? 'active' : ''}" data-id="${item.id}" style="
+        display: flex; align-items: center; gap: 1rem; padding: 0.85rem 1.25rem; margin-bottom: 0.5rem; 
+        border-radius: var(--radius-sm); cursor: pointer; 
+        color: ${isActive ? 'var(--color-brand)' : 'var(--text-secondary)'}; 
+        background: ${isActive ? 'rgba(99, 102, 241, 0.1)' : 'transparent'}; 
+        font-weight: ${isActive ? '600' : '500'}; font-size: 0.95rem; 
+        border-left: 4px solid ${isActive ? 'var(--color-brand)' : 'transparent'}; 
+        box-shadow: ${isActive ? '0 0 10px rgba(99, 102, 241, 0.15)' : 'none'};
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transform-origin: left center;
+        animation: slide-in-item 0.4s ease forwards ${index * 0.05}s;
+        opacity: 0; transform: translateX(-20px);
+      ">
+        <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: currentColor;"><path d="${item.icon}"/></svg>
+        <span>${item.label}</span>
+      </div>
+    `;
+  }).join('');
+
+  viewport.innerHTML = `
+    <style>
+      .ao-drawer-overlay {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px);
+        z-index: 2000; opacity: 0; pointer-events: none;
+        transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .ao-drawer-overlay.open { opacity: 1; pointer-events: auto; }
+      
+      .ao-drawer {
+        position: fixed; top: 0; left: -320px; width: 300px; height: 100vh;
+        background-color: var(--bg-primary); border-right: 1px solid var(--border-color);
+        z-index: 2001; display: flex; flex-direction: column;
+        box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+        transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .ao-drawer.open { left: 0; }
+      
+      .ao-nav-item:hover {
+        transform: scale(1.02);
+        color: var(--text-primary);
+        background: var(--bg-secondary);
+      }
+      .ao-nav-item.active:hover {
+        background: rgba(99, 102, 241, 0.15);
+        color: var(--color-brand);
+      }
+      
+      @keyframes slide-in-item {
+        to { opacity: 1; transform: translateX(0); }
+      }
+      
+      .page-transition-enter {
+        animation: page-fade-up 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      }
+      @keyframes page-fade-up {
+        from { opacity: 0; transform: translateY(15px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    </style>
+    
+    <div style="display: flex; flex-direction: column; height: 100%; width: 100%; overflow: hidden; background: var(--bg-primary);">
+      
+      <!-- Top Navigation Bar -->
+      <div style="padding: 1rem 2rem; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; background: var(--bg-secondary); gap: 1.5rem; z-index: 10;">
+        <button id="ao-menu-btn" style="background: none; border: none; cursor: pointer; color: var(--text-primary); padding: 0.5rem; border-radius: var(--radius-sm); transition: background 0.2s;">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        </button>
+        <div>
+          <h2 style="font-family: var(--font-display); font-size: 1.15rem; margin: 0; color: var(--text-primary);">Always On Workspace</h2>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">
+            Dashboard <span style="margin: 0 0.25rem;">/</span> Always On <span style="margin: 0 0.25rem;">/</span> <span style="color: var(--color-brand); font-weight: 600;">${activeOption.label}</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Module Viewport with Transition -->
+      <div id="ao-content-viewport" class="page-transition-enter" style="flex: 1; overflow-y: auto;">
+        <!-- Module content will be rendered here -->
+      </div>
+    </div>
+    
+    <!-- Slide-in Drawer -->
+    <div id="ao-drawer-overlay" class="ao-drawer-overlay"></div>
+    <div id="ao-drawer" class="ao-drawer">
+      <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">
+        <h2 style="font-family: var(--font-display); font-size: 1.15rem; margin: 0; color: var(--text-primary);">Modules</h2>
+        <button id="ao-close-btn" style="background: none; border: none; cursor: pointer; color: var(--text-secondary); padding: 0.25rem; border-radius: var(--radius-sm);">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 1rem;">
+        ${navItemsHtml}
+      </div>
+    </div>
+  `;
+  
+  const drawer = document.getElementById('ao-drawer');
+  const overlay = document.getElementById('ao-drawer-overlay');
+  
+  function openDrawer() {
+    drawer.classList.add('open');
+    overlay.classList.add('open');
+  }
+  
+  function closeDrawer() {
+    drawer.classList.remove('open');
+    overlay.classList.remove('open');
+  }
+  
+  document.getElementById('ao-menu-btn').addEventListener('click', openDrawer);
+  document.getElementById('ao-close-btn').addEventListener('click', closeDrawer);
+  overlay.addEventListener('click', closeDrawer);
+  
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && drawer.classList.contains('open')) {
+      closeDrawer();
+    }
+  });
+  
+  document.querySelectorAll('.ao-nav-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      const targetId = e.currentTarget.getAttribute('data-id');
+      if (targetId !== activeTab) {
+        closeDrawer();
+        setTimeout(() => {
+          window.switchStage(targetId);
+        }, 300); // Wait for slide out animation
+      } else {
+        closeDrawer();
+      }
+    });
+  });
+  
+  const subViewport = document.getElementById('ao-content-viewport');
+  window.currentModuleTargetContainer = subViewport;
+  const context = { demandId: selectedDemandId, title: demands.find(d => d.demand_id === selectedDemandId)?.title };
+  
+  if (activeTab === 'risk-issues') {
+    if (window.renderRiskIssuesScreen) { window.renderRiskIssuesScreen(subViewport, context); if (window.fetchRiskIssuesData) window.fetchRiskIssuesData(subViewport); }
+  } else if (activeTab === 'budget-cost') {
+    if (window.renderBudgetCostScreen) { window.renderBudgetCostScreen(subViewport, context); if (window.fetchBudgetCostData) window.fetchBudgetCostData(subViewport); }
+  } else if (activeTab === 'vendor-coordination') {
+    if (window.renderVendorCoordinationScreen) { window.renderVendorCoordinationScreen(subViewport, context); if (window.fetchVendorCoordinationData) window.fetchVendorCoordinationData(subViewport); }
+  } else if (activeTab === 'reporting-communication') {
+    if (window.renderReportingCommunicationScreen) { window.renderReportingCommunicationScreen(subViewport, context); if (window.fetchReportingCommunicationData) window.fetchReportingCommunicationData(subViewport); }
+  } else if (activeTab === 'knowledge-artifacts') {
+    if (window.renderKnowledgeArtifactsScreen) { window.renderKnowledgeArtifactsScreen(subViewport, context); if (window.fetchKnowledgeArtifactsData) window.fetchKnowledgeArtifactsData(subViewport); }
+  }
+}
 
 // Render the Stage 01 Demand & Intake viewport layout
 function renderIntakeScreen() {
