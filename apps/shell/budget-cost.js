@@ -123,7 +123,7 @@ window.renderBudgetCostScreen = function(targetContainer) {
         </div>
 
         <!-- Tab content -->
-        <div id="bc-tab-content" style="flex:1;overflow-y:auto;padding:1.5rem;background:var(--bg-secondary);"></div>
+        <div id="bc-tab-content" style="flex:1;padding:1.5rem;background:var(--bg-secondary);"></div>
 
         <!-- Footer nav -->
         <div style="padding:1rem 1.5rem;border-top:1px solid var(--border-color);background:var(--bg-primary);display:flex;justify-content:flex-end;border-radius: 0 0 var(--radius-md) var(--radius-md);">
