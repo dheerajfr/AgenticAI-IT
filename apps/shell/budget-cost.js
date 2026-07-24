@@ -31,17 +31,10 @@ window.fetchBudgetCostData = async function() {
   window.renderBudgetCostScreen();
 };
 
-<<<<<<< HEAD
 // ── Main render ───────────────────────────────────────────────────────────────
-window.renderBudgetCostScreen = function() {
-=======
 window.renderBudgetCostScreen = function(targetContainer) {
->>>>>>> Nagaraju
   const demandId = sessionStorage.getItem('selectedDemandId');
   const demands  = window.allDemandsList || [];
-
-  const viewport = document.getElementById('viewport');
-  viewport.style.cssText = 'overflow:hidden;display:flex;flex-direction:column;padding:0;height:100%;';
 
   const tabs = [
     { id: 'burn',    icon: '🔥', label: 'Burn & Forecast' },
