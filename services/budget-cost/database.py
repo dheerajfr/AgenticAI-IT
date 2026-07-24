@@ -1,14 +1,18 @@
 import sqlite3
 import json
 import os
+import sys
 import uuid
 from pathlib import Path
 from typing import List, Optional, Dict
 
-DB_PATH = Path(__file__).parent / "budget_cost.db"
+_ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(_ROOT_DIR) not in sys.path:
+    sys.path.append(str(_ROOT_DIR))
+from shared_db.connection import get_db
 
 def _get_conn():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -21,6 +25,18 @@ def init_db():
                 cost_estimation TEXT,
                 variances TEXT,
                 roi_model TEXT
+            )
+        ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS invoices (
+                invoice_id TEXT PRIMARY KEY,
+                demand_id TEXT,
+                month TEXT,
+                amount REAL,
+                status TEXT,
+                billing_start TEXT,
+                billing_end TEXT,
+                details TEXT
             )
         ''')
         conn.execute('''
@@ -75,6 +91,40 @@ init_db()
 # ── Existing budget_records CRUD ──────────────────────────────────────────────
 
 class DB:
+    @staticmethod
+    def get_invoices(demand_id: str) -> List[Dict]:
+        with _get_conn() as conn:
+            rows = conn.execute("SELECT * FROM invoices WHERE demand_id = ? ORDER BY month ASC", (demand_id,)).fetchall()
+            res = []
+            for row in rows:
+                d = dict(row)
+                d['details'] = json.loads(d['details']) if d['details'] else []
+                res.append(d)
+            return res
+
+    @staticmethod
+    def save_invoice(invoice: Dict):
+        with _get_conn() as conn:
+            details_str = json.dumps(invoice.get('details', []))
+            conn.execute('''
+                INSERT INTO invoices (invoice_id, demand_id, month, amount, status, billing_start, billing_end, details)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(invoice_id) DO UPDATE SET
+                    amount=excluded.amount,
+                    status=excluded.status,
+                    details=excluded.details
+            ''', (
+                invoice.get('invoice_id'),
+                invoice.get('demand_id'),
+                invoice.get('month'),
+                invoice.get('amount'),
+                invoice.get('status'),
+                invoice.get('billing_start'),
+                invoice.get('billing_end'),
+                details_str
+            ))
+            conn.commit()
+
     @staticmethod
     def get_by_demand(demand_id: str) -> Optional[Dict]:
         with _get_conn() as conn:
