@@ -167,6 +167,12 @@ window.renderOpsReadinessScreen = function () {
             </li>
           </ul>
         </div>
+        <div style="margin-top: auto; padding-top: 0.5rem;">
+          <button class="ops-btn" style="width: 100%; background: linear-gradient(135deg, #10b981, #059669); font-weight: 700; display: flex; justify-content: space-between; align-items: center;" onclick="window.switchStage('always-on')">
+            <span>Proceed to Always On</span>
+            <span>&rarr;</span>
+          </button>
+        </div>
       </aside>
 
       <!-- Right Panel: Tabs and details view -->
@@ -1331,8 +1337,11 @@ function renderReadinessValidation() {
             <button class="ops-btn" id="ops-signoff-btn">Sign-off &amp; Approve Release</button>
           </div>
         ` : `
-          <div style="border-top:1px solid var(--border-color); padding-top: 1rem; margin-top:1.5rem; font-size: 0.85rem; color: var(--color-status-green-text); font-weight: bold; text-align: right;">
-            ✓ Ops Readiness fully signed off by ${val.sign_off_by}. Production deployment precondition verified.
+          <div style="border-top:1px solid var(--border-color); padding-top: 1rem; margin-top:1.5rem; display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 0.85rem; color: var(--color-status-green-text); font-weight: bold;">
+              ✓ Ops Readiness fully signed off by ${val.sign_off_by}. Production deployment precondition verified.
+            </div>
+            <button class="ops-btn" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: 700;" onclick="window.switchStage('always-on')">Proceed to Always On 🚀</button>
           </div>
         `}
       </div>
@@ -1470,7 +1479,7 @@ async function submitSignOffValidation() {
     await selectOpsDemand(opsSelectedDemandId);
     alert('Operations Readiness has been approved and signed off. Stage 6 Deployment Precondition updated.');
     if (window.switchStage) {
-      window.switchStage('dashboard');
+      window.switchStage('always-on');
     }
   } catch (err) {
     console.error(err);

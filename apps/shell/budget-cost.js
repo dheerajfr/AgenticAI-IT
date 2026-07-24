@@ -13,8 +13,12 @@ window.fetchBudgetCostData = async function() {
   window.renderBudgetCostScreen();
 };
 
+<<<<<<< HEAD
 // ── Main render ───────────────────────────────────────────────────────────────
 window.renderBudgetCostScreen = function() {
+=======
+window.renderBudgetCostScreen = function(targetContainer) {
+>>>>>>> Nagaraju
   const demandId = sessionStorage.getItem('selectedDemandId');
   const demands  = window.allDemandsList || [];
 
@@ -43,6 +47,7 @@ window.renderBudgetCostScreen = function() {
     </select>
   `;
 
+<<<<<<< HEAD
   viewport.innerHTML = `
     <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--bg-primary);">
       <!-- Header + tabs -->
@@ -56,6 +61,51 @@ window.renderBudgetCostScreen = function() {
             ${dropdownHtml}
           </div>
           <status-pill status="${demandId ? 'Monitoring' : 'Idle'}"></status-pill>
+=======
+  const viewport = targetContainer || window.currentModuleTargetContainer || document.getElementById('viewport');
+  const _origOverflow = viewport.style.overflow;
+  const _origOverflowY = viewport.style.overflowY;
+  const _origDisplay = viewport.style.display;
+  const _origFlexDir = viewport.style.flexDirection;
+  const _origPadding = viewport.style.padding;
+
+  viewport.style.overflow = 'hidden';
+  viewport.style.overflowY = 'hidden';
+  viewport.style.display = 'flex';
+  viewport.style.flexDirection = 'column';
+  viewport.style.padding = '0';
+
+  const _observer = new MutationObserver(() => {
+    if (!document.getElementById('budget-panel-container')) {
+      viewport.style.overflow = _origOverflow;
+      viewport.style.overflowY = _origOverflowY;
+      viewport.style.display = _origDisplay;
+      viewport.style.flexDirection = _origFlexDir;
+      viewport.style.padding = _origPadding;
+      _observer.disconnect();
+    }
+  });
+  _observer.observe(viewport, { childList: true, subtree: false });
+
+  let sidebarItemsHtml = '<li style="padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">No demands found.</li>';
+  if (demands && demands.length > 0) {
+    sidebarItemsHtml = demands.map(d => {
+      const isActive = d.demand_id === demandId;
+      return `
+        <li class="demand-item ${isActive ? 'active' : ''}" onclick="sessionStorage.setItem('selectedDemandId', '${d.demand_id}'); window.fetchBudgetCostData();" style="cursor: pointer; padding: 0.75rem 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.05); border-left: ${isActive ? '3px solid var(--color-brand)' : '3px solid transparent'}; background: ${isActive ? 'rgba(99,102,241,0.1)' : 'transparent'};">
+          <div style="font-family: monospace; font-weight: 700; color: var(--color-brand); font-size: 0.78rem;">${d.demand_id}</div>
+          <h4 style="margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); line-height: 1.3;">${d.title || 'Untitled Demand'}</h4>
+        </li>
+      `;
+    }).join('');
+  }
+
+  const layoutPrefix = `
+    <div class="intake-screen" style="padding: 1rem; height: 100%; box-sizing: border-box;">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h3 class="sidebar-title">Budget & Cost</h3>
+>>>>>>> Nagaraju
         </div>
         <div style="display:flex;gap:0.35rem;padding-bottom:0.75rem;">${tabBar}</div>
       </div>

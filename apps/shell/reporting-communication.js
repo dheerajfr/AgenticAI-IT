@@ -78,7 +78,27 @@ window.fetchReportingCommunicationData = async function() {
 
 
   if (!demandId) {
-    viewport.innerHTML = layoutPrefix + `
+    
+  const activeTab = window.reportingActiveTab || 'summary';
+  
+  const tabBar = `
+    <div style="display: flex; gap: 1rem; border-bottom: 1px solid var(--border-color); margin-bottom: 2rem;">
+      <button onclick="window.reportingActiveTab = 'summary'; window.renderReportingCommunicationScreen();" 
+              style="background: none; border: none; padding: 0.75rem 1rem; cursor: pointer; font-family: var(--font-sans); font-weight: 600; font-size: 0.9rem; color: ${activeTab === 'summary' ? 'var(--color-brand)' : 'var(--text-muted)'}; border-bottom: ${activeTab === 'summary' ? '2px solid var(--color-brand)' : '2px solid transparent'}; transition: all 0.2s ease;">
+        Exec Summary & Rollup
+      </button>
+      <button onclick="window.reportingActiveTab = 'comms'; window.renderReportingCommunicationScreen();" 
+              style="background: none; border: none; padding: 0.75rem 1rem; cursor: pointer; font-family: var(--font-sans); font-weight: 600; font-size: 0.9rem; color: ${activeTab === 'comms' ? 'var(--color-brand)' : 'var(--text-muted)'}; border-bottom: ${activeTab === 'comms' ? '2px solid var(--color-brand)' : '2px solid transparent'}; transition: all 0.2s ease;">
+        Comm Drafting
+      </button>
+      <button onclick="window.reportingActiveTab = 'history'; window.renderReportingCommunicationScreen();" 
+              style="background: none; border: none; padding: 0.75rem 1rem; cursor: pointer; font-family: var(--font-sans); font-weight: 600; font-size: 0.9rem; color: ${activeTab === 'history' ? 'var(--color-brand)' : 'var(--text-muted)'}; border-bottom: ${activeTab === 'history' ? '2px solid var(--color-brand)' : '2px solid transparent'}; transition: all 0.2s ease;">
+        Past Reports
+      </button>
+    </div>
+  `;
+  
+  viewport.innerHTML = layoutPrefix + `
       <div style="padding: 2rem; max-width: 1200px; margin: 0 auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
           <h2 style="margin: 0; font-family: var(--font-display); color: var(--text-primary);">Module Selector</h2>
@@ -102,7 +122,7 @@ window.fetchReportingCommunicationData = async function() {
   }
 };
 
-window.renderReportingCommunicationScreen = function() {
+window.renderReportingCommunicationScreen = function(targetContainer) {
   const demandId = sessionStorage.getItem('selectedDemandId');
   const demands = window.allDemandsList || [];
   const optionsHtml = demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === demandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
@@ -113,7 +133,7 @@ window.renderReportingCommunicationScreen = function() {
     </select>
   `;
 
-  const viewport = document.getElementById('viewport');
+  const viewport = targetContainer || window.currentModuleTargetContainer || document.getElementById('viewport');
   const _origOverflow = viewport.style.overflow;
   const _origOverflowY = viewport.style.overflowY;
   const _origDisplay = viewport.style.display;
@@ -175,7 +195,27 @@ window.renderReportingCommunicationScreen = function() {
   `;
 
   if (!demandId) {
-    viewport.innerHTML = layoutPrefix + `
+    
+  const activeTab = window.reportingActiveTab || 'summary';
+  
+  const tabBar = `
+    <div style="display: flex; gap: 1rem; border-bottom: 1px solid var(--border-color); margin-bottom: 2rem;">
+      <button onclick="window.reportingActiveTab = 'summary'; window.renderReportingCommunicationScreen();" 
+              style="background: none; border: none; padding: 0.75rem 1rem; cursor: pointer; font-family: var(--font-sans); font-weight: 600; font-size: 0.9rem; color: ${activeTab === 'summary' ? 'var(--color-brand)' : 'var(--text-muted)'}; border-bottom: ${activeTab === 'summary' ? '2px solid var(--color-brand)' : '2px solid transparent'}; transition: all 0.2s ease;">
+        Exec Summary & Rollup
+      </button>
+      <button onclick="window.reportingActiveTab = 'comms'; window.renderReportingCommunicationScreen();" 
+              style="background: none; border: none; padding: 0.75rem 1rem; cursor: pointer; font-family: var(--font-sans); font-weight: 600; font-size: 0.9rem; color: ${activeTab === 'comms' ? 'var(--color-brand)' : 'var(--text-muted)'}; border-bottom: ${activeTab === 'comms' ? '2px solid var(--color-brand)' : '2px solid transparent'}; transition: all 0.2s ease;">
+        Comm Drafting
+      </button>
+      <button onclick="window.reportingActiveTab = 'history'; window.renderReportingCommunicationScreen();" 
+              style="background: none; border: none; padding: 0.75rem 1rem; cursor: pointer; font-family: var(--font-sans); font-weight: 600; font-size: 0.9rem; color: ${activeTab === 'history' ? 'var(--color-brand)' : 'var(--text-muted)'}; border-bottom: ${activeTab === 'history' ? '2px solid var(--color-brand)' : '2px solid transparent'}; transition: all 0.2s ease;">
+        Past Reports
+      </button>
+    </div>
+  `;
+  
+  viewport.innerHTML = layoutPrefix + `
       <div style="padding: 2rem; max-width: 1200px; margin: 0 auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
           <h2 style="margin: 0; font-family: var(--font-display); color: var(--text-primary);">Module Selector</h2>
@@ -190,7 +230,42 @@ window.renderReportingCommunicationScreen = function() {
   
   const data = window.currentReportingData || {};
   const summary = data.exec_summary || null;
-  const comms = data.communications || [];
+  let comms = data.communications || [];
+  
+  // Backwards compatibility: if there's an old summary that isn't in comms, add it
+  if (summary && !comms.find(c => c.content === summary.content)) {
+    comms.unshift({
+      type: summary.type || "Exec_Summary_" + summary.audience,
+      status: summary.status || "generated",
+      content: summary.content,
+      audience: summary.audience
+    });
+  }
+
+  // Find the latest communication draft (excluding Exec Summaries) for the Comm tab
+  const commDrafts = comms.filter(c => !c.type.startsWith('Exec_Summary'));
+  const latestComm = commDrafts.length > 0 ? commDrafts[commDrafts.length - 1] : null;
+  const latestCommIdx = latestComm ? comms.lastIndexOf(latestComm) : -1;
+  
+  
+  const activeTab = window.reportingActiveTab || 'summary';
+  
+  const tabBar = `
+    <div style="display: flex; gap: 1rem; border-bottom: 1px solid var(--border-color); margin-bottom: 2rem;">
+      <button onclick="window.reportingActiveTab = 'summary'; window.renderReportingCommunicationScreen();" 
+              style="background: none; border: none; padding: 0.75rem 1rem; cursor: pointer; font-family: var(--font-sans); font-weight: 600; font-size: 0.9rem; color: ${activeTab === 'summary' ? 'var(--color-brand)' : 'var(--text-muted)'}; border-bottom: ${activeTab === 'summary' ? '2px solid var(--color-brand)' : '2px solid transparent'}; transition: all 0.2s ease;">
+        Exec Summary & Rollup
+      </button>
+      <button onclick="window.reportingActiveTab = 'comms'; window.renderReportingCommunicationScreen();" 
+              style="background: none; border: none; padding: 0.75rem 1rem; cursor: pointer; font-family: var(--font-sans); font-weight: 600; font-size: 0.9rem; color: ${activeTab === 'comms' ? 'var(--color-brand)' : 'var(--text-muted)'}; border-bottom: ${activeTab === 'comms' ? '2px solid var(--color-brand)' : '2px solid transparent'}; transition: all 0.2s ease;">
+        Comm Drafting
+      </button>
+      <button onclick="window.reportingActiveTab = 'history'; window.renderReportingCommunicationScreen();" 
+              style="background: none; border: none; padding: 0.75rem 1rem; cursor: pointer; font-family: var(--font-sans); font-weight: 600; font-size: 0.9rem; color: ${activeTab === 'history' ? 'var(--color-brand)' : 'var(--text-muted)'}; border-bottom: ${activeTab === 'history' ? '2px solid var(--color-brand)' : '2px solid transparent'}; transition: all 0.2s ease;">
+        Past Reports
+      </button>
+    </div>
+  `;
   
   viewport.innerHTML = layoutPrefix + `
     <div style="padding: 2rem; max-width: 1200px; margin: 0 auto; animation: fade-in 0.3s ease;">
@@ -205,10 +280,11 @@ window.renderReportingCommunicationScreen = function() {
         </div>
       </div>
       
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+      ${tabBar}
+      <div>
         
         <!-- Exec Summary -->
-        <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem;">
+        <div style="display: ${activeTab === 'summary' ? 'block' : 'none'}; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; animation: fade-in 0.3s ease;">
           <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
             <span>Exec Summary & Rollup</span>
             <span style="font-size: 0.75rem; background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 2px 6px; border-radius: 4px;">Human Directs</span>
@@ -227,19 +303,24 @@ window.renderReportingCommunicationScreen = function() {
           </div>
           
           ${summary ? `
-            <div style="padding: 1rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
-              <div style="font-size: 0.75rem; font-weight: 700; color: var(--color-brand); margin-bottom: 0.5rem; text-transform: uppercase;">Audience: ${summary.audience}</div>
-              <div style="font-size: 0.85rem; color: var(--text-primary); white-space: pre-wrap;">${summary.content}</div>
+            <div id="summary-content" style="padding: 1rem; background: var(--bg-primary); border: 1px solid var(--color-brand); border-radius: var(--radius-sm); position: relative; overflow: hidden; margin-top: 1.5rem;">
+              <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--color-brand);"></div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; margin-top: 0.5rem;">
+                <div style="font-size: 0.75rem; font-weight: 700; color: var(--color-brand); text-transform: uppercase;">Latest Summary: ${summary.audience}</div>
+                <div style="font-size: 0.75rem; padding: 2px 6px; border-radius: 12px; background: rgba(99,102,241,0.1); color: var(--color-brand); font-weight: 700;">Generated</div>
+              </div>
+              <div style="font-size: 0.85rem; color: var(--text-primary); white-space: pre-wrap; margin-bottom: 1rem; padding: 0.5rem; background: rgba(0,0,0,0.02); border-radius: 4px;">${summary.content}</div>
+              <button onclick="window.exportSummaryPdf('${demandId}')" class="btn-primary" style="width: 100%; padding: 0.4rem; font-size: 0.75rem;">Download Document</button>
             </div>
           ` : `
-            <div style="padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--border-color); border-radius: var(--radius-sm);">
-              No summary generated yet.
+            <div style="padding: 2rem; margin-top: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--border-color); border-radius: var(--radius-sm);">
+              Select an audience and click Generate Report above.
             </div>
           `}
         </div>
 
         <!-- Communications -->
-        <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem;">
+        <div style="display: ${activeTab === 'comms' ? 'block' : 'none'}; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; animation: fade-in 0.3s ease;">
           <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
             <span>Comm Drafting</span>
             <span style="font-size: 0.75rem; background: rgba(245, 158, 11, 0.1); color: var(--color-status-amber-text); padding: 2px 6px; border-radius: 4px;">Human Approves</span>
@@ -257,19 +338,55 @@ window.renderReportingCommunicationScreen = function() {
             <button onclick="draftComm('${demandId}')" class="btn-secondary" style="padding: 0.4rem 1rem; font-size: 0.85rem;">Draft Comm</button>
           </div>
           
-          <div style="display: flex; flex-direction: column; gap: 1rem; max-height: 400px; overflow-y: auto;">
-            ${comms.map(c => `
-              <div style="padding: 1rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                  <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">${c.type.replace('_', ' ')}</div>
-                  <div style="font-size: 0.75rem; padding: 2px 6px; border-radius: 12px; background: rgba(99,102,241,0.1); color: var(--color-brand); font-weight: 700;">${c.status}</div>
+          
+          <!-- Show only the LATEST draft in the Comm Drafting tab -->
+          <div style="display: flex; flex-direction: column; gap: 1.5rem; height: auto;">
+            ${latestComm ? `
+              <div style="padding: 1rem; background: var(--bg-primary); border: 1px solid var(--color-brand); border-radius: var(--radius-sm); position: relative; overflow: hidden;">
+                <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--color-brand);"></div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; margin-top: 0.5rem;">
+                  <div style="font-size: 0.75rem; font-weight: 700; color: var(--color-brand); text-transform: uppercase;">Latest Draft: ${latestComm.type.replace(/_/g, ' ')}</div>
+                  <div style="font-size: 0.75rem; padding: 2px 6px; border-radius: 12px; background: rgba(99,102,241,0.1); color: var(--color-brand); font-weight: 700;">${latestComm.status}</div>
                 </div>
-                <div style="font-size: 0.85rem; color: var(--text-primary); white-space: pre-wrap; margin-bottom: 1rem; padding: 0.5rem; background: rgba(0,0,0,0.02); border-radius: 4px;">${c.content}</div>
-                ${c.status === 'draft' ? `<button class="btn-primary" style="width: 100%; padding: 0.4rem; font-size: 0.75rem;">Approve & Send</button>` : ''}
+                <div style="font-size: 0.85rem; color: var(--text-primary); white-space: pre-wrap; margin-bottom: 1rem; padding: 0.5rem; background: rgba(0,0,0,0.02); border-radius: 4px;">${latestComm.content}</div>
+                <button onclick="window.exportCommPdf('${demandId}', ${latestCommIdx})" class="btn-primary" style="width: 100%; padding: 0.4rem; font-size: 0.75rem;">Download Document</button>
               </div>
-            `).join('')}
-            ${comms.length === 0 ? '<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center;">No communications drafted.</div>' : ''}
+            ` : '<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 2rem; border: 1px dashed var(--border-color); border-radius: 4px;">Select a report type and click Draft Comm above.</div>'}
           </div>
+        </div>
+        
+        <!-- Past Reports (History) -->
+        <div style="display: ${activeTab === 'history' ? 'block' : 'none'}; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; animation: fade-in 0.3s ease;">
+          <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
+            <span>Past Reports & Communications</span>
+          </h3>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+            A historical archive of all generated reports and drafts for this project.
+          </p>
+          
+          <div style="display: flex; flex-direction: column; gap: 1.5rem; height: auto;">
+            ${comms.length > 0 ? [...comms].reverse().map((c, revIdx) => {
+              const idx = comms.length - 1 - revIdx; // Real index for export
+              return `
+              <div style="padding: 1.25rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                  <div>
+                    <div style="font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.4rem;">${c.type.replace(/_/g, ' ')}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+                      <span style="color: var(--text-muted);">Sent By:</span> <strong>Project Manager</strong><br>
+                      <span style="color: var(--text-muted);">Audience:</span> <strong>${c.audience || 'Project Stakeholders'}</strong>
+                    </div>
+                  </div>
+                  <div style="font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; background: rgba(99,102,241,0.1); color: var(--color-brand); font-weight: 700; text-transform: capitalize;">${c.status}</div>
+                </div>
+                <button onclick="window.exportCommPdf('${demandId}', ${idx})" class="btn-secondary" style="width: 100%; padding: 0.6rem; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+                  <span style="margin-right: 6px;">&#8595;</span> Download Document
+                </button>
+              </div>
+              `;
+            }).join('') : '<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 2rem; border: 1px dashed var(--border-color); border-radius: 4px;">No historical reports available.</div>'}
+          </div>
+
         </div>
       </div>
     </div>` + layoutSuffix;
@@ -297,4 +414,85 @@ window.draftComm = async function(demandId) {
     });
     window.fetchReportingCommunicationData();
   } catch(e) { console.error(e); }
+};
+
+
+
+
+window.exportProfessionalPdf = function(title, subtitle, content, filename) {
+  // Convert filename to .html to ensure native viewing
+  const docFilename = filename.replace('.pdf', '.html');
+  
+  const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #333; max-width: 800px; margin: 0 auto; line-height: 1.6; background: #fff; }
+    .header { border-bottom: 2px solid #0052cc; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .title { margin: 0; font-size: 28px; color: #0052cc; }
+    .subtitle { margin: 5px 0 0 0; font-size: 16px; color: #666; font-weight: normal; }
+    .meta { text-align: right; color: #999; font-size: 12px; }
+    .content { font-size: 14px; white-space: pre-wrap; color: #222; }
+    .footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 0.05em; }
+    @media print {
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1 class="title">${title}</h1>
+      <h3 class="subtitle">${subtitle}</h3>
+    </div>
+    <div class="meta">
+      Generated: ${new Date().toLocaleDateString()}<br>
+      AgenticAI Delivery System
+    </div>
+  </div>
+  <div class="content">${content}</div>
+  <div class="footer">CONFIDENTIAL - Internal Use Only</div>
+</body>
+</html>`;
+
+  // Use a Blob to trigger an instant native download with ZERO dependencies
+  const blob = new Blob([htmlContent], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = docFilename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+};
+
+window.exportSummaryPdf = function(demandId) {
+  const data = window.currentReportingData || {};
+  if (!data.exec_summary) return;
+  window.exportProfessionalPdf('Executive Summary', `Audience: ${data.exec_summary.audience}`, data.exec_summary.content, `Executive_Summary_${demandId}.pdf`);
+};
+
+window.exportCommPdf = function(demandId, index) {
+  const data = window.currentReportingData || {};
+  let comms = data.communications || [];
+  
+  // Re-apply backwards compatibility array merge so indices match
+  const summary = data.exec_summary || null;
+  if (summary && !comms.find(x => x.content === summary.content)) {
+    comms = [{
+      type: summary.type || "Exec_Summary_" + summary.audience,
+      status: summary.status || "generated",
+      content: summary.content,
+      audience: summary.audience
+    }, ...comms];
+  }
+
+  const c = comms[index];
+  if (!c) return;
+  
+  const title = c.type.replace(/_/g, ' ');
+  window.exportProfessionalPdf(title, `Project: ${demandId}`, c.content, `${c.type}_${demandId}.pdf`);
 };
