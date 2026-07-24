@@ -276,6 +276,31 @@ def generate_project_billing_invoices(demand_id: str):
 
 # ── Burn & Forecast Endpoints ──────────────────────────────────────────────────
 
+def _get_auto_populated_months(demand_id: str) -> list:
+    invoices = db.get_invoices(demand_id)
+    if not invoices:
+        return []
+        
+    monthly_totals = {}
+    for inv in invoices:
+        month = inv.get("month")
+        amt = inv.get("amount", 0.0)
+        if month:
+            monthly_totals[month] = monthly_totals.get(month, 0.0) + amt
+            
+    # Sort months chronologically
+    sorted_months = sorted(monthly_totals.keys())
+    
+    actuals = []
+    for month in sorted_months:
+        actuals.append({
+            "date": month,
+            "amount": monthly_totals[month],
+            "category": "actual"
+        })
+        
+    return actuals
+
 @app.get("/api/budget-cost/burn/{demand_id}")
 def get_burn(demand_id: str):
     data = burn_db.get(demand_id)
