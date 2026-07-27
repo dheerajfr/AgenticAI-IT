@@ -17,7 +17,7 @@ from models import (
     InvoiceMatchRequest, InvoiceApproveRequest,
     CapexOpexRequest, CapexOpexSignOffRequest
 )
-from database import db, burn_db, invoice_db, capex_db
+from database import db, burn_db, invoice_db, capex_db, delete_demand_data
 from llm_client import call_gemini
 
 app = FastAPI(title="Budget & Cost Service")
@@ -79,27 +79,7 @@ def _seed_burn_data(demand_id: str) -> dict:
     }
 
 def _seed_invoices(demand_id: str) -> list:
-    vendors = ["Infosys Ltd", "TechMahindra", "Wipro Digital", "Cognizant"]
-    invoices = []
-    for i in range(3):
-        amount = round(random.uniform(8000, 45000), 2)
-        discrepancy = random.choice([True, False, False])
-        invoices.append({
-            "id": f"INV-{uuid.uuid4().hex[:8]}",
-            "demand_id": demand_id,
-            "invoice_id": f"INV-{demand_id.split('-')[-1]}-{i+1:02d}",
-            "invoice_amount": amount,
-            "po_reference": f"PO-{demand_id.split('-')[-1]}-{i+1:02d}",
-            "sow_reference": f"SOW-{demand_id.split('-')[-1]}",
-            "delivered_items": ["API integration module", "Unit test suite", "Deployment runbook"],
-            "match_status": "discrepancy" if discrepancy else "matched",
-            "discrepancies": [{"item": "UI component", "detail": "Claimed in invoice but not in PM tool"}] if discrepancy else [],
-            "ai_analysis": "",
-            "decision": "",
-            "decision_note": "",
-            "created_at": (datetime.utcnow() - timedelta(days=random.randint(1, 30))).isoformat()
-        })
-    return invoices
+    return []
 
 def _seed_capex(demand_id: str) -> list:
     items_data = [
@@ -135,6 +115,11 @@ def _seed_capex(demand_id: str) -> list:
 @app.get("/api/budget-cost/project/{demand_id}")
 def get_budget_cost(demand_id: str):
     return _get_or_create(demand_id)
+
+@app.delete("/api/budget-cost/project/{demand_id}")
+def delete_budget_cost(demand_id: str):
+    delete_demand_data(demand_id)
+    return {"status": "success", "message": f"All budget data for {demand_id} deleted."}
 
 @app.post("/api/budget-cost/estimate")
 def forecast_costs(req: BudgetRequest):
@@ -277,18 +262,59 @@ def generate_project_billing_invoices(demand_id: str):
 # ── Burn & Forecast Endpoints ──────────────────────────────────────────────────
 
 def _get_auto_populated_months(demand_id: str) -> list:
-    invoices = db.get_invoices(demand_id)
+    # Look at invoice_matches
+    invoices = invoice_db.get_all(demand_id)
     if not invoices:
         return []
         
     monthly_totals = {}
-    for inv in invoices:
-        month = inv.get("month")
-        amt = inv.get("amount", 0.0)
-        if month:
+    
+    # We will need the plan to assign months if they don't have dates.
+    # But wait, generated samples might not have explicit months.
+    # Let's map them chronologically.
+    with get_db() as conn:
+        row = conn.execute("SELECT data FROM plans WHERE demand_id = ?", (demand_id,)).fetchone()
+        
+    plan_months = []
+    if row:
+        plan_data = json.loads(row[0])
+        tasks = plan_data.get("tasks", [])
+        if tasks:
+            start_dates = [t.get("start_date") for t in tasks if t.get("start_date")]
+            end_dates = [t.get("end_date") for t in tasks if t.get("end_date")]
+            if start_dates and end_dates:
+                start_date = datetime.strptime(min(start_dates), "%Y-%m-%d").date()
+                end_date = datetime.strptime(max(end_dates), "%Y-%m-%d").date()
+                curr_year = start_date.year
+                curr_month = start_date.month
+                while True:
+                    plan_months.append(f"{curr_year}-{curr_month:02d}")
+                    if curr_year == end_date.year and curr_month == end_date.month:
+                        break
+                    curr_month += 1
+                    if curr_month > 12:
+                        curr_month = 1
+                        curr_year += 1
+                        
+    # Try to extract month from invoice_id (e.g., INV-...-2026-07) or just distribute them sequentially
+    for i, inv in enumerate(invoices):
+        # Default to chronological distribution across plan months if available
+        month = plan_months[i % len(plan_months)] if plan_months else f"2026-{i+1:02d}"
+        
+        # If the invoice has a month embedded in it, we could parse it, but for simplicity
+        # we will assume the sample generator suffixes the invoice_id with -YYYY-MM
+        parts = inv.get("invoice_id", "").split("-")
+        if len(parts) >= 3 and len(parts[-2]) == 4 and len(parts[-1]) == 2:
+            month = f"{parts[-2]}-{parts[-1]}"
+
+        amt = inv.get("invoice_amount", 0.0)
+        
+        # Only sum up matched or approved invoices
+        status = inv.get("match_status", "")
+        decision = inv.get("decision", "")
+        if status == "matched" or decision == "approve":
             monthly_totals[month] = monthly_totals.get(month, 0.0) + amt
-            
-    # Sort months chronologically
+
     sorted_months = sorted(monthly_totals.keys())
     
     actuals = []
@@ -304,17 +330,25 @@ def _get_auto_populated_months(demand_id: str) -> list:
 @app.get("/api/budget-cost/burn/{demand_id}")
 def get_burn(demand_id: str):
     data = burn_db.get(demand_id)
+    
+    # Check if all invoices are matched/approved to auto-populate
+    invoices = invoice_db.get_all(demand_id)
+    all_matched = False
+    if invoices:
+        all_matched = all((inv.get("match_status") == "matched" or inv.get("decision") != "") for inv in invoices)
+        
     if not data:
         data = {
-            "actuals": _get_auto_populated_months(demand_id),
+            "actuals": _get_auto_populated_months(demand_id) if all_matched else [],
             "forecast": [],
             "variance_pct": 0,
             "narrative": "",
             "committed": False
         }
         burn_db.upsert(demand_id, data)
-    elif len(data.get("actuals", [])) == 0:
+    elif all_matched and len(data.get("actuals", [])) == 0:
         data["actuals"] = _get_auto_populated_months(demand_id)
+        burn_db.upsert(demand_id, data)
         
     return data
 
@@ -441,16 +475,191 @@ def match_invoice(req: InvoiceMatchRequest):
     invoice_db.save(record)
     return {"status": "success", "invoice": record}
 
+@app.post("/api/budget-cost/invoices/{demand_id}/generate-samples")
+def generate_sample_invoices(demand_id: str):
+    import sqlite3 as _sqlite3
+
+    # ── 1. Load demand context ─────────────────────────────────────────────────
+    with get_db() as conn:
+        dem_row   = conn.execute("SELECT data FROM demands   WHERE demand_id = ?", (demand_id,)).fetchone()
+        est_row   = conn.execute("SELECT data FROM estimates WHERE demand_id = ?", (demand_id,)).fetchone()
+        plan_row  = conn.execute("SELECT data FROM plans     WHERE demand_id = ?", (demand_id,)).fetchone()
+
+    if not plan_row:
+        raise HTTPException(status_code=404,
+            detail="No plan found for this project. Please generate a plan in Plan & Schedule first.")
+
+    demand_data  = json.loads(dem_row[0])  if dem_row  else {}
+    estimate_data = json.loads(est_row[0]) if est_row  else {}
+    plan_data    = json.loads(plan_row[0])
+
+    project_title = demand_data.get("title", demand_id)
+    domain        = demand_data.get("domain", "Technology")
+    submitted_by  = demand_data.get("submitted_by", "system")
+
+    total_cost      = estimate_data.get("cost_estimate", 0)
+    effort_days     = estimate_data.get("effort_days", 0)
+    duration_weeks  = estimate_data.get("duration_weeks", 0)
+    risk_factors    = estimate_data.get("risk_factors", [])
+
+    tasks = plan_data.get("tasks", [])
+    if not tasks:
+        raise HTTPException(status_code=404, detail="No tasks found in plan.")
+
+    # ── 2. Gather overall dates ────────────────────────────────────────────────
+    start_dates = [t.get("start_date") for t in tasks if t.get("start_date")]
+    end_dates   = [t.get("end_date")   for t in tasks if t.get("end_date")]
+    if not start_dates or not end_dates:
+        raise HTTPException(status_code=400, detail="Missing dates in plan tasks.")
+
+    proj_start = datetime.strptime(min(start_dates), "%Y-%m-%d").date()
+    proj_end   = datetime.strptime(max(end_dates),   "%Y-%m-%d").date()
+    total_days = max((proj_end - proj_start).days, 1)
+
+    # ── 3. Build per-task line items (proportional to task duration) ───────────
+    # Define phase-specific line item templates based on common task name keywords
+    phase_items = {
+        "design":    ["UX/UI Design Services", "Architecture & System Design", "Wireframing & Prototyping"],
+        "build":     ["Backend Development Services", "Frontend Development Services", "API Integration Work", "Database Schema & Setup"],
+        "test":      ["QA Testing & Automation", "User Acceptance Testing Support", "Performance & Load Testing"],
+        "deploy":    ["Cloud Infrastructure Provisioning", "CI/CD Pipeline Setup", "Production Deployment Services"],
+        "default":   ["Professional Services", "Project Management", "Consulting & Advisory"],
+    }
+
+    def _get_phase_items(task_name: str):
+        name_lower = task_name.lower()
+        for key in phase_items:
+            if key in name_lower:
+                return phase_items[key]
+        return phase_items["default"]
+
+    # Clear existing samples
+    existing = invoice_db.get_all(demand_id)
+    for inv in existing:
+        invoice_db.delete(inv["id"])
+
+    created = []
+    po_number = 1
+
+    for i, task in enumerate(tasks):
+        task_name   = task.get("name", f"Phase {i+1}")
+        task_start  = task.get("start_date", str(proj_start))
+        task_end    = task.get("end_date",   str(proj_end))
+        owners      = task.get("owners", [task.get("owner", "Project Team")])
+        if isinstance(owners, list):
+            owners = owners[:2]  # Max 2 owners for display
+
+        try:
+            t_start = datetime.strptime(task_start, "%Y-%m-%d").date()
+            t_end   = datetime.strptime(task_end,   "%Y-%m-%d").date()
+        except:
+            t_start, t_end = proj_start, proj_end
+
+        task_days       = max((t_end - t_start).days, 1)
+        task_proportion = task_days / total_days
+        task_cost       = round(total_cost * task_proportion, 2)
+
+        # Split cost across line items for this phase
+        line_item_names = _get_phase_items(task_name)
+        num_items       = len(line_item_names)
+        # Give first item 50%, rest split equally
+        first_share     = round(task_cost * 0.50, 2)
+        other_share     = round((task_cost - first_share) / max(num_items - 1, 1), 2)
+
+        line_items = []
+        for j, item_name in enumerate(line_item_names):
+            amt = first_share if j == 0 else other_share
+            line_items.append({"description": item_name, "qty": 1, "unit": "Lump Sum", "amount": amt})
+
+        # Invoice total always equals PO amount
+        invoice_amount = task_cost
+
+        # Alternate: even-indexed tasks have a quantity/rate mismatch discrepancy
+        is_discrepancy = (i % 2 == 0)
+
+        if is_discrepancy and line_items:
+            # Simulate a unit quantity discrepancy: vendor billed 1.5 units instead of 1.0
+            flagged = line_items[-1]
+            flagged["qty_invoiced"] = 1.5
+            flagged["qty_po"]       = 1.0
+            flagged["flagged"]      = True
+            
+            # Increase the amount on this line item by 1.5x
+            po_amount = flagged["amount"]
+            flagged["amount_invoiced"] = round(po_amount * 1.5, 2)
+            
+            # Update the total invoice amount to reflect this overbilling
+            invoice_amount = round(invoice_amount - po_amount + flagged["amount_invoiced"], 2)
+
+        invoice_id = f"INV-{demand_id.split('-')[-1]}-{i+1:02d}-{task_name.replace(' ', '').upper()[:6]}"
+        po_ref     = f"PO-{demand_id.split('-')[-1]}-{po_number:03d}"
+        sow_ref    = f"SOW-{demand_id.split('-')[-1]}-{i+1}"
+        po_number += 1
+
+        discrepancies = []
+        if is_discrepancy and line_items:
+            flagged = line_items[-1]
+            discrepancies = [{
+                "item": flagged["description"],
+                "detail": f"Qty invoiced: {flagged.get('qty_invoiced', 1.5)} vs PO qty: {flagged.get('qty_po', 1.0)} — unit quantity does not match PO. Verify with vendor."
+            }]
+            ai_analysis = (
+                f"Invoice for '{task_name}' on '{project_title}': line item '{flagged['description']}' "
+                f"is billed at qty {flagged.get('qty_invoiced', 1.5)} but the PO authorises qty {flagged.get('qty_po', 1.0)}. "
+                f"This results in a total overbilling of ${round(invoice_amount - task_cost, 2):,.2f} against the PO. "
+                f"Recommend confirming whether additional units were delivered before approving."
+            )
+        else:
+            ai_analysis = f"Invoice for '{task_name}' matches the PO. All line items and quantities verified. No discrepancies detected."
+
+        inv_record = {
+            "id":             f"INV-{uuid.uuid4().hex[:8]}",
+            "demand_id":      demand_id,
+            "invoice_id":     invoice_id,
+            "invoice_amount": invoice_amount,
+            "po_reference":   po_ref,
+            "sow_reference":  sow_ref,
+            "delivered_items": [li["description"] for li in line_items],
+            "line_items":     line_items,
+            "task_name":      task_name,
+            "task_start":     task_start,
+            "task_end":       task_end,
+            "project_title":  project_title,
+            "domain":         domain,
+            "submitted_by":   submitted_by,
+            "effort_days":    effort_days,
+            "match_status":   "discrepancy" if is_discrepancy else "matched",
+            "discrepancies":  discrepancies,
+            "ai_analysis":    ai_analysis,
+            "decision":       "",
+            "decision_note":  "",
+            "created_at":     datetime.utcnow().isoformat()
+        }
+        invoice_db.save(inv_record)
+        created.append(inv_record)
+
+    return {"status": "success", "invoices": created, "project_title": project_title}
+
+
 @app.post("/api/budget-cost/invoices/approve")
 def approve_invoice(req: InvoiceApproveRequest):
     inv = invoice_db.get_by_invoice_id(req.demand_id, req.invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
+        
+    inv["match_status"] = "matched" if req.decision == "approve" else "disputed"
     inv["decision"] = req.decision
     inv["decision_note"] = req.note or ""
-    inv["match_status"] = "approved" if req.decision == "approve" else "disputed"
+    
     invoice_db.save(inv)
-    return {"status": "success", "invoice": inv}
+    
+    # Check if all are resolved now
+    all_invoices = invoice_db.get_all(req.demand_id)
+    all_resolved = True
+    if all_invoices:
+        all_resolved = all((i.get("match_status") == "matched" or i.get("decision") != "") for i in all_invoices)
+        
+    return {"status": "success", "all_resolved": all_resolved, "invoice": inv}
 
 # ── Capex / Opex Endpoints ─────────────────────────────────────────────────────
 

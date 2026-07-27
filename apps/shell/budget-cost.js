@@ -96,6 +96,13 @@ window.renderBudgetCostScreen = function(targetContainer) {
     }).join('');
   }
 
+  const deleteBtnHtml = demandId ? `
+    <button onclick="window.bcDeleteDemand('${demandId}')" 
+      style="padding:0.4rem 0.75rem; border-radius:var(--radius-sm); border:1px solid #ef4444; background:transparent; color:#ef4444; font-size:0.85rem; font-weight:600; font-family:var(--font-sans); cursor:pointer; margin-left:1rem; transition:all 0.2s;">
+      🗑 Delete Project Data
+    </button>
+  ` : '';
+
   viewport.innerHTML = `
     <div class="intake-screen" style="padding: 1rem; height: 100%; box-sizing: border-box;">
       <aside class="sidebar">
@@ -115,7 +122,10 @@ window.renderBudgetCostScreen = function(targetContainer) {
                 <h2 style="margin:0;font-family:var(--font-display);color:var(--text-primary);font-size:1.25rem;">Budget &amp; Cost</h2>
                 <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.15rem;">Financial Intelligence</div>
               </div>
-              ${dropdownHtml}
+              <div style="display:flex;align-items:center;">
+                ${dropdownHtml}
+                ${deleteBtnHtml}
+              </div>
             </div>
             <status-pill status="${demandId ? 'Monitoring' : 'Idle'}"></status-pill>
           </div>
@@ -144,6 +154,36 @@ window.renderBudgetCostScreen = function(targetContainer) {
   }
 
   bcLoadTab(bcActiveTab, demandId);
+};
+
+// ── Delete Demand Data ───────────────────────────────────────────────────────
+window.bcDeleteDemand = async function(demandId) {
+  if (!confirm(`Are you sure you want to permanently delete all budget, invoice, and capex data for project ${demandId}? This cannot be undone.`)) return;
+
+  const btn = event.currentTarget;
+  const origHtml = btn.innerHTML;
+  btn.innerHTML = 'Deleting...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`/api/budget-cost/project/${demandId}`, { method: 'DELETE' });
+    if (res.ok) {
+      alert(`Successfully deleted data for ${demandId}`);
+      // Clear selection and refresh
+      sessionStorage.removeItem('selectedDemandId');
+      window.fetchBudgetCostData();
+    } else {
+      const err = await res.json();
+      alert('Error deleting data: ' + JSON.stringify(err));
+      btn.innerHTML = origHtml;
+      btn.disabled = false;
+    }
+  } catch(e) {
+    console.error('Delete error', e);
+    alert('Network error while deleting data.');
+    btn.innerHTML = origHtml;
+    btn.disabled = false;
+  }
 };
 
 // ── Tab switch ────────────────────────────────────────────────────────────────
@@ -374,6 +414,7 @@ async function bcRenderInvoice(demandId, content) {
     const res = await fetch(`${BC_API}/invoices/${demandId}`);
     if (res.ok) invoices = await res.json();
   } catch(e) {}
+  window.currentInvoicesList = invoices;
 
   const statusBadge = (status) => {
     const map = {
@@ -394,7 +435,8 @@ async function bcRenderInvoice(demandId, content) {
       <td style="padding:0.75rem 0.5rem;font-size:0.8rem;color:var(--text-secondary);">${inv.po_reference}</td>
       <td style="padding:0.75rem 0.5rem;font-size:0.8rem;color:var(--text-secondary);">${inv.sow_reference || '—'}</td>
       <td style="padding:0.75rem 0.5rem;">${statusBadge(inv.match_status)}</td>
-      <td style="padding:0.75rem 0.5rem;">
+      <td style="padding:0.75rem 0.5rem; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+        <button onclick="window.bcPreviewInvoice('${inv.invoice_id}')" style="font-size:0.75rem;padding:3px 9px;border-radius:4px;border:1px solid var(--border-color);cursor:pointer;background:transparent;color:var(--text-primary);font-weight:600;">Preview</button>
         ${inv.match_status === 'discrepancy'
           ? `<div style="display:flex;gap:0.5rem;">
                <button onclick="bcApproveInvoice('${demandId}','${inv.invoice_id}','approve')"
@@ -402,10 +444,10 @@ async function bcRenderInvoice(demandId, content) {
                <button onclick="bcApproveInvoice('${demandId}','${inv.invoice_id}','dispute')"
                 style="font-size:0.75rem;padding:3px 9px;border-radius:4px;border:none;cursor:pointer;background:rgba(239,68,68,0.12);color:#ef4444;font-weight:600;">Dispute</button>
              </div>`
-          : inv.decision ? `<span style="font-size:0.75rem;color:var(--text-muted);">${inv.decision}</span>` : '—'}
+          : inv.decision ? `<span style="font-size:0.75rem;color:var(--text-muted);">${inv.decision}</span>` : ''}
       </td>
     </tr>
-    ${(inv.discrepancies||[]).length > 0 ? `
+    ${(inv.discrepancies||[]).length > 0 && inv.match_status === 'discrepancy' ? `
     <tr>
       <td colspan="6" style="padding:0 0.5rem 0.75rem 0.5rem;">
         <div style="background:rgba(245,158,11,0.07);border-left:3px solid #f59e0b;padding:0.6rem 0.85rem;border-radius:0 4px 4px 0;font-size:0.8rem;color:var(--text-secondary);">
@@ -437,7 +479,10 @@ async function bcRenderInvoice(demandId, content) {
       <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);overflow:hidden;">
         <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
           <h3 style="margin:0;font-size:1rem;">Invoice Register</h3>
-          <span style="font-size:0.73rem;background:rgba(99,102,241,0.12);color:#6366f1;padding:2px 8px;border-radius:4px;">Human Approves Disputes</span>
+          <div style="display:flex;gap:0.75rem;align-items:center;">
+            <button onclick="window.generateSampleInvoices('${demandId}')" style="background:var(--color-brand);color:#fff;border:none;padding:3px 9px;border-radius:4px;font-size:0.73rem;font-weight:600;cursor:pointer;">Generate Samples</button>
+            <span style="font-size:0.73rem;background:rgba(99,102,241,0.12);color:#6366f1;padding:3px 9px;border-radius:4px;">Human Approves Disputes</span>
+          </div>
         </div>
         <table style="width:100%;border-collapse:collapse;">
           <thead>
@@ -449,80 +494,21 @@ async function bcRenderInvoice(demandId, content) {
         </table>
       </div>
 
-      <!-- Monthly Project Billing Invoices (Generated from Plan) -->
-      <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:1.5rem;">
-        <h3 style="margin: 0 0 1rem 0; font-size: 1rem; display: flex; justify-content: space-between; align-items: center;">
-          <span>Monthly Billing Invoices (From Schedule Plan)</span>
-          <button onclick="window.generateInvoices('${demandId}')" class="btn-primary" style="padding: 0.4rem 0.85rem; font-size: 0.78rem; background: linear-gradient(135deg, var(--color-brand), #4f46e5); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600;">
-            Generate Monthly Invoices
-          </button>
-        </h3>
-        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
-          Generate monthly billing invoices based on active tasks and scheduled timelines (start to end date) for this project.
-        </p>
-        
-        <div>
-          ${(() => {
-            const billingInvoices = window.currentInvoicesList || [];
-            if (billingInvoices.length > 0) {
-              return `
-                <div style="overflow-x: auto;">
-                  <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
-                    <thead>
-                      <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted); font-weight: 600; background: var(--bg-primary);">
-                        <th style="padding: 0.6rem 0.5rem; font-size: 0.73rem; text-transform: uppercase;">Invoice ID</th>
-                        <th style="padding: 0.6rem 0.5rem; font-size: 0.73rem; text-transform: uppercase;">Month</th>
-                        <th style="padding: 0.6rem 0.5rem; font-size: 0.73rem; text-transform: uppercase;">Billing Period</th>
-                        <th style="padding: 0.6rem 0.5rem; font-size: 0.73rem; text-transform: uppercase; text-align: right;">Amount</th>
-                        <th style="padding: 0.6rem 0.5rem; font-size: 0.73rem; text-transform: uppercase; text-align: center;">Status</th>
-                        <th style="padding: 0.6rem 0.5rem; font-size: 0.73rem; text-transform: uppercase; text-align: center;">Details</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${billingInvoices.map(inv => {
-                        const detailsList = inv.details || [];
-                        const detailsStr = detailsList.map(d => `${d.item}: $${d.amount.toLocaleString()}`).join('\\n');
-                        return `
-                          <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text-primary);">
-                            <td style="padding: 0.75rem 0.5rem; font-family: monospace; font-weight: 700; color: var(--color-brand);">${inv.invoice_id}</td>
-                            <td style="padding: 0.75rem 0.5rem; font-weight: 600;">${inv.month}</td>
-                            <td style="padding: 0.75rem 0.5rem; color: var(--text-secondary);">${inv.billing_start} to ${inv.billing_end}</td>
-                            <td style="padding: 0.75rem 0.5rem; text-align: right; font-weight: 700; color: var(--text-primary);">$${inv.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                            <td style="padding: 0.75rem 0.5rem; text-align: center;">
-                              <span style="font-size: 0.75rem; background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 2px 6px; border-radius: 4px; font-weight: 600;">${inv.status}</span>
-                            </td>
-                            <td style="padding: 0.75rem 0.5rem; text-align: center;">
-                              <button onclick="alert('Invoice Line Items:\\n\\n${detailsStr}')" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;">
-                                View
-                              </button>
-                            </td>
-                          </tr>
-                        `;
-                      }).join('')}
-                    </tbody>
-                  </table>
-                </div>
-              `;
-            } else {
-              return `
-                <div style="padding: 1.5rem; text-align: center; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); color: var(--text-muted); font-size: 0.8rem;">
-                  No monthly billing invoices generated yet. Click 'Generate Monthly Invoices' above to create them.
-                </div>
-              `;
-            }
-          })()}
-        </div>
-      </div>
     </div>`;
 }
 
 window.bcApproveInvoice = async function(demandId, invoiceId, decision) {
   try {
-    await fetch(`${BC_API}/invoices/approve`, {
+    const res = await fetch(`${BC_API}/invoices/approve`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ demand_id: demandId, invoice_id: invoiceId, decision })
     });
+    const data = await res.json();
     await bcLoadTab('invoice', demandId);
+    
+    if (data.all_resolved) {
+      alert("All invoices matched! Burn & Forecast actuals have been automatically populated.");
+    }
   } catch(e) { console.error(e); }
 };
 
@@ -643,4 +629,243 @@ window.generateInvoices = async function(demandId) {
     console.error(e);
     alert("Connection error: " + e.message);
   }
+};
+
+window.generateSampleInvoices = async function(demandId) {
+  try {
+    const res = await fetch(`${BC_API}/invoices/${demandId}/generate-samples`, {
+      method: 'POST'
+    });
+    if (res.ok) {
+      await bcLoadTab('invoice', demandId);
+    } else {
+      const err = await res.json();
+      alert("Error: " + (err.detail || "Failed to generate sample invoices."));
+    }
+  } catch(e) {
+    console.error(e);
+    alert("Connection error: " + e.message);
+  }
+};
+
+window.bcPreviewInvoice = function(invoiceId) {
+  const inv = (window.currentInvoicesList || []).find(i => i.invoice_id === invoiceId);
+  if (!inv) {
+    alert("Invoice details not found.");
+    return;
+  }
+
+  const projectTitle = inv.project_title || inv.demand_id;
+  const domain       = inv.domain || 'Technology';
+  const taskName     = inv.task_name || 'Project Services';
+  const taskStart    = inv.task_start || '—';
+  const taskEnd      = inv.task_end   || '—';
+  const invoiceDate  = new Date(inv.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'});
+
+  // Line items table rows for the INVOICE (shows inflated qty/amount if discrepant)
+  const lineItems = inv.line_items || inv.delivered_items.map(d => ({description: d, qty: 1, unit: 'Lump Sum', amount: '—'}));
+  const invoiceLineItemsHtml = lineItems.map(li => {
+    const qty = li.qty_invoiced !== undefined ? li.qty_invoiced : li.qty;
+    const amount = li.amount_invoiced !== undefined ? li.amount_invoiced : li.amount;
+    const formattedAmount = typeof amount === 'number' ? amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : amount;
+    return `
+    <tr>
+      <td style="padding:10px 12px;border-bottom:1px solid #eee;">${li.description}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:center;">${qty}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:center;">${li.unit}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">$${formattedAmount}</td>
+    </tr>`;
+  }).join('');
+
+  const total = inv.invoice_amount;
+  const statusColor = inv.match_status === 'discrepancy' ? '#f59e0b' : '#10b981';
+  const statusLabel = inv.match_status === 'discrepancy' ? '⚠ DISCREPANCY' : '✓ MATCHED';
+
+  const html = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Documents – ${invoiceId}</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Inter', sans-serif; background: #4a4a4a; padding: 2rem; display: flex; flex-direction: column; align-items: center; gap: 2.5rem; }
+      .controls { position: fixed; top: 1rem; right: 1rem; display: flex; gap: 0.5rem; z-index: 100; }
+      .btn { padding: 0.6rem 1.2rem; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+      .btn-print { background: #10b981; color: #fff; }
+      .btn-close { background: #ef4444; color: #fff; }
+      .page { background: #fff; width: 210mm; min-height: 297mm; padding: 48px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); position: relative; page-break-after: always; }
+      .doc-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 3px solid #1e1e2e; margin-bottom: 28px; }
+      .doc-type { font-size: 2rem; font-weight: 700; letter-spacing: 2px; color: #1e1e2e; text-transform: uppercase; }
+      .doc-meta { text-align: right; font-size: 0.82rem; line-height: 1.8; color: #555; }
+      .doc-meta strong { color: #1e1e2e; }
+      .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; margin-top: 6px; }
+      .address-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 28px; }
+      .address-block { font-size: 0.85rem; line-height: 1.7; }
+      .address-block h4 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 6px; }
+      .project-info { background: #f8f9fa; border-radius: 8px; padding: 14px 18px; margin-bottom: 28px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; font-size: 0.82rem; }
+      .project-info div strong { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 2px; }
+      table.items { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+      table.items thead tr { background: #1e1e2e; color: #fff; }
+      table.items th { padding: 10px 12px; text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+      table.items th:not(:first-child) { text-align: center; }
+      table.items th:last-child { text-align: right; }
+      .total-row { display: flex; justify-content: flex-end; margin-top: 16px; }
+      .total-box { background: #1e1e2e; color: #fff; padding: 14px 24px; border-radius: 6px; text-align: right; }
+      .total-box .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
+      .total-box .amount { font-size: 1.6rem; font-weight: 700; margin-top: 4px; }
+      .footer-note { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 0.75rem; color: #aaa; text-align: center; line-height: 1.6; }
+      .watermark { position: absolute; bottom: 48px; right: 48px; font-size: 6rem; font-weight: 700; color: rgba(0,0,0,0.03); letter-spacing: 4px; text-transform: uppercase; pointer-events: none; }
+      @media print { body { background: #fff; padding: 0; } .controls { display: none; } .page { box-shadow: none; width: 100%; padding: 24px; } }
+    </style>
+  </head>
+  <body>
+    <div class="controls">
+      <button class="btn btn-print" onclick="window.print()">🖨️ Print / Save PDF</button>
+      <button class="btn btn-close" onclick="window.close()">✕ Close</button>
+    </div>
+
+    <!-- ═══════════════════ INVOICE PAGE ═══════════════════ -->
+    <div class="page">
+      <div class="watermark">Invoice</div>
+      <div class="doc-header">
+        <div>
+          <div class="doc-type">Invoice</div>
+          <div style="font-size:0.85rem;color:#555;margin-top:6px;">${projectTitle}</div>
+          <span class="status-badge" style="background:${statusColor}20;color:${statusColor};">${statusLabel}</span>
+        </div>
+        <div class="doc-meta">
+          <strong>Invoice #</strong> ${inv.invoice_id}<br>
+          <strong>PO Reference</strong> ${inv.po_reference}<br>
+          <strong>SOW Reference</strong> ${inv.sow_reference || 'N/A'}<br>
+          <strong>Date</strong> ${invoiceDate}
+        </div>
+      </div>
+
+      <div class="address-grid">
+        <div class="address-block">
+          <h4>Billed To</h4>
+          <strong>${projectTitle}</strong><br>
+          ${domain} Division<br>
+          Enterprise Procurement Office<br>
+          1 Corporate Drive, Suite 100
+        </div>
+        <div class="address-block">
+          <h4>Service Provider</h4>
+          <strong>Digital Delivery Partners Ltd.</strong><br>
+          Technology &amp; Professional Services<br>
+          456 Innovation Boulevard<br>
+          Tech City, TC1 9PL
+        </div>
+      </div>
+
+      <div class="project-info">
+        <div><strong>Project Phase</strong>${taskName}</div>
+        <div><strong>Service Period</strong>${taskStart} → ${taskEnd}</div>
+        <div><strong>Project ID</strong>${inv.demand_id}</div>
+      </div>
+
+      <table class="items">
+        <thead>
+          <tr>
+            <th>Description of Services</th>
+            <th style="text-align:center;">Qty</th>
+            <th style="text-align:center;">Unit</th>
+            <th style="text-align:right;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>${invoiceLineItemsHtml}</tbody>
+      </table>
+
+      <div class="total-row">
+        <div class="total-box">
+          <div class="label">Total Due (USD)</div>
+          <div class="amount">$${total.toLocaleString(undefined,{minimumFractionDigits:2})}</div>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        Payment due within 30 days of invoice date. Please reference Invoice # ${inv.invoice_id} on all payments.<br>
+        This document is system-generated as part of the ${projectTitle} project (${inv.demand_id}).
+      </div>
+    </div>
+
+    <!-- ═══════════════════ PURCHASE ORDER PAGE ═══════════════════ -->
+    <div class="page">
+      <div class="watermark">PO</div>
+      <div class="doc-header">
+        <div>
+          <div class="doc-type">Purchase Order</div>
+          <div style="font-size:0.85rem;color:#555;margin-top:6px;">${projectTitle}</div>
+        </div>
+        <div class="doc-meta">
+          <strong>PO Number</strong> ${inv.po_reference}<br>
+          <strong>SOW Reference</strong> ${inv.sow_reference || 'N/A'}<br>
+          <strong>Invoice Ref</strong> ${inv.invoice_id}<br>
+          <strong>Date Issued</strong> ${invoiceDate}
+        </div>
+      </div>
+
+      <div class="address-grid">
+        <div class="address-block">
+          <h4>Purchaser / Buyer</h4>
+          <strong>${projectTitle}</strong><br>
+          ${domain} Division<br>
+          Enterprise Procurement Office<br>
+          1 Corporate Drive, Suite 100
+        </div>
+        <div class="address-block">
+          <h4>Vendor / Supplier</h4>
+          <strong>Digital Delivery Partners Ltd.</strong><br>
+          Technology &amp; Professional Services<br>
+          456 Innovation Boulevard<br>
+          Tech City, TC1 9PL
+        </div>
+      </div>
+
+      <div class="project-info">
+        <div><strong>Scope / Phase</strong>${taskName}</div>
+        <div><strong>Delivery Period</strong>${taskStart} → ${taskEnd}</div>
+        <div><strong>Demand ID</strong>${inv.demand_id}</div>
+      </div>
+
+      <table class="items">
+        <thead>
+          <tr>
+            <th>Authorised Service / Deliverable</th>
+            <th style="text-align:center;">Qty</th>
+            <th style="text-align:center;">Unit</th>
+            <th style="text-align:right;">Authorised Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${lineItems.map(li => `
+            <tr>
+              <td style="padding:10px 12px;border-bottom:1px solid #eee;">${li.description}</td>
+              <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:center;">${li.qty_po || li.qty}</td>
+              <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:center;">${li.unit}</td>
+              <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">$${typeof li.amount === 'number' ? li.amount.toLocaleString(undefined,{minimumFractionDigits:2}) : li.amount}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+
+      <div class="total-row">
+        <div class="total-box">
+          <div class="label">Total Authorised (USD)</div>
+          <div class="amount">$${lineItems.reduce((acc, li) => acc + (typeof li.amount === 'number' ? li.amount : 0), 0).toLocaleString(undefined,{minimumFractionDigits:2})}</div>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        This Purchase Order is issued under Statement of Work ${inv.sow_reference || 'N/A'}.<br>
+        The vendor is authorised to invoice up to the total amount above for the scope described.<br>
+        Any variation must be formally approved in writing by ${projectTitle} Procurement.
+      </div>
+    </div>
+  </body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
 };

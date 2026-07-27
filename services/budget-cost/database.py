@@ -60,6 +60,12 @@ def init_db():
                 po_reference TEXT,
                 sow_reference TEXT,
                 delivered_items TEXT,
+                line_items TEXT,
+                task_name TEXT,
+                task_start TEXT,
+                task_end TEXT,
+                project_title TEXT,
+                domain TEXT,
                 match_status TEXT DEFAULT 'pending',
                 discrepancies TEXT,
                 ai_analysis TEXT,
@@ -68,6 +74,14 @@ def init_db():
                 created_at TEXT
             )
         ''')
+        # Migrate existing DBs — add columns if missing
+        existing_cols = [r[1] for r in conn.execute("PRAGMA table_info(invoice_matches)").fetchall()]
+        for col, coltype in [
+            ("line_items", "TEXT"), ("task_name", "TEXT"), ("task_start", "TEXT"),
+            ("task_end", "TEXT"), ("project_title", "TEXT"), ("domain", "TEXT")
+        ]:
+            if col not in existing_cols:
+                conn.execute(f"ALTER TABLE invoice_matches ADD COLUMN {col} {coltype}")
         conn.execute('''
             CREATE TABLE IF NOT EXISTS capex_opex_items (
                 id TEXT PRIMARY KEY,
@@ -216,8 +230,9 @@ class InvoiceDB:
             result = []
             for row in rows:
                 d = dict(row)
-                d['delivered_items'] = json.loads(d['delivered_items']) if d['delivered_items'] else []
-                d['discrepancies'] = json.loads(d['discrepancies']) if d['discrepancies'] else []
+                d['delivered_items'] = json.loads(d['delivered_items']) if d.get('delivered_items') else []
+                d['line_items']      = json.loads(d['line_items'])      if d.get('line_items')      else []
+                d['discrepancies']   = json.loads(d['discrepancies'])   if d.get('discrepancies')   else []
                 result.append(d)
             return result
 
@@ -228,8 +243,9 @@ class InvoiceDB:
             conn.execute('''
                 INSERT INTO invoice_matches
                     (id, demand_id, invoice_id, invoice_amount, po_reference, sow_reference,
-                     delivered_items, match_status, discrepancies, ai_analysis, decision, decision_note, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     delivered_items, line_items, task_name, task_start, task_end, project_title, domain,
+                     match_status, discrepancies, ai_analysis, decision, decision_note, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     match_status=excluded.match_status,
                     discrepancies=excluded.discrepancies,
@@ -242,6 +258,12 @@ class InvoiceDB:
                 record['invoice_amount'], record['po_reference'],
                 record.get('sow_reference', ''),
                 json.dumps(record.get('delivered_items', [])),
+                json.dumps(record.get('line_items', [])),
+                record.get('task_name', ''),
+                record.get('task_start', ''),
+                record.get('task_end', ''),
+                record.get('project_title', ''),
+                record.get('domain', ''),
                 record.get('match_status', 'pending'),
                 json.dumps(record.get('discrepancies', [])),
                 record.get('ai_analysis', ''),
@@ -249,6 +271,12 @@ class InvoiceDB:
                 record.get('decision_note', ''),
                 record.get('created_at', datetime.utcnow().isoformat())
             ))
+            conn.commit()
+
+    @staticmethod
+    def delete(invoice_id: str):
+        with _get_conn() as conn:
+            conn.execute("DELETE FROM invoice_matches WHERE id = ?", (invoice_id,))
             conn.commit()
 
     @staticmethod
@@ -260,8 +288,9 @@ class InvoiceDB:
             ).fetchone()
             if row:
                 d = dict(row)
-                d['delivered_items'] = json.loads(d['delivered_items']) if d['delivered_items'] else []
-                d['discrepancies'] = json.loads(d['discrepancies']) if d['discrepancies'] else []
+                d['delivered_items'] = json.loads(d['delivered_items']) if d.get('delivered_items') else []
+                d['line_items']      = json.loads(d['line_items'])      if d.get('line_items')      else []
+                d['discrepancies']   = json.loads(d['discrepancies'])   if d.get('discrepancies')   else []
                 return d
             return None
 
@@ -315,3 +344,13 @@ class CapexOpexDB:
             conn.commit()
 
 capex_db = CapexOpexDB()
+
+def delete_demand_data(demand_id: str):
+    """Deletes all budget and cost data associated with a specific demand_id."""
+    with _get_conn() as conn:
+        conn.execute("DELETE FROM budget_records WHERE demand_id = ?", (demand_id,))
+        conn.execute("DELETE FROM invoices WHERE demand_id = ?", (demand_id,))
+        conn.execute("DELETE FROM burn_forecasts WHERE demand_id = ?", (demand_id,))
+        conn.execute("DELETE FROM invoice_matches WHERE demand_id = ?", (demand_id,))
+        conn.execute("DELETE FROM capex_opex_items WHERE demand_id = ?", (demand_id,))
+        conn.commit()
