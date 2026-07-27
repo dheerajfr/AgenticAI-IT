@@ -99,42 +99,73 @@ window.renderBuildDeployScreen = function () {
   viewport.innerHTML = `
     <div class="intake-screen">
       <aside class="sidebar">
-        <div class="sidebar-header">
-          <h3 class="sidebar-title">Build & deploy</h3>
-          <div style="display:flex; gap:0.5rem;">
-            ${activeDeployTab === 'runbooks' ? '<button class="btn-new" id="btn-new-deploy-item" title="Draft New Runbook">+</button>' : ''}
-            <button class="btn-new" id="btn-refresh-deploy">↻ Refresh</button>
-          </div>
-        </div>
-        <div class="tabs-container" style="margin: 0 1rem; display: flex; justify-content: space-between; gap: 0.2rem; border-bottom: 1px solid var(--border-color);">
-          <button class="tab-btn ${activeDeployTab === 'runbooks' ? 'active' : ''}" id="tab-runbooks" style="padding: 0.4rem 0.2rem; flex: 1; font-size: 0.75rem; text-align: center;">Runbooks</button>
-          <button class="tab-btn ${activeDeployTab === 'cutover' ? 'active' : ''}" id="tab-cutover" style="padding: 0.4rem 0.2rem; flex: 1; font-size: 0.75rem; text-align: center;">Cutover Bridge</button>
-          <button class="tab-btn ${activeDeployTab === 'orchestration' ? 'active' : ''}" id="tab-orchestration" style="padding: 0.4rem 0.2rem; flex: 1; font-size: 0.75rem; text-align: center;">Orchestration</button>
+        <div class="sidebar-search" style="padding: 1rem;">
+          <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
         </div>
         <ul class="demand-list" id="deploy-list-container">
           <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 2rem;">Loading...</li>
         </ul>
       </aside>
-      <main class="details-panel" id="deploy-panel-container">
-        <!-- Rendered dynamically -->
+      <main class="details-panel" style="display: flex; flex-direction: column;">
+        <header class="main-panel-header" style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); background: var(--bg-primary); display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 1.25rem;">Build & deploy</h2>
+          <div id="deploy-dropdown-container" style="display:flex; align-items:center; gap:0.5rem;"></div>
+        </header>
+        <div class="tabs-container" style="padding: 0.5rem 1.5rem; background: var(--bg-primary); border-bottom: 1px solid var(--border-color); display: flex; gap: 1rem;">
+          <button class="tab-btn ${activeDeployTab === 'runbooks' ? 'active' : ''}" id="tab-runbooks" style="padding: 0.4rem 0.2rem; font-size: 0.85rem; border: none; background: transparent; cursor: pointer;">Runbooks</button>
+          <button class="tab-btn ${activeDeployTab === 'cutover' ? 'active' : ''}" id="tab-cutover" style="padding: 0.4rem 0.2rem; font-size: 0.85rem; border: none; background: transparent; cursor: pointer;">Cutover Bridge</button>
+          <button class="tab-btn ${activeDeployTab === 'orchestration' ? 'active' : ''}" id="tab-orchestration" style="padding: 0.4rem 0.2rem; font-size: 0.85rem; border: none; background: transparent; cursor: pointer;">Orchestration</button>
+        </div>
+        <div id="deploy-panel-container" style="flex: 1; overflow-y: auto;">
+          <!-- Rendered dynamically -->
+        </div>
       </main>
     </div>
   `;
 
-  document.getElementById('btn-refresh-deploy').addEventListener('click', () => window.fetchBuildDeployData());
-  const newBtn = document.getElementById('btn-new-deploy-item');
-  if (newBtn) {
-    newBtn.addEventListener('click', () => {
-      selectedDemandId = null;
-      selectedRunbookId = null;
-      selectedRunbookDemandId = null;
-      window.renderBuildDeployScreen();
-      window.fetchBuildDeployData(true);
-    });
-  }
   document.getElementById('tab-runbooks').addEventListener('click', () => switchDeployTab('runbooks'));
   document.getElementById('tab-cutover').addEventListener('click', () => switchDeployTab('cutover'));
   document.getElementById('tab-orchestration').addEventListener('click', () => switchDeployTab('orchestration'));
+};
+
+window.selectDeployAction = function(demandId) {
+  if (demandId === 'new') {
+    sessionStorage.removeItem('selectedDemandId');
+    selectedDemandId = null;
+    clearDeploySidebarSelection();
+    if (activeDeployTab === 'runbooks') showNewRunbookForm();
+    else if (activeDeployTab === 'cutover') showNewCutoverForm();
+    else showNewDeploymentForm();
+    return;
+  }
+  
+  sessionStorage.setItem('selectedDemandId', demandId);
+  const items = activeDeployTab === 'runbooks' ? runbooks : activeDeployTab === 'cutover' ? cutoverSessions : deployments;
+  const hasItems = items.some(i => (i.demand_id || 'Unknown') === demandId);
+  
+  if (hasItems) {
+    selectDemandList(demandId);
+  } else {
+    selectedDemandId = null;
+    clearDeploySidebarSelection();
+    if (activeDeployTab === 'runbooks') showNewRunbookForm();
+    else if (activeDeployTab === 'cutover') showNewCutoverForm();
+    else showNewDeploymentForm();
+    
+    // Pre-fill the demand ID in the creation form
+    setTimeout(() => {
+      let selectId = '';
+      if (activeDeployTab === 'runbooks') selectId = 'new-runbook-demand';
+      else if (activeDeployTab === 'cutover') selectId = 'new-cutover-demand';
+      else selectId = 'new-dep-demand';
+      
+      const selectEl = document.getElementById(selectId);
+      if (selectEl) {
+        selectEl.value = demandId;
+        selectEl.dispatchEvent(new Event('change'));
+      }
+    }, 100);
+  }
 };
 
 function switchDeployTab(tab) {
@@ -190,7 +221,10 @@ window.fetchBuildDeployData = async function (forceNew = false) {
 
     if (selectedDemandId) {
       const hasItems = activeItems.some(i => (i.demand_id || 'Unknown') === selectedDemandId);
-      if (!hasItems) selectedDemandId = null;
+      if (!hasItems) {
+        window.selectDeployAction(selectedDemandId);
+        return;
+      }
     }
 
     if (selectedDemandId) {
@@ -214,11 +248,41 @@ window.fetchBuildDeployData = async function (forceNew = false) {
   }
 };
 
+function clearDeploySidebarSelection() {
+  const container = document.getElementById('deploy-list-container');
+  if (container) {
+    container.querySelectorAll('.demand-item').forEach(item => item.classList.remove('active'));
+  }
+}
+
 function renderDeployList() {
   const container = document.getElementById('deploy-list-container');
+  const dropdownContainer = document.getElementById('deploy-dropdown-container');
   const items = activeDeployTab === 'runbooks' ? runbooks : activeDeployTab === 'cutover' ? cutoverSessions : deployments;
   const idField = activeDeployTab === 'runbooks' ? 'runbook_id' : activeDeployTab === 'cutover' ? 'cutover_id' : 'deployment_id';
   const selectedId = activeDeployTab === 'runbooks' ? selectedRunbookId : activeDeployTab === 'cutover' ? selectedCutoverId : selectedDeploymentId;
+
+  if (dropdownContainer && demands) {
+    const activeDemandId = sessionStorage.getItem('selectedDemandId');
+    const optionsHtml = demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === activeDemandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
+    
+    const newText = activeDeployTab === 'runbooks' ? '+ Create New Runbook' 
+      : activeDeployTab === 'cutover' ? '+ Create New Cutover' 
+      : '+ Create New Orchestration';
+
+    dropdownContainer.innerHTML = `
+      <select onchange="window.selectDeployAction(this.value)" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
+        <option value="new" ${!activeDemandId ? 'selected' : ''}>${newText}</option>
+        ${optionsHtml}
+      </select>
+      <button class="btn-new" id="btn-refresh-deploy" style="padding: 0.45rem;">↻</button>
+    `;
+    
+    const refreshBtn = document.getElementById('btn-refresh-deploy');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => window.fetchBuildDeployData());
+    }
+  }
 
   let html = '';
 

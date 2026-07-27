@@ -36,7 +36,8 @@ async function loadProjectData(demandId) {
     aoBudget,
     aoVendor,
     aoReport,
-    aoKnowledge
+    aoKnowledge,
+    opsReadiness
   ] = await Promise.all([
     fetchSafe(`${BASE_URL}/demands`),
     fetchSafe(`${BASE_URL}/estimates`),
@@ -52,7 +53,8 @@ async function loadProjectData(demandId) {
     fetchSafe(`${BASE_URL}/budget-cost/project/${demandId}`),
     fetchSafe(`${BASE_URL}/vendor-coordination/project/${demandId}`),
     fetchSafe(`${BASE_URL}/reporting-communication/project/${demandId}`),
-    fetchSafe(`${BASE_URL}/knowledge-artifacts/project/${demandId}`)
+    fetchSafe(`${BASE_URL}/knowledge-artifacts/project/${demandId}`),
+    fetchSafe(`${BASE_URL}/ops-readiness/records/${demandId}`)
   ]);
 
   // Aggregate and Filter
@@ -72,6 +74,8 @@ async function loadProjectData(demandId) {
   data.qualityGate = tqQualityGate ? tqQualityGate[0] || null : null; // usually returns array
   if (releases) data.releases = releases.filter(r => r.demand_id === demandId);
 
+  data.opsReadiness = opsReadiness || null;
+
   // Always On data
   data.aoRisk = aoRisk || null;
   data.aoBudget = aoBudget || null;
@@ -85,6 +89,7 @@ async function loadProjectData(demandId) {
 // 2. Logic Calculations
 function determineCurrentStage(data) {
   if (data.releases && data.releases.length > 0) return 'release-change';
+  if (data.opsReadiness) return 'ops-readiness';
   if (data.qualityGate) return 'test-quality';
   if (data.deployments && data.deployments.length > 0) return 'build-deploy';
   if (data.dependencies && data.dependencies.length > 0) return 'dependencies';
@@ -106,7 +111,7 @@ function calculateProgress(stage) {
   const stages = [
     'demand-intake', 'estimate-shape', 'plan-schedule', 
     'config-environments', 'dependencies', 'build-deploy', 
-    'test-quality', 'release-change'
+    'test-quality', 'ops-readiness', 'release-change'
   ];
   const idx = stages.indexOf(stage);
   return Math.round(((idx + 1) / stages.length) * 100);
@@ -224,6 +229,8 @@ async function renderProjectDetails(demandId) {
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('build-deploy', currentStage)};"></div>
         ${renderTimelineNode('Test Quality', 'test-quality', currentStage, data)}
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('test-quality', currentStage)};"></div>
+        ${renderTimelineNode('Ops Readiness', 'ops-readiness', currentStage, data)}
+        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('ops-readiness', currentStage)};"></div>
         ${renderTimelineNode('Release', 'release-change', currentStage, data)}
       </div>
     </div>
@@ -237,6 +244,7 @@ async function renderProjectDetails(demandId) {
       ${renderDepsCard(data)}
       ${renderDeployCard(data)}
       ${renderTestCard(data)}
+      ${renderOpsReadinessCard(data)}
       ${renderReleaseCard(data)}
       
       <!-- Always On Modules -->
@@ -252,7 +260,7 @@ async function renderProjectDetails(demandId) {
 const stageOrder = [
   'demand-intake', 'estimate-shape', 'config-environments', 
   'plan-schedule', 'dependencies', 'build-deploy', 
-  'test-quality', 'release-change'
+  'test-quality', 'ops-readiness', 'release-change'
 ];
 
 function getStageStatus(stage, currentStage, data) {
@@ -318,6 +326,8 @@ function renderCard(title, moduleId, status, outputsHtml, approvalsHtml, errorsH
     statusBadge = `<span style="padding: 0.2rem 0.6rem; font-size: 0.75rem; border-radius: 12px; font-weight: 700; background: rgba(99,102,241,0.1); color: var(--color-brand);">${status}</span>`;
   } else if (status === 'Failed' || status === 'Rejected') {
     statusBadge = `<span style="padding: 0.2rem 0.6rem; font-size: 0.75rem; border-radius: 12px; font-weight: 700; background: var(--color-status-red-bg); color: var(--color-status-red-text);">${status}</span>`;
+  } else if (status !== 'Pending') {
+    statusBadge = `<span style="padding: 0.2rem 0.6rem; font-size: 0.75rem; border-radius: 12px; font-weight: 700; background: rgba(99,102,241,0.1); color: var(--color-brand);">${status}</span>`;
   }
 
   return `
@@ -491,26 +501,81 @@ function renderReleaseCard(data) {
   return renderCard('Release & Change', 'release-change', status, outputs, approvals, errorsHtml);
 }
 
+function renderOpsReadinessCard(data) {
+  if (!data.opsReadiness) return renderCard('Ops Readiness', 'ops-readiness', 'Pending', '', '');
+  const or = data.opsReadiness;
+  
+  let monitoring = or.monitoring && or.monitoring.setup_completed ? 'Completed' : 'Pending';
+  let validation = or.validation && or.validation.overall_status ? or.validation.overall_status : 'Pending';
+  let directorSignoff = or.validation && or.validation.director_sign_off ? 'Signed Off' : 'Pending';
+
+  const outputs = `
+    • Monitoring Setup: <strong>${monitoring}</strong><br>
+    • Readiness Validation: <strong>${validation}</strong><br>
+  `;
+  const approvals = `
+    Director Sign-Off: <strong>${directorSignoff}</strong>
+  `;
+  
+  let status = directorSignoff === 'Signed Off' ? 'Completed' : 'In Progress';
+  
+  return renderCard('Ops Readiness', 'ops-readiness', status, outputs, approvals);
+}
+
 function renderAlwaysOnCards(data) {
-  let outputsHtml = '';
+  // Aggregate outputs
+  let combinedOutputs = '<ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:0.5rem;">';
+  let hasData = false;
+
+  if (data.aoRisk && data.aoRisk.risks && data.aoRisk.risks.length > 0) {
+    combinedOutputs += `<li><strong style="color:var(--text-primary);">Risk & Issues:</strong> ${data.aoRisk.risks.length} Active Risks</li>`;
+    hasData = true;
+  }
+  if (data.aoBudget && data.aoBudget.actual_spend !== undefined) {
+    combinedOutputs += `<li><strong style="color:var(--text-primary);">Budget & Cost:</strong> $${data.aoBudget.actual_spend} Consumed</li>`;
+    hasData = true;
+  }
+  if (data.aoVendor && data.aoVendor.vendors && data.aoVendor.vendors.length > 0) {
+    combinedOutputs += `<li><strong style="color:var(--text-primary);">Vendor Coordination:</strong> ${data.aoVendor.vendors.length} Active Vendors</li>`;
+    hasData = true;
+  }
+  if (data.aoReport && data.aoReport.reports && data.aoReport.reports.length > 0) {
+    combinedOutputs += `<li><strong style="color:var(--text-primary);">Reporting & Comms:</strong> ${data.aoReport.reports.length} Generated Reports</li>`;
+    hasData = true;
+  }
+  if (data.aoKnowledge && data.aoKnowledge.artifacts && data.aoKnowledge.artifacts.length > 0) {
+    combinedOutputs += `<li><strong style="color:var(--text-primary);">Knowledge & Artefacts:</strong> ${data.aoKnowledge.artifacts.length} Saved Artefacts</li>`;
+    hasData = true;
+  }
   
-  if (data.aoRisk && data.aoRisk.risks) {
-    outputsHtml += `• Active Risks: <strong>${data.aoRisk.risks.length}</strong><br>`;
+  if (!hasData) {
+    combinedOutputs = '<span style="color:var(--text-muted);">No Always-On data available.</span>';
+  } else {
+    combinedOutputs += '</ul>';
   }
-  if (data.aoBudget) {
-    outputsHtml += `• Budget Consumed: $${data.aoBudget.actual_spend || 0}<br>`;
-  }
-  if (data.aoVendor && data.aoVendor.vendors) {
-    outputsHtml += `• Active Vendors: ${data.aoVendor.vendors.length}<br>`;
-  }
-  if (data.aoReport && data.aoReport.reports) {
-    outputsHtml += `• Generated Reports: ${data.aoReport.reports.length}<br>`;
-  }
-  if (data.aoKnowledge && data.aoKnowledge.artifacts) {
-    outputsHtml += `• Saved Artefacts: ${data.aoKnowledge.artifacts.length}`;
-  }
-  
-  return renderCard('Always On Workspace', 'always-on', 'Active', outputsHtml || 'Workspace Available', '');
+
+  // Create unified card HTML similar to renderCard, but with custom click action
+  return `
+    <details class="dashboard-card" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden;">
+      <summary style="padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: var(--bg-secondary); outline: none; list-style: none;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <h4 style="margin: 0; font-family: var(--font-display); color: var(--text-primary); font-size: 1.1rem;">Always On Control Center</h4>
+          <span style="padding: 0.2rem 0.6rem; font-size: 0.75rem; border-radius: 12px; font-weight: 700; background: rgba(99,102,241,0.1); color: var(--color-brand);">Active</span>
+        </div>
+        <button type="button" onclick="sessionStorage.setItem('selectedDemandId', '${currentProject.demandId}'); window.switchStage('always-on'); setTimeout(() => { const btn = document.getElementById('ao-menu-btn'); if(btn) btn.click(); }, 100);" style="padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--color-brand); color: #fff;">
+          View Details &rarr;
+        </button>
+      </summary>
+      <div style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
+        <div>
+          <h5 style="margin: 0 0 0.75rem 0; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Aggregated Outputs</h5>
+          <div style="font-size: 0.9rem; color: var(--text-primary); line-height: 1.6;">
+            ${combinedOutputs}
+          </div>
+        </div>
+      </div>
+    </details>
+  `;
 }
 
 // Global style for detail dropdowns

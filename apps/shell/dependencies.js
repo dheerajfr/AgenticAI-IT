@@ -161,12 +161,8 @@ window.renderDependenciesScreen = function () {
   viewport.innerHTML = `
     <div class="intake-screen">
       <aside class="sidebar">
-        <div class="sidebar-header">
-          <h3 class="sidebar-title">Dependencies</h3>
-          <div style="display: flex; gap: 0.5rem;">
-            <button class="btn-new" id="btn-new-sense" title="Auto-sense plan dependencies">Generate Dependency</button>
-            <button class="btn-new" id="btn-new-edge" title="Manually create dependency edge">+New</button>
-          </div>
+        <div class="sidebar-search" style="padding: 1rem;">
+          <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
         </div>
         <ul class="demand-list" id="dependency-list-container">
           <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 2rem;">
@@ -174,24 +170,53 @@ window.renderDependenciesScreen = function () {
           </li>
         </ul>
       </aside>
-      <main class="details-panel" id="dependency-panel-container">
-        <!-- Rendered dynamically -->
+      <main class="details-panel" style="display: flex; flex-direction: column;">
+        <header class="main-panel-header" style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); background: var(--bg-primary); display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 1.25rem;">Dependencies</h2>
+          <div id="dependency-dropdown-container"></div>
+        </header>
+        <div id="dependency-panel-container" style="flex: 1; overflow-y: auto;">
+          <!-- Rendered dynamically -->
+        </div>
       </main>
     </div>
   `;
+}
 
-  document.getElementById('btn-new-sense').addEventListener('click', () => {
+window.selectDependencyAction = function(demandId) {
+  if (demandId === 'new') {
+    sessionStorage.removeItem('selectedDemandId');
     selectedDependencyId = null;
     clearDependencySidebarSelection();
     showAutoSenseForm();
-  });
-
-  document.getElementById('btn-new-edge').addEventListener('click', () => {
+    return;
+  }
+  sessionStorage.setItem('selectedDemandId', demandId);
+  const matchedDep = dependencies.find(d => 
+    planToDemandMap[d.plan_id] === demandId ||
+    d.demand_id === demandId
+  );
+  if (matchedDep) {
+    selectDependency(matchedDep.dependency_id);
+  } else {
     selectedDependencyId = null;
     clearDependencySidebarSelection();
-    showNewEdgeForm();
-  });
-}
+    showAutoSenseForm();
+    setTimeout(() => {
+      const selectEl = document.getElementById('select-plan');
+      if (selectEl) {
+        // try to find the plan ID for this demand
+        const planId = Object.keys(planToDemandMap).find(key => planToDemandMap[key] === demandId);
+        if (planId) {
+          selectEl.value = planId;
+          selectEl.dispatchEvent(new Event('change'));
+        }
+      }
+    }, 100);
+  }
+};
+
+
 
 function clearDependencySidebarSelection() {
   document.querySelectorAll('.demand-item').forEach(item => {
@@ -202,6 +227,12 @@ function clearDependencySidebarSelection() {
 window.fetchDependencies = async function () {
   const container = document.getElementById('dependency-list-container');
   try {
+    try {
+      const dRes = await fetch(`${DEPENDENCIES_API_BASE}/demands`);
+      if (dRes.ok) {
+        window.allDemandsForDep = await dRes.json();
+      }
+    } catch (e) {}
     try {
       const pRes = await fetch(`${DEPENDENCIES_API_BASE}/plans`);
       if (pRes.ok) {
@@ -268,6 +299,19 @@ window.fetchDependencies = async function () {
 
 function renderDependencyList() {
   const container = document.getElementById('dependency-list-container');
+  const dropdownContainer = document.getElementById('dependency-dropdown-container');
+
+  if (dropdownContainer && window.allDemandsForDep) {
+    const activeDemandId = sessionStorage.getItem('selectedDemandId');
+    const optionsHtml = window.allDemandsForDep.map(d => `<option value="${d.demand_id}" ${d.demand_id === activeDemandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
+    dropdownContainer.innerHTML = `
+      <select onchange="window.selectDependencyAction(this.value)" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
+        <option value="new" ${!activeDemandId ? 'selected' : ''}>+ Create New Dependency</option>
+        ${optionsHtml}
+      </select>
+    `;
+  }
+
   if (dependencies.length === 0) {
     container.innerHTML = `<li style="padding: 2rem; text-align: center; color: var(--text-muted);">No dependencies. Run Auto-Sense to discover.</li>`;
     return;

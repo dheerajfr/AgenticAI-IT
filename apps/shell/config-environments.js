@@ -17,32 +17,40 @@ window.renderConfigEnvironmentsScreen = function () {
     <div class="intake-screen">
       <aside class="sidebar" style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 100%; overflow: hidden;">
         <div class="panel-card" style="flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-          <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h3 class="sidebar-title" style="margin: 0; font-size: 1rem;">Demands</h3>
+          <div class="sidebar-search" style="padding: 0 0 1rem 0;">
+            <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
           </div>
-
-          <!-- Demand ID dropdown -->
-          <div style="margin-bottom: 0.75rem;">
-            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; display: block; margin-bottom: 0.3rem;">Select Demand</label>
-            <select id="demand-dropdown" style="width:100%; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm); padding: 0.4rem 0.6rem; font-size: 0.85rem; outline: none; cursor: pointer;">
-              <option value="">— loading… —</option>
-            </select>
-          </div>
-
-
 
           <ul class="demand-list" id="env-list-container" style="flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;">
             <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 2rem;">Loading…</li>
           </ul>
         </div>
       </aside>
-      <main class="details-panel" id="env-panel-container"></main>
+      <main class="details-panel" style="display: flex; flex-direction: column;">
+        <header class="main-panel-header" style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); background: var(--bg-primary); display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 1.25rem;">Demands & Config</h2>
+          <!-- Demand ID dropdown -->
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Select Demand</label>
+            <select id="demand-dropdown" style="width:200px; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm); padding: 0.4rem 0.6rem; font-size: 0.85rem; outline: none; cursor: pointer;">
+              <option value="">— loading… —</option>
+            </select>
+          </div>
+        </header>
+        <div id="env-panel-container" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column;"></div>
+      </main>
     </div>
   `;
 
   document.getElementById('demand-dropdown').addEventListener('change', e => {
     const v = e.target.value;
-    if (v) selectEnvironment(v);
+    if (v === 'new') {
+      window.location.hash = 'demand-intake';
+      sessionStorage.removeItem('selectedDemandId');
+    } else if (v) {
+      sessionStorage.setItem('selectedDemandId', v);
+      selectEnvironment(v);
+    }
   });
 };
 
@@ -117,11 +125,11 @@ function populateDemandDropdown() {
   const ids = [...new Set([...intakeIds, ...envOnlyIds])].sort();
 
   if (ids.length === 0) {
-    dropdown.innerHTML = `<option value="">— No demands found —</option>`;
+    dropdown.innerHTML = `<option value="new">+ Create New Project</option>`;
     return;
   }
 
-  dropdown.innerHTML = `<option value="">— Select demand —</option>` +
+  dropdown.innerHTML = `<option value="new">+ Create New Project</option>` +
     ids.map(id => `<option value="${id}" ${id === current ? 'selected' : ''}>${id}${demandTitles[id] ? ' – ' + demandTitles[id] : ''}</option>`).join('');
 }
 
@@ -277,6 +285,11 @@ function renderEnvDetail(demand_id) {
         status.style.color = 'var(--color-status-red-text)';
       }
     });
+    // Auto-trigger the AI generation if the module is not applied yet
+    setTimeout(() => {
+      const btn = document.getElementById('btn-init-envs');
+      if (btn) btn.click();
+    }, 200);
     return;
   }
   const envOrder = ['dev', 'test', 'staging', 'prod'];

@@ -22,6 +22,20 @@ window.switchStage = function(stageId) {
   window.location.hash = stageId;
 };
 
+window.filterSidebarDemands = function(input) {
+  const q = input.value.toLowerCase();
+  const sidebar = input.closest('.sidebar');
+  if (!sidebar) return;
+  const listItems = sidebar.querySelectorAll('li');
+  listItems.forEach(li => {
+    if (li.innerText.toLowerCase().includes(q)) {
+      li.style.display = '';
+    } else {
+      li.style.display = 'none';
+    }
+  });
+};
+
 function saveDemandScrollPosition(id) {
   const panelCard = document.querySelector('#details-panel-container .panel-card');
   if (panelCard) {
@@ -349,9 +363,8 @@ function renderIntakeScreen() {
     <div class="intake-screen">
       <!-- Left Sidebar for Demands Listing -->
       <aside class="sidebar">
-        <div class="sidebar-header">
-          <h3 class="sidebar-title">Demands Queue</h3>
-          <button class="btn-new" id="btn-new-intake">+ New Intake</button>
+        <div class="sidebar-search" style="padding: 1rem;">
+          <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
         </div>
         <ul class="demand-list" id="demand-list-container">
           <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 2rem;">
@@ -361,18 +374,19 @@ function renderIntakeScreen() {
       </aside>
 
       <!-- Right Panel for Form or Active Details Wizard -->
-      <main class="details-panel" id="details-panel-container">
-        <!-- Rendered dynamically -->
+      <main class="details-panel" style="display: flex; flex-direction: column;">
+        <header class="main-panel-header" style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); background: var(--bg-primary); display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 1.25rem;">Demands Queue</h2>
+          <div id="demand-intake-dropdown-container">
+            <!-- Rendered by renderDemandList -->
+          </div>
+        </header>
+        <div id="details-panel-container" style="flex: 1; overflow-y: auto;">
+          <!-- Rendered dynamically -->
+        </div>
       </main>
     </div>
   `;
-
-  document.getElementById('btn-new-intake').addEventListener('click', () => {
-    selectedDemandId = null;
-    sessionStorage.removeItem('selectedDemandId');
-    clearSidebarSelection();
-    showNewIntakeForm();
-  });
 }
 
 // Helper to remove active classes on list items
@@ -391,14 +405,14 @@ async function fetchDemands() {
     demands = await res.json();
     renderDemandList();
     
-    // Automatically select the first demand if none is selected, or if the selected demand doesn't exist anymore
     const exists = demands.some(d => d.demand_id === selectedDemandId);
-    if (demands.length > 0 && (selectedDemandId === null || !exists)) {
-      selectDemand(demands[0].demand_id);
-    } else if (selectedDemandId !== null && exists) {
+    if (selectedDemandId !== null && exists) {
       selectDemand(selectedDemandId);
     } else {
+      selectedDemandId = null;
+      clearSidebarSelection();
       showNewIntakeForm();
+      renderDemandList();
     }
   } catch (err) {
     console.error("Failed to fetch demands:", err);
@@ -418,6 +432,18 @@ async function fetchDemands() {
 // Update the list of demands in the sidebar
 function renderDemandList() {
   const container = document.getElementById('demand-list-container');
+  const dropdownContainer = document.getElementById('demand-intake-dropdown-container');
+
+  if (dropdownContainer) {
+    const optionsHtml = demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === selectedDemandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
+    dropdownContainer.innerHTML = `
+      <select id="demand-intake-dropdown" onchange="window.selectDemandAction(this.value)" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
+        <option value="new" ${!selectedDemandId ? 'selected' : ''}>+ Create New Intake</option>
+        ${optionsHtml}
+      </select>
+    `;
+  }
+
   if (demands.length === 0) {
     container.innerHTML = `<li style="padding: 2rem; text-align: center; color: var(--text-muted);">No demands found. Submit one below.</li>`;
     return;
@@ -481,6 +507,18 @@ function renderDemandList() {
     });
   });
 }
+
+window.selectDemandAction = function(demandId) {
+  if (demandId === 'new') {
+    selectedDemandId = null;
+    sessionStorage.removeItem('selectedDemandId');
+    clearSidebarSelection();
+    showNewIntakeForm();
+    renderDemandList();
+    return;
+  }
+  selectDemand(demandId);
+};
 
 // Select a demand, update list states, and render the details wizard
 function selectDemand(id) {

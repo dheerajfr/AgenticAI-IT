@@ -50,10 +50,10 @@ window.renderTestQualityScreen = function () {
     <div class="intake-screen" style="padding: 1rem; height: 100%; box-sizing: border-box;">
       <!-- Left Sidebar: Test Queue -->
       <aside class="sidebar">
-        <div class="sidebar-header">
-          <h3 class="sidebar-title">Test Queue</h3>
-          <button class="btn-new" id="tq-refresh-btn" title="Refresh Queue">&#x21BB; Refresh</button>
+        <div class="sidebar-search" style="padding: 1rem;">
+          <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
         </div>
+
         <ul class="demand-list" id="tq-demand-list-container">
           <li style="text-align: center; color: var(--text-muted); padding: 1.5rem 1rem;">
             Loading demands...
@@ -62,11 +62,26 @@ window.renderTestQualityScreen = function () {
       </aside>
 
       <!-- Right Panel: Capabilities Tabbed View -->
-      <main class="details-panel" id="tq-panel-container" style="display: flex; flex-direction: column; overflow: hidden; min-height: 0; min-width: 0; height: 100%; align-self: stretch; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);"></main>
+      <main class="details-panel" style="display: flex; flex-direction: column; overflow: hidden; min-height: 0; min-width: 0; height: 100%; align-self: stretch; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+        <header class="main-panel-header" style="padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 1.25rem;">Test Queue</h2>
+          <div id="tq-dropdown-container" style="display:flex; align-items:center; gap:0.5rem;"></div>
+        </header>
+        <div id="tq-panel-container" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column;"></div>
+      </main>
     </div>
   `;
 
-  document.getElementById('tq-refresh-btn').addEventListener('click', () => window.fetchTestQualityData());
+  window.selectTQAction = function(demandId) {
+    if (demandId === 'new') {
+      sessionStorage.removeItem('selectedDemandId');
+      tqSelectedDemandId = null;
+      window.location.hash = 'demand-intake';
+      return;
+    }
+    selectTQDemand(demandId);
+  };
+
 
   // Inject CSS styles if they do not exist
   if (!document.getElementById('tq-premium-styles')) {
@@ -293,6 +308,22 @@ window.fetchTestQualityData = async function () {
 
 function renderTQQueues() {
   const container = document.getElementById('tq-demand-list-container');
+  const dropdownContainer = document.getElementById('tq-dropdown-container');
+
+  if (dropdownContainer && tqDemands) {
+    const optionsHtml = tqDemands.map(d => `<option value="${d.demand_id}" ${d.demand_id === tqSelectedDemandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
+    
+    dropdownContainer.innerHTML = `
+      <select onchange="window.selectTQAction(this.value)" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
+        <option value="new" ${!tqSelectedDemandId ? 'selected' : ''}>+ Create New Project</option>
+        ${optionsHtml}
+      </select>
+      <button class="btn-new" id="tq-refresh-btn" style="font-size: 0.85rem; padding: 0.45rem;" title="Refresh Queue">&#x21BB;</button>
+    `;
+
+    document.getElementById('tq-refresh-btn').addEventListener('click', () => window.fetchTestQualityData());
+  }
+
   if (!container) return;
 
   if (!tqDemands || tqDemands.length === 0) {
@@ -429,6 +460,10 @@ async function selectTQDemand(id) {
   } catch (err) {
     console.error("Delivery context error:", err);
     tqDeliveryContext = null;
+  }
+
+  if (!generatedSuite) {
+    tqActiveTab = 'generation';
   }
 
   renderTQDetailsPanel();

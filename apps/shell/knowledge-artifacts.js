@@ -173,6 +173,10 @@ window.fetchKnowledgeArtifactsData = async function() {
         <div class="sidebar-header">
           <h3 class="sidebar-title">Knowledge & Artefacts</h3>
         </div>
+        <div class="sidebar-search" style="padding: 0 1rem 0.5rem 1rem;">
+          <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
+        </div>
+
         <ul class="demand-list" style="padding: 0; margin: 0; list-style: none;">
           ${sidebarItemsHtml}
         </ul>
@@ -399,9 +403,10 @@ window.renderKnowledgeArtifactsScreen = function(targetContainer) {
   const layoutPrefix = `
     <div class="intake-screen" style="padding: 1rem; height: 100%; box-sizing: border-box;">
       <aside class="sidebar">
-        <div class="sidebar-header">
-          <h3 class="sidebar-title">Knowledge & Artefacts</h3>
+        <div class="sidebar-search" style="padding: 1rem;">
+          <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
         </div>
+
         <ul class="demand-list" style="padding: 0; margin: 0; list-style: none;">
           ${sidebarItemsHtml}
         </ul>

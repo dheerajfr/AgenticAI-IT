@@ -11,9 +11,8 @@ window.renderEstimateScreen = function () {
   viewport.innerHTML = `
     <div class="intake-screen">
       <aside class="sidebar">
-        <div class="sidebar-header">
-          <h3 class="sidebar-title">Estimates Queue</h3>
-          <button class="btn-new" id="btn-new-estimate">+ Generate Estimate</button>
+        <div class="sidebar-search" style="padding: 1rem;">
+          <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
         </div>
         <ul class="demand-list" id="estimate-list-container">
           <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 2rem;">
@@ -21,17 +20,43 @@ window.renderEstimateScreen = function () {
           </li>
         </ul>
       </aside>
-      <main class="details-panel" id="estimate-panel-container">
+      <main class="details-panel" style="display: flex; flex-direction: column;">
+        <header class="main-panel-header" style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); background: var(--bg-primary); display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 1.25rem;">Estimates Queue</h2>
+          <div id="estimate-dropdown-container"></div>
+        </header>
+        <div id="estimate-panel-container" style="flex: 1; overflow-y: auto;">
+        </div>
       </main>
     </div>
   `;
+}
 
-  document.getElementById('btn-new-estimate').addEventListener('click', () => {
+window.selectEstimateAction = function(demandId) {
+  if (demandId === 'new') {
+    sessionStorage.removeItem('selectedDemandId');
     selectedEstimateId = null;
     clearEstimateSidebarSelection();
     showNewEstimateForm();
-  });
-}
+    return;
+  }
+  sessionStorage.setItem('selectedDemandId', demandId);
+  const matchedEst = estimates.find(e => e.demand_id === demandId);
+  if (matchedEst) {
+    selectEstimate(matchedEst.estimate_id);
+  } else {
+    selectedEstimateId = null;
+    clearEstimateSidebarSelection();
+    showNewEstimateForm();
+    setTimeout(() => {
+      const selectEl = document.getElementById('select-demand');
+      if (selectEl) {
+        selectEl.value = demandId;
+        selectEl.dispatchEvent(new Event('change'));
+      }
+    }, 100);
+  }
+};
 
 function clearEstimateSidebarSelection() {
   document.querySelectorAll('.demand-item').forEach(item => {
@@ -78,7 +103,11 @@ window.fetchEstimates = async function () {
     }
     const activeDemandId = sessionStorage.getItem('selectedDemandId');
     const matchedEst = activeDemandId ? estimates.find(e => e.demand_id === activeDemandId) : null;
-    if (matchedEst && selectedEstimateId === null) {
+    
+    if (activeDemandId && !matchedEst) {
+      // No estimate exists for this demand, auto-open creation
+      window.selectEstimateAction(activeDemandId);
+    } else if (matchedEst && selectedEstimateId === null) {
       selectEstimate(matchedEst.estimate_id);
     } else if (estimates.length > 0 && selectedEstimateId === null) {
       selectEstimate(estimates[0].estimate_id);
@@ -103,6 +132,19 @@ window.fetchEstimates = async function () {
 
 function renderEstimateList() {
   const container = document.getElementById('estimate-list-container');
+  const dropdownContainer = document.getElementById('estimate-dropdown-container');
+  
+  if (dropdownContainer && allDemands) {
+    const activeDemandId = sessionStorage.getItem('selectedDemandId');
+    const optionsHtml = allDemands.map(d => `<option value="${d.demand_id}" ${d.demand_id === activeDemandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
+    dropdownContainer.innerHTML = `
+      <select onchange="window.selectEstimateAction(this.value)" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
+        <option value="new" ${!activeDemandId ? 'selected' : ''}>+ Create New Estimate</option>
+        ${optionsHtml}
+      </select>
+    `;
+  }
+
   if (estimates.length === 0) {
     container.innerHTML = `<li style="padding: 2rem; text-align: center; color: var(--text-muted);">No estimates found. Generate one.</li>`;
     return;
