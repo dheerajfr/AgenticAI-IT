@@ -40,7 +40,7 @@ class DemandDatabase:
         cursor = conn.cursor()
         count = 0
         for filename in os.listdir(self.fixtures_dir):
-            if filename.endswith(".json"):
+            if filename.startswith("demand_") and filename.endswith(".json"):
                 filepath = os.path.join(self.fixtures_dir, filename)
                 try:
                     with open(filepath, "r", encoding="utf-8") as f:
