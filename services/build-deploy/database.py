@@ -131,13 +131,16 @@ deployments_db.load_fixtures(os.path.join(FIXTURES_ROOT, "deployments"))
 # ---------------------------------------------------------------------------
 
 def read_environment_state(component_id: str, environment: str) -> Optional[dict]:
-    config_env_db_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "source.db")
-    )
-    if not os.path.exists(config_env_db_path):
-        return None
+    import sys
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     try:
-        with sqlite3.connect(config_env_db_path) as conn:
+        from shared_db.connection import get_db
+    except ImportError:
+        print("Error: Could not import shared_db.connection")
+        return None
+
+    try:
+        with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT data FROM environments WHERE environment = ?",
@@ -149,7 +152,7 @@ def read_environment_state(component_id: str, environment: str) -> Optional[dict
                     return data
             return None
     except Exception as e:
-        print(f"Error reading config-env.db for {component_id}/{environment}: {e}")
+        print(f"Error reading shared DB for environments of {component_id}/{environment}: {e}")
         return None
 
 def fetch_runbook_context(demand_id: str, component_id: str, environment: str) -> dict:

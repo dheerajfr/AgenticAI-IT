@@ -3,6 +3,10 @@
 
 const PLAN_API_BASE = '/api';
 const ESTIMATE_API_FOR_PLANS = '/api';
+<<<<<<< HEAD
+
+=======
+>>>>>>> origin/Fardeen
 
 let plans = [];
 let availableEstimates = [];
