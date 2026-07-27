@@ -40,6 +40,31 @@ window.renderReleaseChangeScreen = function () {
   window.onProjectSelectChange = onProjectSelectChange;
   window.deleteRelease = deleteRelease;
 
+  window.selectReleaseAction = function(demandId) {
+    if (demandId === 'new') {
+      sessionStorage.removeItem('selectedDemandId');
+      openCreateModal();
+      return;
+    }
+    
+    sessionStorage.setItem('selectedDemandId', demandId);
+    filterProject = demandId; // Update filter
+    const matchedRelease = releaseList.find(r => r.project_id === demandId);
+    
+    if (matchedRelease) {
+      navigateToRelease(matchedRelease.release_id);
+    } else {
+      openCreateModal();
+      setTimeout(() => {
+        const pSelect = document.getElementById('modal-project-select');
+        if (pSelect) {
+          pSelect.value = demandId;
+          pSelect.dispatchEvent(new Event('change'));
+        }
+      }, 100);
+    }
+  };
+
   // Initial load
   loadDropdownOptions();
   fetchReleases();
@@ -55,6 +80,7 @@ async function loadDropdownOptions() {
     if (res.ok) {
       dropdownOptions = await res.json();
       populateCreateModalDropdowns();
+      if (!selectedReleaseId) renderDashboardView(); // re-render dropdown if on dashboard
     }
   } catch (err) {
     console.error("Failed to load dropdowns", err);
@@ -159,6 +185,21 @@ function renderDashboardView() {
     if (filterRisk === 'low') filteredReleases = filteredReleases.filter(r => r.risk_score < 35 || r.risk_score === null);
   }
 
+  let dropdownHtml = '';
+  if (dropdownOptions && dropdownOptions.demands) {
+    const optionsHtml = dropdownOptions.demands.map(d => `<option value="${d.demand_id}">${d.demand_id} - ${d.title}</option>`).join('');
+    dropdownHtml = `
+      <select onchange="window.selectReleaseAction(this.value)" style="padding: 0.6rem 1.2rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-weight: 600; cursor: pointer; outline: none; font-family: var(--font-sans);">
+        <option value="new">+ Create Release Package</option>
+        ${optionsHtml}
+      </select>
+    `;
+  } else {
+    dropdownHtml = `<button class="btn-primary" onclick="openCreateModal()" style="display: flex; align-items: center; gap: 0.5rem; background: var(--color-brand); border: none; padding: 0.6rem 1.2rem; border-radius: var(--radius-md); font-weight: 600; color: var(--text-primary); cursor: pointer;">
+        <span>+ Create Release Package</span>
+      </button>`;
+  }
+
   wrapper.innerHTML = `
     <!-- Top Bar -->
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
@@ -166,9 +207,9 @@ function renderDashboardView() {
         <h2 style="margin: 0; font-family: var(--font-display); font-size: 1.5rem; font-weight: 700;">Release & Change Governance</h2>
         <p style="margin: 0.25rem 0 0 0; color: var(--text-secondary); font-size: 0.85rem;">Continuous compliance, automated risk profiling, and CAB orchestration.</p>
       </div>
-      <button class="btn-primary" onclick="openCreateModal()" style="display: flex; align-items: center; gap: 0.5rem; background: var(--color-brand); border: none; padding: 0.6rem 1.2rem; border-radius: var(--radius-md); font-weight: 600; color: var(--text-primary); cursor: pointer;">
-        <span>+ Create Release Package</span>
-      </button>
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        ${dropdownHtml}
+      </div>
     </div>
 
     <!-- Metrics Widgets Row -->

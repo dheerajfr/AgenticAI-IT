@@ -125,13 +125,9 @@ window.renderPlanScreen = function () {
       <aside class="sidebar" style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 100%; overflow: hidden;">
         <!-- Plans list card -->
         <div class="panel-card" style="flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-          <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h3 class="sidebar-title" style="margin: 0; font-size: 1rem;">Plans Queue</h3>
-            <button class="btn-new" id="btn-new-plan" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">+ Generate Plan</button>
+          <div class="sidebar-search" style="padding: 0 0 1rem 0;">
+            <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
           </div>
-        <div class="sidebar-search" style="padding: 0 1rem 0.5rem 1rem;">
-          <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
-        </div>
 
           <ul class="demand-list" id="plan-list-container" style="flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;">
             <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 2rem;">
@@ -151,14 +147,42 @@ window.renderPlanScreen = function () {
           </div>
         </div>
       </aside>
-      <main class="details-panel" id="plan-panel-container"></main>
+      <main class="details-panel" style="display: flex; flex-direction: column;">
+        <header class="main-panel-header" style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); background: var(--bg-primary); display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 1.25rem;">Plans Queue</h2>
+          <div id="plan-dropdown-container"></div>
+        </header>
+        <div id="plan-panel-container" style="flex: 1; overflow-y: auto;">
+        </div>
+      </main>
     </div>
   `;
-  document.getElementById('btn-new-plan').addEventListener('click', () => {
+};
+
+window.selectPlanAction = function(demandId) {
+  if (demandId === 'new') {
+    sessionStorage.removeItem('selectedDemandId');
     selectedPlanId = null;
     clearPlanSidebarSelection();
     showNewPlanForm();
-  });
+    return;
+  }
+  sessionStorage.setItem('selectedDemandId', demandId);
+  const matchedPlan = plans.find(p => p.demand_id === demandId);
+  if (matchedPlan) {
+    selectPlan(matchedPlan.plan_id);
+  } else {
+    selectedPlanId = null;
+    clearPlanSidebarSelection();
+    showNewPlanForm();
+    setTimeout(() => {
+      const selectEl = document.getElementById('select-estimates');
+      if (selectEl) {
+        selectEl.value = demandId;
+        selectEl.dispatchEvent(new Event('change'));
+      }
+    }, 100);
+  }
 };
 
 window.fetchPlans = async function () {
@@ -169,8 +193,8 @@ window.fetchPlans = async function () {
     try {
       const demRes = await fetch(`${ESTIMATE_API_FOR_PLANS}/demands`);
       if (demRes.ok) {
-        const allDemands = await demRes.json();
-        allDemands.forEach(d => {
+        window.allDemandsForPlan = await demRes.json();
+        window.allDemandsForPlan.forEach(d => {
           demandTitleMap[d.demand_id] = d.title;
         });
       }
@@ -204,7 +228,13 @@ window.fetchPlans = async function () {
     const activeDemandId = sessionStorage.getItem('selectedDemandId');
     if (activeDemandId) {
       const matchedPlan = plans.find(p => p.demand_id === activeDemandId);
-      if (matchedPlan) selectedPlanId = matchedPlan.plan_id;
+      if (matchedPlan) {
+        selectedPlanId = matchedPlan.plan_id;
+      } else {
+        window.selectPlanAction(activeDemandId);
+        window.fetchEmployees();
+        return;
+      }
     }
     if (plans.length > 0 && selectedPlanId === null) {
       selectedPlanId = plans[0].plan_id;
@@ -296,6 +326,19 @@ function clearPlanSidebarSelection() {
 
 function renderPlanList() {
   const container = document.getElementById('plan-list-container');
+  const dropdownContainer = document.getElementById('plan-dropdown-container');
+
+  if (dropdownContainer && window.allDemandsForPlan) {
+    const activeDemandId = sessionStorage.getItem('selectedDemandId');
+    const optionsHtml = window.allDemandsForPlan.map(d => `<option value="${d.demand_id}" ${d.demand_id === activeDemandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
+    dropdownContainer.innerHTML = `
+      <select onchange="window.selectPlanAction(this.value)" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
+        <option value="new" ${!activeDemandId ? 'selected' : ''}>+ Create New Plan</option>
+        ${optionsHtml}
+      </select>
+    `;
+  }
+
   if (!container) return;
   if (plans.length === 0) {
     container.innerHTML = `<li style="padding: 2rem; text-align: center; color: var(--text-muted);">No plans yet. Generate one.</li>`;
