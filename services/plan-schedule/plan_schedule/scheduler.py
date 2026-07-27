@@ -383,8 +383,9 @@ class _RoundRobinOwner:
                 assigned_team_sorted = sorted(assigned_team, key=lambda e: self.get_utilization_days(e["email"]))
                 allocated_emails: List[str] = []
                 pool_size = len(assigned_team_sorted)
-                for i in range(count):
-                    emp = assigned_team_sorted[i % pool_size]
+                unique_count = min(count, pool_size)
+                for i in range(unique_count):
+                    emp = assigned_team_sorted[i]
                     email = emp["email"]
                     allocated_emails.append(email)
                     self.assignments.append((email, start_date, end_date))
@@ -426,8 +427,10 @@ class _RoundRobinOwner:
                 self._counters = {}
             self._counters.setdefault(role, 0)
             allocated_emails = []
-            for _ in range(count):
-                idx = self._counters[role] % len(candidates)
+            pool_size = len(candidates)
+            unique_count = min(count, pool_size)
+            for _ in range(unique_count):
+                idx = self._counters[role] % pool_size
                 allocated_emails.append(candidates[idx]["email"])
                 self._counters[role] += 1
             return allocated_emails
@@ -435,11 +438,12 @@ class _RoundRobinOwner:
         # Sort all candidates by utilization
         all_sorted = sorted(candidates, key=lambda emp: self.get_utilization_days(emp["email"]))
 
-        # Assign count employees, cycling if pool is smaller
+        # Assign up to count unique employees
         allocated_emails = []
         pool_size = len(all_sorted)
-        for i in range(count):
-            emp = all_sorted[i % pool_size]
+        unique_count = min(count, pool_size)
+        for i in range(unique_count):
+            emp = all_sorted[i]
             email = emp["email"]
             allocated_emails.append(email)
             self.assignments.append((email, start_date, end_date))
