@@ -20,6 +20,9 @@ window.renderConfigEnvironmentsScreen = function () {
           <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h3 class="sidebar-title" style="margin: 0; font-size: 1rem;">Demands</h3>
           </div>
+          <div class="sidebar-search" style="padding: 0 0 1rem 0;">
+            <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
+          </div>
 
           <!-- Demand ID dropdown -->
           <div style="margin-bottom: 0.75rem;">

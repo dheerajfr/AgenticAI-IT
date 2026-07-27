@@ -5,14 +5,10 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Dict
 
-<<<<<<< HEAD
-DB_PATH = Path(__file__).parent.parent / "source.db"
-=======
 _ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(_ROOT_DIR) not in sys.path:
     sys.path.append(str(_ROOT_DIR))
 from shared_db.connection import get_db
->>>>>>> 806b04340c3dd1918d55fe238e058bf4afb4ea2e
 
 def _get_conn():
     conn = get_db()

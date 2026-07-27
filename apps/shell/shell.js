@@ -22,6 +22,20 @@ window.switchStage = function(stageId) {
   window.location.hash = stageId;
 };
 
+window.filterSidebarDemands = function(input) {
+  const q = input.value.toLowerCase();
+  const sidebar = input.closest('.sidebar');
+  if (!sidebar) return;
+  const listItems = sidebar.querySelectorAll('li');
+  listItems.forEach(li => {
+    if (li.innerText.toLowerCase().includes(q)) {
+      li.style.display = '';
+    } else {
+      li.style.display = 'none';
+    }
+  });
+};
+
 function saveDemandScrollPosition(id) {
   const panelCard = document.querySelector('#details-panel-container .panel-card');
   if (panelCard) {
@@ -352,6 +366,9 @@ function renderIntakeScreen() {
         <div class="sidebar-header">
           <h3 class="sidebar-title">Demands Queue</h3>
           <button class="btn-new" id="btn-new-intake">+ New Intake</button>
+        </div>
+        <div class="sidebar-search" style="padding: 0 1rem 0.5rem 1rem;">
+          <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
         </div>
         <ul class="demand-list" id="demand-list-container">
           <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 2rem;">

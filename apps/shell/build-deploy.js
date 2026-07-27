@@ -106,6 +106,9 @@ window.renderBuildDeployScreen = function () {
             <button class="btn-new" id="btn-refresh-deploy">↻ Refresh</button>
           </div>
         </div>
+        <div class="sidebar-search" style="padding: 0 1rem 0.5rem 1rem;">
+          <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
+        </div>
         <div class="tabs-container" style="margin: 0 1rem; display: flex; justify-content: space-between; gap: 0.2rem; border-bottom: 1px solid var(--border-color);">
           <button class="tab-btn ${activeDeployTab === 'runbooks' ? 'active' : ''}" id="tab-runbooks" style="padding: 0.4rem 0.2rem; flex: 1; font-size: 0.75rem; text-align: center;">Runbooks</button>
           <button class="tab-btn ${activeDeployTab === 'cutover' ? 'active' : ''}" id="tab-cutover" style="padding: 0.4rem 0.2rem; flex: 1; font-size: 0.75rem; text-align: center;">Cutover Bridge</button>

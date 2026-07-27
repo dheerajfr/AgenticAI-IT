@@ -167,6 +167,10 @@ window.renderDependenciesScreen = function () {
             <button class="btn-new" id="btn-new-sense" title="Auto-sense plan dependencies">Generate Dependency</button>
             <button class="btn-new" id="btn-new-edge" title="Manually create dependency edge">+New</button>
           </div>
+        <div class="sidebar-search" style="padding: 0 1rem 0.5rem 1rem;">
+          <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
+        </div>
+
         </div>
         <ul class="demand-list" id="dependency-list-container">
           <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 2rem;">

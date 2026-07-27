@@ -129,6 +129,10 @@ window.renderPlanScreen = function () {
             <h3 class="sidebar-title" style="margin: 0; font-size: 1rem;">Plans Queue</h3>
             <button class="btn-new" id="btn-new-plan" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">+ Generate Plan</button>
           </div>
+        <div class="sidebar-search" style="padding: 0 1rem 0.5rem 1rem;">
+          <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
+        </div>
+
           <ul class="demand-list" id="plan-list-container" style="flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;">
             <li class="demand-item" style="text-align: center; color: var(--text-muted); padding: 2rem;">
               Loading plans...
