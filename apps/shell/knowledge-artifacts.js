@@ -192,7 +192,7 @@ window.fetchKnowledgeArtifactsData = async function() {
 
   if (!demandId) {
     viewport.innerHTML = layoutPrefix + `
-      <div style="padding: 2rem; max-width: 1200px; margin: 0 auto;">
+      <div style="padding: 2rem; max-width: 100%; box-sizing: border-box;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
           <h2 style="margin: 0; font-family: var(--font-display); color: var(--text-primary);">Module Selector</h2>
           ${dropdownHtml}
@@ -421,7 +421,7 @@ window.renderKnowledgeArtifactsScreen = function(targetContainer) {
 
   if (!demandId) {
     viewport.innerHTML = layoutPrefix + `
-      <div style="padding: 2rem; max-width: 1200px; margin: 0 auto;">
+      <div style="padding: 2rem; max-width: 100%; box-sizing: border-box;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
           <h2 style="margin: 0; font-family: var(--font-display); color: var(--text-primary);">Module Selector</h2>
           ${dropdownHtml}
@@ -502,7 +502,7 @@ window.renderKnowledgeArtifactsScreen = function(targetContainer) {
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; animation: fade-in 0.3s ease;">
         <div style="display: flex; flex-direction: column;">
           <!-- Artefact Index List -->
-          <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; min-height: 420px; display: flex; flex-direction: column;">
+          <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; min-height: 420px; display: flex; flex-direction: column; box-shadow: var(--shadow-sm);">
             <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
               <span>Indexed Artefacts for ${demandId}</span>
               <span style="font-size: 0.75rem; background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 2px 6px; border-radius: 4px;">Artefact Sync</span>
@@ -515,7 +515,7 @@ window.renderKnowledgeArtifactsScreen = function(targetContainer) {
 
         <div style="display: flex; flex-direction: column;">
           <!-- Single Unified Sync Ingestion Card -->
-          <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; min-height: 420px; display: flex; flex-direction: column;">
+          <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; min-height: 420px; display: flex; flex-direction: column; box-shadow: var(--shadow-sm);">
             
             <!-- Ingest Sub-tabs -->
             <div style="display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem; gap: 0.25rem;">
@@ -533,98 +533,73 @@ window.renderKnowledgeArtifactsScreen = function(targetContainer) {
         </div>
       </div>
     `;
-  } else {
-    const learnTab = sessionStorage.getItem('kaLearnTab') || 'lessons';
-    let learnTabContentHtml = '';
-
-    if (learnTab === 'lessons') {
-      learnTabContentHtml = `
-        <div style="animation: fade-in 0.2s ease; display: flex; flex-direction: column;">
-          <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem; display: flex; justify-content: space-between; align-items: center;">
-            <span>Cross-Project Learning</span>
-            <span style="font-size: 0.7rem; background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 2px 6px; border-radius: 4px;">Human Directs</span>
-          </h3>
-          <p style="font-size: 0.82rem; color: var(--text-secondary); margin: 0 0 1rem 0; line-height: 1.45;">AI extracts lessons learned from past incident reports and retrospective boards based on your specified topic.</p>
-          <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-            <input type="text" id="lesson-topic" placeholder="Topic (e.g. Database Scaling)..." style="flex: 1; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 0.82rem;">
-            <button id="extract-lessons-btn" onclick="extractLessons('${demandId}')" class="btn-primary" style="padding: 0.5rem 1.25rem; font-size: 0.82rem;">Extract</button>
-          </div>
-          <div id="lessons-feedback" style="font-size:0.78rem;margin-bottom:0.75rem;color:var(--text-muted);"></div>
-          <div style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 400px; overflow-y: auto; text-align: left;">
-            ${[...lessons].reverse().map(l => `
-              <div style="padding: 0.75rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); border-left: 3px solid var(--color-brand); text-align: left;">
-                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem; text-align: left;">Topic: <strong style="color: var(--text-primary); font-weight: 700;">${l.topic}</strong></div>
-                <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; text-align: left;">${parseMarkdown(l.content)}</div>
-              </div>
-            `).join('')}
-            ${lessons.length === 0 ? '<div style="font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 0.75rem;">No lessons extracted yet.</div>' : ''}
-          </div>
-        </div>
-      `;
-    } else {
-      learnTabContentHtml = `
-        <div style="animation: fade-in 0.2s ease; display: flex; flex-direction: column;">
-          <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem; display: flex; justify-content: space-between; align-items: center;">
-            <span>Onboarding Sync</span>
-            <span style="font-size: 0.7rem; background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 2px 6px; border-radius: 4px;">Human Directs</span>
-          </h3>
-          <p style="font-size: 0.82rem; color: var(--text-secondary); margin: 0 0 1rem 0; line-height: 1.45;">AI generates a structured onboarding wiki section from the project's demand & architecture.</p>
-          <button id="sync-onboarding-btn" onclick="syncOnboarding('${demandId}')" class="btn-secondary" style="padding: 0.5rem 1.25rem; font-size: 0.82rem; margin-bottom: 1rem; width: 100%;">Sync Onboarding Wiki</button>
-          <div id="onboarding-feedback" style="font-size:0.78rem;margin-bottom:0.75rem;color:var(--text-muted);text-align:center;"></div>
-          <div style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 400px; overflow-y: auto; text-align: left;">
-            ${[...updates].reverse().map(u => `
-              <div style="padding: 0.75rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 0.4rem; text-align: left;">
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; text-align: left;">
-                  <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-primary); text-align: left;">${u.description}</span>
-                </div>
-                ${u.details ? `<div style="font-size: 0.76rem; color: var(--text-secondary); line-height: 1.5; background: rgba(0,0,0,0.08); padding: 0.75rem 1rem; border-radius: var(--radius-sm); font-family: inherit; text-align: left;">${parseMarkdown(u.details)}</div>` : ''}
-              </div>
-            `).join('')}
-            ${updates.length === 0 ? '<div style="font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 0.5rem;">No onboarding updates generated yet.</div>' : ''}
-          </div>
-        </div>
-      `;
-    }
-
+  } else if (activeTab === 'search') {
     tabContentHtml = `
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; animation: fade-in 0.3s ease;">
-        <div style="display: flex; flex-direction: column;">
-          <!-- Artefact Search / Q&A -->
-          <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; min-height: 420px; display: flex; flex-direction: column;">
-            <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
-              <span>Knowledge Search &amp; Q&amp;A</span>
-              <span style="font-size: 0.75rem; background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 2px 6px; border-radius: 4px;">Human Directs</span>
+      <div style="animation: fade-in 0.3s ease;">
+        <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 2rem; min-height: 420px; display: flex; flex-direction: column; box-shadow: var(--shadow-sm); justify-content: flex-start;">
+          
+          <div style="text-align: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem;">
+            <h3 style="margin: 0; font-size: 1.25rem; font-family: var(--font-display); color: var(--text-primary); display: flex; justify-content: center; align-items: center; gap: 0.5rem;">
+              <span>🔍 Knowledge Search &amp; Q&amp;A</span>
             </h3>
-            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
-              Unified vector search across all documents, specs, and wikis.
+            <p style="font-size: 0.88rem; color: var(--text-secondary); margin: 0.5rem 0 0 0;">
+              Unified vector search across all project documents, specifications, and runbooks.
             </p>
-            
-            <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
-              <input type="text" id="search-query" placeholder="Ask a question..." style="flex: 1; padding: 0.6rem 1rem; border-radius: 20px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 0.9rem;">
-              <button onclick="searchArtefacts()" class="btn-primary" style="padding: 0.6rem 1.5rem; border-radius: 20px; font-size: 0.9rem;">Search</button>
+          </div>
+          
+          <div style="max-width: 650px; width: 100%; margin: 1rem auto; display: flex; flex-direction: column; gap: 0.75rem; text-align: center;">
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="text" id="search-query" placeholder="Ask a question about the project..." style="flex: 1; padding: 0.8rem 1.2rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 0.95rem; outline: none; font-family: var(--font-sans); box-shadow: var(--shadow-xs);">
+              <button onclick="searchArtefacts()" class="btn-primary" style="padding: 0.8rem 2rem; border-radius: var(--radius-md); font-size: 0.95rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; box-shadow: var(--shadow-xs);">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="opacity: 0.9;"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                Search
+              </button>
             </div>
-            
-            <div id="search-results" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem;">
-              <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center;">Try searching: "What architecture documents do we have?"</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; gap: 0.5rem; justify-content: center; align-items: center; margin-top: 0.25rem;">
+              <span>💡 Try searching:</span>
+              <a href="#" onclick="document.getElementById('search-query').value='What architecture documents do we have?'; searchArtefacts(); return false;" style="color: var(--color-brand); text-decoration: none; font-weight: 600;">&quot;What architecture documents do we have?&quot;</a>
             </div>
           </div>
+          
+          <div id="search-results" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1.5rem;">
+            <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-top: 2rem;">No search results yet. Type a query above to query the vector database.</div>
+          </div>
         </div>
-
-        <div style="display: flex; flex-direction: column;">
-          <!-- Single Unified Learn / Onboarding Ingestion Card -->
-          <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; min-height: 420px; display: flex; flex-direction: column;">
-            
-            <!-- Ingest Sub-tabs -->
-            <div style="display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem; gap: 0.25rem;">
-              <button onclick="window.setKALearnTab('lessons')" style="background: ${learnTab === 'lessons' ? 'rgba(99, 102, 241, 0.1)' : 'none'}; border: none; border-bottom: 2px solid ${learnTab === 'lessons' ? 'var(--color-brand)' : 'transparent'}; color: ${learnTab === 'lessons' ? 'var(--color-brand)' : 'var(--text-secondary)'}; padding: 0.5rem 0.75rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; border-radius: 4px 4px 0 0; flex: 1; transition: all 0.2s;">✦ Lessons Learned</button>
-              <button onclick="window.setKALearnTab('onboarding')" style="background: ${learnTab === 'onboarding' ? 'rgba(99, 102, 241, 0.1)' : 'none'}; border: none; border-bottom: 2px solid ${learnTab === 'onboarding' ? 'var(--color-brand)' : 'transparent'}; color: ${learnTab === 'onboarding' ? 'var(--color-brand)' : 'var(--text-secondary)'}; padding: 0.5rem 0.75rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; border-radius: 4px 4px 0 0; flex: 1; transition: all 0.2s;">🚀 Onboarding Wiki</button>
-            </div>
-
-            <!-- Ingest Content -->
-            <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-start;">
-              ${learnTabContentHtml}
-            </div>
-            
+      </div>
+    `;
+  } else {
+    // activeTab === 'onboarding'
+    tabContentHtml = `
+      <div style="animation: fade-in 0.3s ease;">
+        <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 2rem; min-height: 420px; display: flex; flex-direction: column; box-shadow: var(--shadow-sm);">
+          
+          <div style="text-align: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem;">
+            <h3 style="margin: 0; font-size: 1.25rem; font-family: var(--font-display); color: var(--text-primary); display: flex; justify-content: center; align-items: center; gap: 0.5rem;">
+              <span>🚀 Onboarding Wiki Sync</span>
+            </h3>
+            <p style="font-size: 0.88rem; color: var(--text-secondary); margin: 0.5rem 0 0 0; line-height: 1.45;">
+              Generate and keep the standard engineering onboarding wiki updated by incorporating design decisions, architecture patterns, and allocated team skillsets.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-bottom: 2rem; display: flex; flex-direction: column; align-items: center;">
+            <button id="sync-onboarding-btn" onclick="syncOnboarding('${demandId}')" class="btn-primary" style="padding: 0.8rem 2rem; font-size: 0.95rem; font-weight: 600; width: auto; min-width: 280px; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; border-radius: var(--radius-md); box-shadow: var(--shadow-xs); cursor: pointer;">
+              🚀 Generate / Update Onboarding Wiki
+            </button>
+            <div id="onboarding-feedback" style="font-size: 0.8rem; margin-top: 0.75rem; color: var(--text-muted);"></div>
+          </div>
+          
+          <div style="display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; text-align: left; flex: 1;">
+            ${[...updates].reverse().map(u => `
+              <div style="padding: 1rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); display: flex; flex-direction: column; gap: 0.5rem; text-align: left; box-shadow: var(--shadow-xs);">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; text-align: left; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                  <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); text-align: left;">${u.description}</span>
+                  <span style="font-size: 0.72rem; color: var(--text-muted);">${new Date(u.updated_at).toLocaleString()}</span>
+                </div>
+                ${u.details ? `<div style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; background: rgba(0,0,0,0.03); padding: 1rem; border-radius: var(--radius-sm); font-family: inherit; text-align: left; border: 1px solid var(--border-color); overflow-x: auto;">${parseMarkdown(u.details)}</div>` : ''}
+              </div>
+            `).join('')}
+            ${updates.length === 0 ? '<div style="font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 2rem; border: 1px dashed var(--border-color); border-radius: var(--radius-md);">No onboarding wiki sections generated yet. Click the button above to create one.</div>' : ''}
           </div>
         </div>
       </div>
@@ -632,7 +607,7 @@ window.renderKnowledgeArtifactsScreen = function(targetContainer) {
   }
 
   viewport.innerHTML = layoutPrefix + `
-    <div style="padding: 2rem; max-width: 1200px; margin: 0 auto; animation: fade-in 0.3s ease;">
+    <div style="padding: 2rem; max-width: 100%; box-sizing: border-box; animation: fade-in 0.3s ease;">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
         <div>
           <h2 style="margin: 0; font-family: var(--font-display); color: var(--text-primary);">Knowledge &amp; Artefacts</h2>
@@ -646,8 +621,9 @@ window.renderKnowledgeArtifactsScreen = function(targetContainer) {
 
       <!-- Segmented Control Tab Buttons -->
       <div class="tabs-container" style="display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-        <button class="tab-btn ${activeTab === 'sync' ? 'active' : ''}" onclick="window.setKATab('sync')" style="background: ${activeTab === 'sync' ? 'rgba(99, 102, 241, 0.1)' : 'none'}; border: ${activeTab === 'sync' ? '1px solid rgba(99, 102, 241, 0.2)' : 'none'}; border-radius: var(--radius-sm); padding: 0.6rem 1.2rem; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: ${activeTab === 'sync' ? 'var(--color-brand)' : 'var(--text-secondary)'}; transition: all 0.2s;">Artefact Sync</button>
-        <button class="tab-btn ${activeTab === 'onboarding' ? 'active' : ''}" onclick="window.setKATab('onboarding')" style="background: ${activeTab === 'onboarding' ? 'rgba(99, 102, 241, 0.1)' : 'none'}; border: ${activeTab === 'onboarding' ? '1px solid rgba(99, 102, 241, 0.2)' : 'none'}; border-radius: var(--radius-sm); padding: 0.6rem 1.2rem; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: ${activeTab === 'onboarding' ? 'var(--color-brand)' : 'var(--text-secondary)'}; transition: all 0.2s;">Knowledge &amp; Onboarding</button>
+        <button class="tab-btn ${activeTab === 'sync' ? 'active' : ''}" onclick="window.setKATab('sync')" style="background: ${activeTab === 'sync' ? 'rgba(99, 102, 241, 0.1)' : 'none'}; border: 1px solid ${activeTab === 'sync' ? 'rgba(99, 102, 241, 0.2)' : 'transparent'}; border-radius: var(--radius-sm); padding: 0.6rem 1.2rem; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: ${activeTab === 'sync' ? 'var(--color-brand)' : 'var(--text-secondary)'}; transition: all 0.2s;">Artefact Sync</button>
+        <button class="tab-btn ${activeTab === 'search' ? 'active' : ''}" onclick="window.setKATab('search')" style="background: ${activeTab === 'search' ? 'rgba(99, 102, 241, 0.1)' : 'none'}; border: 1px solid ${activeTab === 'search' ? 'rgba(99, 102, 241, 0.2)' : 'transparent'}; border-radius: var(--radius-sm); padding: 0.6rem 1.2rem; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: ${activeTab === 'search' ? 'var(--color-brand)' : 'var(--text-secondary)'}; transition: all 0.2s;">Knowledge Search</button>
+        <button class="tab-btn ${activeTab === 'onboarding' ? 'active' : ''}" onclick="window.setKATab('onboarding')" style="background: ${activeTab === 'onboarding' ? 'rgba(99, 102, 241, 0.1)' : 'none'}; border: 1px solid ${activeTab === 'onboarding' ? 'rgba(99, 102, 241, 0.2)' : 'transparent'}; border-radius: var(--radius-sm); padding: 0.6rem 1.2rem; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: ${activeTab === 'onboarding' ? 'var(--color-brand)' : 'var(--text-secondary)'}; transition: all 0.2s;">Onboarding Wiki</button>
       </div>
 
       ${tabContentHtml}
