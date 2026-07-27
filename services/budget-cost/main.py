@@ -15,7 +15,7 @@ from models import (
     BudgetRequest, ROIRequest,
     BurnForecastRequest, ActualEntry,
     InvoiceMatchRequest, InvoiceApproveRequest,
-    CapexOpexRequest, CapexOpexSignOffRequest
+    CapexOpexRequest, CapexOpexSignOffRequest, SpendItem
 )
 from database import db, burn_db, invoice_db, capex_db, delete_demand_data
 from llm_client import call_gemini
@@ -331,23 +331,14 @@ def _get_auto_populated_months(demand_id: str) -> list:
 def get_burn(demand_id: str):
     data = burn_db.get(demand_id)
     
-    # Check if all invoices are matched/approved to auto-populate
-    invoices = invoice_db.get_all(demand_id)
-    all_matched = False
-    if invoices:
-        all_matched = all((inv.get("match_status") == "matched" or inv.get("decision") != "") for inv in invoices)
-        
     if not data:
         data = {
-            "actuals": _get_auto_populated_months(demand_id) if all_matched else [],
+            "actuals": [],
             "forecast": [],
             "variance_pct": 0,
             "narrative": "",
             "committed": False
         }
-        burn_db.upsert(demand_id, data)
-    elif all_matched and len(data.get("actuals", [])) == 0:
-        data["actuals"] = _get_auto_populated_months(demand_id)
         burn_db.upsert(demand_id, data)
         
     return data
@@ -516,22 +507,76 @@ def generate_sample_invoices(demand_id: str):
     proj_end   = datetime.strptime(max(end_dates),   "%Y-%m-%d").date()
     total_days = max((proj_end - proj_start).days, 1)
 
-    # ── 3. Build per-task line items (proportional to task duration) ───────────
-    # Define phase-specific line item templates based on common task name keywords
-    phase_items = {
-        "design":    ["UX/UI Design Services", "Architecture & System Design", "Wireframing & Prototyping"],
-        "build":     ["Backend Development Services", "Frontend Development Services", "API Integration Work", "Database Schema & Setup"],
-        "test":      ["QA Testing & Automation", "User Acceptance Testing Support", "Performance & Load Testing"],
-        "deploy":    ["Cloud Infrastructure Provisioning", "CI/CD Pipeline Setup", "Production Deployment Services"],
-        "default":   ["Professional Services", "Project Management", "Consulting & Advisory"],
-    }
-
-    def _get_phase_items(task_name: str):
-        name_lower = task_name.lower()
-        for key in phase_items:
-            if key in name_lower:
-                return phase_items[key]
-        return phase_items["default"]
+    # ── 3. Prepare task list for LLM ──────────────────────────────────────────────
+    task_inputs = []
+    
+    for i, task in enumerate(tasks):
+        task_name   = task.get("name", f"Phase {i+1}")
+        task_start  = task.get("start_date", str(proj_start))
+        task_end    = task.get("end_date",   str(proj_end))
+        
+        try:
+            t_start = datetime.strptime(task_start, "%Y-%m-%d").date()
+            t_end   = datetime.strptime(task_end,   "%Y-%m-%d").date()
+        except:
+            t_start, t_end = proj_start, proj_end
+            
+        task_days       = max((t_end - t_start).days, 1)
+        task_proportion = task_days / total_days
+        task_cost       = round(total_cost * task_proportion, 2)
+        
+        task_inputs.append({
+            "task_index": i,
+            "task_name": task_name,
+            "po_budget": task_cost,
+            "introduce_discrepancy": (i % 2 == 0)
+        })
+        
+    prompt = (
+        f"You are an AI generating synthetic invoice data for project '{project_title}' (domain: {domain}).\n"
+        f"For each task in the following list, generate an invoice with contextually appropriate line items.\n"
+        f"The line items' PO amounts (`amount`) should roughly sum up to the allocated `po_budget`.\n"
+        f"If `introduce_discrepancy` is true, introduce a billing discrepancy where one line item has a higher `qty_invoiced` than `qty_po` (e.g., 1.5 vs 1.0), resulting in a higher `amount_invoiced` than `amount`.\n"
+        f"For discrepant invoices, set `match_status` to 'discrepancy', detail the issue in `discrepancies`, and write a realistic `ai_analysis` explaining the overbilling.\n"
+        f"For non-discrepant invoices, set `match_status` to 'matched' and write a clean `ai_analysis`.\n"
+        f"Tasks: {json.dumps(task_inputs)}\n\n"
+        f"Return ONLY a JSON array of objects, one for each task, matching this exact schema:\n"
+        f"[\n"
+        f"  {{\n"
+        f"    \"task_index\": 0,\n"
+        f"    \"task_name\": \"...\",\n"
+        f"    \"invoice_amount\": 1250.00,\n"
+        f"    \"line_items\": [\n"
+        f"      {{\n"
+        f"        \"description\": \"...\",\n"
+        f"        \"qty_po\": 1.0,\n"
+        f"        \"qty_invoiced\": 1.5,\n"
+        f"        \"unit\": \"Lump Sum\",\n"
+        f"        \"amount\": 1000.00,\n"
+        f"        \"amount_invoiced\": 1500.00,\n"
+        f"        \"flagged\": true\n"
+        f"      }}\n"
+        f"    ],\n"
+        f"    \"match_status\": \"matched\",\n"
+        f"    \"discrepancies\": [{{\"item\": \"...\", \"detail\": \"...\"}}],\n"
+        f"    \"ai_analysis\": \"...\"\n"
+        f"  }}\n"
+        f"]"
+    )
+    
+    ai_result = call_gemini(prompt, is_json=True)
+    parsed_invoices = []
+    if isinstance(ai_result, dict) and 'items' in ai_result:
+        parsed_invoices = ai_result['items']
+    elif isinstance(ai_result, list):
+        parsed_invoices = ai_result
+    elif isinstance(ai_result, dict):
+        for val in ai_result.values():
+            if isinstance(val, list):
+                parsed_invoices = val
+                break
+                
+    invoice_map = {item.get('task_index'): item for item in parsed_invoices if isinstance(item, dict) and 'task_index' in item}
 
     # Clear existing samples
     existing = invoice_db.get_all(demand_id)
@@ -545,72 +590,28 @@ def generate_sample_invoices(demand_id: str):
         task_name   = task.get("name", f"Phase {i+1}")
         task_start  = task.get("start_date", str(proj_start))
         task_end    = task.get("end_date",   str(proj_end))
-        owners      = task.get("owners", [task.get("owner", "Project Team")])
-        if isinstance(owners, list):
-            owners = owners[:2]  # Max 2 owners for display
-
+        
         try:
             t_start = datetime.strptime(task_start, "%Y-%m-%d").date()
             t_end   = datetime.strptime(task_end,   "%Y-%m-%d").date()
         except:
             t_start, t_end = proj_start, proj_end
-
+            
         task_days       = max((t_end - t_start).days, 1)
         task_proportion = task_days / total_days
         task_cost       = round(total_cost * task_proportion, 2)
-
-        # Split cost across line items for this phase
-        line_item_names = _get_phase_items(task_name)
-        num_items       = len(line_item_names)
-        # Give first item 50%, rest split equally
-        first_share     = round(task_cost * 0.50, 2)
-        other_share     = round((task_cost - first_share) / max(num_items - 1, 1), 2)
-
-        line_items = []
-        for j, item_name in enumerate(line_item_names):
-            amt = first_share if j == 0 else other_share
-            line_items.append({"description": item_name, "qty": 1, "unit": "Lump Sum", "amount": amt})
-
-        # Invoice total always equals PO amount
-        invoice_amount = task_cost
-
-        # Alternate: even-indexed tasks have a quantity/rate mismatch discrepancy
-        is_discrepancy = (i % 2 == 0)
-
-        if is_discrepancy and line_items:
-            # Simulate a unit quantity discrepancy: vendor billed 1.5 units instead of 1.0
-            flagged = line_items[-1]
-            flagged["qty_invoiced"] = 1.5
-            flagged["qty_po"]       = 1.0
-            flagged["flagged"]      = True
-            
-            # Increase the amount on this line item by 1.5x
-            po_amount = flagged["amount"]
-            flagged["amount_invoiced"] = round(po_amount * 1.5, 2)
-            
-            # Update the total invoice amount to reflect this overbilling
-            invoice_amount = round(invoice_amount - po_amount + flagged["amount_invoiced"], 2)
+        
+        ai_inv = invoice_map.get(i, {})
+        line_items = ai_inv.get("line_items", [{"description": f"{task_name} Services", "qty_po": 1.0, "qty_invoiced": 1.0, "unit": "Lump Sum", "amount": task_cost, "amount_invoiced": task_cost, "flagged": False}])
+        invoice_amount = float(ai_inv.get("invoice_amount", task_cost))
+        match_status = ai_inv.get("match_status", "matched")
+        discrepancies = ai_inv.get("discrepancies", [])
+        ai_analysis = ai_inv.get("ai_analysis", f"Invoice for '{task_name}' generated by AI.")
 
         invoice_id = f"INV-{demand_id.split('-')[-1]}-{i+1:02d}-{task_name.replace(' ', '').upper()[:6]}"
         po_ref     = f"PO-{demand_id.split('-')[-1]}-{po_number:03d}"
         sow_ref    = f"SOW-{demand_id.split('-')[-1]}-{i+1}"
         po_number += 1
-
-        discrepancies = []
-        if is_discrepancy and line_items:
-            flagged = line_items[-1]
-            discrepancies = [{
-                "item": flagged["description"],
-                "detail": f"Qty invoiced: {flagged.get('qty_invoiced', 1.5)} vs PO qty: {flagged.get('qty_po', 1.0)} — unit quantity does not match PO. Verify with vendor."
-            }]
-            ai_analysis = (
-                f"Invoice for '{task_name}' on '{project_title}': line item '{flagged['description']}' "
-                f"is billed at qty {flagged.get('qty_invoiced', 1.5)} but the PO authorises qty {flagged.get('qty_po', 1.0)}. "
-                f"This results in a total overbilling of ${round(invoice_amount - task_cost, 2):,.2f} against the PO. "
-                f"Recommend confirming whether additional units were delivered before approving."
-            )
-        else:
-            ai_analysis = f"Invoice for '{task_name}' matches the PO. All line items and quantities verified. No discrepancies detected."
 
         inv_record = {
             "id":             f"INV-{uuid.uuid4().hex[:8]}",
@@ -619,7 +620,7 @@ def generate_sample_invoices(demand_id: str):
             "invoice_amount": invoice_amount,
             "po_reference":   po_ref,
             "sow_reference":  sow_ref,
-            "delivered_items": [li["description"] for li in line_items],
+            "delivered_items": [li.get("description", "") for li in line_items],
             "line_items":     line_items,
             "task_name":      task_name,
             "task_start":     task_start,
@@ -628,7 +629,7 @@ def generate_sample_invoices(demand_id: str):
             "domain":         domain,
             "submitted_by":   submitted_by,
             "effort_days":    effort_days,
-            "match_status":   "discrepancy" if is_discrepancy else "matched",
+            "match_status":   match_status,
             "discrepancies":  discrepancies,
             "ai_analysis":    ai_analysis,
             "decision":       "",
@@ -664,39 +665,45 @@ def approve_invoice(req: InvoiceApproveRequest):
 
 @app.post("/api/budget-cost/invoices/final-approve")
 def final_approve_invoices(req: BurnForecastRequest):
-    demand_id = req.demand_id
-    all_invoices = invoice_db.get_all(demand_id)
-    
-    # 1. Classify Capex/Opex for approved/matched ones
-    from models import CapexOpexRequest, SpendItem
-    spend_items = []
-    for i in all_invoices:
-        if i.get("match_status") == "matched" or i.get("decision") == "approve":
-            for li in i.get("line_items", []):
-                spend_items.append(
-                    SpendItem(
-                        description=li["description"],
-                        amount=li["amount"],
-                        vendor=i.get("po_reference", "Vendor"),
-                        project_phase=i.get("task_name", "")
-                    )
-                )
-    if spend_items:
-        existing_capex = capex_db.get_all(demand_id)
-        for c in existing_capex:
-            if hasattr(capex_db, "delete"): capex_db.delete(demand_id, c["id"])
-        
-        classify_req = CapexOpexRequest(demand_id=demand_id, spend_items=spend_items)
-        classify_capex(classify_req)
-        
-    # 2. Auto-populate Burn Actuals & Forecast
-    get_burn(demand_id)
-    from models import BurnForecastRequest
     try:
-        run_burn_forecast(BurnForecastRequest(demand_id=demand_id))
-    except Exception as e:
-        print("Forecast error:", e)
+        demand_id = req.demand_id
+        all_invoices = invoice_db.get_all(demand_id)
         
+        # 1. Classify Capex/Opex for approved/matched ones
+        spend_items = []
+        for i in all_invoices:
+            if i.get("match_status") == "matched" or i.get("decision") == "approve":
+                for li in i.get("line_items", []):
+                    spend_items.append(
+                        SpendItem(
+                            description=li["description"],
+                            amount=li["amount"],
+                            vendor=i.get("po_reference", "Vendor"),
+                            project_phase=i.get("task_name", "")
+                        )
+                    )
+        if spend_items:
+            existing_capex = capex_db.get_all(demand_id)
+            for c in existing_capex:
+                if hasattr(capex_db, "delete"): capex_db.delete(demand_id, c["id"])
+            
+            classify_req = CapexOpexRequest(demand_id=demand_id, spend_items=spend_items)
+            classify_capex(classify_req)
+            
+        # 2. Auto-populate Burn Actuals & Forecast
+        burn_data = get_burn(demand_id)
+        if len(burn_data.get("actuals", [])) == 0:
+            burn_data["actuals"] = _get_auto_populated_months(demand_id)
+            burn_db.upsert(demand_id, burn_data)
+
+        try:
+            run_burn_forecast(BurnForecastRequest(demand_id=demand_id))
+        except Exception as e:
+            print("Forecast error:", e)
+            
+    except Exception as e:
+        import traceback
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
     return {"status": "success", "message": "Final approval completed. Downstream data generated."}
 
 @app.post("/api/budget-cost/insights/generate/{demand_id}")
@@ -717,16 +724,42 @@ def classify_capex(req: CapexOpexRequest):
     items_desc = [{"description": s.description, "amount": s.amount, "vendor": s.vendor, "phase": s.project_phase}
                   for s in req.spend_items]
     prompt = (
-        f"You are a Finance Controller AI. Classify each spend item as CAPEX or OPEX based on IAS 38 / IFRS 16 / company policy. "
-        f"Project: {req.demand_id}. Spend items: {items_desc}. "
-        f"For each item, return: classification (capex/opex), one-line policy evidence, and brief rationale. "
-        f"Format as a numbered list."
+        f"You are a Finance Controller AI. Classify each spend item as CAPEX or OPEX based on IAS 38 / IFRS 16 / company policy.\n"
+        f"Project: {req.demand_id}. Spend items: {items_desc}.\n"
+        f"Return ONLY a JSON array where each element is an object with:\n"
+        f"'description' (string, exactly matching the input description),\n"
+        f"'classification' (string, either 'capex' or 'opex'),\n"
+        f"'policy_evidence' (string, short one-line policy evidence),\n"
+        f"'rationale' (string, brief reasoning)."
     )
-    ai_result = call_gemini(prompt)
-    from datetime import datetime
+    ai_result = call_gemini(prompt, is_json=True)
+    
+    parsed_items = []
+    if isinstance(ai_result, dict) and 'items' in ai_result:
+        parsed_items = ai_result['items']
+    elif isinstance(ai_result, list):
+        parsed_items = ai_result
+    elif isinstance(ai_result, dict):
+        # Maybe it returned {"project": ..., "classifications": [...]}
+        for val in ai_result.values():
+            if isinstance(val, list):
+                parsed_items = val
+                break
+                
+    classification_map = {item.get('description', ''): item for item in parsed_items if isinstance(item, dict)}
+    
     records = []
-    for i, s in enumerate(req.spend_items):
-        classification = "capex" if "build" in (s.project_phase or "").lower() else "opex"
+    for s in req.spend_items:
+        ai_item = classification_map.get(s.description, {})
+        classification = str(ai_item.get("classification", "opex")).lower()
+        if "capex" in classification:
+            classification = "capex"
+        else:
+            classification = "opex"
+            
+        policy = ai_item.get("policy_evidence", "Revenue expense — period cost")
+        rationale = ai_item.get("rationale", "Standard operational expense.")
+        
         records.append({
             "id": f"CAP-{uuid.uuid4().hex[:8]}",
             "demand_id": req.demand_id,
@@ -735,14 +768,14 @@ def classify_capex(req: CapexOpexRequest):
             "vendor": s.vendor or "",
             "project_phase": s.project_phase or "",
             "classification": classification,
-            "policy_evidence": "IAS 38 — directly attributable expenditure" if classification == "capex" else "Revenue expense — period cost",
-            "ai_rationale": ai_result,
+            "policy_evidence": policy,
+            "ai_rationale": rationale,
             "signed_off": False,
             "signed_off_by": "",
             "created_at": datetime.utcnow().isoformat()
         })
     capex_db.save_batch(records)
-    return {"status": "success", "items": records, "ai_analysis": ai_result}
+    return {"status": "success", "items": records, "ai_analysis": "Completed via LLM classification."}
 
 @app.post("/api/budget-cost/capex-opex/sign-off")
 def sign_off_capex(req: CapexOpexSignOffRequest):

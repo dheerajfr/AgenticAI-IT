@@ -5,16 +5,16 @@ const BC_API = '/api/budget-cost';
 let bcActiveTab = 'burn';
 
 // ── Entry point ──────────────────────────────────────────────────────────────
-window.fetchBudgetCostData = async function() {
+window.fetchBudgetCostData = async function () {
   try {
     const demRes = await fetch('/api/demands');
     if (demRes.ok) window.allDemandsList = await demRes.json();
-  } catch(e) { console.warn('Could not fetch demands', e); }
-  
+  } catch (e) { console.warn('Could not fetch demands', e); }
+
   const demandId = sessionStorage.getItem('selectedDemandId');
   if (demandId) {
     try {
-      const invRes = await fetch(`/api/budget-cost/project/${demandId}/invoices`);
+      const invRes = await fetch(`/api/budget-cost/invoices/${demandId}`);
       if (invRes.ok) {
         window.currentInvoicesList = await invRes.json();
       } else {
@@ -27,26 +27,26 @@ window.fetchBudgetCostData = async function() {
   } else {
     window.currentInvoicesList = [];
   }
-  
+
   window.renderBudgetCostScreen();
 };
 
 // ── Main render ───────────────────────────────────────────────────────────────
-window.renderBudgetCostScreen = function(targetContainer) {
+window.renderBudgetCostScreen = function (targetContainer) {
   const demandId = sessionStorage.getItem('selectedDemandId');
-  const demands  = window.allDemandsList || [];
+  const demands = window.allDemandsList || [];
 
   const tabs = [
-    { id: 'burn',    icon: '🔥', label: 'Burn & Forecast' },
+    { id: 'burn', icon: '🔥', label: 'Burn & Forecast' },
     { id: 'invoice', icon: '📄', label: 'Invoice & PO Match' },
-    { id: 'capex',   icon: '📊', label: 'Capex / Opex' },
+    { id: 'capex', icon: '📊', label: 'Capex / Opex' },
   ];
 
   const tabBar = tabs.map(t => `
     <button id="bc-tab-${t.id}" onclick="bcSwitchTab('${t.id}')"
       style="padding:0.55rem 1.1rem;border:none;border-radius:var(--radius-sm);cursor:pointer;font-family:var(--font-sans);font-size:0.85rem;font-weight:600;transition:all 0.2s;
-        background:${bcActiveTab===t.id ? 'var(--color-brand)' : 'transparent'};
-        color:${bcActiveTab===t.id ? '#fff' : 'var(--text-secondary)'};">
+        background:${bcActiveTab === t.id ? 'var(--color-brand)' : 'transparent'};
+        color:${bcActiveTab === t.id ? '#fff' : 'var(--text-secondary)'};">
       ${t.icon} ${t.label}
     </button>`).join('');
 
@@ -168,7 +168,7 @@ window.renderBudgetCostScreen = function(targetContainer) {
             Run our AI financial engine to automatically generate invoices, perform Capex/Opex classifications, and construct a full burn rate forecast.
           </p>
         </div>
-        <button id="btn-generate-insights" onclick="window.bcGenerateInsights('${demandId}')"
+        <button type="button" id="btn-generate-insights" onclick="event.preventDefault(); window.bcGenerateInsights('${demandId}')"
           style="background:linear-gradient(135deg,var(--color-brand),#4f46e5);color:#fff;border:none;padding:0.85rem 2rem;border-radius:var(--radius-md);font-size:1rem;font-weight:700;cursor:pointer;font-family:var(--font-sans);box-shadow:0 4px 14px rgba(99,102,241,0.4);transition:all 0.2s ease;">
           ✨ Generate Insights
         </button>
@@ -179,14 +179,14 @@ window.renderBudgetCostScreen = function(targetContainer) {
   bcLoadTab(bcActiveTab, demandId);
 };
 
-window.bcGenerateInsights = async function(demandId) {
+window.bcGenerateInsights = async function (demandId) {
   const btn = document.getElementById('btn-generate-insights');
   if (btn) {
     btn.innerHTML = '⚙️ Analyzing... (This may take ~15s)';
     btn.disabled = true;
     btn.style.opacity = '0.7';
   }
-  
+
   try {
     const res = await fetch(`/api/budget-cost/insights/generate/${demandId}`, { method: 'POST' });
     if (res.ok) {
@@ -202,7 +202,7 @@ window.bcGenerateInsights = async function(demandId) {
         btn.style.opacity = '1';
       }
     }
-  } catch(e) {
+  } catch (e) {
     console.error('Insights error', e);
     alert('Network error while generating insights.');
     if (btn) {
@@ -214,7 +214,7 @@ window.bcGenerateInsights = async function(demandId) {
 };
 
 // ── Delete Demand Data ───────────────────────────────────────────────────────
-window.bcDeleteDemand = async function(demandId) {
+window.bcDeleteDemand = async function (demandId) {
   if (!confirm(`Are you sure you want to permanently delete all budget, invoice, and capex data for project ${demandId}? This cannot be undone.`)) return;
 
   const btn = event.currentTarget;
@@ -235,7 +235,7 @@ window.bcDeleteDemand = async function(demandId) {
       btn.innerHTML = origHtml;
       btn.disabled = false;
     }
-  } catch(e) {
+  } catch (e) {
     console.error('Delete error', e);
     alert('Network error while deleting data.');
     btn.innerHTML = origHtml;
@@ -244,11 +244,11 @@ window.bcDeleteDemand = async function(demandId) {
 };
 
 // ── Tab switch ────────────────────────────────────────────────────────────────
-window.bcSwitchTab = function(tab) {
+window.bcSwitchTab = function (tab) {
   bcActiveTab = tab;
   const demandId = sessionStorage.getItem('selectedDemandId');
   // Update button styles
-  ['burn','invoice','capex'].forEach(t => {
+  ['burn', 'invoice', 'capex'].forEach(t => {
     const btn = document.getElementById(`bc-tab-${t}`);
     if (!btn) return;
     btn.style.background = t === tab ? 'var(--color-brand)' : 'transparent';
@@ -262,9 +262,9 @@ async function bcLoadTab(tab, demandId) {
   const content = document.getElementById('bc-tab-content');
   if (!content || !demandId) return;
   content.innerHTML = '<div style="padding:2rem;color:var(--text-muted);">Loading...</div>';
-  if (tab === 'burn')    await bcRenderBurn(demandId, content);
+  if (tab === 'burn') await bcRenderBurn(demandId, content);
   if (tab === 'invoice') await bcRenderInvoice(demandId, content);
-  if (tab === 'capex')   await bcRenderCapex(demandId, content);
+  if (tab === 'capex') await bcRenderCapex(demandId, content);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -278,14 +278,17 @@ async function bcRenderBurn(demandId, content) {
   try {
     const res = await fetch(`${BC_API}/burn/${demandId}`);
     if (res.ok) data = await res.json();
-  } catch(e) {}
+  } catch (e) { }
 
-  const actuals  = data.actuals  || [];
+  const actuals = data.actuals || [];
   const forecast = data.forecast || [];
-  
+
   const totalActuals = actuals.reduce((sum, a) => sum + (a.amount || 0), 0);
-  
-  if (totalActuals === 0 && forecast.length === 0 && !window.bcBurnEditMode) {
+
+  // If backend has real data, always exit edit mode (fixes stuck-edit-mode after Final Approve)
+  if (totalActuals > 0 || forecast.length > 0) {
+    window.bcBurnEditMode = false;
+  } else if (!window.bcBurnEditMode) {
     window.bcBurnEditMode = true;
     window.bcBurnEditData = [...actuals];
   }
@@ -325,9 +328,9 @@ async function bcRenderBurn(demandId, content) {
   }
 
   // ── VIEW MODE ─────────────────────────────────────────────────────────────
-  const all      = [...actuals, ...forecast];
-  const maxAmt   = all.length ? Math.max(...all.map(a => a.amount)) : 1;
-  const varPct   = data.variance_pct ?? 0;
+  const all = [...actuals, ...forecast];
+  const maxAmt = all.length ? Math.max(...all.map(a => a.amount)) : 1;
+  const varPct = data.variance_pct ?? 0;
   const varColor = varPct > 0 ? '#ef4444' : '#10b981';
   const committed = data.committed;
 
@@ -336,7 +339,7 @@ async function bcRenderBurn(demandId, content) {
     const isActual = a.category !== 'projected';
     return `
       <div style="display:flex;align-items:flex-end;flex-direction:column;gap:0.2rem;flex:1;min-width:52px;">
-        <div style="font-size:0.7rem;color:var(--text-muted);">$${(a.amount/1000).toFixed(1)}k</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);">$${(a.amount / 1000).toFixed(1)}k</div>
         <div style="width:100%;background:${isActual ? 'var(--color-brand)' : 'rgba(99,102,241,0.3)'};border-radius:4px 4px 0 0;height:${pct}%;min-height:4px;transition:height 0.4s ease;"></div>
         <div style="font-size:0.68rem;color:var(--text-muted);text-align:center;">${a.date}</div>
         <div style="font-size:0.62rem;color:${isActual ? 'var(--color-brand)' : 'var(--text-muted)'};text-align:center;">${isActual ? 'Actual' : 'Fcst'}</div>
@@ -348,10 +351,10 @@ async function bcRenderBurn(demandId, content) {
       <!-- KPI row -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
         ${[
-          ['Total Actuals', '$' + actuals.reduce((s,a)=>s+a.amount,0).toLocaleString(undefined,{maximumFractionDigits:0}), 'var(--text-primary)'],
-          ['Variance vs Plan', (varPct > 0 ? '+' : '') + varPct + '%', varColor],
-          ['Status', committed ? '✅ Committed' : '⏳ Draft', committed ? '#10b981' : 'var(--color-status-amber-text)']
-        ].map(([lbl,val,col])=>`
+      ['Total Actuals', '$' + actuals.reduce((s, a) => s + a.amount, 0).toLocaleString(undefined, { maximumFractionDigits: 0 }), 'var(--text-primary)'],
+      ['Variance vs Plan', (varPct > 0 ? '+' : '') + varPct + '%', varColor],
+      ['Status', committed ? '✅ Committed' : '⏳ Draft', committed ? '#10b981' : 'var(--color-status-amber-text)']
+    ].map(([lbl, val, col]) => `
           <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:1rem;text-align:center;">
             <div style="font-size:0.73rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">${lbl}</div>
             <div style="font-size:1.6rem;font-weight:700;color:${col};margin-top:0.3rem;">${val}</div>
@@ -378,8 +381,8 @@ async function bcRenderBurn(demandId, content) {
           <span style="font-size:0.73rem;background:rgba(59,130,246,0.12);color:#3b82f6;padding:2px 8px;border-radius:4px;">Human Directs</span>
         </div>
         ${data.narrative
-          ? `<div style="font-size:0.85rem;color:var(--text-primary);line-height:1.7;white-space:pre-wrap;">${data.narrative}</div>`
-          : `<div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem;">No narrative yet — run AI forecast to generate one.</div>`}
+      ? `<div style="font-size:0.85rem;color:var(--text-primary);line-height:1.7;white-space:pre-wrap;">${data.narrative}</div>`
+      : `<div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem;">No narrative yet — run AI forecast to generate one.</div>`}
         <div style="display:flex;gap:0.75rem;margin-top:1rem;">
           <button onclick="bcRunForecast('${demandId}')" id="bc-forecast-btn"
             style="background:var(--color-brand);color:#fff;border:none;border-radius:var(--radius-sm);padding:0.55rem 1.1rem;cursor:pointer;font-size:0.83rem;font-weight:600;font-family:var(--font-sans);">
@@ -394,19 +397,19 @@ async function bcRenderBurn(demandId, content) {
     </div>`;
 }
 
-window.bcEditActuals = async function(demandId) {
+window.bcEditActuals = async function (demandId) {
   try {
     const res = await fetch(`${BC_API}/burn/${demandId}`);
     if (res.ok) {
       const data = await res.json();
       window.bcBurnEditData = [...(data.actuals || [])];
     }
-  } catch(e) { window.bcBurnEditData = []; }
+  } catch (e) { window.bcBurnEditData = []; }
   window.bcBurnEditMode = true;
   bcLoadTab('burn', demandId);
 };
 
-window.bcAddMonth = function(demandId) {
+window.bcAddMonth = function (demandId) {
   let nextDate = '2026-01';
   if (window.bcBurnEditData.length > 0) {
     const last = window.bcBurnEditData[window.bcBurnEditData.length - 1].date;
@@ -419,47 +422,47 @@ window.bcAddMonth = function(demandId) {
   bcRenderBurn(demandId, document.getElementById('bc-tab-content'));
 };
 
-window.bcRemoveMonth = function(idx, demandId) {
+window.bcRemoveMonth = function (idx, demandId) {
   window.bcBurnEditData.splice(idx, 1);
   bcRenderBurn(demandId, document.getElementById('bc-tab-content'));
 };
 
-window.bcAdjustAmount = function(idx, delta, demandId) {
+window.bcAdjustAmount = function (idx, delta, demandId) {
   window.bcBurnEditData[idx].amount = Math.max(0, window.bcBurnEditData[idx].amount + delta);
   bcRenderBurn(demandId, document.getElementById('bc-tab-content'));
 };
 
-window.bcSaveActuals = async function(demandId) {
+window.bcSaveActuals = async function (demandId) {
   try {
     await fetch(`${BC_API}/burn/actuals`, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ demand_id: demandId, actuals: window.bcBurnEditData })
     });
     window.bcBurnEditMode = false;
     await bcLoadTab('burn', demandId);
-  } catch(e) { console.error(e); }
+  } catch (e) { console.error(e); }
 };
 
-window.bcRunForecast = async function(demandId) {
+window.bcRunForecast = async function (demandId) {
   const btn = document.getElementById('bc-forecast-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
   try {
     await fetch(`${BC_API}/burn/forecast`, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ demand_id: demandId })
     });
     await bcLoadTab('burn', demandId);
-  } catch(e) { console.error(e); }
+  } catch (e) { console.error(e); }
 };
 
-window.bcCommitForecast = async function(demandId) {
+window.bcCommitForecast = async function (demandId) {
   try {
     await fetch(`${BC_API}/burn/commit`, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ demand_id: demandId })
     });
     await bcLoadTab('burn', demandId);
-  } catch(e) { console.error(e); }
+  } catch (e) { console.error(e); }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -470,16 +473,16 @@ async function bcRenderInvoice(demandId, content) {
   try {
     const res = await fetch(`${BC_API}/invoices/${demandId}`);
     if (res.ok) invoices = await res.json();
-  } catch(e) {}
+  } catch (e) { }
   window.currentInvoicesList = invoices;
 
   const statusBadge = (status) => {
     const map = {
-      matched:     ['#10b981','rgba(16,185,129,0.1)','Matched'],
-      discrepancy: ['#f59e0b','rgba(245,158,11,0.1)','⚠ Discrepancy'],
-      approved:    ['#6366f1','rgba(99,102,241,0.1)','Approved'],
-      disputed:    ['#ef4444','rgba(239,68,68,0.1)','Disputed'],
-      pending:     ['#94a3b8','rgba(148,163,184,0.1)','Pending'],
+      matched: ['#10b981', 'rgba(16,185,129,0.1)', 'Matched'],
+      discrepancy: ['#f59e0b', 'rgba(245,158,11,0.1)', '⚠ Discrepancy'],
+      approved: ['#6366f1', 'rgba(99,102,241,0.1)', 'Approved'],
+      disputed: ['#ef4444', 'rgba(239,68,68,0.1)', 'Disputed'],
+      pending: ['#94a3b8', 'rgba(148,163,184,0.1)', 'Pending'],
     };
     const [color, bg, label] = map[status] || map.pending;
     return `<span style="font-size:0.73rem;font-weight:700;padding:3px 9px;border-radius:12px;background:${bg};color:${color};">${label}</span>`;
@@ -488,34 +491,34 @@ async function bcRenderInvoice(demandId, content) {
   const rows = invoices.map(inv => `
     <tr style="border-bottom:1px solid var(--border-color);">
       <td style="padding:0.75rem 0.5rem;font-family:monospace;font-size:0.8rem;color:var(--color-brand);">${inv.invoice_id}</td>
-      <td style="padding:0.75rem 0.5rem;font-size:0.85rem;color:var(--text-primary);font-weight:600;">$${inv.invoice_amount.toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+      <td style="padding:0.75rem 0.5rem;font-size:0.85rem;color:var(--text-primary);font-weight:600;">$${inv.invoice_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
       <td style="padding:0.75rem 0.5rem;font-size:0.8rem;color:var(--text-secondary);">${inv.po_reference}</td>
       <td style="padding:0.75rem 0.5rem;font-size:0.8rem;color:var(--text-secondary);">${inv.sow_reference || '—'}</td>
       <td style="padding:0.75rem 0.5rem;">${statusBadge(inv.match_status)}</td>
       <td style="padding:0.75rem 0.5rem; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
         <button onclick="window.bcPreviewInvoice('${inv.invoice_id}')" style="font-size:0.75rem;padding:3px 9px;border-radius:4px;border:1px solid var(--border-color);cursor:pointer;background:transparent;color:var(--text-primary);font-weight:600;">Preview</button>
         ${inv.match_status === 'discrepancy'
-          ? `<div style="display:flex;gap:0.5rem;">
+      ? `<div style="display:flex;gap:0.5rem;">
                <button onclick="bcApproveInvoice('${demandId}','${inv.invoice_id}','approve')"
                 style="font-size:0.75rem;padding:3px 9px;border-radius:4px;border:none;cursor:pointer;background:rgba(16,185,129,0.15);color:#10b981;font-weight:600;">Approve</button>
                <button onclick="bcApproveInvoice('${demandId}','${inv.invoice_id}','dispute')"
                 style="font-size:0.75rem;padding:3px 9px;border-radius:4px;border:none;cursor:pointer;background:rgba(239,68,68,0.12);color:#ef4444;font-weight:600;">Dispute</button>
              </div>`
-          : inv.decision ? `<span style="font-size:0.75rem;color:var(--text-muted);">${inv.decision}</span>` : ''}
+      : inv.decision ? `<span style="font-size:0.75rem;color:var(--text-muted);">${inv.decision}</span>` : ''}
       </td>
     </tr>
-    ${(inv.discrepancies||[]).length > 0 && inv.match_status === 'discrepancy' ? `
+    ${(inv.discrepancies || []).length > 0 && inv.match_status === 'discrepancy' ? `
     <tr>
       <td colspan="6" style="padding:0 0.5rem 0.75rem 0.5rem;">
         <div style="background:rgba(245,158,11,0.07);border-left:3px solid #f59e0b;padding:0.6rem 0.85rem;border-radius:0 4px 4px 0;font-size:0.8rem;color:var(--text-secondary);">
-          ${inv.discrepancies.map(d=>`⚠ <b>${d.item}</b>: ${d.detail}`).join('<br>')}
-          ${inv.ai_analysis ? `<div style="margin-top:0.5rem;color:var(--text-muted);font-size:0.78rem;">AI: ${inv.ai_analysis.substring(0,200)}${inv.ai_analysis.length>200?'…':''}</div>` : ''}
+          ${inv.discrepancies.map(d => `⚠ <b>${d.item}</b>: ${d.detail}`).join('<br>')}
+          ${inv.ai_analysis ? `<div style="margin-top:0.5rem;color:var(--text-muted);font-size:0.78rem;">AI: ${inv.ai_analysis.substring(0, 200)}${inv.ai_analysis.length > 200 ? '…' : ''}</div>` : ''}
         </div>
       </td>
     </tr>` : ''}`).join('');
 
-  const total = invoices.reduce((s,i)=>s+i.invoice_amount,0);
-  const flagged = invoices.filter(i=>i.match_status==='discrepancy').length;
+  const total = invoices.reduce((s, i) => s + i.invoice_amount, 0);
+  const flagged = invoices.filter(i => i.match_status === 'discrepancy').length;
   const allResolved = invoices.length > 0 && flagged === 0;
 
   content.innerHTML = `
@@ -523,10 +526,10 @@ async function bcRenderInvoice(demandId, content) {
       <!-- Summary KPIs -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
         ${[
-          ['Total Invoiced', '$'+total.toLocaleString(undefined,{maximumFractionDigits:0}), 'var(--text-primary)'],
-          ['Flagged', flagged + ' invoice' + (flagged!==1?'s':''), flagged>0?'#f59e0b':'#10b981'],
-          ['Matched', (invoices.length - flagged) + ' / ' + invoices.length, 'var(--text-primary)']
-        ].map(([l,v,c])=>`
+      ['Total Invoiced', '$' + total.toLocaleString(undefined, { maximumFractionDigits: 0 }), 'var(--text-primary)'],
+      ['Flagged', flagged + ' invoice' + (flagged !== 1 ? 's' : ''), flagged > 0 ? '#f59e0b' : '#10b981'],
+      ['Matched', (invoices.length - flagged) + ' / ' + invoices.length, 'var(--text-primary)']
+    ].map(([l, v, c]) => `
           <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:1rem;text-align:center;">
             <div style="font-size:0.73rem;color:var(--text-muted);text-transform:uppercase;">${l}</div>
             <div style="font-size:1.5rem;font-weight:700;color:${c};margin-top:0.3rem;">${v}</div>
@@ -539,14 +542,12 @@ async function bcRenderInvoice(demandId, content) {
           <h3 style="margin:0;font-size:1rem;">Invoice Register</h3>
           <div style="display:flex;gap:0.75rem;align-items:center;">
             ${allResolved ? `<button onclick="window.bcFinalApprove('${demandId}')" id="btn-final-approve" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;padding:3px 9px;border-radius:4px;font-size:0.75rem;font-weight:600;cursor:pointer;">✅ Final Approve</button>` : ''}
-            <button onclick="window.generateSampleInvoices('${demandId}')" style="background:var(--color-brand);color:#fff;border:none;padding:3px 9px;border-radius:4px;font-size:0.73rem;font-weight:600;cursor:pointer;">Generate Samples</button>
-            <span style="font-size:0.73rem;background:rgba(99,102,241,0.12);color:#6366f1;padding:3px 9px;border-radius:4px;">Human Approves Disputes</span>
           </div>
         </div>
         <table style="width:100%;border-collapse:collapse;">
           <thead>
             <tr style="background:var(--bg-primary);">
-              ${['Invoice ID','Amount','PO Ref','SOW Ref','Status','Action'].map(h=>`<th style="padding:0.6rem 0.5rem;text-align:left;font-size:0.73rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;">${h}</th>`).join('')}
+              ${['Invoice ID', 'Amount', 'PO Ref', 'SOW Ref', 'Status', 'Action'].map(h => `<th style="padding:0.6rem 0.5rem;text-align:left;font-size:0.73rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;">${h}</th>`).join('')}
             </tr>
           </thead>
           <tbody>${rows || '<tr><td colspan="6" style="padding:2rem;text-align:center;color:var(--text-muted);">No invoices found</td></tr>'}</tbody>
@@ -556,37 +557,39 @@ async function bcRenderInvoice(demandId, content) {
     </div>`;
 }
 
-window.bcApproveInvoice = async function(demandId, invoiceId, decision) {
+window.bcApproveInvoice = async function (demandId, invoiceId, decision) {
   try {
     const res = await fetch(`${BC_API}/invoices/approve`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ demand_id: demandId, invoice_id: invoiceId, decision })
     });
     const data = await res.json();
     await bcLoadTab('invoice', demandId);
-    
+
     if (data.all_resolved) {
-      alert("All invoices matched! Burn & Forecast actuals have been automatically populated.");
+      alert("All invoices matched! You can now click Final Approve to populate Burn & Forecast actuals.");
     }
-  } catch(e) { console.error(e); }
+  } catch (e) { console.error(e); }
 };
 
-window.bcFinalApprove = async function(demandId) {
+window.bcFinalApprove = async function (demandId) {
   const btn = document.getElementById('btn-final-approve');
   if (btn) { btn.disabled = true; btn.innerHTML = 'Processing...'; }
   try {
     const res = await fetch(`${BC_API}/invoices/final-approve`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ demand_id: demandId })
     });
     if (res.ok) {
       alert("Final approval complete! Capex classifications and Burn actuals populated.");
+      window.bcBurnEditMode = false;
+      bcActiveTab = 'burn';
       await window.fetchBudgetCostData();
     } else {
       alert("Error during final approval.");
       if (btn) { btn.disabled = false; btn.innerHTML = '✅ Final Approve'; }
     }
-  } catch(e) { console.error(e); }
+  } catch (e) { console.error(e); }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -597,13 +600,13 @@ async function bcRenderCapex(demandId, content) {
   try {
     const res = await fetch(`${BC_API}/capex-opex/${demandId}`);
     if (res.ok) items = await res.json();
-  } catch(e) {}
+  } catch (e) { }
 
-  const capexTotal = items.filter(i=>i.classification==='capex').reduce((s,i)=>s+i.amount,0);
-  const opexTotal  = items.filter(i=>i.classification==='opex').reduce((s,i)=>s+i.amount,0);
-  const total      = capexTotal + opexTotal;
-  const capexPct   = total ? Math.round(capexTotal/total*100) : 0;
-  const allSigned  = items.length > 0 && items.every(i=>i.signed_off);
+  const capexTotal = items.filter(i => i.classification === 'capex').reduce((s, i) => s + i.amount, 0);
+  const opexTotal = items.filter(i => i.classification === 'opex').reduce((s, i) => s + i.amount, 0);
+  const total = capexTotal + opexTotal;
+  const capexPct = total ? Math.round(capexTotal / total * 100) : 0;
+  const allSigned = items.length > 0 && items.every(i => i.signed_off);
 
   const rows = items.map(item => {
     const isCapex = item.classification === 'capex';
@@ -633,10 +636,10 @@ async function bcRenderCapex(demandId, content) {
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:1rem;">
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
           ${[
-            ['Total Spend', '$'+total.toLocaleString(), 'var(--text-primary)'],
-            ['CAPEX', '$'+capexTotal.toLocaleString() + ' (' + capexPct + '%)', '#6366f1'],
-            ['OPEX',  '$'+opexTotal.toLocaleString()  + ' (' + (100-capexPct) + '%)', '#10b981'],
-          ].map(([l,v,c])=>`
+      ['Total Spend', '$' + total.toLocaleString(), 'var(--text-primary)'],
+      ['CAPEX', '$' + capexTotal.toLocaleString() + ' (' + capexPct + '%)', '#6366f1'],
+      ['OPEX', '$' + opexTotal.toLocaleString() + ' (' + (100 - capexPct) + '%)', '#10b981'],
+    ].map(([l, v, c]) => `
             <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:1rem;text-align:center;">
               <div style="font-size:0.73rem;color:var(--text-muted);text-transform:uppercase;">${l}</div>
               <div style="font-size:1.3rem;font-weight:700;color:${c};margin-top:0.3rem;">${v}</div>
@@ -650,7 +653,7 @@ async function bcRenderCapex(demandId, content) {
           </div>
           <div style="display:flex;justify-content:space-between;font-size:0.73rem;">
             <span style="color:#6366f1;">🏗 ${capexPct}% Capex</span>
-            <span style="color:#10b981;">${100-capexPct}% Opex 💸</span>
+            <span style="color:#10b981;">${100 - capexPct}% Opex 💸</span>
           </div>
         </div>
       </div>
@@ -662,8 +665,8 @@ async function bcRenderCapex(demandId, content) {
           <div style="display:flex;gap:0.75rem;align-items:center;">
             <span style="font-size:0.73rem;background:rgba(239,68,68,0.1);color:#ef4444;padding:2px 8px;border-radius:4px;">Finance Signs Off</span>
             ${allSigned
-              ? `<span style="font-size:0.8rem;color:#10b981;font-weight:600;">✅ All Signed Off</span>`
-              : `<button onclick="bcSignOff('${demandId}')"
+      ? `<span style="font-size:0.8rem;color:#10b981;font-weight:600;">✅ All Signed Off</span>`
+      : `<button onclick="bcSignOff('${demandId}')"
                   style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:var(--radius-sm);padding:0.45rem 1rem;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:var(--font-sans);">
                   Finance Sign-Off
                 </button>`}
@@ -672,7 +675,7 @@ async function bcRenderCapex(demandId, content) {
         <table style="width:100%;border-collapse:collapse;">
           <thead>
             <tr style="background:var(--bg-primary);">
-              ${['Description','Amount','Vendor','Phase','Classification','Policy Evidence','Sign-Off'].map(h=>`<th style="padding:0.6rem 0.5rem;text-align:left;font-size:0.73rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;">${h}</th>`).join('')}
+              ${['Description', 'Amount', 'Vendor', 'Phase', 'Classification', 'Policy Evidence', 'Sign-Off'].map(h => `<th style="padding:0.6rem 0.5rem;text-align:left;font-size:0.73rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;">${h}</th>`).join('')}
             </tr>
           </thead>
           <tbody>${rows || '<tr><td colspan="7" style="padding:2rem;text-align:center;color:var(--text-muted);">No items found</td></tr>'}</tbody>
@@ -681,17 +684,17 @@ async function bcRenderCapex(demandId, content) {
     </div>`;
 }
 
-window.bcSignOff = async function(demandId) {
+window.bcSignOff = async function (demandId) {
   try {
     await fetch(`${BC_API}/capex-opex/sign-off`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ demand_id: demandId, approved_by: 'Finance' })
     });
     await bcLoadTab('capex', demandId);
-  } catch(e) { console.error(e); }
+  } catch (e) { console.error(e); }
 };
 
-window.generateInvoices = async function(demandId) {
+window.generateInvoices = async function (demandId) {
   try {
     const res = await fetch(`${BASE_URL}/budget-cost/project/${demandId}/invoices/generate`, {
       method: 'POST'
@@ -702,13 +705,13 @@ window.generateInvoices = async function(demandId) {
       const err = await res.json();
       alert("Error: " + (err.detail || "Failed to generate invoices. Check if project plan is generated."));
     }
-  } catch(e) {
+  } catch (e) {
     console.error(e);
     alert("Connection error: " + e.message);
   }
 };
 
-window.generateSampleInvoices = async function(demandId) {
+window.generateSampleInvoices = async function (demandId) {
   try {
     const res = await fetch(`${BC_API}/invoices/${demandId}/generate-samples`, {
       method: 'POST'
@@ -719,13 +722,13 @@ window.generateSampleInvoices = async function(demandId) {
       const err = await res.json();
       alert("Error: " + (err.detail || "Failed to generate sample invoices."));
     }
-  } catch(e) {
+  } catch (e) {
     console.error(e);
     alert("Connection error: " + e.message);
   }
 };
 
-window.bcPreviewInvoice = function(invoiceId) {
+window.bcPreviewInvoice = function (invoiceId) {
   const inv = (window.currentInvoicesList || []).find(i => i.invoice_id === invoiceId);
   if (!inv) {
     alert("Invoice details not found.");
@@ -733,18 +736,18 @@ window.bcPreviewInvoice = function(invoiceId) {
   }
 
   const projectTitle = inv.project_title || inv.demand_id;
-  const domain       = inv.domain || 'Technology';
-  const taskName     = inv.task_name || 'Project Services';
-  const taskStart    = inv.task_start || '—';
-  const taskEnd      = inv.task_end   || '—';
-  const invoiceDate  = new Date(inv.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'});
+  const domain = inv.domain || 'Technology';
+  const taskName = inv.task_name || 'Project Services';
+  const taskStart = inv.task_start || '—';
+  const taskEnd = inv.task_end || '—';
+  const invoiceDate = new Date(inv.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
   // Line items table rows for the INVOICE (shows inflated qty/amount if discrepant)
-  const lineItems = inv.line_items || inv.delivered_items.map(d => ({description: d, qty: 1, unit: 'Lump Sum', amount: '—'}));
+  const lineItems = inv.line_items || inv.delivered_items.map(d => ({ description: d, qty: 1, unit: 'Lump Sum', amount: '—' }));
   const invoiceLineItemsHtml = lineItems.map(li => {
     const qty = li.qty_invoiced !== undefined ? li.qty_invoiced : li.qty;
     const amount = li.amount_invoiced !== undefined ? li.amount_invoiced : li.amount;
-    const formattedAmount = typeof amount === 'number' ? amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : amount;
+    const formattedAmount = typeof amount === 'number' ? amount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : amount;
     return `
     <tr>
       <td style="padding:10px 12px;border-bottom:1px solid #eee;">${li.description}</td>
@@ -857,7 +860,7 @@ window.bcPreviewInvoice = function(invoiceId) {
       <div class="total-row">
         <div class="total-box">
           <div class="label">Total Due (USD)</div>
-          <div class="amount">$${total.toLocaleString(undefined,{minimumFractionDigits:2})}</div>
+          <div class="amount">$${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
         </div>
       </div>
 
@@ -921,7 +924,7 @@ window.bcPreviewInvoice = function(invoiceId) {
               <td style="padding:10px 12px;border-bottom:1px solid #eee;">${li.description}</td>
               <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:center;">${li.qty_po || li.qty}</td>
               <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:center;">${li.unit}</td>
-              <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">$${typeof li.amount === 'number' ? li.amount.toLocaleString(undefined,{minimumFractionDigits:2}) : li.amount}</td>
+              <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">$${typeof li.amount === 'number' ? li.amount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : li.amount}</td>
             </tr>`).join('')}
         </tbody>
       </table>
@@ -929,7 +932,7 @@ window.bcPreviewInvoice = function(invoiceId) {
       <div class="total-row">
         <div class="total-box">
           <div class="label">Total Authorised (USD)</div>
-          <div class="amount">$${lineItems.reduce((acc, li) => acc + (typeof li.amount === 'number' ? li.amount : 0), 0).toLocaleString(undefined,{minimumFractionDigits:2})}</div>
+          <div class="amount">$${lineItems.reduce((acc, li) => acc + (typeof li.amount === 'number' ? li.amount : 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
         </div>
       </div>
 
