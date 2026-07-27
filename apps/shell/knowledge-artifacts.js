@@ -211,6 +211,7 @@ window.fetchKnowledgeArtifactsData = async function() {
   }
 };
 
+<<<<<<< HEAD
 // -------------------------------------------------------
 // Helper: source badge colour + label
 // -------------------------------------------------------
@@ -348,6 +349,9 @@ window.openDocModal = function(title, content) {
 };
 
 window.renderKnowledgeArtifactsScreen = function() {
+=======
+window.renderKnowledgeArtifactsScreen = function(targetContainer) {
+>>>>>>> main
   const demandId = sessionStorage.getItem('selectedDemandId');
   const demands = window.allDemandsList || [];
   const optionsHtml = demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === demandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
@@ -358,7 +362,7 @@ window.renderKnowledgeArtifactsScreen = function() {
     </select>
   `;
 
-  const viewport = document.getElementById('viewport');
+  const viewport = targetContainer || window.currentModuleTargetContainer || document.getElementById('viewport');
   const _origOverflow = viewport.style.overflow;
   const _origOverflowY = viewport.style.overflowY;
   const _origDisplay = viewport.style.display;

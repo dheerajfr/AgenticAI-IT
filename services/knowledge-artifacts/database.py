@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, Dict
 
-DB_PATH = Path(__file__).parent / "knowledge_artifacts.db"
+DB_PATH = Path(__file__).parent.parent / "source.db"
 
 def _get_conn():
     conn = sqlite3.connect(DB_PATH)

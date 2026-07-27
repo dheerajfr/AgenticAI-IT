@@ -31,7 +31,12 @@ async function loadProjectData(demandId) {
     deployCutover,
     tqConsolidated,
     tqQualityGate,
-    releases
+    releases,
+    aoRisk,
+    aoBudget,
+    aoVendor,
+    aoReport,
+    aoKnowledge
   ] = await Promise.all([
     fetchSafe(`${BASE_URL}/demands`),
     fetchSafe(`${BASE_URL}/estimates`),
@@ -42,7 +47,12 @@ async function loadProjectData(demandId) {
     fetchSafe(`${BASE_URL}/deployments/cutover`),
     fetchSafe(`${BASE_URL}/test-quality/consolidated/${demandId}`),
     fetchSafe(`${BASE_URL}/test-quality/relational/quality_gate/${demandId}`),
-    fetchSafe(`${BASE_URL}/release-change/releases`)
+    fetchSafe(`${BASE_URL}/release-change/releases`),
+    fetchSafe(`${BASE_URL}/risk-issues/project/${demandId}`),
+    fetchSafe(`${BASE_URL}/budget-cost/project/${demandId}`),
+    fetchSafe(`${BASE_URL}/vendor-coordination/project/${demandId}`),
+    fetchSafe(`${BASE_URL}/reporting-communication/project/${demandId}`),
+    fetchSafe(`${BASE_URL}/knowledge-artifacts/project/${demandId}`)
   ]);
 
   // Aggregate and Filter
@@ -61,6 +71,13 @@ async function loadProjectData(demandId) {
   data.testQuality = tqConsolidated || null;
   data.qualityGate = tqQualityGate ? tqQualityGate[0] || null : null; // usually returns array
   if (releases) data.releases = releases.filter(r => r.demand_id === demandId);
+
+  // Always On data
+  data.aoRisk = aoRisk || null;
+  data.aoBudget = aoBudget || null;
+  data.aoVendor = aoVendor || null;
+  data.aoReport = aoReport || null;
+  data.aoKnowledge = aoKnowledge || null;
 
   return data;
 }
@@ -99,7 +116,7 @@ function calculateProgress(stage) {
 window.renderDashboardScreen = async function() {
   const viewport = document.getElementById('viewport');
   viewport.innerHTML = `
-    <div style="padding: 2rem; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 2rem; animation: fade-in 0.3s ease;">
+    <div style="padding: 2rem; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 2rem; animation: fade-in 0.3s ease; height: 100%; overflow-y: auto;">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
         <div>
           <h1 style="margin: 0; font-family: var(--font-display); color: var(--text-primary);">Project Dashboard</h1>
@@ -221,6 +238,10 @@ async function renderProjectDetails(demandId) {
       ${renderDeployCard(data)}
       ${renderTestCard(data)}
       ${renderReleaseCard(data)}
+      
+      <!-- Always On Modules -->
+      <h3 style="font-family: var(--font-display); font-size: 1rem; color: var(--text-secondary); margin-top: 1rem; margin-bottom: 0.5rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">Always On Modules</h3>
+      ${renderAlwaysOnCards(data)}
     </div>
   `;
 }
@@ -463,11 +484,33 @@ function renderReleaseCard(data) {
     if (rel.cab_decision === 'Approve') status = 'Approved';
     else if (rel.cab_decision === 'Reject') {
       status = 'Rejected';
-      errorsHtml = 'CAB Rejected the release request.';
+      errorsHtml = 'Release rejected by CAB.';
     }
   }
 
   return renderCard('Release & Change', 'release-change', status, outputs, approvals, errorsHtml);
+}
+
+function renderAlwaysOnCards(data) {
+  let outputsHtml = '';
+  
+  if (data.aoRisk && data.aoRisk.risks) {
+    outputsHtml += `• Active Risks: <strong>${data.aoRisk.risks.length}</strong><br>`;
+  }
+  if (data.aoBudget) {
+    outputsHtml += `• Budget Consumed: $${data.aoBudget.actual_spend || 0}<br>`;
+  }
+  if (data.aoVendor && data.aoVendor.vendors) {
+    outputsHtml += `• Active Vendors: ${data.aoVendor.vendors.length}<br>`;
+  }
+  if (data.aoReport && data.aoReport.reports) {
+    outputsHtml += `• Generated Reports: ${data.aoReport.reports.length}<br>`;
+  }
+  if (data.aoKnowledge && data.aoKnowledge.artifacts) {
+    outputsHtml += `• Saved Artefacts: ${data.aoKnowledge.artifacts.length}`;
+  }
+  
+  return renderCard('Always On Workspace', 'always-on', 'Active', outputsHtml || 'Workspace Available', '');
 }
 
 // Global style for detail dropdowns

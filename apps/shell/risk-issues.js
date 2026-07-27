@@ -1,6 +1,6 @@
 const BASE_URL = 'http://127.0.0.1:8000/api';
 
-window.fetchRiskIssuesData = async function() {
+window.fetchRiskIssuesData = async function(targetContainer) {
   try {
     const demRes = await fetch('http://127.0.0.1:8000/api/demands');
     if (demRes.ok) window.allDemandsList = await demRes.json();
@@ -15,7 +15,7 @@ window.fetchRiskIssuesData = async function() {
       ${optionsHtml}
     </select>
   `;
-  const viewport = document.getElementById('viewport');
+  const viewport = targetContainer || window.currentModuleTargetContainer || document.getElementById('viewport');
   const _origOverflow = viewport.style.overflow;
   const _origOverflowY = viewport.style.overflowY;
   const _origDisplay = viewport.style.display;
@@ -102,7 +102,7 @@ window.fetchRiskIssuesData = async function() {
   }
 };
 
-window.renderRiskIssuesScreen = function() {
+window.renderRiskIssuesScreen = function(targetContainer) {
   const demandId = sessionStorage.getItem('selectedDemandId');
   const demands = window.allDemandsList || [];
   const optionsHtml = demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === demandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
@@ -113,7 +113,7 @@ window.renderRiskIssuesScreen = function() {
     </select>
   `;
 
-  const viewport = document.getElementById('viewport');
+  const viewport = targetContainer || window.currentModuleTargetContainer || document.getElementById('viewport');
   const _origOverflow = viewport.style.overflow;
   const _origOverflowY = viewport.style.overflowY;
   const _origDisplay = viewport.style.display;
