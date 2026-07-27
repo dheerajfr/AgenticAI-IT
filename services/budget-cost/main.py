@@ -659,18 +659,58 @@ def approve_invoice(req: InvoiceApproveRequest):
     if all_invoices:
         all_resolved = all((i.get("match_status") == "matched" or i.get("decision") != "") for i in all_invoices)
         
+    # We only return the status, no downstream triggers here.
     return {"status": "success", "all_resolved": all_resolved, "invoice": inv}
+
+@app.post("/api/budget-cost/invoices/final-approve")
+def final_approve_invoices(req: BurnForecastRequest):
+    demand_id = req.demand_id
+    all_invoices = invoice_db.get_all(demand_id)
+    
+    # 1. Classify Capex/Opex for approved/matched ones
+    from models import CapexOpexRequest, SpendItem
+    spend_items = []
+    for i in all_invoices:
+        if i.get("match_status") == "matched" or i.get("decision") == "approve":
+            for li in i.get("line_items", []):
+                spend_items.append(
+                    SpendItem(
+                        description=li["description"],
+                        amount=li["amount"],
+                        vendor=i.get("po_reference", "Vendor"),
+                        project_phase=i.get("task_name", "")
+                    )
+                )
+    if spend_items:
+        existing_capex = capex_db.get_all(demand_id)
+        for c in existing_capex:
+            if hasattr(capex_db, "delete"): capex_db.delete(demand_id, c["id"])
+        
+        classify_req = CapexOpexRequest(demand_id=demand_id, spend_items=spend_items)
+        classify_capex(classify_req)
+        
+    # 2. Auto-populate Burn Actuals & Forecast
+    get_burn(demand_id)
+    from models import BurnForecastRequest
+    try:
+        run_burn_forecast(BurnForecastRequest(demand_id=demand_id))
+    except Exception as e:
+        print("Forecast error:", e)
+        
+    return {"status": "success", "message": "Final approval completed. Downstream data generated."}
+
+@app.post("/api/budget-cost/insights/generate/{demand_id}")
+def generate_insights(demand_id: str):
+    # Just generate invoices (they have intentional discrepancies for the user to solve)
+    generate_sample_invoices(demand_id)
+    return {"status": "success", "message": "Invoices generated. Please resolve discrepancies."}
 
 # ── Capex / Opex Endpoints ─────────────────────────────────────────────────────
 
 @app.get("/api/budget-cost/capex-opex/{demand_id}")
 def get_capex_opex(demand_id: str):
     items = capex_db.get_all(demand_id)
-    if not items:
-        seeded = _seed_capex(demand_id)
-        capex_db.save_batch(seeded)
-        items = capex_db.get_all(demand_id)
-    return items
+    return items or []
 
 @app.post("/api/budget-cost/capex-opex/classify")
 def classify_capex(req: CapexOpexRequest):

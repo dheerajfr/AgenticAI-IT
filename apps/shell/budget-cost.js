@@ -103,6 +103,8 @@ window.renderBudgetCostScreen = function(targetContainer) {
     </button>
   ` : '';
 
+  const hasInsights = window.currentInvoicesList && window.currentInvoicesList.length > 0;
+
   viewport.innerHTML = `
     <div class="intake-screen" style="padding: 1rem; height: 100%; box-sizing: border-box;">
       <aside class="sidebar">
@@ -115,7 +117,7 @@ window.renderBudgetCostScreen = function(targetContainer) {
         </ul>
       </aside>
       <main class="details-panel" id="budget-panel-container" style="display: flex; flex-direction: column; overflow-y: auto; height: 100%; align-self: stretch; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-        <!-- Header + tabs -->
+        <!-- Header -->
         <div style="padding:1rem 1.5rem 0;border-bottom:1px solid var(--border-color);background:var(--bg-primary);border-radius: var(--radius-md) var(--radius-md) 0 0;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
             <div style="display:flex;align-items:center;gap:1.5rem;">
@@ -130,11 +132,12 @@ window.renderBudgetCostScreen = function(targetContainer) {
             </div>
             <status-pill status="${demandId ? 'Monitoring' : 'Idle'}"></status-pill>
           </div>
-          <div style="display:flex;gap:0.35rem;padding-bottom:0.75rem;">${tabBar}</div>
+          <!-- Tabs (hidden if no insights) -->
+          ${hasInsights ? `<div style="display:flex;gap:0.35rem;padding-bottom:0.75rem;">${tabBar}</div>` : `<div style="padding-bottom:0.75rem;"></div>`}
         </div>
 
-        <!-- Tab content -->
-        <div id="bc-tab-content" style="flex:1;padding:1.5rem;background:var(--bg-secondary);"></div>
+        <!-- Content -->
+        <div id="bc-tab-content" style="flex:1;padding:1.5rem;background:var(--bg-secondary);display:flex;flex-direction:column;"></div>
 
         <!-- Footer nav -->
         <div style="padding:1rem 1.5rem;border-top:1px solid var(--border-color);background:var(--bg-primary);display:flex;justify-content:flex-end;border-radius: 0 0 var(--radius-md) var(--radius-md);">
@@ -146,15 +149,68 @@ window.renderBudgetCostScreen = function(targetContainer) {
       </main>
     </div>`;
 
+  const content = document.getElementById('bc-tab-content');
+
   if (!demandId) {
-    document.getElementById('bc-tab-content').innerHTML = `
+    content.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:0.9rem;">
         Please select a project from the left sidebar or the dropdown to begin.
       </div>`;
     return;
   }
 
+  if (!hasInsights) {
+    content.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:1.5rem;">
+        <div style="text-align:center;max-width:400px;">
+          <h3 style="margin:0 0 0.5rem 0;font-size:1.25rem;color:var(--text-primary);">Generate Insights</h3>
+          <p style="margin:0;font-size:0.9rem;color:var(--text-secondary);line-height:1.5;">
+            Run our AI financial engine to automatically generate invoices, perform Capex/Opex classifications, and construct a full burn rate forecast.
+          </p>
+        </div>
+        <button id="btn-generate-insights" onclick="window.bcGenerateInsights('${demandId}')"
+          style="background:linear-gradient(135deg,var(--color-brand),#4f46e5);color:#fff;border:none;padding:0.85rem 2rem;border-radius:var(--radius-md);font-size:1rem;font-weight:700;cursor:pointer;font-family:var(--font-sans);box-shadow:0 4px 14px rgba(99,102,241,0.4);transition:all 0.2s ease;">
+          ✨ Generate Insights
+        </button>
+      </div>`;
+    return;
+  }
+
   bcLoadTab(bcActiveTab, demandId);
+};
+
+window.bcGenerateInsights = async function(demandId) {
+  const btn = document.getElementById('btn-generate-insights');
+  if (btn) {
+    btn.innerHTML = '⚙️ Analyzing... (This may take ~15s)';
+    btn.disabled = true;
+    btn.style.opacity = '0.7';
+  }
+  
+  try {
+    const res = await fetch(`/api/budget-cost/insights/generate/${demandId}`, { method: 'POST' });
+    if (res.ok) {
+      bcActiveTab = 'invoice';
+      // Re-fetch all data to populate tabs
+      await window.fetchBudgetCostData();
+    } else {
+      const err = await res.json();
+      alert('Error generating insights: ' + (err.detail || err.message || JSON.stringify(err)));
+      if (btn) {
+        btn.innerHTML = '✨ Generate Insights';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      }
+    }
+  } catch(e) {
+    console.error('Insights error', e);
+    alert('Network error while generating insights.');
+    if (btn) {
+      btn.innerHTML = '✨ Generate Insights';
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+  }
 };
 
 // ── Delete Demand Data ───────────────────────────────────────────────────────
@@ -460,6 +516,7 @@ async function bcRenderInvoice(demandId, content) {
 
   const total = invoices.reduce((s,i)=>s+i.invoice_amount,0);
   const flagged = invoices.filter(i=>i.match_status==='discrepancy').length;
+  const allResolved = invoices.length > 0 && flagged === 0;
 
   content.innerHTML = `
     <div style="max-width:1000px;display:flex;flex-direction:column;gap:1.5rem;">
@@ -481,6 +538,7 @@ async function bcRenderInvoice(demandId, content) {
         <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
           <h3 style="margin:0;font-size:1rem;">Invoice Register</h3>
           <div style="display:flex;gap:0.75rem;align-items:center;">
+            ${allResolved ? `<button onclick="window.bcFinalApprove('${demandId}')" id="btn-final-approve" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;padding:3px 9px;border-radius:4px;font-size:0.75rem;font-weight:600;cursor:pointer;">✅ Final Approve</button>` : ''}
             <button onclick="window.generateSampleInvoices('${demandId}')" style="background:var(--color-brand);color:#fff;border:none;padding:3px 9px;border-radius:4px;font-size:0.73rem;font-weight:600;cursor:pointer;">Generate Samples</button>
             <span style="font-size:0.73rem;background:rgba(99,102,241,0.12);color:#6366f1;padding:3px 9px;border-radius:4px;">Human Approves Disputes</span>
           </div>
@@ -504,11 +562,24 @@ window.bcApproveInvoice = async function(demandId, invoiceId, decision) {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ demand_id: demandId, invoice_id: invoiceId, decision })
     });
-    const data = await res.json();
     await bcLoadTab('invoice', demandId);
-    
-    if (data.all_resolved) {
-      alert("All invoices matched! Burn & Forecast actuals have been automatically populated.");
+  } catch(e) { console.error(e); }
+};
+
+window.bcFinalApprove = async function(demandId) {
+  const btn = document.getElementById('btn-final-approve');
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Processing...'; }
+  try {
+    const res = await fetch(`${BC_API}/invoices/final-approve`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ demand_id: demandId })
+    });
+    if (res.ok) {
+      alert("Final approval complete! Capex classifications and Burn actuals populated.");
+      await window.fetchBudgetCostData();
+    } else {
+      alert("Error during final approval.");
+      if (btn) { btn.disabled = false; btn.innerHTML = '✅ Final Approve'; }
     }
   } catch(e) { console.error(e); }
 };
