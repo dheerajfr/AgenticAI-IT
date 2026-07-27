@@ -146,38 +146,12 @@
     "coverage_summary": {
       "total_stories": 1,
       "stories_covered": 1,
-<<<<<<< HEAD
       "total_test_cases": 10,
       "critical_path_coverage_pct": 100.0
     },
     "status": "draft"
   },
   "test_data": null,
-=======
-      "total_test_cases": 6,
-      "critical_path_coverage_pct": 66.67
-    },
-    "status": "draft"
-  },
-  "test_data": {
-    "data_provision_id": "TDP-0068-1",
-    "suite_id": "TST-0068-1",
-    "demand_id": "DEM-2026-0001",
-    "environment": "test",
-    "datasets": [
-      {
-        "schema": "db://payments/transactions",
-        "record_count": 100,
-        "masking_applied": true,
-        "location": "test-db://payments/synthetic_20260714"
-      }
-    ],
-    "privacy_sign_off": null,
-    "signed_off_by": null,
-    "expires_at": "2026-07-16T10:00:00Z",
-    "status": "pending-approval"
-  },
->>>>>>> 3ddd18ee8a007c5e65b72f6b9e4ed80d69701011
   "test_execution": {
     "test_run_id": "TR-DEM-2026-0001-1",
     "suite_id": "TST-DEM-2026-0001-1",

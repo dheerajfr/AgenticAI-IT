@@ -131,12 +131,7 @@ with get_db() as conn:
             allocation_pct,
             None, None
         ))
-
-<<<<<<< HEAD
-        print(f"  [OK] Inserted {emp_id} | {name} | {role} | {status} ({allocation_pct}%)")
-=======
         print(f"  [+] Inserted {emp_id} | {name} | {role} | {status} ({allocation_pct}%)")
->>>>>>> 3ddd18ee8a007c5e65b72f6b9e4ed80d69701011
 
     conn.commit()
 
