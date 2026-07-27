@@ -20,8 +20,14 @@ class RiskModel(BaseModel):
     probability: str = "Medium" # High, Medium, Low
     impact: str = "Medium" # High, Medium, Low
     severity: str = "Medium" # Critical, High, Medium, Low
+    risk_score: int = 50
     confidence_score: int = 80
     owner: str = "Unassigned"
+    related_module: str = "General"
+    linked_tasks: List[str] = Field(default_factory=list)
+    suggested_mitigation: str = ""
+    expected_resolution_date: str = ""
+    root_cause_analysis: str = ""
     ai_recommendation: str = ""
     status: str = "Open"
     created_at: str
@@ -36,16 +42,27 @@ class IssueModel(BaseModel):
     status: str = "Open"
     target_date: str = ""
     progress: int = 0
+    related_tasks: List[str] = Field(default_factory=list)
+    related_sprint: str = ""
+    assigned_employees: List[str] = Field(default_factory=list)
+    dependencies: List[str] = Field(default_factory=list)
+    test_failures: List[str] = Field(default_factory=list)
+    build_failures: List[str] = Field(default_factory=list)
+    release_info: str = ""
+    environment_details: str = ""
     created_at: str
 
 class MitigationModel(BaseModel):
     id: str
     risk_id: str
+    action: str = ""
     description: str
     owner: str = "Unassigned"
     status: str = "Pending" # Pending, In Progress, Blocked, Completed
     progress: int = 0
     due_date: str = ""
+    ai_recommendation: str = ""
+    estimated_impact_reduction: int = 0
 
 class TimelineEvent(BaseModel):
     id: str

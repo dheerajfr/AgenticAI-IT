@@ -1,0 +1,49 @@
+{
+  "demand_id": "DEM-2026-0003",
+  "title": "Agentic AI in SDLC",
+  "description": "Request regarding the integration or application of Agentic AI within the Software Development Life Cycle (SDLC).",
+  "type": "project",
+  "domain": "Infrastructure",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-27",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": "DEM-2026-0001",
+  "business_case_summary": "Business Case Summary: Agentic AI in SDLC (DEM-2026-0003)\n\nExecutive Summary\nThis Infrastructure project integrates Agentic AI into the Software Development Life Cycle (SDLC) to automate key processes.\n\nDirect Business Value/Impact\nIt accelerates development speed, reduces costs by minimizing manual tasks, and boosts code efficiency for faster market delivery.\n\nPotential Risk Mitigation\nMedium risks are addressed via phased pilots, robust testing, and AI governance to ensure security and reliability.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 88,
+  "earliest_start_date": "2026-08-26",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 7 total active team members evaluated.",
+    "Technical capability profiling: 18 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 0/280 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Senior Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 2
+    },
+    {
+      "role": "Backend Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 2
+    },
+    {
+      "role": "Security Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    }
+  ],
+  "skill_gaps": [
+    "Python",
+    "Agentic AI",
+    "LLM Frameworks",
+    "Software Architecture",
+    "SDLC",
+    "Security"
+  ]
+}

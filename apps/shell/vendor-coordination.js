@@ -118,6 +118,7 @@ window.fetchVendorCoordinationData = async function() {
 };
 
 window.renderVendorCoordinationScreen = function(targetContainer) {
+  if (window.hideGlobalLoader) window.hideGlobalLoader();
   const demandId = sessionStorage.getItem('selectedDemandId');
   const demands = window.allDemandsList || [];
   const optionsHtml = demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === demandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
