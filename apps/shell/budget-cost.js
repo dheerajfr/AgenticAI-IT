@@ -562,7 +562,12 @@ window.bcApproveInvoice = async function(demandId, invoiceId, decision) {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ demand_id: demandId, invoice_id: invoiceId, decision })
     });
+    const data = await res.json();
     await bcLoadTab('invoice', demandId);
+    
+    if (data.all_resolved) {
+      alert("All invoices matched! Burn & Forecast actuals have been automatically populated.");
+    }
   } catch(e) { console.error(e); }
 };
 
