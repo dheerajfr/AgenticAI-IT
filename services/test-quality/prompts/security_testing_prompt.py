@@ -12,9 +12,9 @@ Provide:
 - Security findings
 - Severity ("critical" | "high" | "medium" | "low")
 - Vulnerability category
-- Precise location (file and line)
+- High-level component location (Do not output raw directory paths like 'src/', 'config/', or line numbers; instead, specify clean module/component names like 'HR API Service', 'Database Configuration', 'Loyalty Points Module')
 - Exploitable confirmation (boolean)
-- Draft fixes & recommendations
+- Draft fixes & recommendations (Do not output raw directory paths like 'src/', 'config/', or line numbers in the description or fixes)
 
 The output must match the SecurityTestRecord JSON contract:
 {{

@@ -186,7 +186,16 @@ async def app(scope, receive, send):
         from starlette.exceptions import HTTPException
         
         try:
-            await static_app(scope, receive, send)
+            async def custom_send(message):
+                if message["type"] == "http.response.start":
+                    headers = list(message.get("headers", []))
+                    headers = [h for h in headers if h[0].lower() != b"cache-control"]
+                    headers.append((b"cache-control", b"no-store, no-cache, must-revalidate, max-age=0"))
+                    headers.append((b"pragma", b"no-cache"))
+                    headers.append((b"expires", b"0"))
+                    message["headers"] = headers
+                await send(message)
+            await static_app(scope, receive, custom_send)
         except HTTPException as exc:
             if exc.status_code == 404:
                 headers = [(b"content-type", b"text/plain")]
