@@ -1155,7 +1155,7 @@ function renderCABTab() {
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
               <div style="display: flex; flex-direction: column; gap: 0.4rem;">
                 <label style="color: var(--text-secondary); font-weight:700;">Meeting Date</label>
-                <input type="date" id="cab-meeting-date" required value="2026-07-14" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.4rem; color: var(--text-primary);">
+                <input type="date" id="cab-meeting-date" required value="${new Date().toISOString().split('T')[0]}" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.4rem; color: var(--text-primary);">
               </div>
               <div style="display: flex; flex-direction: column; gap: 0.4rem;">
                 <label style="color: var(--text-secondary); font-weight:700;">Chairperson</label>

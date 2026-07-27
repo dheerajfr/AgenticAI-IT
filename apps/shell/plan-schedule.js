@@ -500,7 +500,7 @@ async function showNewPlanForm() {
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-top: 1rem;">
           <div class="form-group" style="margin: 0;">
             <label style="font-size: 0.75rem;">Planning Start Date</label>
-            <input type="date" id="cfg-start-date" value="2026-07-07"
+            <input type="date" id="cfg-start-date" value="${new Date().toISOString().split('T')[0]}"
                style="font-size: 0.85rem; padding: 0.4rem 0.6rem;">
           </div>
           <div class="form-group" style="margin: 0;">
@@ -572,7 +572,7 @@ async function handleGeneratePlan() {
 
   selectedEstimateObjs = availableEstimates.filter(e => selectedIds.includes(e.estimate_id));
 
-  const startDate = document.getElementById('cfg-start-date')?.value || '2026-07-07';
+  const startDate = document.getElementById('cfg-start-date')?.value || new Date().toISOString().split('T')[0];
   const workDays = parseInt(document.getElementById('cfg-work-days')?.value || '5');
   const util = parseFloat(document.getElementById('cfg-util')?.value || '85');
 
@@ -1079,7 +1079,7 @@ function renderPlanPreview(newPlans, actionsRow) {
         </div>
         <div class="form-group" style="margin: 0;">
           <label style="font-size: 0.75rem;">Planning Start Date</label>
-          <input type="date" id="preview-replan-start-date" value="2026-07-07"
+          <input type="date" id="preview-replan-start-date" value="${new Date().toISOString().split('T')[0]}"
             style="font-size: 0.85rem; padding: 0.4rem 0.6rem;">
         </div>
         <div class="form-group" style="margin: 0;">
@@ -1456,7 +1456,7 @@ function renderPlanDetail(plan) {
           </div>
           <div class="form-group" style="margin: 0;">
             <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">Planning Start Date</label>
-            <input type="date" id="project-replan-start-date" value="${plan.tasks[0]?.start_date || '2026-07-07'}"
+            <input type="date" id="project-replan-start-date" value="${plan.tasks[0]?.start_date || new Date().toISOString().split('T')[0]}"
               style="font-size: 0.85rem; padding: 0.4rem 0.6rem; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm); width: 100%;">
           </div>
           <div class="form-group" style="margin: 0;">
@@ -1738,7 +1738,7 @@ function renderPlanDetail(plan) {
           </div>
           <div class="form-group" style="margin: 0;">
             <label style="font-size: 0.75rem;">Planning Start Date</label>
-            <input type="date" id="replan-start-date" value="2026-07-07"
+            <input type="date" id="replan-start-date" value="${new Date().toISOString().split('T')[0]}"
               style="font-size: 0.85rem; padding: 0.4rem 0.6rem;">
           </div>
           <div class="form-group" style="margin: 0;">
