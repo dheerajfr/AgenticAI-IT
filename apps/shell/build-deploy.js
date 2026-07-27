@@ -467,15 +467,6 @@ async function showNewRunbookForm() {
     const sel = document.getElementById('rbk-demand-pick');
     if (sel) sel.value = selectedRunbookDemandId;
   }
-
-  // "Load" button — fetch demand + env data and populate form
-  document.getElementById('btn-load-demand').addEventListener('click', async () => {
-  // Restore previously selected demand if any
-  if (selectedRunbookDemandId) {
-    const sel = document.getElementById('rbk-demand-pick');
-    if (sel) sel.value = selectedRunbookDemandId;
-  }
-
   // "Load" button — fetch demand + env data and populate form
   document.getElementById('btn-load-demand').addEventListener('click', async () => {
     const demandId = document.getElementById('rbk-demand-pick').value;
