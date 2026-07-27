@@ -1,8 +1,8 @@
-const BASE_URL = 'http://127.0.0.1:8000/api';
+const BASE_URL = '/api';
 
 window.fetchVendorCoordinationData = async function() {
   try {
-    const demRes = await fetch('http://127.0.0.1:8000/api/demands');
+    const demRes = await fetch('/api/demands');
     if (demRes.ok) window.allDemandsList = await demRes.json();
   } catch(e) { console.warn("Could not fetch demands list", e); }
 
@@ -97,6 +97,20 @@ window.fetchVendorCoordinationData = async function() {
     if (res.ok) {
       window.currentVendorData = await res.json();
       
+      // Fetch checklists
+      try {
+        const checkRes = await fetch(`${BASE_URL}/vendor-coordination/project/${demandId}/checklists`);
+        if (checkRes.ok) window.currentChecklists = await checkRes.json();
+        else window.currentChecklists = [];
+      } catch (e) { window.currentChecklists = []; }
+
+      // Fetch reports
+      try {
+        const repRes = await fetch(`${BASE_URL}/vendor-coordination/project/${demandId}/reports`);
+        if (repRes.ok) window.currentReports = await repRes.json();
+        else window.currentReports = [];
+      } catch (e) { window.currentReports = []; }
+
       // Fetch generated invoices for the project to display invoice count
       try {
         const invRes = await fetch(`${BASE_URL}/budget-cost/project/${demandId}/invoices`);
@@ -211,13 +225,73 @@ window.renderVendorCoordinationScreen = function(targetContainer) {
   const sla = data.sla_tracking || {};
   const discrepancies = data.sow_discrepancies || [];
   const alerts = data.access_alerts || [];
+  const checklists = window.currentChecklists || [];
+  const reports = window.currentReports || [];
   
+  // Render status normaliser reports list
+  let reportsHtml = '<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 1rem;">No reports uploaded yet.</div>';
+  if (reports && reports.length > 0) {
+    reportsHtml = reports.map(r => {
+      const statusColor = r.overall_status === 'Green' ? 'var(--color-status-green-text)' : (r.overall_status === 'Red' ? 'var(--color-status-red-text)' : 'var(--color-status-amber-text)');
+      return `
+        <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 0.75rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+            <strong style="font-size:0.9rem; color:var(--text-primary);">${r.vendor_name}</strong>
+            <span style="font-size:0.75rem; font-weight:700; color:${statusColor}; background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">${r.overall_status}</span>
+          </div>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem;">Period: ${r.reporting_period}</div>
+          <div style="margin-bottom:0.5rem;">
+            <span style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.25rem;">Key Achievements:</span>
+            <ul style="margin:0; padding-left:1.1rem; font-size:0.8rem; color:var(--text-secondary);">
+              ${r.key_achievements.map(a => `<li>${a}</li>`).join('')}
+            </ul>
+          </div>
+          ${r.risks_escalations.length > 0 ? `
+          <div style="margin-bottom:0.5rem;">
+            <span style="font-size:0.75rem; text-transform:uppercase; color:var(--color-status-red-text); display:block; margin-bottom:0.25rem;">Risks & Escalations:</span>
+            <ul style="margin:0; padding-left:1.1rem; font-size:0.8rem; color:var(--color-status-red-text);">
+              ${r.risks_escalations.map(re => `<li>${re}</li>`).join('')}
+            </ul>
+          </div>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Render checklists list
+  let checklistsHtml = '<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 1.5rem;">No active onboarding/offboarding workflows.</div>';
+  if (checklists && checklists.length > 0) {
+    checklistsHtml = checklists.map(c => {
+      const typeLabel = c.onboarding_type === 'join' ? 'Onboarding (Join)' : 'Offboarding (Leave)';
+      const typeColor = c.onboarding_type === 'join' ? 'var(--color-status-green-text)' : 'var(--color-status-red-text)';
+      return `
+        <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+            <div>
+              <strong style="font-size:0.9rem; color:var(--text-primary);">${c.vendor_employee_name}</strong>
+              <div style="font-size:0.75rem; color:${typeColor}; font-weight:700; margin-top:2px;">${typeLabel}</div>
+            </div>
+            <span style="font-size:0.75rem; background: ${c.status === 'completed' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)'}; color:${c.status === 'completed' ? 'var(--color-status-green-text)' : 'var(--color-status-amber-text)'}; padding:2px 6px; border-radius:4px; font-weight:700;">${c.status}</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:0.4rem; margin-top:0.75rem;">
+            ${c.checklist_items.map(step => `
+              <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.8rem; color:var(--text-secondary); cursor:pointer;">
+                <input type="checkbox" ${step.completed ? 'checked' : ''} onchange="toggleChecklistStep('${c.request_id}', '${step.step_name}', this.checked)" style="cursor:pointer;" />
+                <span style="${step.completed ? 'text-decoration: line-through; color: var(--text-muted);' : ''}">${step.step_name}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
   viewport.innerHTML = layoutPrefix + `
     <div style="padding: 2rem; max-width: 1200px; margin: 0 auto; animation: fade-in 0.3s ease;">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
         <div>
           <h2 style="margin: 0; font-family: var(--font-display); color: var(--text-primary);">Vendor Coordination</h2>
-          <p style="margin: 0.25rem 0 0 0; color: var(--text-secondary); font-size: 0.9rem;">Always-on Capability - SOW & Access Tracking</p>
+          <p style="margin: 0.25rem 0 0 0; color: var(--text-secondary); font-size: 0.9rem;">Always-on Capability - SOW, Access & Status Tracking</p>
         </div>
         <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
           ${dropdownHtml}
@@ -227,7 +301,7 @@ window.renderVendorCoordinationScreen = function(targetContainer) {
       
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
         
-        <!-- SLA Tracking & SOW -->
+        <!-- Left Column: SLA Tracking, SOW check, and Status Normaliser -->
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
           <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem;">
             <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
@@ -273,29 +347,83 @@ window.renderVendorCoordinationScreen = function(targetContainer) {
               `).join('')}
             </div>
           </div>
-        </div>
 
-        <!-- Access Offboarding -->
-        <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem;">
-          <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
-            <span>Access & Offboarding</span>
-            <span style="font-size: 0.75rem; background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 2px 6px; border-radius: 4px;">Human Approves</span>
-          </h3>
-          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
-            AI recommends disabling stale vendor access.
-          </p>
-          
-          <div style="display: flex; flex-direction: column; gap: 1rem;">
-            ${alerts.map(a => `
-              <div style="padding: 1rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                  <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary);">${a.user}</div>
-                  <div style="font-size: 0.8rem; color: var(--color-status-red-text);">Inactive: ${a.last_active}</div>
+          <!-- Status Normaliser -->
+          <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem;">
+            <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
+              <span>Status Normaliser</span>
+              <span style="font-size: 0.75rem; background: rgba(16, 185, 129, 0.1); color: var(--color-status-green-text); padding: 2px 6px; border-radius: 4px;">Human Monitors</span>
+            </h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+              Upload raw vendor text status reports to parse into unified views.
+            </p>
+            
+            <div style="border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 1.25rem; margin-bottom: 1.5rem; text-align: center; background: rgba(255,255,255,0.02);">
+              <input type="file" id="vendor-report-file" style="display: none;" onchange="uploadVendorReport('${demandId}', this)" />
+              <label for="vendor-report-file" class="btn-secondary" style="display: inline-block; cursor: pointer; padding: 0.5rem 1rem; font-size: 0.85rem; font-family: var(--font-sans);">
+                ✦ Select & Upload Status Report
+              </label>
+              <div id="upload-status-msg" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">Accepts plain text status logs</div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              ${reportsHtml}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right Column: Access alerts & Onboarding/Offboarding checklists -->
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem;">
+            <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
+              <span>Access & Offboarding Alerts</span>
+              <span style="font-size: 0.75rem; background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 2px 6px; border-radius: 4px;">Human Approves</span>
+            </h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+              AI recommends disabling stale vendor access.
+            </p>
+            
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+              ${alerts.map(a => `
+                <div style="padding: 1rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary);">${a.user}</div>
+                    <div style="font-size: 0.8rem; color: var(--color-status-red-text);">Status: ${a.last_active}</div>
+                  </div>
+                  <button onclick="revokeAccess('${demandId}', '${a.user}')" class="btn-primary" style="padding: 0.4rem 0.75rem; font-size: 0.75rem; background: var(--color-status-red-bg); color: var(--color-status-red-text); border: 1px solid var(--color-status-red-border);">Revoke Access</button>
                 </div>
-                <button onclick="revokeAccess('${demandId}', '${a.user}')" class="btn-primary" style="padding: 0.4rem 0.75rem; font-size: 0.75rem; background: var(--color-status-red-bg); color: var(--color-status-red-text); border: 1px solid var(--color-status-red-border);">Revoke</button>
+              `).join('')}
+              ${alerts.length === 0 ? '<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center;">No stale access detected.</div>' : ''}
+            </div>
+          </div>
+
+          <!-- Onboarding / Offboarding Checklists -->
+          <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem;">
+            <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
+              <span>Supplier Checklists</span>
+              <span style="font-size: 0.75rem; background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 2px 6px; border-radius: 4px;">Human Approves</span>
+            </h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+              Track compliance and access tasks when suppliers join or leave.
+            </p>
+
+            <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.5rem;">
+              <h4 style="margin:0 0 0.75rem 0; font-size:0.85rem; color:var(--text-primary);">Initiate New Checklist</h4>
+              <div style="display:flex; flex-direction:column; gap:0.75rem;">
+                <input type="text" id="checklist-employee-name" placeholder="Employee Name" style="padding: 0.45rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size:0.8rem;" />
+                <div style="display:flex; gap:0.5rem;">
+                  <select id="checklist-type" style="flex:1; padding: 0.45rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size:0.8rem;">
+                    <option value="join">Onboard (Join)</option>
+                    <option value="leave">Offboard (Leave)</option>
+                  </select>
+                  <button onclick="onboardSupplier('${demandId}')" class="btn-primary" style="padding: 0.45rem 1rem; font-size:0.8rem;">Start</button>
+                </div>
               </div>
-            `).join('')}
-            ${alerts.length === 0 ? '<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center;">No stale access detected.</div>' : ''}
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              ${checklistsHtml}
+            </div>
           </div>
         </div>
       </div>
@@ -320,4 +448,78 @@ window.revokeAccess = async function(demandId, user) {
     });
     window.fetchVendorCoordinationData();
   } catch(e) { console.error(e); }
+};
+
+window.onboardSupplier = async function(demandId) {
+  const nameInput = document.getElementById('checklist-employee-name');
+  const typeSelect = document.getElementById('checklist-type');
+  const name = nameInput.value.trim();
+  const type = typeSelect.value;
+  if (!name) return;
+
+  try {
+    const res = await fetch(`${BASE_URL}/vendor-coordination/onboard`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        demand_id: demandId,
+        vendor_employee_name: name,
+        onboarding_type: type
+      })
+    });
+    if (res.ok) {
+      nameInput.value = '';
+      window.fetchVendorCoordinationData();
+    }
+  } catch(e) { console.error("Error onboarding supplier", e); }
+};
+
+window.toggleChecklistStep = async function(requestId, stepName, completed) {
+  try {
+    const res = await fetch(`${BASE_URL}/vendor-coordination/checklists/${requestId}/step`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        step_name: stepName,
+        completed: completed
+      })
+    });
+    if (res.ok) {
+      window.fetchVendorCoordinationData();
+    }
+  } catch(e) { console.error("Error updating checklist step", e); }
+};
+
+window.uploadVendorReport = async function(demandId, fileInput) {
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  const msgDiv = document.getElementById('upload-status-msg');
+  msgDiv.textContent = "Uploading & parsing report...";
+  msgDiv.style.color = "var(--color-brand)";
+
+  const formData = new FormData();
+  formData.append('demand_id', demandId);
+  formData.append('file', file);
+
+  try {
+    const res = await fetch(`${BASE_URL}/vendor-coordination/upload-report`, {
+      method: 'POST',
+      body: formData
+    });
+    if (res.ok) {
+      msgDiv.textContent = "Report parsed successfully!";
+      msgDiv.style.color = "var(--color-status-green-text)";
+      setTimeout(() => {
+        window.fetchVendorCoordinationData();
+      }, 1000);
+    } else {
+      msgDiv.textContent = "Failed to upload or parse report.";
+      msgDiv.style.color = "var(--color-status-red-text)";
+    }
+  } catch(e) {
+    console.error("Error uploading report", e);
+    msgDiv.textContent = "Error uploading report.";
+    msgDiv.style.color = "var(--color-status-red-text)";
+  }
 };

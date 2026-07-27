@@ -14,3 +14,13 @@ class VendorRecord(BaseModel):
     sla_tracking: Optional[Dict] = None
     sow_discrepancies: Optional[List[Dict]] = None
     access_alerts: Optional[List[Dict]] = None
+
+class OnboardRequest(BaseModel):
+    demand_id: str
+    vendor_employee_name: str
+    onboarding_type: str  # 'join' or 'leave'
+
+class ChecklistStepUpdate(BaseModel):
+    step_name: str
+    completed: bool
+

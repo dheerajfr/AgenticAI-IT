@@ -26,6 +26,29 @@ def init_db():
                 access_alerts TEXT
             )
         ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS vendor_checklists (
+                request_id TEXT PRIMARY KEY,
+                demand_id TEXT,
+                vendor_employee_name TEXT,
+                onboarding_type TEXT,
+                status TEXT,
+                checklist_items TEXT
+            )
+        ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS normalized_status_reports (
+                id TEXT PRIMARY KEY,
+                demand_id TEXT,
+                vendor_name TEXT,
+                reporting_period TEXT,
+                overall_status TEXT,
+                key_achievements TEXT,
+                risks_escalations TEXT,
+                metrics TEXT,
+                parsed_at TEXT
+            )
+        ''')
         conn.commit()
 
 init_db()
@@ -63,6 +86,77 @@ class DB:
                 sla_str,
                 sow_str,
                 access_str
+            ))
+            conn.commit()
+
+    @staticmethod
+    def get_checklists(demand_id: str) -> List[Dict]:
+        with _get_conn() as conn:
+            rows = conn.execute("SELECT * FROM vendor_checklists WHERE demand_id = ?", (demand_id,)).fetchall()
+            results = []
+            for r in rows:
+                d = dict(r)
+                d['checklist_items'] = json.loads(d['checklist_items']) if d['checklist_items'] else []
+                results.append(d)
+            return results
+
+    @staticmethod
+    def save_checklist(checklist: Dict):
+        with _get_conn() as conn:
+            items_str = json.dumps(checklist.get('checklist_items', []))
+            conn.execute('''
+                INSERT INTO vendor_checklists (request_id, demand_id, vendor_employee_name, onboarding_type, status, checklist_items)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(request_id) DO UPDATE SET
+                    status=excluded.status,
+                    checklist_items=excluded.checklist_items
+            ''', (
+                checklist.get('request_id'),
+                checklist.get('demand_id'),
+                checklist.get('vendor_employee_name'),
+                checklist.get('onboarding_type'),
+                checklist.get('status'),
+                items_str
+            ))
+            conn.commit()
+
+    @staticmethod
+    def get_reports(demand_id: str) -> List[Dict]:
+        with _get_conn() as conn:
+            rows = conn.execute("SELECT * FROM normalized_status_reports WHERE demand_id = ?", (demand_id,)).fetchall()
+            results = []
+            for r in rows:
+                d = dict(r)
+                d['key_achievements'] = json.loads(d['key_achievements']) if d['key_achievements'] else []
+                d['risks_escalations'] = json.loads(d['risks_escalations']) if d['risks_escalations'] else []
+                d['metrics'] = json.loads(d['metrics']) if d['metrics'] else {}
+                results.append(d)
+            return results
+
+    @staticmethod
+    def save_report(report: Dict):
+        with _get_conn() as conn:
+            ach_str = json.dumps(report.get('key_achievements', []))
+            risk_str = json.dumps(report.get('risks_escalations', []))
+            met_str = json.dumps(report.get('metrics', {}))
+            conn.execute('''
+                INSERT INTO normalized_status_reports (id, demand_id, vendor_name, reporting_period, overall_status, key_achievements, risks_escalations, metrics, parsed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    overall_status=excluded.overall_status,
+                    key_achievements=excluded.key_achievements,
+                    risks_escalations=excluded.risks_escalations,
+                    metrics=excluded.metrics
+            ''', (
+                report.get('id'),
+                report.get('demand_id'),
+                report.get('vendor_name'),
+                report.get('reporting_period'),
+                report.get('overall_status'),
+                ach_str,
+                risk_str,
+                met_str,
+                report.get('parsed_at')
             ))
             conn.commit()
 
