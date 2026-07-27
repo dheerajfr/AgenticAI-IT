@@ -550,7 +550,6 @@ async function showNewRunbookForm() {
   });
 
   // Draft button — POST to backend
->>>>>>> main
   document.getElementById('btn-draft-runbook').addEventListener('click', async () => {
     const component_id = document.getElementById('rbk-component').value.trim();
     const environment = document.getElementById('rbk-environment').value.trim();

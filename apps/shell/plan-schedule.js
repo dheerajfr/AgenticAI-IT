@@ -2,11 +2,8 @@
 // Follows the same pattern as estimate-shape.js
 
 const PLAN_API_BASE = '/api';
-const ESTIMATE_API_FOR_PLANS = '/api';
-<<<<<<< HEAD
 
-=======
->>>>>>> origin/Fardeen
+const ESTIMATE_API_FOR_PLANS = '/api';
 
 let plans = [];
 let availableEstimates = [];
