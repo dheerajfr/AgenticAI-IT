@@ -88,9 +88,9 @@ async function loadProjectData(demandId) {
 
 // 2. Logic Calculations
 function determineCurrentStage(data) {
-  if (data.opsReadiness) return 'ops-readiness';
+  if (data.opsReadiness && (data.opsReadiness.monitoring || data.opsReadiness.handover || data.opsReadiness.validation)) return 'ops-readiness';
   if (data.releases && data.releases.length > 0) return 'release-change';
-  if (data.qualityGate) return 'test-quality';
+  if (data.qualityGate || (data.testQuality && (data.testQuality.test_generation || data.testQuality.test_data || data.testQuality.test_execution || data.testQuality.security_testing || data.testQuality.traceability || data.testQuality.quality_gate))) return 'test-quality';
   if (data.deployments && data.deployments.length > 0) return 'build-deploy';
   if (data.dependencies && data.dependencies.length > 0) return 'dependencies';
   if (data.environments && data.environments.length > 0) return 'config-environments';
@@ -216,21 +216,21 @@ async function renderProjectDetails(demandId) {
       <h3 style="font-family: var(--font-display); font-size: 1rem; color: var(--text-secondary); margin-bottom: 1rem;">Delivery Pipeline</h3>
       <div style="display: flex; justify-content: space-between; align-items: center; position: relative;">
         ${renderTimelineNode('Demand', 'demand-intake', currentStage, data)}
-        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('demand-intake', currentStage)};"></div>
+        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('demand-intake', currentStage, data)};"></div>
         ${renderTimelineNode('Estimate', 'estimate-shape', currentStage, data)}
-        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('estimate-shape', currentStage)};"></div>
+        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('estimate-shape', currentStage, data)};"></div>
         ${renderTimelineNode('Config', 'config-environments', currentStage, data)}
-        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('config-environments', currentStage)};"></div>
+        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('config-environments', currentStage, data)};"></div>
         ${renderTimelineNode('Plan', 'plan-schedule', currentStage, data)}
-        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('plan-schedule', currentStage)};"></div>
+        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('plan-schedule', currentStage, data)};"></div>
         ${renderTimelineNode('Dependencies', 'dependencies', currentStage, data)}
-        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('dependencies', currentStage)};"></div>
+        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('dependencies', currentStage, data)};"></div>
         ${renderTimelineNode('Deploy', 'build-deploy', currentStage, data)}
-        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('build-deploy', currentStage)};"></div>
+        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('build-deploy', currentStage, data)};"></div>
         ${renderTimelineNode('Test Quality', 'test-quality', currentStage, data)}
-        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('test-quality', currentStage)};"></div>
+        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('test-quality', currentStage, data)};"></div>
         ${renderTimelineNode('Release', 'release-change', currentStage, data)}
-        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('release-change', currentStage)};"></div>
+        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('release-change', currentStage, data)};"></div>
         ${renderTimelineNode('Ops Readiness', 'ops-readiness', currentStage, data)}
       </div>
     </div>
@@ -264,18 +264,50 @@ const stageOrder = [
 ];
 
 function getStageStatus(stage, currentStage, data) {
+  // Check failure conditions first
+  if (stage === 'test-quality' && data.qualityGate && data.qualityGate.verdict === 'FAIL') return 'failed';
+  if (stage === 'release-change' && data.releases && data.releases.some(r => {
+    const dec = r.cab_decision || r.cab_status;
+    return dec && (dec.toLowerCase() === 'reject' || dec.toLowerCase() === 'rejected');
+  })) return 'failed';
+  if (stage === 'build-deploy' && data.deployments && data.deployments.some(d => d.status === 'no-go')) return 'failed';
+
+  // Check completion criteria explicitly
+  let isCompleted = false;
+  if (stage === 'demand-intake') {
+    isCompleted = !!(data.demand && data.demand.status === 'approved');
+  } else if (stage === 'estimate-shape') {
+    isCompleted = !!data.estimate;
+  } else if (stage === 'config-environments') {
+    isCompleted = !!(data.environments && data.environments.length > 0 && data.environments.every(e => e.drift_status === 'in-sync'));
+  } else if (stage === 'plan-schedule') {
+    isCompleted = !!(data.plan && data.plan.human_decision === 'approved');
+  } else if (stage === 'dependencies') {
+    isCompleted = !!(data.dependencies && data.dependencies.length > 0 && data.dependencies.every(d => d.status === 'resolved'));
+  } else if (stage === 'build-deploy') {
+    isCompleted = !!(data.deployments && data.deployments.length > 0 && data.deployments.some(d => d.status === 'completed' || d.status === 'done'));
+  } else if (stage === 'test-quality') {
+    isCompleted = !!(data.qualityGate && data.qualityGate.verdict === 'PASS');
+  } else if (stage === 'release-change') {
+    isCompleted = !!(data.releases && data.releases.length > 0 && data.releases.some(r => {
+      const dec = r.cab_decision || r.cab_status;
+      return dec && (dec.toLowerCase() === 'approve' || dec.toLowerCase() === 'approved');
+    }));
+  } else if (stage === 'ops-readiness') {
+    isCompleted = !!(data.opsReadiness && data.opsReadiness.validation && data.opsReadiness.validation.director_sign_off);
+  }
+
+  if (isCompleted) return 'completed';
+  if (stage === currentStage) return 'current';
+  
+  // If the stage is in the past, but not completed, treat it as in-progress (current)
   const currentIdx = stageOrder.indexOf(currentStage);
   const thisIdx = stageOrder.indexOf(stage);
+  if (thisIdx < currentIdx) {
+    return 'current';
+  }
 
-  if (thisIdx > currentIdx) return 'pending';
-  if (thisIdx === currentIdx) return 'current';
-  
-  // Specific failure checks for past/current stages
-  if (stage === 'test-quality' && data.qualityGate && data.qualityGate.verdict === 'FAIL') return 'failed';
-  if (stage === 'release-change' && data.releases && data.releases.some(r => (r.cab_status && String(r.cab_status).toLowerCase() === 'reject') || (r.cab_decision && String(r.cab_decision).toLowerCase() === 'reject') || (r.status && String(r.status).toLowerCase() === 'rejected'))) return 'failed';
-  if (stage === 'build-deploy' && data.deployments && data.deployments.some(d => d.status === 'no-go')) return 'failed';
-  
-  return 'completed';
+  return 'pending';
 }
 
 function renderTimelineNode(label, stageId, currentStage, data) {
@@ -308,10 +340,9 @@ function renderTimelineNode(label, stageId, currentStage, data) {
   `;
 }
 
-function getTimelineLineColor(fromStage, currentStage) {
-  const currentIdx = stageOrder.indexOf(currentStage);
-  const fromIdx = stageOrder.indexOf(fromStage);
-  return fromIdx < currentIdx ? 'var(--color-status-green-border)' : 'var(--border-color)';
+function getTimelineLineColor(fromStage, currentStage, data) {
+  const status = getStageStatus(fromStage, currentStage, data);
+  return status === 'completed' ? 'var(--color-status-green-border)' : 'var(--border-color)';
 }
 
 // ----------------------------------------------------------------------
@@ -377,7 +408,15 @@ function renderDemandCard(data) {
     Status: <strong>${data.demand.status}</strong><br>
     Requested By: ${data.demand.business_owner}
   `;
-  return renderCard('Demand & Intake', 'demand-intake', data.demand.status === 'approved' ? 'Approved' : 'Completed', outputs, approvals);
+  
+  let status = 'In Progress';
+  if (data.demand.status === 'approved') {
+    status = 'Approved';
+  } else if (data.demand.status === 'rejected') {
+    status = 'Rejected';
+  }
+  
+  return renderCard('Demand & Intake', 'demand-intake', status, outputs, approvals);
 }
 
 function renderEstimateCard(data) {
@@ -449,22 +488,33 @@ function renderDeployCard(data) {
 }
 
 function renderTestCard(data) {
-  if (!data.testQuality) return renderCard('Test & Quality', 'test-quality', 'Pending', '', '');
   const tq = data.testQuality;
+  if (!tq || (!tq.test_generation && !tq.test_data && !tq.test_execution && !tq.security_testing && !tq.traceability && !tq.quality_gate)) {
+    return renderCard('Test & Quality', 'test-quality', 'Pending', '', '');
+  }
+
+  const passed = tq.passed_tests !== undefined ? tq.passed_tests : (tq.test_execution?.summary?.passed || 0);
+  const total = tq.total_tests !== undefined ? tq.total_tests : (tq.test_execution?.summary?.total || 0);
+  const passRate = tq.pass_rate_pct !== undefined ? tq.pass_rate_pct : (tq.test_execution?.summary?.pass_rate_pct || 0);
+  const openDefects = tq.open_defects !== undefined ? tq.open_defects : (tq.defect_triage?.triaged_defects?.filter(d => d.recommended_action !== 'close' && d.recommended_action !== 'resolved').length || 0);
+  const criticalDefects = tq.critical_defects !== undefined ? tq.critical_defects : (tq.defect_triage?.triaged_defects?.filter(d => d.severity === 'critical' && d.recommended_action !== 'close').length || 0);
+  const appsecFindings = tq.open_appsec_findings !== undefined ? tq.open_appsec_findings : (tq.security_testing?.summary?.total || 0);
+
   const outputs = `
-    • Passed Tests: <strong>${tq.passed_tests} / ${tq.total_tests}</strong><br>
-    • Pass Rate: ${tq.pass_rate_pct}%<br>
-    • Open Defects: ${tq.open_defects} (Critical: ${tq.critical_defects})<br>
-    • AppSec Findings: ${tq.open_appsec_findings}
+    • Passed Tests: <strong>${passed} / ${total}</strong><br>
+    • Pass Rate: ${passRate}%<br>
+    • Open Defects: ${openDefects} (Critical: ${criticalDefects})<br>
+    • AppSec Findings: ${appsecFindings}
   `;
   
   let qgHtml = 'Quality Gate: Not Evaluated';
   let errorsHtml = '';
   let status = 'In Progress';
-  if (data.qualityGate) {
-    qgHtml = `Quality Gate Verdict: <strong>${data.qualityGate.verdict}</strong> (Score: ${data.qualityGate.score})`;
-    if (data.qualityGate.verdict === 'PASS') status = 'Completed';
-    else if (data.qualityGate.verdict === 'FAIL') {
+  if (data.qualityGate || tq.quality_gate) {
+    const qg = data.qualityGate || tq.quality_gate;
+    qgHtml = `Quality Gate Verdict: <strong>${qg.verdict}</strong> (Score: ${qg.score})`;
+    if (qg.verdict === 'PASS') status = 'Completed';
+    else if (qg.verdict === 'FAIL') {
       status = 'Failed';
       errorsHtml = 'Quality Gate Failed. Release is blocked until defects/vulnerabilities are resolved.';
     }
@@ -511,8 +561,10 @@ function renderReleaseCard(data) {
 }
 
 function renderOpsReadinessCard(data) {
-  if (!data.opsReadiness) return renderCard('Ops Readiness', 'ops-readiness', 'Pending', '', '');
   const or = data.opsReadiness;
+  if (!or || (!or.monitoring && !or.handover && !or.validation)) {
+    return renderCard('Ops Readiness', 'ops-readiness', 'Pending', '', '');
+  }
   
   let monitoring = or.monitoring && or.monitoring.setup_completed ? 'Completed' : 'Pending';
   let validation = or.validation && or.validation.overall_status ? or.validation.overall_status : 'Pending';
