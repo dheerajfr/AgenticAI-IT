@@ -134,7 +134,8 @@ def aggregate_and_detect(demand_id: str):
     tq_data = external_data.get("test_quality", {})
     if isinstance(tq_data, dict):
         # Sync defects
-        defects = tq_data.get("defect_triage", {}).get("triaged_defects", [])
+        defect_triage = tq_data.get("defect_triage") or {}
+        defects = defect_triage.get("triaged_defects", []) if isinstance(defect_triage, dict) else []
         for d in defects:
             issue_id = f"ISS-DEFECT-{d.get('defect_id')}"
             if not any(iss["issue_id"] == issue_id for iss in record["issues"]):
@@ -166,7 +167,8 @@ def aggregate_and_detect(demand_id: str):
                 })
                 
         # Sync Security Findings as Risks
-        findings = tq_data.get("security_testing", {}).get("findings", [])
+        security_testing = tq_data.get("security_testing") or {}
+        findings = security_testing.get("findings", []) if isinstance(security_testing, dict) else []
         for f in findings:
             rsk_id = f"RSK-SEC-{f.get('finding_id')}"
             if not any(r["id"] == rsk_id for r in record["risks"]):
