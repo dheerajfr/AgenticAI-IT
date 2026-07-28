@@ -31,6 +31,7 @@ def call_gemini(
     Uses the provided api_key or falls back to Entra ID or the AZURE_OPENAI_API_KEY environment variable.
     """
     try:
+        # pyrefly: ignore [missing-import]
         from openai import OpenAI
         from azure.identity import DefaultAzureCredential, get_bearer_token_provider
     except ImportError:
@@ -55,7 +56,6 @@ def call_gemini(
             base_url=endpoint,
             api_key=token_provider
         )
-
     messages = []
     if system_instruction:
         messages.append({"role": "system", "content": system_instruction})
