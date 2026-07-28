@@ -54,3 +54,7 @@ class CapexOpexRequest(BaseModel):
 class CapexOpexSignOffRequest(BaseModel):
     demand_id: str
     approved_by: Optional[str] = "Finance"
+
+class CapexOpexItemSignOffRequest(BaseModel):
+    item_id: str
+    approved_by: Optional[str] = "Finance Controller"
