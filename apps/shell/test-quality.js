@@ -63,10 +63,6 @@ window.renderTestQualityScreen = function () {
 
       <!-- Right Panel: Capabilities Tabbed View -->
       <main class="details-panel" style="display: flex; flex-direction: column; overflow: hidden; min-height: 0; min-width: 0; height: 100%; align-self: stretch; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-        <header class="main-panel-header" style="padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-          <h2 style="margin: 0; font-size: 1.25rem;">Test Queue</h2>
-          <div id="tq-dropdown-container" style="display:flex; align-items:center; gap:0.5rem;"></div>
-        </header>
         <div id="tq-panel-container" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column;"></div>
       </main>
     </div>
@@ -495,7 +491,6 @@ function renderTQDetailsPanel() {
         <h2 style="margin: 0; font-size: 1.35rem; font-family: var(--font-display); font-weight: 800;">
           ${demand.title || 'Test & Quality Assurance'}
         </h2>
-        ${demand.description ? `<p style="margin: 0.5rem 0 0 0; color: var(--text-secondary); font-size: 0.82rem; line-height: 1.5;">${demand.description}</p>` : ''}
       </div>
 
       <!-- Searchable Dropdown Selector -->
@@ -505,13 +500,12 @@ function renderTQDetailsPanel() {
     <!-- Capabilities Tabs -->
     <div class="tq-tab-header" style="flex-wrap: wrap; margin-bottom: 1rem;">
       <button class="tq-tab-btn ${tqActiveTab === 'dashboard' ? 'active' : ''}" data-tab="dashboard">Dashboard</button>
-      <button class="tq-tab-btn ${tqActiveTab === 'generation' ? 'active' : ''}" data-tab="generation">1. Test Generation</button>
-      <button class="tq-tab-btn ${tqActiveTab === 'data' ? 'active' : ''}" data-tab="data">2. Test Data</button>
-      <button class="tq-tab-btn ${tqActiveTab === 'execution' ? 'active' : ''}" data-tab="execution">3. Test Execution</button>
-      <button class="tq-tab-btn ${tqActiveTab === 'triage' ? 'active' : ''}" data-tab="triage">4. Defect Triage</button>
-      <button class="tq-tab-btn ${tqActiveTab === 'security' ? 'active' : ''}" data-tab="security">5. Security Testing</button>
-      <button class="tq-tab-btn ${tqActiveTab === 'traceability' ? 'active' : ''}" data-tab="traceability">6. Traceability</button>
-      <button class="tq-tab-btn ${tqActiveTab === 'quality-gate' ? 'active' : ''}" data-tab="quality-gate">7. Quality Gate</button>
+      <button class="tq-tab-btn ${tqActiveTab === 'generation' ? 'active' : ''}" data-tab="generation">Test Generation</button>
+      <button class="tq-tab-btn ${tqActiveTab === 'execution' ? 'active' : ''}" data-tab="execution">Test Execution</button>
+      <button class="tq-tab-btn ${tqActiveTab === 'triage' ? 'active' : ''}" data-tab="triage">Defect Triage</button>
+      <button class="tq-tab-btn ${tqActiveTab === 'security' ? 'active' : ''}" data-tab="security">Security Testing</button>
+      <button class="tq-tab-btn ${tqActiveTab === 'traceability' ? 'active' : ''}" data-tab="traceability">Traceability</button>
+      <button class="tq-tab-btn ${tqActiveTab === 'quality-gate' ? 'active' : ''}" data-tab="quality-gate">Quality Gate</button>
     </div>
 
     <!-- Tab Content Viewport -->
@@ -547,6 +541,7 @@ function renderSearchableDemandDropdown(container, activeDemand) {
         <option value="">Select a Project...</option>
         ${optionsHtml}
       </select>
+      <button class="btn-new" id="tq-refresh-btn-inner" style="font-size: 0.85rem; padding: 0.45rem 0.65rem; height: 32px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: var(--radius-sm);" title="Refresh Project Data">&#x21BB;</button>
     </div>
   `;
 
@@ -562,6 +557,11 @@ function renderSearchableDemandDropdown(container, activeDemand) {
       }
     });
   }
+
+  const refreshBtn = document.getElementById('tq-refresh-btn-inner');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => window.fetchTestQualityData());
+  }
 }
 
 function renderActiveTabContent(demand) {
@@ -570,8 +570,6 @@ function renderActiveTabContent(demand) {
     renderDashboardTab(container, demand);
   } else if (tqActiveTab === 'generation') {
     renderTestGenerationTab(container, demand);
-  } else if (tqActiveTab === 'data') {
-    renderTestDataTab(container, demand);
   } else if (tqActiveTab === 'execution') {
     renderTestExecutionTab(container, demand);
   } else if (tqActiveTab === 'triage') {
@@ -1281,45 +1279,17 @@ function renderTestExecutionTab(container, demand) {
   container.innerHTML = `
     <!-- Top Configuration card -->
     <div class="tq-card">
-      <h4 class="tq-card-title">Test Runner Agent</h4>
+      <h4 class="tq-card-title">Test Simulation Agent</h4>
       <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0 0 1.25rem 0;">
-        Executes active test suites against sandbox deployment servers and records verification results.
+        Runs an AI-driven virtual simulation of the active test suite against the delivery context to predict and report verification results.
       </p>
-
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.25rem;">
-        <div class="tq-form-group">
-          <label>Execution Category</label>
-          <select class="tq-input" id="tq-exec-type">
-            <option value="Smoke">Smoke Test</option>
-            <option value="Regression" selected>Regression</option>
-            <option value="Sanity">Sanity</option>
-            <option value="API">API Suite</option>
-            <option value="UI">UI Suite</option>
-            <option value="Performance">Performance Test</option>
-            <option value="Security">Security Test</option>
-          </select>
-        </div>
-        <div class="tq-form-group">
-          <label>Target Environment</label>
-          <select class="tq-input" id="tq-exec-env">
-            <option value="Development">Development</option>
-            <option value="QA" selected>QA</option>
-            <option value="UAT">UAT</option>
-            <option value="Pre-Production">Pre-Production</option>
-          </select>
-        </div>
-        <div class="tq-form-group">
-          <label>Filter Target Test Cases</label>
-          <select class="tq-input" id="tq-exec-filter">
-            <option value="All" selected>All Test Cases (${cases.length})</option>
-            <option value="High-Risk">High/Critical Risk Only</option>
-          </select>
-        </div>
-      </div>
+      <input type="hidden" id="tq-exec-type" value="Regression">
+      <input type="hidden" id="tq-exec-env" value="QA">
+      <input type="hidden" id="tq-exec-filter" value="All">
 
       <div style="display: flex; gap: 0.75rem;">
         <button class="tq-btn" id="btn-tq-exec-run">
-          <span>▶ Execute Test Cases</span>
+          <span>▶ Run AI Simulation</span>
         </button>
       </div>
     </div>
@@ -1346,7 +1316,7 @@ function renderTestExecutionTab(container, demand) {
 
     <!-- Execution Log list -->
     <div class="tq-card">
-      <h5 style="margin: 0 0 1rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Execution Runs History</h5>
+      <h5 style="margin: 0 0 1rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Simulated Runs History</h5>
       
       <div style="overflow-x: auto;">
         <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; text-align: left;">
@@ -1356,7 +1326,7 @@ function renderTestExecutionTab(container, demand) {
               <th style="padding: 0.5rem;">Test Case</th>
               <th style="padding: 0.5rem;">Category</th>
               <th style="padding: 0.5rem;">Environment</th>
-              <th style="padding: 0.5rem;">Execution Date</th>
+              <th style="padding: 0.5rem;">Simulation Date</th>
               <th style="padding: 0.5rem;">Status</th>
               <th style="padding: 0.5rem; text-align: right;">Action Details</th>
             </tr>
@@ -1365,7 +1335,7 @@ function renderTestExecutionTab(container, demand) {
             ${executions.length === 0 ? `
               <tr>
                 <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-secondary);">
-                  No execution runs found. Click "Execute Test Cases" above to trigger test script checks.
+                  No simulated runs found. Click "Run AI Simulation" above to trigger the virtual test runner.
                 </td>
               </tr>
             ` : executions.map(e => {
@@ -1405,12 +1375,12 @@ function renderTestExecutionTab(container, demand) {
   const execBtn = document.getElementById('btn-tq-exec-run');
   execBtn.addEventListener('click', async () => {
     execBtn.disabled = true;
-    execBtn.innerHTML = `<span class="loader"></span> Executing Agent Suite...`;
+    execBtn.innerHTML = `<span class="loader"></span> Running AI Simulation...`;
 
     if (!generatedSuite || !generatedSuite.test_cases || generatedSuite.test_cases.length === 0) {
-      alert("No generated test cases to execute! Generate tests first (Tab 1).");
+      alert("No generated test cases to simulate! Generate tests first (Tab 1).");
       execBtn.disabled = false;
-      execBtn.innerHTML = `▶ Execute Test Cases`;
+      execBtn.innerHTML = `▶ Run AI Simulation`;
       return;
     }
 
@@ -1468,9 +1438,9 @@ function renderTestExecutionTab(container, demand) {
       renderTQDetailsPanel();
     } catch (err) {
       console.error('Test execution run error:', err);
-      alert(`Execution run failed: ${err.message}`);
+      alert(`Simulation failed: ${err.message}`);
       execBtn.disabled = false;
-      execBtn.innerHTML = `▶ Execute Test Cases`;
+      execBtn.innerHTML = `▶ Run AI Simulation`;
     }
   });
 
@@ -1582,8 +1552,12 @@ async function renderDefectTriageTab(container, demand) {
                   </span>
                 </td>
                 <td style="padding: 0.5rem; text-align: right; white-space: nowrap;">
-                  <button class="btn-tq-defect-assign tq-btn" data-id="${defId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: var(--text-primary); margin-right: 0.25rem;">Reassign</button>
-                  <button class="btn-tq-defect-close tq-btn" data-id="${defId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(74, 222, 128, 0.15); color: #4ade80;">Close</button>
+                  ${['closed', 'close', 'resolved'].includes(defStatus.toLowerCase()) ? `
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">No Action</span>
+                  ` : `
+                    <button class="btn-tq-defect-assign tq-btn" data-id="${defId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: var(--text-primary); margin-right: 0.25rem;">Reassign</button>
+                    <button class="btn-tq-defect-close tq-btn" data-id="${defId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(74, 222, 128, 0.15); color: #4ade80;">Close</button>
+                  `}
                 </td>
               </tr>
             `}).join('')}
@@ -1632,13 +1606,14 @@ async function renderDefectTriageTab(container, demand) {
     if (confirm(`Are you sure you want to merge defects: ${selected.join(', ')}?`)) {
       // Retain first defect, close others
       const survivorId = selected[0];
-      const survivor = defects.find(d => d.id === survivorId);
+      const survivor = defects.find(d => (d.defect_id || d.id) === survivorId);
       survivor.summary = `[Merged] ${survivor.summary}`;
 
       for (let i = 1; i < selected.length; i++) {
         const idToClose = selected[i];
-        const defectToClose = defects.find(d => d.id === idToClose);
+        const defectToClose = defects.find(d => (d.defect_id || d.id) === idToClose);
         defectToClose.status = 'Closed';
+        defectToClose.recommended_action = 'Closed';
         defectToClose.description += ` (Merged into ${survivorId})`;
         await fetch(`${TQ_API_BASE}/test-quality/relational/defects/${demand.demand_id}/${idToClose}`, {
           method: 'POST',
@@ -1661,11 +1636,14 @@ async function renderDefectTriageTab(container, demand) {
   container.querySelectorAll('.btn-tq-defect-assign').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-id');
-      const defect = defects.find(d => d.id === id);
-      const newDev = prompt("Enter developer email/name:", defect.assignee);
+      const defect = defects.find(d => (d.defect_id || d.id) === id);
+      const currentAssignee = defect.assignee || defect.assigned_to || '';
+      const newDev = prompt("Enter developer email/name:", currentAssignee);
       if (newDev === null) return;
       defect.assignee = newDev;
+      defect.assigned_to = newDev;
       defect.status = 'Assigned';
+      defect.recommended_action = 'Assigned';
 
       await fetch(`${TQ_API_BASE}/test-quality/relational/defects/${demand.demand_id}/${id}`, {
         method: 'POST',
@@ -1680,8 +1658,9 @@ async function renderDefectTriageTab(container, demand) {
   container.querySelectorAll('.btn-tq-defect-close').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-id');
-      const defect = defects.find(d => d.id === id);
+      const defect = defects.find(d => (d.defect_id || d.id) === id);
       defect.status = 'Closed';
+      defect.recommended_action = 'Closed';
 
       await fetch(`${TQ_API_BASE}/test-quality/relational/defects/${demand.demand_id}/${id}`, {
         method: 'POST',
@@ -1720,7 +1699,6 @@ async function renderSecurityScanningTab(container, demand) {
 
       <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
         <button class="tq-btn" id="btn-tq-sec-scan">🛡 Run Security Audit Scan</button>
-        <button class="tq-btn" id="btn-tq-sec-add" style="background: rgba(255,255,255,0.05); color: var(--text-primary);">+ Add Security Finding</button>
       </div>
     </div>
 
@@ -1749,11 +1727,28 @@ async function renderSecurityScanningTab(container, demand) {
                 </td>
               </tr>
             ` : findings.map(f => {
+    const cleanSecurityPath = (text) => {
+      if (!text) return '';
+      let cleaned = text
+        .replace(/(?:src\/modules\/|src\/utils\/|src\/config\/|src\/frontend\/templates\/|src\/|db\/config\/|config\/|db\/|venv\/)/gi, '')
+        .replace(/:[0-9]+/g, '')
+        .replace(/\s+at\s+line\s+[0-9]+/gi, '');
+
+      cleaned = cleaned
+        .replace(/\bdashboard\.html\b/gi, 'Dashboard Interface')
+        .replace(/\bhr_api\.py\b/gi, 'HR API Service')
+        .replace(/\bpermissions\.sql\b/gi, 'Database Permissions')
+        .replace(/\blogger\.py\b/gi, 'Logger Service')
+        .replace(/\bauth_config\.py\b/gi, 'Authentication Service')
+        .replace(/\bauth\.py\b/gi, 'Authentication Service');
+
+      return cleaned;
+    };
     const findId = f.finding_id || f.id || 'SEC-—';
     const findCat = f.category || 'Security Finding';
     const findSev = f.severity || 'Medium';
-    const findDesc = f.description || '';
-    const findFix = f.draft_fix || f.suggested_fix || 'No suggested fix';
+    const findDesc = cleanSecurityPath(f.description || f.location || '');
+    const findFix = cleanSecurityPath(f.draft_fix || f.suggested_fix || 'No suggested fix');
     const findStatus = f.status || 'Open';
     return `
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
@@ -1768,8 +1763,12 @@ async function renderSecurityScanningTab(container, demand) {
                   </span>
                 </td>
                 <td style="padding: 0.5rem; text-align: right; white-space: nowrap;">
-                  <button class="btn-tq-sec-edit tq-btn" data-id="${findId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: var(--text-primary); margin-right: 0.25rem;">Edit</button>
-                  <button class="btn-tq-sec-close tq-btn" data-id="${findId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(74, 222, 128, 0.15); color: #4ade80;">Resolve</button>
+                  ${findStatus.toLowerCase() === 'closed' ? `
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">No Action</span>
+                  ` : `
+                    <button class="btn-tq-sec-edit tq-btn" data-id="${findId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: var(--text-primary); margin-right: 0.25rem;">Edit</button>
+                    <button class="btn-tq-sec-close tq-btn" data-id="${findId}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: rgba(74, 222, 128, 0.15); color: #4ade80;">Resolve</button>
+                  `}
                 </td>
               </tr>
             `;
@@ -1823,40 +1822,13 @@ async function renderSecurityScanningTab(container, demand) {
   }
 
   // Handlers
-  document.getElementById('btn-tq-sec-add').addEventListener('click', async () => {
-    const cat = prompt("Enter vulnerability category (e.g. SQL Injection, Secrets Leak):");
-    if (!cat) return;
-    const severity = prompt("Enter Severity (Critical, High, Medium, Low, Informational):", "High");
-    const desc = prompt("Enter short description:");
-
-    const mockId = `SEC-${demand.demand_id.split('-').pop()}-${Date.now().toString().slice(-4)}`;
-    const newFinding = {
-      finding_id: mockId,
-      component_id: "source-code",
-      category: cat,
-      severity: severity.toLowerCase(),
-      location: "src/api/auth.py",
-      exploitable: true,
-      description: desc || "Auto detected vulnerability during sandbox scan triggers.",
-      draft_fix: "Check parameter bounds checks and sanitize input string templates.",
-      status: "Open"
-    };
-
-    await fetch(`${TQ_API_BASE}/test-quality/relational/security_findings/${demand.demand_id}/${mockId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newFinding)
-    });
-
-    renderActiveTabContent(demand);
-  });
 
   container.querySelectorAll('.btn-tq-sec-edit').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-id');
       const finding = findings.find(f => (f.finding_id || f.id) === id);
       if (!finding) return;
-      const newDesc = prompt("Edit Description:", finding.description);
+      const newDesc = prompt("Edit Description:", finding.description || finding.location);
       if (newDesc === null) return;
       finding.description = newDesc;
 
@@ -2152,7 +2124,7 @@ async function renderQualityGateTab(container, demand) {
   }
 
   const checks = qg.checks || [];
-  let score = qg.score;
+  let score = qg.score !== undefined ? qg.score : 0;
   if (checks.length > 0) {
     const passed = checks.filter(c => ['pass', 'passed'].includes((c.result || '').toLowerCase())).length;
     score = Math.round((passed / checks.length) * 100);
@@ -2282,7 +2254,7 @@ async function renderQualityGateTab(container, demand) {
 
     if (!qg.history) qg.history = [];
     qg.verdict = 'PASS';
-    qg.score = 100;
+    qg.score = score;
     qg.history.push({
       event: "Approve Gate Override",
       timestamp: new Date().toLocaleString(),
@@ -2306,7 +2278,7 @@ async function renderQualityGateTab(container, demand) {
 
     if (!qg.history) qg.history = [];
     qg.verdict = 'FAIL';
-    qg.score = 0;
+    qg.score = score;
     qg.history.push({
       event: "Reject Gate",
       timestamp: new Date().toLocaleString(),
