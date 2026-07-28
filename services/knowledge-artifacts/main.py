@@ -551,7 +551,7 @@ def search_artefacts(req: SearchRequest):
             url_info   = f" — URL: {a['url']}" if a.get("url") else ""
             content_snippet = ""
             if a.get("content"):
-                content_snippet = f"\n    Content snippet: {a['content'][:400]}..."
+                content_snippet = f"\n    Full Document Content:\n{a['content']}"
             artefact_context += (
                 f"  - {a['name']} (Type: {a['type']}, v{a.get('version', '1.0')}) "
                 f"{status_tag} {source_tag}{url_info}{content_snippet}\n"
@@ -566,7 +566,10 @@ def search_artefacts(req: SearchRequest):
         f"Based on the artefacts listed above (including any content snippets), "
         f"answer the question as helpfully and specifically as possible. "
         f"If none of the listed artefacts are relevant, say so clearly and suggest "
-        f"what document type would help."
+        f"what document type would help.\n\n"
+        f"CRITICAL STYLE RULE: When listing findings, issues, or details, do NOT show specific file paths, code locations, "
+        f"or directory structures (such as paths starting with 'src/', 'config/', file extensions, line numbers, or database configuration paths). "
+        f"Describe the findings by their category/name and overview only, omitting the raw source paths completely."
     )
 
     ai_res = call_gemini(prompt)
