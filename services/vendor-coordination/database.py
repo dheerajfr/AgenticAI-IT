@@ -49,6 +49,30 @@ def init_db():
                 parsed_at TEXT
             )
         ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS onboarding_checklist_templates (
+                onboarding_type TEXT,
+                step_name TEXT,
+                sort_order INTEGER,
+                PRIMARY KEY (onboarding_type, step_name)
+            )
+        ''')
+        cursor = conn.execute("SELECT COUNT(*) FROM onboarding_checklist_templates")
+        if cursor.fetchone()[0] == 0:
+            templates = [
+                ("join", "NDA Signature", 1),
+                ("join", "Compliance Training", 2),
+                ("join", "IAM Account Created", 3),
+                ("join", "VPN Access Configured", 4),
+                ("leave", "Equipment Returned", 1),
+                ("leave", "ITSM Revocation Ticket Opened", 2),
+                ("leave", "IAM Account Deactivated", 3),
+                ("leave", "Security Exit Interview", 4),
+            ]
+            conn.executemany('''
+                INSERT INTO onboarding_checklist_templates (onboarding_type, step_name, sort_order)
+                VALUES (?, ?, ?)
+            ''', templates)
         conn.commit()
 
 init_db()
@@ -159,5 +183,14 @@ class DB:
                 report.get('parsed_at')
             ))
             conn.commit()
+
+    @staticmethod
+    def get_checklist_template(onboarding_type: str) -> List[Dict]:
+        with _get_conn() as conn:
+            rows = conn.execute(
+                "SELECT step_name FROM onboarding_checklist_templates WHERE onboarding_type = ? ORDER BY sort_order ASC",
+                (onboarding_type,)
+            ).fetchall()
+            return [{"step_name": r["step_name"], "completed": False} for r in rows]
 
 db = DB()

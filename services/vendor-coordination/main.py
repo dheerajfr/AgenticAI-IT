@@ -140,21 +140,23 @@ def get_checklists(demand_id: str):
 def start_onboarding(req: OnboardRequest):
     request_id = f"REQ-{uuid.uuid4().hex[:8]}"
     
-    # Define steps based on type
-    if req.onboarding_type == 'join':
-        steps = [
-            {"step_name": "NDA Signature", "completed": False},
-            {"step_name": "Compliance Training", "completed": False},
-            {"step_name": "IAM Account Created", "completed": False},
-            {"step_name": "VPN Access Configured", "completed": False}
-        ]
-    else:  # leave
-        steps = [
-            {"step_name": "Equipment Returned", "completed": False},
-            {"step_name": "ITSM Revocation Ticket Opened", "completed": False},
-            {"step_name": "IAM Account Deactivated", "completed": False},
-            {"step_name": "Security Exit Interview", "completed": False}
-        ]
+    steps = db.get_checklist_template(req.onboarding_type)
+    if not steps:
+        # Fallback if table is empty
+        if req.onboarding_type == 'join':
+            steps = [
+                {"step_name": "NDA Signature", "completed": False},
+                {"step_name": "Compliance Training", "completed": False},
+                {"step_name": "IAM Account Created", "completed": False},
+                {"step_name": "VPN Access Configured", "completed": False}
+            ]
+        else:
+            steps = [
+                {"step_name": "Equipment Returned", "completed": False},
+                {"step_name": "ITSM Revocation Ticket Opened", "completed": False},
+                {"step_name": "IAM Account Deactivated", "completed": False},
+                {"step_name": "Security Exit Interview", "completed": False}
+            ]
         
     checklist = {
         "request_id": request_id,

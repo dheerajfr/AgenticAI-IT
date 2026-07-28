@@ -5,6 +5,9 @@ from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import os
+import sqlite3
+import json
 
 _THIS_DIR = Path(__file__).parent
 if str(_THIS_DIR) not in sys.path:
@@ -32,17 +35,56 @@ app.add_middleware(
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+# Documented ratios for budget allocation split
+INFRASTRUCTURE_RATIO = 0.20
+VENDOR_RATIO = 0.30
+RESOURCE_RATIO = 0.50
+
+def _get_estimate_cost(demand_id: str):
+    db_path = os.environ.get("DATABASE_PATH", os.path.abspath(os.path.join(_THIS_DIR, "..", "source.db")))
+    try:
+        with sqlite3.connect(db_path) as conn:
+            c = conn.cursor()
+            c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='estimates'")
+            if c.fetchone():
+                c.execute("SELECT data FROM estimates WHERE demand_id = ?", (demand_id,))
+                row = c.fetchone()
+                if row:
+                    est_data = json.loads(row[0])
+                    cost = est_data.get("cost_estimate")
+                    if cost is not None:
+                        return float(cost)
+    except Exception as e:
+        print("Error fetching estimate cost:", e)
+    return None
+
 def _get_or_create(demand_id: str) -> dict:
     record = db.get_by_demand(demand_id)
+    cost = _get_estimate_cost(demand_id)
+    
+    if cost is not None:
+        infra = round(cost * INFRASTRUCTURE_RATIO, 2)
+        vendor = round(cost * VENDOR_RATIO, 2)
+        resource = round(cost * RESOURCE_RATIO, 2)
+        cost_estimation = {
+            "infrastructure_cost": infra,
+            "vendor_cost": vendor,
+            "resource_cost": resource,
+            "awaiting_estimate": False
+        }
+    else:
+        cost_estimation = {
+            "infrastructure_cost": 0,
+            "vendor_cost": 0,
+            "resource_cost": 0,
+            "awaiting_estimate": True
+        }
+
     if not record:
         record = {
             "id": f"BDG-{uuid.uuid4().hex[:8]}",
             "demand_id": demand_id,
-            "cost_estimation": {
-                "infrastructure_cost": random.randint(5000, 20000),
-                "vendor_cost": random.randint(10000, 50000),
-                "resource_cost": random.randint(20000, 80000)
-            },
+            "cost_estimation": cost_estimation,
             "variances": [
                 {
                     "environment": "staging",
@@ -53,59 +95,13 @@ def _get_or_create(demand_id: str) -> dict:
             "roi_model": None
         }
         db.save(record)
+    else:
+        current_est = record.get("cost_estimation", {})
+        if current_est.get("awaiting_estimate", True) and cost is not None:
+            record["cost_estimation"] = cost_estimation
+            db.save(record)
+            
     return record
-
-def _seed_burn_data(demand_id: str) -> dict:
-    """Generate realistic seeded actuals + forecast for a demand."""
-    base = random.randint(30000, 80000)
-    plan_monthly = base / 6
-    months = [(datetime(2026, m, 1).strftime("%Y-%m")) for m in range(1, 7)]
-    actuals = []
-    for i, mo in enumerate(months[:4]):
-        drift = random.uniform(0.85, 1.20)
-        actuals.append({"date": mo, "amount": round(plan_monthly * drift, 2), "category": "blended"})
-    actual_total = sum(a["amount"] for a in actuals)
-    plan_total = plan_monthly * 4
-    variance_pct = round((actual_total - plan_total) / plan_total * 100, 1)
-    forecast = []
-    for mo in months[4:]:
-        forecast.append({"date": mo, "amount": round(plan_monthly * random.uniform(0.95, 1.10), 2), "category": "projected"})
-    return {
-        "actuals": actuals,
-        "forecast": forecast,
-        "variance_pct": variance_pct,
-        "narrative": "",
-        "committed": False
-    }
-
-def _seed_capex(demand_id: str) -> list:
-    items_data = [
-        ("Cloud infrastructure setup", random.randint(5000, 15000), "AWS", "build", "capex",
-         "IAS 38 — infrastructure directly attributable to project delivery"),
-        ("Developer licences (annual)", random.randint(2000, 6000), "Microsoft", "all", "opex",
-         "Recurring licence — period expense under IFRS 16"),
-        ("Data migration tooling", random.randint(3000, 9000), "Informatica", "build", "capex",
-         "One-off tool cost tied to capitalised deliverable"),
-        ("Hypercare support (3 months)", random.randint(4000, 12000), "Internal", "post-go-live", "opex",
-         "Post-delivery support — revenue expense"),
-    ]
-    results = []
-    for desc, amount, vendor, phase, cls, evidence in items_data:
-        results.append({
-            "id": f"CAP-{uuid.uuid4().hex[:8]}",
-            "demand_id": demand_id,
-            "description": desc,
-            "amount": amount,
-            "vendor": vendor,
-            "project_phase": phase,
-            "classification": cls,
-            "policy_evidence": evidence,
-            "ai_rationale": "",
-            "signed_off": False,
-            "signed_off_by": "",
-            "created_at": datetime.utcnow().isoformat()
-        })
-    return results
 
 # ── Existing Endpoints ─────────────────────────────────────────────────────────
 
@@ -124,14 +120,103 @@ def forecast_costs(req: BudgetRequest):
     db.save(record)
     return {"status": "success", "estimation": record["cost_estimation"], "record": record}
 
+def _compute_velocity_score(velocity_data: dict) -> Optional[int]:
+    try:
+        if not velocity_data or not isinstance(velocity_data, dict):
+            return None
+        
+        # Case 1: Simple planned/actual at root
+        actual = None
+        planned = None
+        for k, v in velocity_data.items():
+            k_low = k.lower()
+            if "actual" in k_low and isinstance(v, (int, float)):
+                actual = v
+            elif "planned" in k_low and isinstance(v, (int, float)):
+                planned = v
+        
+        # Case 2: Sprints list
+        if (actual is None or planned is None) and "sprints" in velocity_data:
+            sprints = velocity_data["sprints"]
+            if isinstance(sprints, list) and len(sprints) > 0:
+                total_actual = 0
+                total_planned = 0
+                for s in sprints:
+                    if isinstance(s, dict):
+                        s_act = None
+                        s_pla = None
+                        for sk, sv in s.items():
+                            sk_low = sk.lower()
+                            if "actual" in sk_low and isinstance(sv, (int, float)):
+                                s_act = sv
+                            elif "planned" in sk_low and isinstance(sv, (int, float)):
+                                s_pla = sv
+                        if s_act is not None and s_pla is not None:
+                            total_actual += s_act
+                            total_planned += s_pla
+                if total_planned > 0:
+                    actual = total_actual
+                    planned = total_planned
+
+        if actual is not None and planned is not None and planned > 0:
+            pct = (actual / planned) * 100
+            return max(0, min(100, int(pct)))
+    except Exception as e:
+        print("Error computing velocity score programmatically:", e)
+    return None
+
+from typing import Optional
+
 @app.post("/api/budget-cost/roi")
 def model_roi(req: ROIRequest):
     record = _get_or_create(req.demand_id)
-    prompt = f"Model the Resource ROI for project {req.demand_id}. Velocity data: {req.velocity_data}. Match team velocity to spend."
-    ai_res = call_gemini(prompt)
+    score = _compute_velocity_score(req.velocity_data)
+    
+    if score is not None:
+        prompt = (
+            f"Model the Resource ROI for project {req.demand_id}. "
+            f"Velocity data: {req.velocity_data}. Match team velocity to spend. "
+            f"Provide a concise analysis of how the team's velocity translates to ROI."
+        )
+        ai_res = call_gemini(prompt)
+        analysis = ai_res
+        velocity_score = score
+    else:
+        prompt = f"""
+        You are a Finance ROI Analyst. Model the Resource ROI for project {req.demand_id}.
+        Velocity data: {req.velocity_data}. Match team velocity to spend.
+        
+        Analyze the velocity data and estimate a velocity performance score from 0 to 100 based on actual vs planned/target performance.
+        
+        Respond ONLY with a JSON object in this format (no markdown blocks, no prefix/suffix text):
+        {{
+            "analysis": "Your concise analysis paragraph here.",
+            "velocity_score": 85
+        }}
+        """
+        ai_res = call_gemini(prompt)
+        cleaned = ai_res.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
+        
+        try:
+            parsed = json.loads(cleaned)
+            analysis = parsed.get("analysis", ai_res)
+            raw_score = parsed.get("velocity_score")
+            if raw_score is not None:
+                velocity_score = max(0, min(100, int(raw_score)))
+            else:
+                velocity_score = None
+        except Exception:
+            analysis = "Insufficient velocity data available to model ROI."
+            velocity_score = None
+
     record["roi_model"] = {
-        "analysis": ai_res,
-        "velocity_score": random.randint(60, 100)
+        "analysis": analysis,
+        "velocity_score": velocity_score
     }
     db.save(record)
     return {"status": "success", "roi_model": record["roi_model"], "record": record}
@@ -187,6 +272,11 @@ def generate_project_billing_invoices(demand_id: str):
     # 3. Retrieve budget estimate for billing allocation
     record = _get_or_create(demand_id)
     est = record.get("cost_estimation", {})
+    if est.get("awaiting_estimate"):
+        raise HTTPException(
+            status_code=400,
+            detail="Budget estimate is not yet available. Please complete estimation in the Estimate Shape service first."
+        )
     infra = est.get("infrastructure_cost", 0)
     vendor = est.get("vendor_cost", 0)
     resource = est.get("resource_cost", 0)
@@ -419,12 +509,7 @@ def approve_invoice(req: InvoiceApproveRequest):
 
 @app.get("/api/budget-cost/capex-opex/{demand_id}")
 def get_capex_opex(demand_id: str):
-    items = capex_db.get_all(demand_id)
-    if not items:
-        seeded = _seed_capex(demand_id)
-        capex_db.save_batch(seeded)
-        items = capex_db.get_all(demand_id)
-    return items
+    return capex_db.get_all(demand_id)
 
 @app.post("/api/budget-cost/capex-opex/classify")
 def classify_capex(req: CapexOpexRequest):

@@ -636,6 +636,22 @@ async function bcRenderCapex(demandId, content) {
         </div>
       </div>
 
+      <!-- Submit spend item for classification -->
+      <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:1.25rem;">
+        <h3 style="margin:0 0 0.85rem 0;font-size:0.95rem;">Submit Spend Item for AI Classification</h3>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.6rem;margin-bottom:0.75rem;">
+          <input id="capex-description-${demandId}" type="text" placeholder="Description" style="padding:0.5rem 0.65rem;font-size:0.82rem;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-primary);color:var(--text-primary);" />
+          <input id="capex-amount-${demandId}" type="number" placeholder="Amount ($)" style="padding:0.5rem 0.65rem;font-size:0.82rem;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-primary);color:var(--text-primary);" />
+          <input id="capex-vendor-${demandId}" type="text" placeholder="Vendor" style="padding:0.5rem 0.65rem;font-size:0.82rem;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-primary);color:var(--text-primary);" />
+          <select id="capex-phase-${demandId}" style="padding:0.5rem 0.65rem;font-size:0.82rem;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-primary);color:var(--text-primary);">
+            <option value="planning">Planning</option>
+            <option value="build">Build</option>
+            <option value="post-go-live">Post-Go-Live</option>
+          </select>
+        </div>
+        <button onclick="bcSubmitSpendClassification('${demandId}')" class="btn-primary" style="padding:0.5rem 1rem;font-size:0.85rem;">Submit Spend Item</button>
+      </div>
+
       <!-- Classification table -->
       <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);overflow:hidden;">
         <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
@@ -670,6 +686,47 @@ window.bcSignOff = async function(demandId) {
     });
     await bcLoadTab('capex', demandId);
   } catch(e) { console.error(e); }
+};
+
+window.bcSubmitSpendClassification = async function(demandId) {
+  const val = (id) => document.getElementById(id)?.value.trim() || '';
+  const description = val(`capex-description-${demandId}`);
+  const amountStr = val(`capex-amount-${demandId}`);
+  const vendor = val(`capex-vendor-${demandId}`);
+  const projectPhase = val(`capex-phase-${demandId}`);
+
+  if (!description || !amountStr) {
+    alert('Description and amount are required.');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${BC_API}/capex-opex/classify`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        demand_id: demandId,
+        spend_items: [{
+          description: description,
+          amount: parseFloat(amountStr),
+          vendor: vendor || null,
+          project_phase: projectPhase || null
+        }]
+      })
+    });
+    if (res.ok) {
+      if (document.getElementById(`capex-description-${demandId}`)) document.getElementById(`capex-description-${demandId}`).value = '';
+      if (document.getElementById(`capex-amount-${demandId}`)) document.getElementById(`capex-amount-${demandId}`).value = '';
+      if (document.getElementById(`capex-vendor-${demandId}`)) document.getElementById(`capex-vendor-${demandId}`).value = '';
+      await bcLoadTab('capex', demandId);
+    } else {
+      const err = await res.json();
+      alert('Error classifying spend item: ' + (err.detail || 'unknown error'));
+    }
+  } catch(e) {
+    console.error(e);
+    alert('Connection error: ' + e.message);
+  }
 };
 
 window.generateInvoices = async function(demandId) {
