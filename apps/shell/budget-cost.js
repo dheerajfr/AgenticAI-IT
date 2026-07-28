@@ -432,6 +432,20 @@ async function bcRenderInvoice(demandId, content) {
           </div>`).join('')}
       </div>
 
+      <!-- Submit invoice for matching -->
+      <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:1.25rem;">
+        <h3 style="margin:0 0 0.85rem 0;font-size:0.95rem;">Submit Invoice for PO Match</h3>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.6rem;margin-bottom:0.75rem;">
+          <input id="inv-invoice-id-${demandId}" type="text" placeholder="Invoice ID" style="padding:0.5rem 0.65rem;font-size:0.82rem;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-primary);color:var(--text-primary);" />
+          <input id="inv-amount-${demandId}" type="number" placeholder="Invoice amount ($)" style="padding:0.5rem 0.65rem;font-size:0.82rem;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-primary);color:var(--text-primary);" />
+          <input id="inv-po-ref-${demandId}" type="text" placeholder="PO reference" style="padding:0.5rem 0.65rem;font-size:0.82rem;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-primary);color:var(--text-primary);" />
+          <input id="inv-po-amount-${demandId}" type="number" placeholder="PO amount ($, optional)" style="padding:0.5rem 0.65rem;font-size:0.82rem;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-primary);color:var(--text-primary);" />
+          <input id="inv-sow-ref-${demandId}" type="text" placeholder="SOW reference (optional)" style="padding:0.5rem 0.65rem;font-size:0.82rem;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-primary);color:var(--text-primary);" />
+          <input id="inv-delivered-${demandId}" type="text" placeholder="Delivered items (comma-separated)" style="padding:0.5rem 0.65rem;font-size:0.82rem;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-primary);color:var(--text-primary);" />
+        </div>
+        <button onclick="bcSubmitInvoiceMatch('${demandId}')" class="btn-primary" style="padding:0.5rem 1rem;font-size:0.85rem;">Submit for AI Matching</button>
+      </div>
+
       <!-- Invoice table -->
       <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);overflow:hidden;">
         <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
@@ -514,6 +528,37 @@ async function bcRenderInvoice(demandId, content) {
       </div>
     </div>`;
 }
+
+window.bcSubmitInvoiceMatch = async function(demandId) {
+  const val = (id) => document.getElementById(id)?.value.trim() || '';
+  const invoiceId = val(`inv-invoice-id-${demandId}`);
+  const amountStr = val(`inv-amount-${demandId}`);
+  const poRef = val(`inv-po-ref-${demandId}`);
+  const poAmountStr = val(`inv-po-amount-${demandId}`);
+  const sowRef = val(`inv-sow-ref-${demandId}`);
+  const deliveredStr = val(`inv-delivered-${demandId}`);
+
+  if (!invoiceId || !amountStr || !poRef) {
+    alert('Invoice ID, invoice amount, and PO reference are required.');
+    return;
+  }
+
+  try {
+    await fetch(`${BC_API}/invoices/match`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        demand_id: demandId,
+        invoice_id: invoiceId,
+        invoice_amount: parseFloat(amountStr),
+        po_reference: poRef,
+        po_amount: poAmountStr ? parseFloat(poAmountStr) : null,
+        sow_reference: sowRef || null,
+        delivered_items: deliveredStr ? deliveredStr.split(',').map(s => s.trim()).filter(Boolean) : []
+      })
+    });
+    await bcLoadTab('invoice', demandId);
+  } catch(e) { console.error(e); }
+};
 
 window.bcApproveInvoice = async function(demandId, invoiceId, decision) {
   try {

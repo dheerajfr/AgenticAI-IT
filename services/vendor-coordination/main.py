@@ -3,7 +3,6 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 import uuid
-import random
 
 _THIS_DIR = Path(__file__).parent
 if str(_THIS_DIR) not in sys.path:
@@ -30,8 +29,9 @@ app.add_middleware(
 
 def _get_or_create(demand_id: str) -> dict:
     record = db.get_by_demand(demand_id)
-    
-    # Try fetching the actual plan tasks count to use as actual_outputs
+
+    # Actual outputs = real task count from the project's plan. No plan yet means
+    # no actual outputs to reconcile against, not a made-up placeholder count.
     actual_outputs = 0
     try:
         with get_db() as conn:
@@ -40,36 +40,44 @@ def _get_or_create(demand_id: str) -> dict:
             if row and row['data']:
                 plan_data = json.loads(row['data'])
                 actual_outputs = len(plan_data.get('tasks', []))
-            else:
-                actual_outputs = 8 # fallback
     except Exception:
-        actual_outputs = 8
+        actual_outputs = 0
 
-    vendor_claims = actual_outputs + 3 # simulate discrepancy
+    # Vendor claims come from the vendor's own latest self-reported status report
+    # (uploaded via the Status Normaliser), not a fabricated offset. Until a vendor
+    # actually submits a report, there is nothing to reconcile against.
+    reports = db.get_reports(demand_id)
+    vendor_claims = None
+    if reports:
+        latest_report = max(reports, key=lambda r: r.get('parsed_at') or '')
+        claimed = latest_report.get('metrics', {}).get('deliverables_completed')
+        if isinstance(claimed, (int, float)):
+            vendor_claims = claimed
+
+    if vendor_claims is None:
+        reconciliation_status = "awaiting_vendor_report"
+    elif vendor_claims == actual_outputs:
+        reconciliation_status = "completed"
+    else:
+        reconciliation_status = "discrepancy_detected"
+
+    sla_tracking = {
+        "vendor_claims": vendor_claims,
+        "actual_outputs": actual_outputs,
+        "reconciliation_status": reconciliation_status
+    }
 
     if not record:
         record = {
             "id": f"VND-{uuid.uuid4().hex[:8]}",
             "demand_id": demand_id,
-            "sla_tracking": {
-                "vendor_claims": vendor_claims,
-                "actual_outputs": actual_outputs,
-                "reconciliation_status": "in_progress"
-            },
+            "sla_tracking": sla_tracking,
             "sow_discrepancies": [],
-            "access_alerts": [
-                {"user": "vendor_contractor_1", "last_active": "45 days ago", "action": "recommend_revoke"}
-            ]
+            "access_alerts": []
         }
-        db.save(record)
     else:
-        # Update the dynamically computed SLA metrics
-        record["sla_tracking"] = {
-            "vendor_claims": vendor_claims,
-            "actual_outputs": actual_outputs,
-            "reconciliation_status": "completed" if vendor_claims == actual_outputs else "discrepancy_detected"
-        }
-        db.save(record)
+        record["sla_tracking"] = sla_tracking
+    db.save(record)
     return record
 
 @app.get("/api/vendor-coordination/project/{demand_id}")
@@ -158,16 +166,15 @@ def start_onboarding(req: OnboardRequest):
     }
     
     db.save_checklist(checklist)
-    
-    # Add a mock access alert for joining, or keep track of access state
+
+    # Track the new access grant so it shows up for later review/revocation.
     if req.onboarding_type == 'join':
         record = _get_or_create(req.demand_id)
         alerts = record.get("access_alerts", [])
-        # Check if alert already exists
         if not any(a.get("user") == req.vendor_employee_name for a in alerts):
             alerts.append({
                 "user": req.vendor_employee_name,
-                "last_active": "Just onboarded",
+                "onboarded_at": datetime.now().isoformat(),
                 "action": "active"
             })
             record["access_alerts"] = alerts
@@ -231,8 +238,12 @@ async def upload_report(demand_id: str = Form(...), file: UploadFile = File(...)
     3. Overall Status (one of: Green, Amber, Red)
     4. Key Achievements (list of strings)
     5. Risks/Escalations (list of strings)
-    6. Metrics (a JSON object with key-value pairs representing metrics)
-    
+    6. Metrics (a JSON object with key-value pairs representing metrics). This MUST
+       include a "deliverables_completed" key: the total number of deliverables,
+       tickets, or work items the vendor claims are complete to date (integer, 0 if
+       not mentioned in the report). Include any other metrics the report mentions
+       (e.g. velocity, tickets_closed) alongside it.
+
     Respond ONLY with a JSON object in this format (no markdown blocks, no prefix/suffix text):
     {{
         \"vendor_name\": \"name\",
@@ -240,7 +251,7 @@ async def upload_report(demand_id: str = Form(...), file: UploadFile = File(...)
         \"overall_status\": \"Green/Amber/Red\",
         \"key_achievements\": [\"ach1\", \"ach2\"],
         \"risks_escalations\": [\"risk1\"],
-        \"metrics\": {{\"tickets_closed\": 15, \"velocity\": 4.5}}
+        \"metrics\": {{\"deliverables_completed\": 15, \"velocity\": 4.5}}
     }}
     """
     
@@ -261,7 +272,7 @@ async def upload_report(demand_id: str = Form(...), file: UploadFile = File(...)
             "overall_status": "Amber",
             "key_achievements": ["Uploaded status report parsed with formatting errors."],
             "risks_escalations": ["Failed to extract structured data from report text."],
-            "metrics": {}
+            "metrics": {"deliverables_completed": 0}
         }
         
     report = {

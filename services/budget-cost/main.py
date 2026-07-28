@@ -1,7 +1,7 @@
 import sys
 import uuid
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -77,29 +77,6 @@ def _seed_burn_data(demand_id: str) -> dict:
         "narrative": "",
         "committed": False
     }
-
-def _seed_invoices(demand_id: str) -> list:
-    vendors = ["Infosys Ltd", "TechMahindra", "Wipro Digital", "Cognizant"]
-    invoices = []
-    for i in range(3):
-        amount = round(random.uniform(8000, 45000), 2)
-        discrepancy = random.choice([True, False, False])
-        invoices.append({
-            "id": f"INV-{uuid.uuid4().hex[:8]}",
-            "demand_id": demand_id,
-            "invoice_id": f"INV-{demand_id.split('-')[-1]}-{i+1:02d}",
-            "invoice_amount": amount,
-            "po_reference": f"PO-{demand_id.split('-')[-1]}-{i+1:02d}",
-            "sow_reference": f"SOW-{demand_id.split('-')[-1]}",
-            "delivered_items": ["API integration module", "Unit test suite", "Deployment runbook"],
-            "match_status": "discrepancy" if discrepancy else "matched",
-            "discrepancies": [{"item": "UI component", "detail": "Claimed in invoice but not in PM tool"}] if discrepancy else [],
-            "ai_analysis": "",
-            "decision": "",
-            "decision_note": "",
-            "created_at": (datetime.utcnow() - timedelta(days=random.randint(1, 30))).isoformat()
-        })
-    return invoices
 
 def _seed_capex(demand_id: str) -> list:
     items_data = [
@@ -373,34 +350,48 @@ def commit_forecast(req: BurnForecastRequest):
 
 @app.get("/api/budget-cost/invoices/{demand_id}")
 def get_invoices(demand_id: str):
-    invoices = invoice_db.get_all(demand_id)
-    if not invoices:
-        seeded = _seed_invoices(demand_id)
-        for inv in seeded:
-            invoice_db.save(inv)
-        invoices = invoice_db.get_all(demand_id)
-    return invoices
+    return invoice_db.get_all(demand_id)
+
+# No PO amount was supplied for the invoice, so there's nothing to reconcile the
+# invoice total against — fall back to a flat review threshold instead of silently
+# skipping the check. Named here (rather than left as a bare literal) so the policy
+# is visible and easy to change.
+NO_PO_AMOUNT_REVIEW_THRESHOLD = 30000
 
 @app.post("/api/budget-cost/invoices/match")
 def match_invoice(req: InvoiceMatchRequest):
     from datetime import datetime
     prompt = (
         f"You are a Finance AI auditor. Invoice {req.invoice_id} for ${req.invoice_amount:,.2f} "
-        f"references PO {req.po_reference} and SOW {req.sow_reference or 'N/A'}. "
+        f"references PO {req.po_reference} (PO value: {f'${req.po_amount:,.2f}' if req.po_amount is not None else 'not provided'}) "
+        f"and SOW {req.sow_reference or 'N/A'}. "
         f"Delivered items: {req.delivered_items or []}. "
         f"Identify any discrepancies between the invoice amount, PO value, and delivered work. "
         f"Flag any items billed but not delivered. Return a concise bullet-point analysis."
     )
     ai_analysis = call_gemini(prompt)
     discrepancies = []
-    if req.invoice_amount > 30000:
-        discrepancies.append({"item": "Amount threshold", "detail": "Invoice exceeds PO tolerance — manual review required"})
+    if req.po_amount is not None:
+        if req.invoice_amount > req.po_amount:
+            over_by = req.invoice_amount - req.po_amount
+            discrepancies.append({
+                "item": "Invoice exceeds PO value",
+                "detail": f"Invoice is ${over_by:,.2f} over the PO value of ${req.po_amount:,.2f}"
+            })
+    elif req.invoice_amount > NO_PO_AMOUNT_REVIEW_THRESHOLD:
+        discrepancies.append({
+            "item": "No PO value on file",
+            "detail": f"No PO amount was provided to reconcile against; invoice exceeds the ${NO_PO_AMOUNT_REVIEW_THRESHOLD:,} review threshold — manual review required"
+        })
+    if not req.delivered_items:
+        discrepancies.append({"item": "No delivered items listed", "detail": "Cannot confirm invoiced work was actually delivered"})
     record = {
         "id": f"INV-{uuid.uuid4().hex[:8]}",
         "demand_id": req.demand_id,
         "invoice_id": req.invoice_id,
         "invoice_amount": req.invoice_amount,
         "po_reference": req.po_reference,
+        "po_amount": req.po_amount,
         "sow_reference": req.sow_reference or "",
         "delivered_items": req.delivered_items or [],
         "match_status": "discrepancy" if discrepancies else "matched",

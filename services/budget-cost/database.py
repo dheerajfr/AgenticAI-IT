@@ -58,6 +58,7 @@ def init_db():
                 invoice_id TEXT,
                 invoice_amount REAL,
                 po_reference TEXT,
+                po_amount REAL,
                 sow_reference TEXT,
                 delivered_items TEXT,
                 match_status TEXT DEFAULT 'pending',
@@ -84,6 +85,11 @@ def init_db():
                 created_at TEXT
             )
         ''')
+        # invoice_matches existed before po_amount was added; CREATE TABLE IF NOT
+        # EXISTS won't retrofit the column onto an already-created table.
+        existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(invoice_matches)").fetchall()}
+        if "po_amount" not in existing_cols:
+            conn.execute("ALTER TABLE invoice_matches ADD COLUMN po_amount REAL")
         conn.commit()
 
 init_db()
@@ -227,9 +233,9 @@ class InvoiceDB:
         with _get_conn() as conn:
             conn.execute('''
                 INSERT INTO invoice_matches
-                    (id, demand_id, invoice_id, invoice_amount, po_reference, sow_reference,
+                    (id, demand_id, invoice_id, invoice_amount, po_reference, po_amount, sow_reference,
                      delivered_items, match_status, discrepancies, ai_analysis, decision, decision_note, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     match_status=excluded.match_status,
                     discrepancies=excluded.discrepancies,
@@ -240,6 +246,7 @@ class InvoiceDB:
                 record.get('id', f"INV-{uuid.uuid4().hex[:8]}"),
                 record['demand_id'], record['invoice_id'],
                 record['invoice_amount'], record['po_reference'],
+                record.get('po_amount'),
                 record.get('sow_reference', ''),
                 json.dumps(record.get('delivered_items', [])),
                 record.get('match_status', 'pending'),

@@ -31,6 +31,7 @@ class InvoiceMatchRequest(BaseModel):
     invoice_id: str
     invoice_amount: float
     po_reference: str
+    po_amount: Optional[float] = None
     sow_reference: Optional[str] = None
     delivered_items: Optional[List[str]] = None
 

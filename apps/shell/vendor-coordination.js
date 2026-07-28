@@ -314,18 +314,22 @@ window.renderVendorCoordinationScreen = function(targetContainer) {
             <div style="display: flex; gap: 2rem; margin-bottom: 1rem;">
               <div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Vendor Claims</div>
-                <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">${sla.vendor_claims || 0} items</div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">${sla.vendor_claims == null ? '—' : sla.vendor_claims + ' items'}</div>
               </div>
               <div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Actual Outputs</div>
-                <div style="font-size: 1.5rem; font-weight: 700; color: ${(sla.vendor_claims > sla.actual_outputs) ? 'var(--color-status-amber-text)' : 'var(--color-status-green-text)'};">${sla.actual_outputs || 0} items</div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: ${(sla.vendor_claims != null && sla.vendor_claims > sla.actual_outputs) ? 'var(--color-status-amber-text)' : 'var(--color-status-green-text)'};">${sla.actual_outputs || 0} items</div>
               </div>
               <div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Generated Invoices</div>
                 <div style="font-size: 1.5rem; font-weight: 700; color: var(--color-brand);">${(window.currentInvoicesList || []).length} invoices</div>
               </div>
             </div>
-            ${(sla.vendor_claims > sla.actual_outputs) ? '<div style="font-size: 0.85rem; color: var(--color-status-amber-text);">Discrepancy detected between claims and outputs.</div>' : ''}
+            ${sla.reconciliation_status === 'awaiting_vendor_report'
+              ? '<div style="font-size: 0.85rem; color: var(--text-muted);">Awaiting a vendor status report to reconcile against.</div>'
+              : sla.reconciliation_status === 'discrepancy_detected'
+                ? '<div style="font-size: 0.85rem; color: var(--color-status-amber-text);">Discrepancy detected between vendor-claimed and actual outputs.</div>'
+                : ''}
           </div>
 
           <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem;">
@@ -336,8 +340,11 @@ window.renderVendorCoordinationScreen = function(targetContainer) {
             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
               AI flags missing deliverables between SOW and PM tool.
             </p>
-            <button onclick="checkSOW('${demandId}')" class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem; margin-bottom: 1rem;">Check SOW vs Tools</button>
-            
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+              <input id="sow-document-id-${demandId}" type="text" placeholder="SOW document ID (e.g. SOW-1234)" style="flex: 1; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-primary); color: var(--text-primary);" />
+              <button onclick="checkSOW('${demandId}')" class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem; white-space: nowrap;">Check SOW vs Tools</button>
+            </div>
+
             <div style="display: flex; flex-direction: column; gap: 0.5rem;">
               ${discrepancies.map(d => `
                 <div style="background: var(--bg-primary); border: 1px solid var(--color-status-amber-border); border-left: 3px solid var(--color-status-amber-text); border-radius: var(--radius-sm); padding: 0.75rem;">
@@ -388,7 +395,7 @@ window.renderVendorCoordinationScreen = function(targetContainer) {
                 <div style="padding: 1rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center;">
                   <div>
                     <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary);">${a.user}</div>
-                    <div style="font-size: 0.8rem; color: var(--color-status-red-text);">Status: ${a.last_active}</div>
+                    <div style="font-size: 0.8rem; color: var(--color-status-red-text);">${a.onboarded_at ? 'Active since ' + new Date(a.onboarded_at).toLocaleDateString() : (a.last_active || 'Unknown')}</div>
                   </div>
                   <button onclick="revokeAccess('${demandId}', '${a.user}')" class="btn-primary" style="padding: 0.4rem 0.75rem; font-size: 0.75rem; background: var(--color-status-red-bg); color: var(--color-status-red-text); border: 1px solid var(--color-status-red-border);">Revoke Access</button>
                 </div>
@@ -431,11 +438,15 @@ window.renderVendorCoordinationScreen = function(targetContainer) {
 };
 
 window.checkSOW = async function(demandId) {
+  const input = document.getElementById(`sow-document-id-${demandId}`);
+  const sowDocumentId = (input && input.value.trim()) || '';
+  if (!sowDocumentId) { input?.focus(); return; }
+
   try {
     await fetch(`${BASE_URL}/vendor-coordination/check-sow`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ demand_id: demandId, sow_document_id: 'SOW-1234' })
+      body: JSON.stringify({ demand_id: demandId, sow_document_id: sowDocumentId })
     });
     window.fetchVendorCoordinationData();
   } catch(e) { console.error(e); }
