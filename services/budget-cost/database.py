@@ -343,6 +343,15 @@ class CapexOpexDB:
             )
             conn.commit()
 
+    @staticmethod
+    def sign_off_item(item_id: str, approved_by: str):
+        with _get_conn() as conn:
+            conn.execute(
+                "UPDATE capex_opex_items SET signed_off=1, signed_off_by=? WHERE id=?",
+                (approved_by, item_id)
+            )
+            conn.commit()
+
 capex_db = CapexOpexDB()
 
 def delete_demand_data(demand_id: str):
