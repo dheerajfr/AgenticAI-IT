@@ -15,7 +15,7 @@ from models import (
     BudgetRequest, ROIRequest,
     BurnForecastRequest, ActualEntry,
     InvoiceMatchRequest, InvoiceApproveRequest,
-    CapexOpexRequest, CapexOpexSignOffRequest, SpendItem
+    CapexOpexRequest, CapexOpexSignOffRequest, CapexOpexItemSignOffRequest, SpendItem
 )
 from database import db, burn_db, invoice_db, capex_db, delete_demand_data
 from llm_client import call_gemini
@@ -340,6 +340,16 @@ def get_burn(demand_id: str):
             "committed": False
         }
         burn_db.upsert(demand_id, data)
+    else:
+        actuals = data.get("actuals", [])
+        if actuals:
+            actual_total = sum(a["amount"] for a in actuals if isinstance(a, dict))
+            forecast_total = sum(f["amount"] for f in data.get("forecast", []) if isinstance(f, dict))
+            total_spend = actual_total + forecast_total if forecast_total > 0 else actual_total
+            plan_cost = _get_plan_cost(demand_id)
+            if plan_cost > 0:
+                data["variance_pct"] = round(((total_spend - plan_cost) / plan_cost) * 100, 1)
+                burn_db.upsert(demand_id, data)
         
     return data
 
@@ -353,12 +363,45 @@ def save_actuals(req: UpdateActualsRequest):
     if not data:
         data = {"actuals": [], "forecast": [], "variance_pct": 0, "narrative": "", "committed": False}
     data["actuals"] = [a.dict() for a in req.actuals]
+    actual_total = sum(a["amount"] for a in data["actuals"])
+    forecast_total = sum(f["amount"] for f in data.get("forecast", []) if isinstance(f, dict))
+    total_spend = actual_total + forecast_total if forecast_total > 0 else actual_total
+    plan_cost = _get_plan_cost(req.demand_id)
+    if plan_cost > 0:
+        data["variance_pct"] = round(((total_spend - plan_cost) / plan_cost) * 100, 1)
     burn_db.upsert(req.demand_id, data)
     return data
 
 import sqlite3
 import json
 import os
+
+def _get_plan_cost(demand_id: str) -> float:
+    db_path = os.environ.get("DATABASE_PATH", os.path.abspath(os.path.join(_THIS_DIR, "..", "source.db")))
+    try:
+        with sqlite3.connect(db_path) as conn:
+            c = conn.cursor()
+            c.execute("SELECT data FROM estimates WHERE demand_id = ?", (demand_id,))
+            row = c.fetchone()
+            if row:
+                est = json.loads(row[0])
+                cost = est.get("cost_estimate")
+                if cost and float(cost) > 0:
+                    return float(cost)
+    except Exception as e:
+        print("Error reading estimate for plan cost:", e)
+
+    try:
+        rec = db.get_by_demand(demand_id)
+        if rec and rec.get("cost_estimation"):
+            ce = rec["cost_estimation"]
+            tot = float(ce.get("infrastructure_cost", 0) + ce.get("vendor_cost", 0) + ce.get("resource_cost", 0))
+            if tot > 0:
+                return tot
+    except Exception as e:
+        print("Error reading budget record for plan cost:", e)
+
+    return 0.0
 
 def _get_historical_context(demand_id: str) -> str:
     db_path = os.environ.get("DATABASE_PATH", os.path.abspath(os.path.join(_THIS_DIR, "..", "source.db")))
@@ -394,11 +437,17 @@ def run_burn_forecast(req: BurnForecastRequest):
     actuals = req.actuals or [{"date": a["date"], "amount": a["amount"], "category": a["category"]}
                                for a in data.get("actuals", [])]
     actual_total = sum(a["amount"] if isinstance(a, dict) else a.amount for a in actuals)
+    forecast_total = sum(f["amount"] if isinstance(f, dict) else f.amount for f in data.get("forecast", []))
+    total_spend = actual_total + forecast_total if forecast_total > 0 else actual_total
+
+    plan_cost = _get_plan_cost(req.demand_id)
+    if plan_cost > 0:
+        data["variance_pct"] = round(((total_spend - plan_cost) / plan_cost) * 100, 1)
     
     historical_context = _get_historical_context(req.demand_id)
     
     prompt = (
-        f"You are a Finance AI assistant. Project {req.demand_id} has spent ${actual_total:,.0f} in actuals. "
+        f"You are a Finance AI assistant. Project {req.demand_id} has spent ${actual_total:,.0f} in actuals against baseline plan of ${plan_cost:,.0f}. "
         f"Actuals by period: {actuals}. "
         f"{historical_context}"
         f"Write a 3-paragraph variance narrative: "
@@ -528,19 +577,63 @@ def generate_sample_invoices(demand_id: str):
         task_inputs.append({
             "task_index": i,
             "task_name": task_name,
-            "po_budget": task_cost,
-            "introduce_discrepancy": (i % 2 == 0)
+            "po_budget": task_cost
         })
-        
+
+    disc_types = ["quantity_overbill", "rate_mismatch", "unauthorized_item", "duplicate_billing", "unverified_milestone"]
+    for i, t in enumerate(task_inputs):
+        # Alternate between discrepant invoices and clean matched invoices
+        if i % 2 == 0:
+            disc_idx = (i // 2) % len(disc_types)
+            t["introduce_discrepancy"] = disc_types[disc_idx]
+            t["include_capex_item"] = False
+        else:
+            t["introduce_discrepancy"] = False
+            t["include_capex_item"] = True
+            
     prompt = (
-        f"You are an AI generating synthetic invoice data for project '{project_title}' (domain: {domain}).\n"
-        f"For each task in the following list, generate an invoice with contextually appropriate line items.\n"
-        f"The line items' PO amounts (`amount`) should roughly sum up to the allocated `po_budget`.\n"
-        f"If `introduce_discrepancy` is true, introduce a billing discrepancy where one line item has a higher `qty_invoiced` than `qty_po` (e.g., 1.5 vs 1.0), resulting in a higher `amount_invoiced` than `amount`.\n"
-        f"For discrepant invoices, set `match_status` to 'discrepancy', detail the issue in `discrepancies`, and write a realistic `ai_analysis` explaining the overbilling.\n"
-        f"For non-discrepant invoices, set `match_status` to 'matched' and write a clean `ai_analysis`.\n"
-        f"Tasks: {json.dumps(task_inputs)}\n\n"
-        f"Return ONLY a JSON array of objects, one for each task, matching this exact schema:\n"
+        f"You are an AI generating realistic synthetic invoice data for project '{project_title}' (domain: {domain}).\n"
+        f"For each task in the list below, generate one invoice with contextually appropriate line items.\n\n"
+        f"=== RULES ===\n"
+        f"1. LINE ITEM AMOUNTS: The PO amounts (`amount`) across all line items should sum roughly to `po_budget` for that task.\n"
+        f"2. DISCREPANCY TYPE 'quantity_overbill': For tasks where `introduce_discrepancy` is 'quantity_overbill', "
+        f"   introduce a billing discrepancy where one line item has a higher `qty_invoiced` than `qty_po` "
+        f"   (e.g., qty_po=1.0, qty_invoiced=1.35), making `amount_invoiced` noticeably higher than `amount`. "
+        f"   Set `match_status` to 'discrepancy'. In `discrepancies`, include item='Quantity Overbill' and a realistic detail "
+        f"   like 'Vendor invoiced 1.35 units against PO qty of 1.0 — 35%% overbill requiring approval'. "
+        f"   Write a thorough `ai_analysis` (2–3 sentences) flagging the quantity mismatch and recommending human review.\n"
+        f"3. DISCREPANCY TYPE 'rate_mismatch': For tasks where `introduce_discrepancy` is 'rate_mismatch', "
+        f"   introduce a rate variance where the invoiced unit price is higher than the contracted PO rate "
+        f"   (e.g., PO unit price $125/hr vs invoiced unit price $155/hr). Mark that line item with `flagged: true`. "
+        f"   Set `match_status` to 'discrepancy'. In `discrepancies`, include item='Rate Variance' and a detail "
+        f"   like 'Invoiced rate ($155/hr) exceeds contracted PO rate ($125/hr) by 24%% — rate revision authorization needed'. "
+        f"   Write a thorough `ai_analysis` (2–3 sentences) detailing the unit price deviation.\n"
+        f"4. DISCREPANCY TYPE 'unauthorized_item': For tasks where `introduce_discrepancy` is 'unauthorized_item', "
+        f"   add one extra line item that was NOT in the original SOW (e.g., 'Premium Support Retainer', 'Travel & Expenses', "
+        f"   or 'Additional Integration Fee'). Mark that line item with `flagged: true`. "
+        f"   Set `match_status` to 'discrepancy'. In `discrepancies`, include item='Unauthorized Charge' and a detail "
+        f"   like 'Line item not referenced in SOW or PO — requires human approval before payment'. "
+        f"   Write a thorough `ai_analysis` (2–3 sentences) explaining the unauthorized item was not scoped.\n"
+        f"5. DISCREPANCY TYPE 'duplicate_billing': For tasks where `introduce_discrepancy` is 'duplicate_billing', "
+        f"   include a line item billed for a deliverable already claimed or paid in a prior billing cycle. Mark with `flagged: true`. "
+        f"   Set `match_status` to 'discrepancy'. In `discrepancies`, include item='Duplicate Billing' and a detail "
+        f"   like 'Line item appears identical to milestone delivered and settled in prior invoice'. "
+        f"   Write a thorough `ai_analysis` (2–3 sentences) flagging duplicate milestone submission.\n"
+        f"6. DISCREPANCY TYPE 'unverified_milestone': For tasks where `introduce_discrepancy` is 'unverified_milestone', "
+        f"   include a milestone charge where acceptance criteria sign-off or completion proof is missing. Mark with `flagged: true`. "
+        f"   Set `match_status` to 'discrepancy'. In `discrepancies`, include item='Unverified Milestone' and a detail "
+        f"   like 'Invoiced for milestone completion prior to formal QA sign-off and deliverable acceptance'. "
+        f"   Write a thorough `ai_analysis` (2–3 sentences) noting unconfirmed delivery.\n"
+        f"7. CAPEX ITEMS: For tasks where `include_capex_item` is true, include at least one line item that is clearly "
+        f"   capital expenditure in nature — e.g., 'Software License (3-Year)', 'Cloud Infrastructure Setup', "
+        f"   'Hardware Procurement', or 'Perpetual IP License'. These should be realistic amounts within the task budget. "
+        f"   These invoices should be `match_status: 'matched'` (no discrepancy) unless also flagged.\n"
+        f"8. All other tasks: generate clean, matched invoices with realistic line items for the task type.\n"
+        f"9. `flagged` on a line item should be true only when that specific line is discrepant or unauthorized.\n\n"
+        f"=== TASKS ===\n"
+        f"{json.dumps(task_inputs, indent=2)}\n\n"
+        f"=== OUTPUT FORMAT ===\n"
+        f"Return ONLY a JSON array (no markdown, no explanation) with one object per task:\n"
         f"[\n"
         f"  {{\n"
         f"    \"task_index\": 0,\n"
@@ -550,14 +643,14 @@ def generate_sample_invoices(demand_id: str):
         f"      {{\n"
         f"        \"description\": \"...\",\n"
         f"        \"qty_po\": 1.0,\n"
-        f"        \"qty_invoiced\": 1.5,\n"
+        f"        \"qty_invoiced\": 1.3,\n"
         f"        \"unit\": \"Lump Sum\",\n"
         f"        \"amount\": 1000.00,\n"
-        f"        \"amount_invoiced\": 1500.00,\n"
+        f"        \"amount_invoiced\": 1300.00,\n"
         f"        \"flagged\": true\n"
         f"      }}\n"
         f"    ],\n"
-        f"    \"match_status\": \"matched\",\n"
+        f"    \"match_status\": \"discrepancy\",\n"
         f"    \"discrepancies\": [{{\"item\": \"...\", \"detail\": \"...\"}}],\n"
         f"    \"ai_analysis\": \"...\"\n"
         f"  }}\n"
@@ -601,12 +694,57 @@ def generate_sample_invoices(demand_id: str):
         task_proportion = task_days / total_days
         task_cost       = round(total_cost * task_proportion, 2)
         
-        ai_inv = invoice_map.get(i, {})
+        t = task_inputs[i] if i < len(task_inputs) else {}
+        ai_inv = invoice_map.get(i) or (parsed_invoices[i] if i < len(parsed_invoices) and isinstance(parsed_invoices[i], dict) else {})
+        
         line_items = ai_inv.get("line_items", [{"description": f"{task_name} Services", "qty_po": 1.0, "qty_invoiced": 1.0, "unit": "Lump Sum", "amount": task_cost, "amount_invoiced": task_cost, "flagged": False}])
         invoice_amount = float(ai_inv.get("invoice_amount", task_cost))
         match_status = ai_inv.get("match_status", "matched")
         discrepancies = ai_inv.get("discrepancies", [])
         ai_analysis = ai_inv.get("ai_analysis", f"Invoice for '{task_name}' generated by AI.")
+
+        # Enforce discrepancy if requested but LLM returned matched/empty
+        disc_type = t.get("introduce_discrepancy")
+        if disc_type and (match_status != "discrepancy" or not discrepancies):
+            match_status = "discrepancy"
+            if disc_type == "quantity_overbill":
+                discrepancies = [{"item": "Quantity Overbill", "detail": f"Vendor invoiced 1.35 units against PO qty of 1.0 for '{task_name}' — 35% overbill requiring approval"}]
+                ai_analysis = f"Quantity Overbill detected: Invoiced quantity exceeds PO allotment for '{task_name}'. Review and obtain approval before payment."
+                if line_items:
+                    line_items[0]["qty_invoiced"] = round(float(line_items[0].get("qty_po", 1.0)) * 1.35, 2)
+                    line_items[0]["amount_invoiced"] = round(float(line_items[0].get("amount", task_cost)) * 1.35, 2)
+                    line_items[0]["flagged"] = True
+                    invoice_amount = line_items[0]["amount_invoiced"]
+            elif disc_type == "rate_mismatch":
+                discrepancies = [{"item": "Rate Variance", "detail": f"Invoiced rate ($155/hr) exceeds contracted PO rate ($125/hr) by 24% on '{task_name}'"}]
+                ai_analysis = f"Rate Variance detected: Invoiced unit price for '{task_name}' exceeds agreed PO rate card by 24%."
+                if line_items:
+                    line_items[0]["amount_invoiced"] = round(float(line_items[0].get("amount", task_cost)) * 1.24, 2)
+                    line_items[0]["flagged"] = True
+                    invoice_amount = line_items[0]["amount_invoiced"]
+            elif disc_type == "unauthorized_item":
+                discrepancies = [{"item": "Unauthorized Charge", "detail": f"Line item 'Out-of-Scope Travel & Expenses' not referenced in SOW or PO for '{task_name}'"}]
+                ai_analysis = f"Unauthorized item detected on '{task_name}': Added charge is not covered in SOW or PO scope."
+                line_items.append({
+                    "description": "Out-of-Scope Travel & Expenses",
+                    "qty_po": 0.0,
+                    "qty_invoiced": 1.0,
+                    "unit": "Lump Sum",
+                    "amount": 0.0,
+                    "amount_invoiced": round(task_cost * 0.15, 2),
+                    "flagged": True
+                })
+                invoice_amount = sum(float(li.get("amount_invoiced", li.get("amount", 0))) for li in line_items)
+            elif disc_type == "duplicate_billing":
+                discrepancies = [{"item": "Duplicate Billing", "detail": f"Line item appears identical to milestone delivered and settled in prior invoice for '{task_name}'"}]
+                ai_analysis = f"Duplicate Billing warning: '{task_name}' includes charges previously invoiced and settled."
+                if line_items:
+                    line_items[0]["flagged"] = True
+            elif disc_type == "unverified_milestone":
+                discrepancies = [{"item": "Unverified Milestone", "detail": f"Invoiced prior to formal QA sign-off and deliverable acceptance proof for '{task_name}'"}]
+                ai_analysis = f"Unverified Milestone: Delivery acceptance proof for '{task_name}' has not been uploaded or verified."
+                if line_items:
+                    line_items[0]["flagged"] = True
 
         invoice_id = f"INV-{demand_id.split('-')[-1]}-{i+1:02d}-{task_name.replace(' ', '').upper()[:6]}"
         po_ref     = f"PO-{demand_id.split('-')[-1]}-{po_number:03d}"
@@ -654,20 +792,33 @@ def approve_invoice(req: InvoiceApproveRequest):
     
     invoice_db.save(inv)
     
-    # Check if all are resolved now
     all_invoices = invoice_db.get_all(req.demand_id)
-    all_resolved = True
+    all_approved = False
+    disputed_count = 0
+    pending_count = 0
     if all_invoices:
-        all_resolved = all((i.get("match_status") == "matched" or i.get("decision") != "") for i in all_invoices)
+        all_approved = all((i.get("match_status") == "matched" or i.get("decision") == "approve") for i in all_invoices)
+        disputed_count = sum(1 for i in all_invoices if i.get("match_status") == "disputed" or i.get("decision") == "dispute")
+        pending_count = sum(1 for i in all_invoices if i.get("match_status") == "discrepancy" and not i.get("decision"))
         
-    # We only return the status, no downstream triggers here.
-    return {"status": "success", "all_resolved": all_resolved, "invoice": inv}
+    return {
+        "status": "success",
+        "all_approved": all_approved,
+        "disputed_count": disputed_count,
+        "pending_count": pending_count,
+        "all_handled": pending_count == 0,
+        "invoice": inv
+    }
 
 @app.post("/api/budget-cost/invoices/final-approve")
 def final_approve_invoices(req: BurnForecastRequest):
     try:
         demand_id = req.demand_id
         all_invoices = invoice_db.get_all(demand_id)
+        
+        # Guard: Ensure every invoice is approved before allowing final approval
+        if any(i.get("match_status") != "matched" and i.get("decision") != "approve" for i in all_invoices):
+            raise HTTPException(status_code=400, detail="Cannot proceed to Final Approval. All invoices must be approved first.")
         
         # 1. Classify Capex/Opex for approved/matched ones
         spend_items = []
@@ -751,14 +902,30 @@ def classify_capex(req: CapexOpexRequest):
     records = []
     for s in req.spend_items:
         ai_item = classification_map.get(s.description, {})
-        classification = str(ai_item.get("classification", "opex")).lower()
-        if "capex" in classification:
+        classification = str(ai_item.get("classification", "")).lower()
+        
+        desc_lower = s.description.lower()
+        phase_lower = (s.project_phase or "").lower()
+        
+        capex_keywords = ["license", "perpetual", "hardware", "procurement", "architecture", "setup", "build", "infrastructure", "migration tool", "implementation", "design", "3-year", "annual license"]
+        opex_keywords = ["support", "maintenance", "retainer", "hypercare", "subscription", "sla", "travel", "expenses", "monthly", "hourly", "qa", "testing", "deploy", "operation"]
+        
+        if any(k in desc_lower for k in capex_keywords) or any(k in phase_lower for k in ["design", "build"]):
             classification = "capex"
+            policy = ai_item.get("policy_evidence") or "IAS 38 — Directly attributable cost for long-term intangible/tangible asset creation."
+            rationale = ai_item.get("rationale") or "Capital expenditure: Initial build/setup deliverable creating enduring enterprise asset."
+        elif any(k in desc_lower for k in opex_keywords) or any(k in phase_lower for k in ["support", "hypercare"]):
+            classification = "opex"
+            policy = ai_item.get("policy_evidence") or "IFRS 16 — Period operational expense."
+            rationale = ai_item.get("rationale") or "Operational expenditure: Ongoing service/maintenance period cost."
+        elif "capex" in classification:
+            classification = "capex"
+            policy = ai_item.get("policy_evidence", "IAS 38 — Asset creation criteria met")
+            rationale = ai_item.get("rationale", "Capitalised project deliverable.")
         else:
             classification = "opex"
-            
-        policy = ai_item.get("policy_evidence", "Revenue expense — period cost")
-        rationale = ai_item.get("rationale", "Standard operational expense.")
+            policy = ai_item.get("policy_evidence", "Revenue expense — period cost")
+            rationale = ai_item.get("rationale", "Standard operational expense.")
         
         records.append({
             "id": f"CAP-{uuid.uuid4().hex[:8]}",
@@ -784,3 +951,8 @@ def sign_off_capex(req: CapexOpexSignOffRequest):
         raise HTTPException(status_code=404, detail="No capex/opex items found for this demand.")
     capex_db.sign_off(req.demand_id, req.approved_by or "Finance")
     return {"status": "signed_off", "approved_by": req.approved_by, "items_count": len(items)}
+
+@app.post("/api/budget-cost/capex-opex/sign-off-item")
+def sign_off_capex_item(req: CapexOpexItemSignOffRequest):
+    capex_db.sign_off_item(req.item_id, req.approved_by or "Finance Controller")
+    return {"status": "signed_off", "item_id": req.item_id, "approved_by": req.approved_by or "Finance Controller"}

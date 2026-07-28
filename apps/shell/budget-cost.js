@@ -225,10 +225,13 @@ window.bcDeleteDemand = async function (demandId) {
   try {
     const res = await fetch(`/api/budget-cost/project/${demandId}`, { method: 'DELETE' });
     if (res.ok) {
-      alert(`Successfully deleted data for ${demandId}`);
-      // Clear selection and refresh
-      sessionStorage.removeItem('selectedDemandId');
-      window.fetchBudgetCostData();
+      alert(`Successfully deleted all data for ${demandId}. You can now generate fresh insights and perform a new approval.`);
+      // Reset local state
+      window.currentInvoicesList = [];
+      window.bcBurnEditMode = undefined;
+      window.bcBurnEditData = [];
+      sessionStorage.setItem('selectedDemandId', demandId);
+      await window.fetchBudgetCostData();
     } else {
       const err = await res.json();
       alert('Error deleting data: ' + JSON.stringify(err));
@@ -285,42 +288,68 @@ async function bcRenderBurn(demandId, content) {
 
   const totalActuals = actuals.reduce((sum, a) => sum + (a.amount || 0), 0);
 
-  // If backend has real data, always exit edit mode (fixes stuck-edit-mode after Final Approve)
-  if (totalActuals > 0 || forecast.length > 0) {
-    window.bcBurnEditMode = false;
-  } else if (!window.bcBurnEditMode) {
-    window.bcBurnEditMode = true;
-    window.bcBurnEditData = [...actuals];
+  // Manage edit mode state without forcefully overriding user's toggle
+  if (window.bcBurnEditMode === undefined) {
+    if (totalActuals === 0 && forecast.length === 0) {
+      window.bcBurnEditMode = true;
+      window.bcBurnEditData = JSON.parse(JSON.stringify(actuals));
+    } else {
+      window.bcBurnEditMode = false;
+    }
   }
 
   if (window.bcBurnEditMode) {
+    if (!window.bcBurnEditData || window.bcBurnEditData.length === 0) {
+      window.bcBurnEditData = JSON.parse(JSON.stringify(actuals));
+    }
     // ── EDIT MODE ─────────────────────────────────────────────────────────────
     const rows = window.bcBurnEditData.map((a, i) => `
-      <div style="display:flex;align-items:center;gap:1rem;background:var(--bg-primary);padding:0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);margin-bottom:0.5rem;">
-        <input type="month" value="${a.date}" onchange="window.bcBurnEditData[${i}].date = this.value; window.bcRenderBurn('${demandId}', document.getElementById('bc-tab-content'))"
-          style="background:transparent;border:1px solid var(--border-color);color:var(--text-primary);padding:0.4rem;border-radius:4px;font-family:var(--font-sans);">
-        <div style="display:flex;align-items:center;gap:0.5rem;">
-          <button onclick="bcAdjustAmount(${i}, -1000, '${demandId}')" style="background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-primary);width:30px;height:30px;border-radius:4px;cursor:pointer;">-</button>
-          <div style="font-family:monospace;font-size:0.9rem;width:80px;text-align:center;">$${a.amount.toLocaleString()}</div>
-          <button onclick="bcAdjustAmount(${i}, 1000, '${demandId}')" style="background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-primary);width:30px;height:30px;border-radius:4px;cursor:pointer;">+</button>
+      <div style="display:flex;align-items:center;gap:0.75rem;background:var(--bg-primary);padding:0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);margin-bottom:0.5rem;flex-wrap:wrap;">
+        <div style="display:flex;flex-direction:column;gap:0.2rem;">
+          <label style="font-size:0.7rem;color:var(--text-muted);">Period</label>
+          <input type="month" value="${a.date}" onchange="window.bcBurnEditData[${i}].date = this.value"
+            style="background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-primary);padding:0.4rem;border-radius:4px;font-family:var(--font-sans);font-size:0.85rem;">
         </div>
-        <button onclick="bcRemoveMonth(${i}, '${demandId}')" style="background:transparent;border:none;color:#ef4444;cursor:pointer;margin-left:auto;">❌</button>
+        
+        <div style="display:flex;flex-direction:column;gap:0.2rem;">
+          <label style="font-size:0.7rem;color:var(--text-muted);">Monthly Spend ($)</label>
+          <div style="display:flex;align-items:center;gap:0.3rem;">
+            <button type="button" onclick="bcAdjustAmount(${i}, -1000, '${demandId}')" style="background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-primary);width:30px;height:32px;border-radius:4px;cursor:pointer;font-weight:bold;">-</button>
+            <input type="number" step="1000" min="0" value="${a.amount}" onchange="window.bcBurnEditData[${i}].amount = Math.max(0, parseFloat(this.value) || 0); bcRenderBurn('${demandId}', document.getElementById('bc-tab-content'))"
+              style="background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-primary);padding:0.4rem;border-radius:4px;font-family:monospace;width:120px;font-size:0.9rem;text-align:right;">
+            <button type="button" onclick="bcAdjustAmount(${i}, 1000, '${demandId}')" style="background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-primary);width:30px;height:32px;border-radius:4px;cursor:pointer;font-weight:bold;">+</button>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:0.2rem;">
+          <label style="font-size:0.7rem;color:var(--text-muted);">Category</label>
+          <select onchange="window.bcBurnEditData[${i}].category = this.value" style="background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-primary);padding:0.4rem;border-radius:4px;font-size:0.85rem;">
+            <option value="actual" ${a.category === 'actual' || !a.category ? 'selected' : ''}>Actual</option>
+            <option value="infrastructure" ${a.category === 'infrastructure' ? 'selected' : ''}>Infrastructure</option>
+            <option value="vendor" ${a.category === 'vendor' ? 'selected' : ''}>Vendor</option>
+            <option value="resource" ${a.category === 'resource' ? 'selected' : ''}>Resource</option>
+          </select>
+        </div>
+
+        <button type="button" onclick="bcRemoveMonth(${i}, '${demandId}')" style="background:transparent;border:none;color:#ef4444;cursor:pointer;margin-left:auto;font-size:1.1rem;" title="Delete Period">❌</button>
       </div>
     `).join('');
 
     content.innerHTML = `
-      <div style="max-width:600px;margin:0 auto;display:flex;flex-direction:column;gap:1.5rem;">
-        <div>
-          <h3 style="margin:0 0 0.5rem 0;font-size:1.1rem;">Enter Actual Spend</h3>
-          <p style="margin:0;font-size:0.85rem;color:var(--text-secondary);">Input monthly actuals before generating an AI forecast.</p>
+      <div style="max-width:650px;margin:0 auto;display:flex;flex-direction:column;gap:1.5rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <h3 style="margin:0 0 0.25rem 0;font-size:1.1rem;">✏️ Edit Monthly Expenditure</h3>
+            <p style="margin:0;font-size:0.85rem;color:var(--text-secondary);">Modify or add monthly actual spend entries. Saving will recalculate variance and refresh AI forecasts.</p>
+          </div>
         </div>
         <div>
-          ${rows || '<div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">No data entered yet.</div>'}
-          <button onclick="bcAddMonth('${demandId}')" style="background:var(--bg-secondary);border:1px dashed var(--border-color);color:var(--text-primary);padding:0.6rem 1rem;border-radius:4px;cursor:pointer;width:100%;font-weight:600;">+ Add Month</button>
+          ${rows || '<div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">No data entries yet. Click below to add a month.</div>'}
+          <button type="button" onclick="bcAddMonth('${demandId}')" style="background:var(--bg-secondary);border:1px dashed var(--border-color);color:var(--text-primary);padding:0.6rem 1rem;border-radius:4px;cursor:pointer;width:100%;font-weight:600;">+ Add Month</button>
         </div>
         <div style="display:flex;gap:1rem;justify-content:flex-end;">
-          ${actuals.length > 0 ? `<button onclick="window.bcBurnEditMode=false;bcLoadTab('burn','${demandId}')" style="background:transparent;border:1px solid var(--border-color);color:var(--text-primary);padding:0.5rem 1rem;border-radius:4px;cursor:pointer;">Cancel</button>` : ''}
-          <button onclick="bcSaveActuals('${demandId}')" style="background:var(--color-brand);color:#fff;border:none;padding:0.5rem 1rem;border-radius:4px;cursor:pointer;font-weight:600;">Save Actuals</button>
+          <button type="button" onclick="window.bcBurnEditMode=false;bcLoadTab('burn','${demandId}')" style="background:transparent;border:1px solid var(--border-color);color:var(--text-primary);padding:0.5rem 1rem;border-radius:4px;cursor:pointer;">Cancel</button>
+          <button type="button" onclick="bcSaveActuals('${demandId}')" style="background:var(--color-brand);color:#fff;border:none;padding:0.5rem 1rem;border-radius:4px;cursor:pointer;font-weight:600;">💾 Save & Update Forecast</button>
         </div>
       </div>
     `;
@@ -438,6 +467,10 @@ window.bcSaveActuals = async function (demandId) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ demand_id: demandId, actuals: window.bcBurnEditData })
     });
+    await fetch(`${BC_API}/burn/forecast`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ demand_id: demandId })
+    });
     window.bcBurnEditMode = false;
     await bcLoadTab('burn', demandId);
   } catch (e) { console.error(e); }
@@ -504,7 +537,12 @@ async function bcRenderInvoice(demandId, content) {
                <button onclick="bcApproveInvoice('${demandId}','${inv.invoice_id}','dispute')"
                 style="font-size:0.75rem;padding:3px 9px;border-radius:4px;border:none;cursor:pointer;background:rgba(239,68,68,0.12);color:#ef4444;font-weight:600;">Dispute</button>
              </div>`
-      : inv.decision ? `<span style="font-size:0.75rem;color:var(--text-muted);">${inv.decision}</span>` : ''}
+      : (inv.match_status === 'disputed' || inv.decision === 'dispute')
+      ? `<div style="display:flex;gap:0.5rem;align-items:center;">
+               <button onclick="bcApproveInvoice('${demandId}','${inv.invoice_id}','approve')"
+                style="font-size:0.75rem;padding:3px 9px;border-radius:4px;border:1px solid #10b981;cursor:pointer;background:rgba(16,185,129,0.1);color:#10b981;font-weight:600;">Approve</button>
+             </div>`
+      : `<span style="font-size:0.75rem;color:#10b981;font-weight:600;">Approved</span>`}
       </td>
     </tr>
     ${(inv.discrepancies || []).length > 0 && inv.match_status === 'discrepancy' ? `
@@ -519,7 +557,9 @@ async function bcRenderInvoice(demandId, content) {
 
   const total = invoices.reduce((s, i) => s + i.invoice_amount, 0);
   const flagged = invoices.filter(i => i.match_status === 'discrepancy').length;
-  const allResolved = invoices.length > 0 && flagged === 0;
+  const disputed = invoices.filter(i => i.match_status === 'disputed' || i.decision === 'dispute').length;
+  const matched = invoices.filter(i => i.match_status === 'matched' || i.decision === 'approve').length;
+  const allApproved = invoices.length > 0 && matched === invoices.length;
 
   content.innerHTML = `
     <div style="max-width:1000px;display:flex;flex-direction:column;gap:1.5rem;">
@@ -527,8 +567,8 @@ async function bcRenderInvoice(demandId, content) {
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
         ${[
       ['Total Invoiced', '$' + total.toLocaleString(undefined, { maximumFractionDigits: 0 }), 'var(--text-primary)'],
-      ['Flagged', flagged + ' invoice' + (flagged !== 1 ? 's' : ''), flagged > 0 ? '#f59e0b' : '#10b981'],
-      ['Matched', (invoices.length - flagged) + ' / ' + invoices.length, 'var(--text-primary)']
+      ['Pending / Disputed', (flagged + disputed) + ' invoice' + ((flagged + disputed) !== 1 ? 's' : ''), (flagged + disputed) > 0 ? '#f59e0b' : '#10b981'],
+      ['Approved', matched + ' / ' + invoices.length, matched === invoices.length ? '#10b981' : 'var(--text-primary)']
     ].map(([l, v, c]) => `
           <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:1rem;text-align:center;">
             <div style="font-size:0.73rem;color:var(--text-muted);text-transform:uppercase;">${l}</div>
@@ -541,7 +581,12 @@ async function bcRenderInvoice(demandId, content) {
         <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
           <h3 style="margin:0;font-size:1rem;">Invoice Register</h3>
           <div style="display:flex;gap:0.75rem;align-items:center;">
-            ${allResolved ? `<button onclick="window.bcFinalApprove('${demandId}')" id="btn-final-approve" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;padding:3px 9px;border-radius:4px;font-size:0.75rem;font-weight:600;cursor:pointer;">✅ Final Approve</button>` : ''}
+            ${allApproved 
+              ? `<button onclick="window.bcFinalApprove('${demandId}')" id="btn-final-approve" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;padding:5px 12px;border-radius:4px;font-size:0.78rem;font-weight:600;cursor:pointer;">✅ Final Approve</button>` 
+              : `<span style="font-size:0.78rem;color:#f59e0b;font-weight:600;background:rgba(245,158,11,0.1);padding:4px 10px;border-radius:4px;">
+                   ⏳ ${disputed > 0 ? disputed + ' Disputed' : (invoices.length - matched) + ' Pending'} (All must be Approved to Finalize)
+                 </span>`
+            }
           </div>
         </div>
         <table style="width:100%;border-collapse:collapse;">
@@ -566,8 +611,13 @@ window.bcApproveInvoice = async function (demandId, invoiceId, decision) {
     const data = await res.json();
     await bcLoadTab('invoice', demandId);
 
-    if (data.all_resolved) {
-      alert("All invoices matched! You can now click Final Approve to populate Burn & Forecast actuals.");
+    // Only notify after ALL invoices have been reviewed/handled
+    if (data.all_handled) {
+      if (data.all_approved) {
+        alert("All invoices are now approved! You can click Final Approve to populate Burn & Forecast actuals.");
+      } else if (data.disputed_count > 0) {
+        alert(`All invoices have been reviewed. Note: ${data.disputed_count} invoice(s) remain Disputed. All invoices must be approved before Final Approval can proceed.`);
+      }
     }
   } catch (e) { console.error(e); }
 };
@@ -625,7 +675,10 @@ async function bcRenderCapex(demandId, content) {
         </td>
         <td style="padding:0.75rem 0.5rem;font-size:0.78rem;color:var(--text-muted);">${item.policy_evidence || '—'}</td>
         <td style="padding:0.75rem 0.5rem;text-align:center;">
-          ${item.signed_off ? '✅' : '<span style="color:var(--text-muted);">—</span>'}
+          ${item.signed_off 
+            ? `<span style="font-size:0.75rem;color:#10b981;font-weight:600;" title="Approved by ${item.signed_off_by || 'Finance'}">✅ Signed Off</span>`
+            : `<button onclick="bcSignOffItem('${item.id}', '${demandId}')" style="background:var(--bg-secondary);border:1px solid var(--color-brand);color:var(--color-brand);padding:0.25rem 0.6rem;border-radius:4px;cursor:pointer;font-size:0.75rem;font-weight:600;">✍️ Sign Off</button>`
+          }
         </td>
       </tr>`;
   }).join('');
@@ -668,7 +721,7 @@ async function bcRenderCapex(demandId, content) {
       ? `<span style="font-size:0.8rem;color:#10b981;font-weight:600;">✅ All Signed Off</span>`
       : `<button onclick="bcSignOff('${demandId}')"
                   style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:var(--radius-sm);padding:0.45rem 1rem;cursor:pointer;font-size:0.8rem;font-weight:600;font-family:var(--font-sans);">
-                  Finance Sign-Off
+                  Sign Off All
                 </button>`}
           </div>
         </div>
@@ -684,13 +737,23 @@ async function bcRenderCapex(demandId, content) {
     </div>`;
 }
 
+window.bcSignOffItem = async function (itemId, demandId) {
+  try {
+    await fetch(`${BC_API}/capex-opex/sign-off-item`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_id: itemId, approved_by: 'Finance Controller' })
+    });
+    bcRenderCapex(demandId, document.getElementById('bc-tab-content'));
+  } catch (e) { console.error(e); }
+};
+
 window.bcSignOff = async function (demandId) {
   try {
     await fetch(`${BC_API}/capex-opex/sign-off`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ demand_id: demandId, approved_by: 'Finance' })
+      body: JSON.stringify({ demand_id: demandId, approved_by: 'Finance Controller' })
     });
-    await bcLoadTab('capex', demandId);
+    bcRenderCapex(demandId, document.getElementById('bc-tab-content'));
   } catch (e) { console.error(e); }
 };
 

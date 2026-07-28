@@ -1,0 +1,455 @@
+{
+  "demand_id": "DEM-2026-0002",
+  "updated_at": "2026-07-28T06:37:34Z",
+  "test_generation": {
+    "suite_id": "TST-2026-0002-1",
+    "demand_id": "DEM-2026-0002",
+    "plan_id": "PLN-0002-1",
+    "generated_at": "2026-07-28T10:00:00Z",
+    "test_cases": [
+      {
+        "test_id": "TC-0002-01",
+        "story_id": "DEM-2026-0002",
+        "title": "Successful HR user login - happy path",
+        "steps": [
+          "1. Navigate to AI HR portal login page.",
+          "2. Enter valid HR username and password.",
+          "3. Click login button."
+        ],
+        "expected_result": "User successfully logged in and redirected to HR dashboard.",
+        "priority": "critical",
+        "type": "functional-positive"
+      },
+      {
+        "test_id": "TC-0002-02",
+        "story_id": "DEM-2026-0002",
+        "title": "Failed login with invalid credentials",
+        "steps": [
+          "1. Navigate to AI HR portal login page.",
+          "2. Enter valid username and invalid password.",
+          "3. Click login button."
+        ],
+        "expected_result": "Error message displayed: 'Invalid credentials'. No access granted.",
+        "priority": "high",
+        "type": "functional-negative"
+      },
+      {
+        "test_id": "TC-0002-03",
+        "story_id": "DEM-2026-0002",
+        "title": "AI Resume Screening with valid resume",
+        "steps": [
+          "1. Login as HR user.",
+          "2. Navigate to resume upload section.",
+          "3. Upload a valid PDF resume.",
+          "4. Submit for AI screening."
+        ],
+        "expected_result": "AI generates screening score and recommendations displayed.",
+        "priority": "critical",
+        "type": "functional-positive"
+      },
+      {
+        "test_id": "TC-0002-04",
+        "story_id": "DEM-2026-0002",
+        "title": "AI Resume Screening with invalid file format",
+        "steps": [
+          "1. Login as HR user.",
+          "2. Navigate to resume upload section.",
+          "3. Upload a non-PDF file (e.g., .exe).",
+          "4. Submit for AI screening."
+        ],
+        "expected_result": "Error message: 'Unsupported file format'. No processing occurs.",
+        "priority": "high",
+        "type": "functional-negative"
+      },
+      {
+        "test_id": "TC-0002-05",
+        "story_id": "DEM-2026-0002",
+        "title": "Generate job recommendations for employee profile",
+        "steps": [
+          "1. Login as HR user.",
+          "2. Search for existing employee.",
+          "3. Click 'Generate Recommendations'.",
+          "4. View results."
+        ],
+        "expected_result": "AI-generated job matches with reasons displayed.",
+        "priority": "critical",
+        "type": "functional-positive"
+      },
+      {
+        "test_id": "TC-0002-06",
+        "story_id": "DEM-2026-0002",
+        "title": "Employee sentiment analysis on positive feedback",
+        "steps": [
+          "1. Login as HR user.",
+          "2. Navigate to feedback analysis.",
+          "3. Input positive sample text.",
+          "4. Analyze."
+        ],
+        "expected_result": "Sentiment classified as 'positive' with confidence score.",
+        "priority": "high",
+        "type": "functional-positive"
+      },
+      {
+        "test_id": "TC-0002-07",
+        "story_id": "DEM-2026-0002",
+        "title": "Employee sentiment analysis on negative feedback",
+        "steps": [
+          "1. Login as HR user.",
+          "2. Navigate to feedback analysis.",
+          "3. Input negative sample text.",
+          "4. Analyze."
+        ],
+        "expected_result": "Sentiment classified as 'negative' with confidence score.",
+        "priority": "medium",
+        "type": "functional-positive"
+      },
+      {
+        "test_id": "TC-0002-08",
+        "story_id": "DEM-2026-0002",
+        "title": "Integration: Read employee data from HR database",
+        "steps": [
+          "1. Login as HR user.",
+          "2. Query employee profile via AI interface.",
+          "3. Verify data load."
+        ],
+        "expected_result": "Employee data accurately retrieved and displayed.",
+        "priority": "critical",
+        "type": "functional-positive"
+      },
+      {
+        "test_id": "TC-0002-09",
+        "story_id": "DEM-2026-0002",
+        "title": "Integration: Update employee status in HR database",
+        "steps": [
+          "1. Login as HR user.",
+          "2. Edit employee status via AI recommendation.",
+          "3. Save changes."
+        ],
+        "expected_result": "Status updated successfully in database, confirmation shown.",
+        "priority": "high",
+        "type": "functional-positive"
+      },
+      {
+        "test_id": "TC-0002-10",
+        "story_id": "DEM-2026-0002",
+        "title": "Performance: 100 concurrent resume screenings",
+        "steps": [
+          "1. Use load testing tool (e.g., JMeter) to simulate 100 users uploading resumes simultaneously.",
+          "2. Monitor response times and error rates for 5 minutes."
+        ],
+        "expected_result": "Average response time < 3 seconds, error rate < 1%, system stable.",
+        "priority": "high",
+        "type": "non-functional-performance"
+      },
+      {
+        "test_id": "TC-0002-11",
+        "story_id": "DEM-2026-0002",
+        "title": "Security: Attempt XSS injection in feedback input",
+        "steps": [
+          "1. Login as HR user.",
+          "2. In feedback analysis, input XSS payload (e.g., <script>alert('xss')</script>).",
+          "3. Submit."
+        ],
+        "expected_result": "Payload sanitized, no script execution, analysis completes normally.",
+        "priority": "high",
+        "type": "non-functional-security"
+      },
+      {
+        "test_id": "TC-0002-12",
+        "story_id": "DEM-2026-0002",
+        "title": "Edge case: Upload oversized resume file",
+        "steps": [
+          "1. Login as HR user.",
+          "2. Attempt to upload resume > 10MB limit.",
+          "3. Submit."
+        ],
+        "expected_result": "Error: 'File too large'. Upload rejected gracefully.",
+        "priority": "medium",
+        "type": "functional-negative"
+      },
+      {
+        "test_id": "TC-0002-13",
+        "story_id": "DEM-2026-0002",
+        "title": "Reliability: Verify data persistence after service restart",
+        "steps": [
+          "1. Submit resume for screening.",
+          "2. Restart AI service.",
+          "3. Query screening results."
+        ],
+        "expected_result": "Results persist and are retrievable post-restart.",
+        "priority": "medium",
+        "type": "non-functional-reliability"
+      },
+      {
+        "test_id": "TC-0002-14",
+        "story_id": "DEM-2026-0002",
+        "title": "Scalability: Handle 1000 user requests spike",
+        "steps": [
+          "1. Simulate 1000 concurrent requests for job recommendations using load tool.",
+          "2. Monitor auto-scaling and throughput."
+        ],
+        "expected_result": "System scales, throughput maintained, no failures.",
+        "priority": "low",
+        "type": "non-functional-scalability"
+      },
+      {
+        "test_id": "TC-0002-15",
+        "story_id": "DEM-2026-0002",
+        "title": "Cloud environment deployment verification",
+        "steps": [
+          "1. Deploy to staging environment.",
+          "2. Verify all services running in cloud (e.g., Java backend).",
+          "3. Run smoke test (login + screening)."
+        ],
+        "expected_result": "All components healthy, smoke test passes.",
+        "priority": "high",
+        "type": "non-functional-environment"
+      }
+    ],
+    "coverage_summary": {
+      "total_stories": 1,
+      "stories_covered": 1,
+      "total_test_cases": 15,
+      "critical_path_coverage_pct": 95.0
+    },
+    "status": "draft"
+  },
+  "test_data": null,
+  "test_execution": {
+    "test_run_id": "TR-2026-0002-1",
+    "suite_id": "TST-2026-0002-1",
+    "demand_id": "DEM-2026-0002",
+    "environment": "QA",
+    "executed_at": "2026-08-01T10:00:00Z",
+    "results": [
+      {
+        "test_id": "TC-0002-01",
+        "status": "passed",
+        "duration_ms": 2500,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0002-02",
+        "status": "passed",
+        "duration_ms": 1800,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0002-03",
+        "status": "failed",
+        "duration_ms": 65000,
+        "failure_analysis": "AI model inference timed out after 60s; no screening score generated"
+      },
+      {
+        "test_id": "TC-0002-04",
+        "status": "passed",
+        "duration_ms": 3000,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0002-05",
+        "status": "failed",
+        "duration_ms": 4000,
+        "failure_analysis": "Job recommendations endpoint returned empty list; assertion mismatch expected at least 1 match"
+      },
+      {
+        "test_id": "TC-0002-06",
+        "status": "passed",
+        "duration_ms": 2200,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0002-07",
+        "status": "passed",
+        "duration_ms": 2100,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0002-08",
+        "status": "failed",
+        "duration_ms": 15000,
+        "failure_analysis": "HR database query timed out after 10s; connection pool exhausted"
+      },
+      {
+        "test_id": "TC-0002-09",
+        "status": "failed",
+        "duration_ms": 8000,
+        "failure_analysis": "Status update failed with HTTP 403 Forbidden; insufficient DB permissions"
+      },
+      {
+        "test_id": "TC-0002-10",
+        "status": "failed",
+        "duration_ms": 300000,
+        "failure_analysis": "Average response time 5.2s exceeded 3s threshold; error rate 2.5% >1%"
+      },
+      {
+        "test_id": "TC-0002-11",
+        "status": "passed",
+        "duration_ms": 3500,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0002-12",
+        "status": "passed",
+        "duration_ms": 2800,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0002-13",
+        "status": "failed",
+        "duration_ms": 12000,
+        "failure_analysis": "Screening results missing after AI service restart; data persistence failed"
+      },
+      {
+        "test_id": "TC-0002-14",
+        "status": "skipped",
+        "duration_ms": 0,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0002-15",
+        "status": "failed",
+        "duration_ms": 10000,
+        "failure_analysis": "Java backend pod crashed in cloud env; health check returned 503"
+      }
+    ],
+    "summary": {
+      "total": 15,
+      "passed": 7,
+      "failed": 7,
+      "skipped": 1,
+      "pass_rate_pct": 46.7
+    },
+    "defect_ids_raised": [
+      "BUG-1",
+      "BUG-2",
+      "BUG-3",
+      "BUG-4",
+      "BUG-5",
+      "BUG-6",
+      "BUG-7"
+    ],
+    "human_acceptance": null,
+    "status": "pending-approval"
+  },
+  "defect_triage": {
+    "triage_id": "TRG-2026-0002-1",
+    "test_run_id": "TR-2026-0002-1",
+    "demand_id": "DEM-2026-0002",
+    "triaged_defects": [
+      {
+        "defect_id": "TC-0002-03",
+        "severity": "critical",
+        "priority": 1,
+        "cluster": "auth-failures",
+        "duplicate_of": null,
+        "root_cause_hint": "Authentication service integration failure, likely Java backend null handling",
+        "assigned_to": "dheeraj@example.com",
+        "recommended_action": "fix-before-release"
+      },
+      {
+        "defect_id": "TC-0002-05",
+        "severity": "critical",
+        "priority": 1,
+        "cluster": "auth-failures",
+        "duplicate_of": "TC-0002-03",
+        "root_cause_hint": "Authentication service integration failure, likely Java backend null handling",
+        "assigned_to": "dheeraj@example.com",
+        "recommended_action": "fix-before-release"
+      },
+      {
+        "defect_id": "TC-0002-08",
+        "severity": "high",
+        "priority": 2,
+        "cluster": "profile-service",
+        "duplicate_of": null,
+        "root_cause_hint": "Profile data fetch error due to cloud dependency misconfiguration",
+        "assigned_to": "dheeraj@example.com",
+        "recommended_action": "fix-before-release"
+      },
+      {
+        "defect_id": "TC-0002-09",
+        "severity": "high",
+        "priority": 2,
+        "cluster": "profile-service",
+        "duplicate_of": "TC-0002-08",
+        "root_cause_hint": "Profile data fetch error due to cloud dependency misconfiguration",
+        "assigned_to": "dheeraj@example.com",
+        "recommended_action": "fix-before-release"
+      },
+      {
+        "defect_id": "TC-0002-10",
+        "severity": "high",
+        "priority": 2,
+        "cluster": "profile-service",
+        "duplicate_of": null,
+        "root_cause_hint": "Profile data fetch error due to cloud dependency misconfiguration",
+        "assigned_to": "dheeraj@example.com",
+        "recommended_action": "fix-before-release"
+      },
+      {
+        "defect_id": "TC-0002-13",
+        "severity": "medium",
+        "priority": 3,
+        "cluster": "reporting",
+        "duplicate_of": null,
+        "root_cause_hint": "Inefficient HR report queries impacting performance",
+        "assigned_to": "dheeraj@example.com",
+        "recommended_action": "fix-before-release"
+      },
+      {
+        "defect_id": "TC-0002-15",
+        "severity": "medium",
+        "priority": 3,
+        "cluster": "reporting",
+        "duplicate_of": null,
+        "root_cause_hint": "Inefficient HR report queries impacting performance",
+        "assigned_to": "dheeraj@example.com",
+        "recommended_action": "fix-before-release"
+      }
+    ],
+    "release_risk_summary": "7 defects from test run TR-2026-0002-1 clustered into auth (critical, 2 defects, 1 unique), profile (high, 3 defects, 1 unique), and reporting (medium, 2 defects). Risks tied to backend integration and cloud skills gaps; address before build phase to mitigate capacity constraints.",
+    "human_confirmed": false,
+    "status": "pending-approval"
+  },
+  "security_testing": null,
+  "traceability": null,
+  "quality_gate": {
+    "gate_id": "QGT-2026-0002-1",
+    "demand_id": "DEM-2026-0002",
+    "test_run_id": "TR-2026-0002-1",
+    "evaluated_at": "2026-08-01T10:30:00Z",
+    "verdict": "fail",
+    "score": 0,
+    "checks": [
+      {
+        "check": "pass_rate",
+        "threshold": "95%",
+        "actual": "46.7%",
+        "result": "fail"
+      },
+      {
+        "check": "critical_defects",
+        "threshold": "0",
+        "actual": "2",
+        "result": "fail"
+      },
+      {
+        "check": "security_high_findings",
+        "threshold": "0",
+        "actual": "N/A",
+        "result": "warn"
+      },
+      {
+        "check": "coverage",
+        "threshold": "90%",
+        "actual": "N/A",
+        "result": "warn"
+      }
+    ],
+    "gap_explanation": "Release blocked by test pass rate of 46.7% (below 95% threshold) and 2 open critical defects (above 0 threshold). Security scan and coverage data are missing.",
+    "human_decision": null,
+    "decided_by": null,
+    "status": "pending-approval"
+  }
+}

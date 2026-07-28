@@ -1,6 +1,6 @@
 {
   "demand_id": "DEM-2026-0001",
-  "updated_at": "2026-07-24T10:29:14Z",
+  "updated_at": "2026-07-28T06:37:03Z",
   "test_generation": {
     "suite_id": "TST-DEM-2026-0001-1",
     "demand_id": "DEM-2026-0001",
@@ -379,21 +379,21 @@
     "gate_id": "QGT-DEM-2026-0001-1",
     "demand_id": "DEM-2026-0001",
     "test_run_id": "TR-DEM-2026-0001-1",
-    "evaluated_at": "2026-07-24T12:00:00Z",
+    "evaluated_at": "2026-07-24T11:45:00Z",
     "verdict": "fail",
-    "score": 0,
+    "score": 25,
     "checks": [
       {
         "check": "pass_rate",
         "threshold": "95%",
-        "actual": "70.0%",
+        "actual": "70%",
         "result": "fail"
       },
       {
         "check": "critical_defects",
         "threshold": "0",
-        "actual": "2",
-        "result": "fail"
+        "actual": "0",
+        "result": "pass"
       },
       {
         "check": "security_high_findings",
@@ -403,12 +403,12 @@
       },
       {
         "check": "coverage",
-        "threshold": "90.0%",
-        "actual": "partial%",
-        "result": "fail"
+        "threshold": "90%",
+        "actual": "N/A",
+        "result": "warn"
       }
     ],
-    "gap_explanation": "Release blocked due to multiple failing quality gates: pass rate is below 95%, presence of two open high-severity defects requiring fixes before release, two high severity open and exploitable security findings, and incomplete requirement traceability coverage. These issues could cause major functional, stability, and security risks.",
+    "gap_explanation": "Release blocked: test pass rate 70% below 95% threshold; 2 open high security findings exceed max of 0; coverage data missing/inconclusive vs 90% min. Critical defects at 0 (meets threshold).",
     "human_decision": null,
     "decided_by": null,
     "status": "pending-approval"

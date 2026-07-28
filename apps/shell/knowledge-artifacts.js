@@ -556,10 +556,7 @@ window.renderKnowledgeArtifactsScreen = function(targetContainer) {
                 Search
               </button>
             </div>
-            <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; gap: 0.5rem; justify-content: center; align-items: center; margin-top: 0.25rem;">
-              <span>💡 Try searching:</span>
-              <a href="#" onclick="document.getElementById('search-query').value='What architecture documents do we have?'; searchArtefacts(); return false;" style="color: var(--color-brand); text-decoration: none; font-weight: 600;">&quot;What architecture documents do we have?&quot;</a>
-            </div>
+
           </div>
           
           <div id="search-results" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1.5rem;">
@@ -574,18 +571,9 @@ window.renderKnowledgeArtifactsScreen = function(targetContainer) {
       <div style="animation: fade-in 0.3s ease;">
         <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 2rem; min-height: 420px; display: flex; flex-direction: column; box-shadow: var(--shadow-sm);">
           
-          <div style="text-align: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem;">
-            <h3 style="margin: 0; font-size: 1.25rem; font-family: var(--font-display); color: var(--text-primary); display: flex; justify-content: center; align-items: center; gap: 0.5rem;">
-              <span>🚀 Onboarding Wiki Sync</span>
-            </h3>
-            <p style="font-size: 0.88rem; color: var(--text-secondary); margin: 0.5rem 0 0 0; line-height: 1.45;">
-              Generate and keep the standard engineering onboarding wiki updated by incorporating design decisions, architecture patterns, and allocated team skillsets.
-            </p>
-          </div>
-          
           <div style="text-align: center; margin-bottom: 2rem; display: flex; flex-direction: column; align-items: center;">
             <button id="sync-onboarding-btn" onclick="syncOnboarding('${demandId}')" class="btn-primary" style="padding: 0.8rem 2rem; font-size: 0.95rem; font-weight: 600; width: auto; min-width: 280px; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; border-radius: var(--radius-md); box-shadow: var(--shadow-xs); cursor: pointer;">
-              🚀 Generate / Update Onboarding Wiki
+              🚀 Generate Onboarding Wiki
             </button>
             <div id="onboarding-feedback" style="font-size: 0.8rem; margin-top: 0.75rem; color: var(--text-muted);"></div>
           </div>
