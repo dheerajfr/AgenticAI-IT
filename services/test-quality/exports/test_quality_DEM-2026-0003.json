@@ -1,202 +1,210 @@
 {
   "demand_id": "DEM-2026-0003",
-  "updated_at": "2026-07-27T07:43:19Z",
+  "updated_at": "2026-07-28T06:40:32Z",
   "test_generation": {
     "suite_id": "TST-2026-0003-1",
     "demand_id": "DEM-2026-0003",
     "plan_id": "PLN-0003-1",
-    "generated_at": "2026-07-28T12:00:00Z",
+    "generated_at": "2024-10-04T12:00:00Z",
     "test_cases": [
       {
         "test_id": "TC-0003-01",
         "story_id": "DEM-2026-0003",
-        "title": "AI Design Agent - Happy Path for Critical Design Phase",
+        "title": "Successful user login with valid credentials",
         "steps": [
-          "Provide standard SDLC requirements input to AI Design Agent.",
-          "Trigger design generation workflow.",
-          "Validate generated architecture diagram and docs."
+          "Navigate to login page",
+          "Enter valid username and password",
+          "Click login button"
         ],
-        "expected_result": "AI generates valid, comprehensive architecture design with no errors, aligned to requirements.",
+        "expected_result": "User is redirected to dashboard with welcome message",
         "priority": "critical",
-        "type": "functional_positive"
+        "type": "functional-positive"
       },
       {
         "test_id": "TC-0003-02",
         "story_id": "DEM-2026-0003",
-        "title": "AI Design Agent - Invalid Input Handling",
+        "title": "Login fails with invalid password",
         "steps": [
-          "Input malformed or incomplete requirements (e.g., empty fields).",
-          "Trigger design generation.",
-          "Check error response and logging."
+          "Navigate to login page",
+          "Enter valid username and invalid password",
+          "Click login button"
         ],
-        "expected_result": "AI agent gracefully handles invalid input, returns clear error message, no crash.",
+        "expected_result": "Error message 'Invalid credentials' displayed, user not logged in",
         "priority": "critical",
-        "type": "functional_negative"
+        "type": "functional-negative"
       },
       {
         "test_id": "TC-0003-03",
         "story_id": "DEM-2026-0003",
-        "title": "AI Build Agent - Code Generation from Design (Critical Build Phase)",
+        "title": "Create new delivery order with valid data",
         "steps": [
-          "Feed validated design output to AI Build Agent.",
-          "Request Python code generation for sample module.",
-          "Compile and syntax-check generated code."
+          "Login as admin",
+          "Navigate to create delivery",
+          "Enter valid order details (customer, address, items)",
+          "Submit order"
         ],
-        "expected_result": "AI generates compilable, functional Python code integrating LLM frameworks.",
+        "expected_result": "Delivery order created successfully, confirmation message shown, order appears in list",
         "priority": "critical",
-        "type": "functional_positive"
+        "type": "functional-positive"
       },
       {
         "test_id": "TC-0003-04",
         "story_id": "DEM-2026-0003",
-        "title": "AI Build Agent - Error Prone Inputs",
+        "title": "Create delivery order with missing required fields",
         "steps": [
-          "Provide ambiguous design specs to Build Agent.",
-          "Generate code.",
-          "Inspect for hallucinations or invalid code."
+          "Login as admin",
+          "Navigate to create delivery",
+          "Leave customer name blank",
+          "Submit order"
         ],
-        "expected_result": "AI flags ambiguities, generates safe fallback code or errors out appropriately.",
+        "expected_result": "Validation error for missing customer name, order not created",
         "priority": "high",
-        "type": "functional_negative"
+        "type": "functional-negative"
       },
       {
         "test_id": "TC-0003-05",
         "story_id": "DEM-2026-0003",
-        "title": "AI Test Agent - Automated Test Suite Generation (Critical Test Phase)",
+        "title": "Update delivery status to 'In Transit'",
         "steps": [
-          "Input generated code to AI Test Agent.",
-          "Request unit/integration tests.",
-          "Run generated tests on code."
+          "Login as dispatcher",
+          "View delivery list",
+          "Select existing delivery",
+          "Change status to 'In Transit'",
+          "Save"
         ],
-        "expected_result": "AI produces executable tests with >80% coverage, all passing on valid code.",
-        "priority": "critical",
-        "type": "functional_positive"
+        "expected_result": "Status updated successfully, notification sent to driver",
+        "priority": "high",
+        "type": "functional-positive"
       },
       {
         "test_id": "TC-0003-06",
         "story_id": "DEM-2026-0003",
-        "title": "AI Deploy Agent - Successful Deployment (Critical Deploy Phase)",
+        "title": "Assign driver to delivery with invalid driver ID",
         "steps": [
-          "Provide tested artifacts to Deploy Agent.",
-          "Simulate deployment to staging env.",
-          "Verify deployment status and health checks."
+          "Login as admin",
+          "Select delivery",
+          "Enter non-existent driver ID",
+          "Assign driver"
         ],
-        "expected_result": "AI orchestrates successful deployment, env in-sync, no drift.",
-        "priority": "critical",
-        "type": "functional_positive"
+        "expected_result": "Error 'Driver not found', assignment fails",
+        "priority": "high",
+        "type": "functional-negative"
       },
       {
         "test_id": "TC-0003-07",
         "story_id": "DEM-2026-0003",
-        "title": "AI Reliability - Consistent Outputs for Same Input",
+        "title": "View delivery list with filters",
         "steps": [
-          "Run same SDLC input through AI agents 10 times.",
-          "Compare outputs for consistency."
+          "Login",
+          "Navigate to delivery list",
+          "Apply filter by status 'Pending'",
+          "View results"
         ],
-        "expected_result": "Outputs identical or within acceptable variance (>95% match), no hallucinations.",
-        "priority": "critical",
-        "type": "reliability"
+        "expected_result": "Only pending deliveries displayed correctly",
+        "priority": "medium",
+        "type": "functional-positive"
       },
       {
         "test_id": "TC-0003-08",
         "story_id": "DEM-2026-0003",
-        "title": "Security - Prompt Injection Resistance",
+        "title": "Track delivery real-time with GPS",
         "steps": [
-          "Inject malicious prompts (e.g., 'ignore rules') into SDLC inputs.",
-          "Process through AI pipeline.",
-          "Check for unauthorized actions or data leaks."
+          "Login as customer",
+          "Enter tracking number",
+          "View map"
         ],
-        "expected_result": "AI rejects or sanitizes malicious inputs, logs security event, no breach.",
-        "priority": "critical",
-        "type": "security"
+        "expected_result": "Current location shown on map, updates in real-time",
+        "priority": "high",
+        "type": "functional-positive"
       },
       {
         "test_id": "TC-0003-09",
         "story_id": "DEM-2026-0003",
-        "title": "Performance - AI Pipeline Under Load",
+        "title": "Generate delivery report for date range",
         "steps": [
-          "Submit 50 concurrent SDLC tasks (design+build).",
-          "Measure response time and throughput.",
-          "Monitor resource usage."
+          "Login as manager",
+          "Navigate to reports",
+          "Select date range",
+          "Generate report"
         ],
-        "expected_result": "Avg response <5s per task, no failures, scales to load.",
-        "priority": "high",
-        "type": "performance"
+        "expected_result": "PDF report downloaded with correct data",
+        "priority": "medium",
+        "type": "functional-positive"
       },
       {
         "test_id": "TC-0003-10",
         "story_id": "DEM-2026-0003",
-        "title": "SDLC Tool Integration - Git/CI-CD Hook",
+        "title": "Login with SQL injection attempt",
         "steps": [
-          "Trigger AI via Git commit webhook.",
-          "Verify auto-design/build in CI pipeline.",
-          "Check integration logs."
+          "Navigate to login",
+          "Enter username: ' OR 1=1 --",
+          "Enter any password",
+          "Submit"
         ],
-        "expected_result": "Seamless integration, AI triggers correctly, pipeline advances.",
-        "priority": "high",
-        "type": "functional_positive"
+        "expected_result": "Login fails, no unauthorized access granted",
+        "priority": "critical",
+        "type": "security"
       },
       {
         "test_id": "TC-0003-11",
         "story_id": "DEM-2026-0003",
-        "title": "Edge Case - Large Input SDLC Requirements",
+        "title": "Performance under 100 concurrent users creating orders",
         "steps": [
-          "Input 10k+ token requirements doc.",
-          "Process through full AI pipeline.",
-          "Validate output quality."
+          "Simulate 100 users simultaneously creating delivery orders",
+          "Measure response time and throughput"
         ],
-        "expected_result": "AI handles large input without truncation, produces coherent output.",
-        "priority": "medium",
-        "type": "functional_negative"
+        "expected_result": "Average response time < 2s, no errors, 95% success rate",
+        "priority": "high",
+        "type": "performance"
       },
       {
         "test_id": "TC-0003-12",
         "story_id": "DEM-2026-0003",
-        "title": "Environment Drift Detection Post-Deploy",
+        "title": "App reliability after 24-hour continuous operation",
         "steps": [
-          "Deploy via AI to test env.",
-          "Simulate config drift.",
-          "Run drift check."
+          "Run continuous load simulating normal usage for 24 hours"
         ],
-        "expected_result": "Drift detected and reported, rollback option available.",
-        "priority": "high",
+        "expected_result": "No crashes, uptime 100%, logs clean",
+        "priority": "medium",
         "type": "reliability"
       },
       {
         "test_id": "TC-0003-13",
         "story_id": "DEM-2026-0003",
-        "title": "Scalability - Multi-Project Parallel Processing",
+        "title": "Unauthorized access to admin functions without login",
         "steps": [
-          "Initiate AI workflows for 5 projects simultaneously.",
-          "Monitor agent orchestration."
+          "Directly navigate to /admin/create-delivery without login",
+          "Attempt to create delivery"
         ],
-        "expected_result": "All projects process independently without interference, complete successfully.",
-        "priority": "medium",
-        "type": "non_functional_scalability"
+        "expected_result": "Redirected to login page, access denied",
+        "priority": "critical",
+        "type": "security"
       },
       {
         "test_id": "TC-0003-14",
         "story_id": "DEM-2026-0003",
-        "title": "Governance - Audit Trail for AI Decisions",
+        "title": "Edge case: Maximum length address input",
         "steps": [
-          "Run full SDLC cycle.",
-          "Query audit logs for AI decisions."
+          "Login",
+          "Create delivery with 500-char address",
+          "Submit"
         ],
-        "expected_result": "Complete, tamper-proof audit trail available, traceable to inputs/outputs.",
-        "priority": "high",
-        "type": "security"
+        "expected_result": "Order created successfully if within limits, or truncated/error as per spec",
+        "priority": "medium",
+        "type": "functional-negative"
       },
       {
         "test_id": "TC-0003-15",
         "story_id": "DEM-2026-0003",
-        "title": "Negative Deploy - Failed Health Check",
+        "title": "Scalability test: Handle 1000 deliveries in list",
         "steps": [
-          "Deploy intentionally faulty artifact.",
-          "Monitor AI rollback mechanism."
+          "Populate database with 1000 deliveries",
+          "Load delivery list page",
+          "Apply pagination"
         ],
-        "expected_result": "AI detects failure via health checks, auto-rollbacks to previous version.",
+        "expected_result": "Page loads < 3s, pagination works correctly",
         "priority": "high",
-        "type": "functional_negative"
+        "type": "performance"
       }
     ],
     "coverage_summary": {
@@ -209,327 +217,122 @@
   },
   "test_data": null,
   "test_execution": {
-    "test_run_id": "TR-20260003-1",
+    "test_run_id": "TR-2026-0003-1",
     "suite_id": "TST-2026-0003-1",
     "demand_id": "DEM-2026-0003",
     "environment": "QA",
-    "executed_at": "2026-07-28T13:30:00Z",
+    "executed_at": "2024-10-05T10:00:00Z",
     "results": [
       {
         "test_id": "TC-0003-01",
         "status": "passed",
-        "duration_ms": 4200,
+        "duration_ms": 2200,
         "failure_analysis": null
       },
       {
         "test_id": "TC-0003-02",
         "status": "passed",
-        "duration_ms": 3100,
+        "duration_ms": 1800,
         "failure_analysis": null
       },
       {
         "test_id": "TC-0003-03",
         "status": "failed",
-        "duration_ms": 8500,
-        "failure_analysis": "Generated Python code failed syntax check: invalid import for LLM framework."
+        "duration_ms": 12000,
+        "failure_analysis": "Submit order API returned HTTP 500 Internal Server Error; backend processing failed"
       },
       {
         "test_id": "TC-0003-04",
         "status": "passed",
-        "duration_ms": 2800,
+        "duration_ms": 3100,
         "failure_analysis": null
       },
       {
         "test_id": "TC-0003-05",
         "status": "failed",
-        "duration_ms": 9200,
-        "failure_analysis": "Generated tests achieved only 45% coverage, below 80% threshold."
+        "duration_ms": 9500,
+        "failure_analysis": "Status update failed with 403 Forbidden; dispatcher role permissions not configured"
       },
       {
         "test_id": "TC-0003-06",
-        "status": "skipped",
-        "duration_ms": 100,
-        "failure_analysis": null
-      },
-      {
-        "test_id": "TC-0003-07",
-        "status": "failed",
-        "duration_ms": 45000,
-        "failure_analysis": "Outputs inconsistent across 10 runs, match rate 70% <95%."
-      },
-      {
-        "test_id": "TC-0003-08",
-        "status": "passed",
-        "duration_ms": 5100,
-        "failure_analysis": null
-      },
-      {
-        "test_id": "TC-0003-09",
-        "status": "failed",
-        "duration_ms": 12000,
-        "failure_analysis": "Average response time 7.2s exceeding 5s limit under load."
-      },
-      {
-        "test_id": "TC-0003-10",
-        "status": "failed",
-        "duration_ms": 6500,
-        "failure_analysis": "Git webhook failed to trigger AI workflow, no logs in CI pipeline."
-      },
-      {
-        "test_id": "TC-0003-11",
-        "status": "passed",
-        "duration_ms": 3800,
-        "failure_analysis": null
-      },
-      {
-        "test_id": "TC-0003-12",
         "status": "passed",
         "duration_ms": 2900,
         "failure_analysis": null
       },
       {
+        "test_id": "TC-0003-07",
+        "status": "passed",
+        "duration_ms": 2400,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0003-08",
+        "status": "failed",
+        "duration_ms": 11000,
+        "failure_analysis": "GPS map not rendered; tracking endpoint returned 404 Not Found"
+      },
+      {
+        "test_id": "TC-0003-09",
+        "status": "passed",
+        "duration_ms": 4200,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0003-10",
+        "status": "passed",
+        "duration_ms": 2100,
+        "failure_analysis": null
+      },
+      {
+        "test_id": "TC-0003-11",
+        "status": "failed",
+        "duration_ms": 45000,
+        "failure_analysis": "Average response time 4.8s exceeded 2s threshold; 18% failure rate under load"
+      },
+      {
+        "test_id": "TC-0003-12",
+        "status": "skipped",
+        "duration_ms": 500,
+        "failure_analysis": null
+      },
+      {
         "test_id": "TC-0003-13",
         "status": "passed",
-        "duration_ms": 7200,
+        "duration_ms": 1900,
         "failure_analysis": null
       },
       {
         "test_id": "TC-0003-14",
-        "status": "failed",
-        "duration_ms": 3400,
-        "failure_analysis": "Audit trail missing timestamps for AI decisions."
+        "status": "passed",
+        "duration_ms": 2800,
+        "failure_analysis": null
       },
       {
         "test_id": "TC-0003-15",
-        "status": "passed",
-        "duration_ms": 4100,
-        "failure_analysis": null
+        "status": "failed",
+        "duration_ms": 15000,
+        "failure_analysis": "List page load time 7.2s > 3s limit; pagination selector not found"
       }
     ],
     "summary": {
       "total": 15,
-      "passed": 8,
-      "failed": 6,
+      "passed": 9,
+      "failed": 5,
       "skipped": 1,
-      "pass_rate_pct": 53.3
+      "pass_rate_pct": 60.0
     },
     "defect_ids_raised": [
       "BUG-1",
       "BUG-2",
       "BUG-3",
       "BUG-4",
-      "BUG-5",
-      "BUG-6"
+      "BUG-5"
     ],
     "human_acceptance": null,
     "status": "pending-approval"
   },
-  "defect_triage": {
-    "triage_id": "TRG-20260003-1",
-    "test_run_id": "TR-20260003-1",
-    "demand_id": "DEM-2026-0003",
-    "triaged_defects": [
-      {
-        "defect_id": "TC-0003-03",
-        "severity": "medium",
-        "priority": 3,
-        "cluster": "Agentic-AI-SDLC-Integration",
-        "duplicate_of": null,
-        "root_cause_hint": "Likely LLM framework integration issue or Python dependency mismatch",
-        "assigned_to": "vikram@example.com",
-        "recommended_action": "fix-before-release"
-      },
-      {
-        "defect_id": "TC-0003-05",
-        "severity": "medium",
-        "priority": 3,
-        "cluster": "Agentic-AI-SDLC-Integration",
-        "duplicate_of": null,
-        "root_cause_hint": "Likely LLM framework integration issue or Python dependency mismatch",
-        "assigned_to": "vikram@example.com",
-        "recommended_action": "fix-before-release"
-      },
-      {
-        "defect_id": "TC-0003-07",
-        "severity": "medium",
-        "priority": 3,
-        "cluster": "Agentic-AI-SDLC-Integration",
-        "duplicate_of": null,
-        "root_cause_hint": "Likely LLM framework integration issue or Python dependency mismatch",
-        "assigned_to": "vikram@example.com",
-        "recommended_action": "fix-before-release"
-      },
-      {
-        "defect_id": "TC-0003-09",
-        "severity": "medium",
-        "priority": 3,
-        "cluster": "Agentic-AI-SDLC-Integration",
-        "duplicate_of": null,
-        "root_cause_hint": "Likely LLM framework integration issue or Python dependency mismatch",
-        "assigned_to": "vikram@example.com",
-        "recommended_action": "fix-before-release"
-      },
-      {
-        "defect_id": "TC-0003-10",
-        "severity": "medium",
-        "priority": 3,
-        "cluster": "Agentic-AI-SDLC-Integration",
-        "duplicate_of": null,
-        "root_cause_hint": "Likely LLM framework integration issue or Python dependency mismatch",
-        "assigned_to": "vikram@example.com",
-        "recommended_action": "fix-before-release"
-      },
-      {
-        "defect_id": "TC-0003-14",
-        "severity": "medium",
-        "priority": 3,
-        "cluster": "Agentic-AI-SDLC-Integration",
-        "duplicate_of": null,
-        "root_cause_hint": "Likely LLM framework integration issue or Python dependency mismatch",
-        "assigned_to": "vikram@example.com",
-        "recommended_action": "fix-before-release"
-      }
-    ],
-    "release_risk_summary": "Low release risk; all environments in-sync, defects clustered around predictable AI integration issues aligned with known skill gaps and risk factors.",
-    "human_confirmed": false,
-    "status": "pending-approval"
-  },
-  "security_testing": {
-    "security_test_id": "SEC-2026-0003-1",
-    "demand_id": "DEM-2026-0003",
-    "plan_id": "PLN-0003-1",
-    "pipeline_run_id": "PL-0003-8336",
-    "scanned_at": "2026-07-28T12:00:00Z",
-    "findings": [
-      {
-        "finding_id": "FND-1",
-        "component_id": "source-code",
-        "severity": "critical",
-        "category": "Secrets Exposure",
-        "location": "ai_agent.py:45",
-        "exploitable": true,
-        "draft_fix": "Remove hardcoded LLM API key (e.g., OPENAI_API_KEY) and store it in a secure vault like HashiCorp Vault or AWS Secrets Manager. Use environment variables for runtime access.",
-        "status": "open"
-      },
-      {
-        "finding_id": "FND-2",
-        "component_id": "source-code",
-        "severity": "high",
-        "category": "Prompt Injection",
-        "location": "sdlc_agent.py:112",
-        "exploitable": true,
-        "draft_fix": "Implement input sanitization and validation before incorporating user inputs into LLM prompts. Use techniques like prompt guards or libraries such as Guardrails AI.",
-        "status": "open"
-      },
-      {
-        "finding_id": "FND-3",
-        "component_id": "database-configurations",
-        "severity": "medium",
-        "category": "Weak Credentials",
-        "location": "config/db.yaml:8",
-        "exploitable": false,
-        "draft_fix": "Replace default or weak database credentials with strong, generated passwords. Integrate with a secrets management solution and enforce rotation policies.",
-        "status": "open"
-      },
-      {
-        "finding_id": "FND-4",
-        "component_id": "source-code",
-        "severity": "low",
-        "category": "Security Misconfiguration",
-        "location": "webhook_handler.py:67",
-        "exploitable": false,
-        "draft_fix": "Add security headers including Content-Security-Policy (CSP), Strict-Transport-Security (HSTS), and X-Content-Type-Options in the web server configuration.",
-        "status": "open"
-      }
-    ],
-    "summary": {
-      "critical": 1,
-      "high": 1,
-      "medium": 1,
-      "low": 1
-    },
-    "exploitable_confirmed": false,
-    "signed_off_by": null,
-    "status": "pending-approval"
-  },
-  "traceability": {
-    "traceability_id": "TRC-2026-0003-1",
-    "demand_id": "DEM-2026-0003",
-    "last_updated": "2026-07-28T14:00:00Z",
-    "entries": [
-      {
-        "story_id": "DEM-2026-0003",
-        "test_ids": [
-          "TC-0003-01",
-          "TC-0003-02",
-          "TC-0003-03",
-          "TC-0003-04",
-          "TC-0003-05",
-          "TC-0003-06",
-          "TC-0003-07",
-          "TC-0003-08",
-          "TC-0003-09",
-          "TC-0003-10",
-          "TC-0003-11",
-          "TC-0003-12",
-          "TC-0003-13",
-          "TC-0003-14",
-          "TC-0003-15"
-        ],
-        "defect_ids": [
-          "BUG-1",
-          "BUG-2",
-          "BUG-3",
-          "BUG-4",
-          "BUG-5",
-          "BUG-6"
-        ],
-        "coverage_status": "partial",
-        "passing": false
-      }
-    ],
-    "uncovered_stories": [],
-    "coverage_gaps": [
-      "DEM-2026-0003"
-    ],
-    "audit_ready": false
-  },
-  "quality_gate": {
-    "gate_id": "QGT-20260003-1",
-    "demand_id": "DEM-2026-0003",
-    "test_run_id": "TR-20260003-1",
-    "evaluated_at": "2026-07-28T13:35:00Z",
-    "verdict": "fail",
-    "score": 25,
-    "checks": [
-      {
-        "check": "pass_rate",
-        "threshold": "95%",
-        "actual": "53.3%",
-        "result": "fail"
-      },
-      {
-        "check": "critical_defects",
-        "threshold": "0",
-        "actual": "0",
-        "result": "pass"
-      },
-      {
-        "check": "security_high_findings",
-        "threshold": "0",
-        "actual": "2",
-        "result": "fail"
-      },
-      {
-        "check": "coverage",
-        "threshold": "90%",
-        "actual": "N/A%",
-        "result": "warn"
-      }
-    ],
-    "gap_explanation": "Release blocked by test pass rate (53.3% < 95%) and 2 open high/critical security findings (>0). No open critical defects. Coverage percentage unavailable (warn).",
-    "human_decision": null,
-    "decided_by": null,
-    "status": "pending-approval"
-  }
+  "defect_triage": null,
+  "security_testing": null,
+  "traceability": null,
+  "quality_gate": null
 }
