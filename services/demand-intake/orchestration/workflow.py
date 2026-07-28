@@ -235,11 +235,15 @@ def check_duplicates_node(state: WorkflowState) -> Dict[str, Any]:
             
         words_a = set(title.split())
         words_b = set(record_title.split())
-        common_words = words_a.intersection(words_b)
+        # Filter out common stop words before comparing
+        stop_words = {'in', 'an', 'a', 'the', 'of', 'and', 'for', 'to', 'with', 'on', 'at', 'by', 'from', 'as'}
+        sig_a = words_a - stop_words
+        sig_b = words_b - stop_words
+        common_words = sig_a.intersection(sig_b)
         
-        if len(common_words) >= 3 and len(words_a) > 2 and len(words_b) > 2:
-            overlap = len(common_words) / min(len(words_a), len(words_b))
-            if overlap > 0.6:
+        if len(common_words) >= 4 and len(sig_a) > 2 and len(sig_b) > 2:
+            overlap = len(common_words) / min(len(sig_a), len(sig_b))
+            if overlap > 0.8:
                 duplicate_of = record.demand_id
                 print(f"[LangGraph Node: check-duplicates] Found high-similarity duplicate match: {record.demand_id} (overlap={overlap:.2f})")
                 break

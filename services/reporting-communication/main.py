@@ -81,7 +81,7 @@ def fetch_project_context(demand_id: str) -> str:
 def generate_summary(req: ReportRequest):
     record = _get_or_create(req.demand_id)
     project_context = fetch_project_context(req.demand_id)
-    prompt = f"Write an executive summary report for project {req.demand_id} tailored for a {req.audience} audience.\n\nUse the following real-time project data:\n{project_context}\n\nAggregate the status across all modules and highlight critical paths and risks based strictly on the provided data."
+    prompt = f"Write an executive summary report for project {req.demand_id} tailored for a {req.audience} audience.\n\nUse the following real-time project data:\n{project_context}\n\nAggregate the status across all modules and highlight critical paths and risks based strictly on the provided data. IMPORTANT: Output only clean plain text. Do not use any markdown formatting, asterisks, hashes, or special symbols. Use standard newlines and regular text formatting."
     ai_res = call_gemini(prompt)
     
     summary_obj = {

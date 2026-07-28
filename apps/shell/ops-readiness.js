@@ -157,11 +157,7 @@ window.renderOpsReadinessScreen = function () {
       <!-- Left Sidebar: Demands Queue -->
       <aside class="sidebar" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 100%; overflow: hidden; width: 300px;">
         <div class="panel-card" style="flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-          <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-            <h3 class="sidebar-title" style="margin: 0; font-size: 0.85rem;">Demands Queue</h3>
-            <button class="btn-new" id="ops-refresh-btn" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">↻ Refresh</button>
-          </div>
-        <div class="sidebar-search" style="padding: 0 1rem 0.5rem 1rem;">
+        <div class="sidebar-search" style="padding: 0 0 1rem 0;">
           <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
         </div>
 
@@ -181,6 +177,10 @@ window.renderOpsReadinessScreen = function () {
 
       <!-- Right Panel: Tabs and details view -->
       <main class="details-panel" id="ops-panel-container" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+        <header class="main-panel-header" style="padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 1.25rem;">Demands Queue</h2>
+          <div id="ops-dropdown-container" style="display:flex; align-items:center; gap:0.5rem;"></div>
+        </header>
         <!-- Tabs -->
         <div class="ops-tab-header">
           <button class="ops-tab-btn ${opsActiveTab === 'validation' ? 'active' : ''}" id="ops-tab-validation">09-A: Readiness Validation</button>
@@ -194,7 +194,15 @@ window.renderOpsReadinessScreen = function () {
     </div>
   `;
 
-  document.getElementById('ops-refresh-btn').addEventListener('click', () => window.fetchOpsReadinessData());
+  window.selectOpsAction = function(demandId) {
+    if (demandId === 'new') {
+      sessionStorage.removeItem('selectedDemandId');
+      opsSelectedDemandId = null;
+      window.location.hash = 'demand-intake';
+      return;
+    }
+    selectOpsDemand(demandId);
+  };
   document.getElementById('ops-tab-monitoring').addEventListener('click', () => switchOpsTab('monitoring'));
   document.getElementById('ops-tab-handover').addEventListener('click', () => switchOpsTab('handover'));
   document.getElementById('ops-tab-validation').addEventListener('click', () => switchOpsTab('validation'));
@@ -271,6 +279,22 @@ window.fetchOpsReadinessData = async function () {
 
 function renderOpsDemandList() {
   const container = document.getElementById('ops-demand-list-container');
+  const dropdownContainer = document.getElementById('ops-dropdown-container');
+
+  if (dropdownContainer && opsDemands) {
+    const optionsHtml = opsDemands.map(d => `<option value="${d.demand_id}" ${d.demand_id === opsSelectedDemandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
+    
+    dropdownContainer.innerHTML = `
+      <select onchange="window.selectOpsAction(this.value)" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
+        <option value="new" ${!opsSelectedDemandId ? 'selected' : ''}>+ Create New Project</option>
+        ${optionsHtml}
+      </select>
+      <button class="btn-new" id="ops-refresh-btn" style="font-size: 0.85rem; padding: 0.45rem;">↻</button>
+    `;
+
+    document.getElementById('ops-refresh-btn').addEventListener('click', () => window.fetchOpsReadinessData());
+  }
+
   if (opsDemands.length === 0) {
     container.innerHTML = `<li style="padding: 2rem; text-align: center; color: var(--text-muted);">No demands available.</li>`;
     return;

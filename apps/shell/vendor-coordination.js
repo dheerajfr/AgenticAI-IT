@@ -56,10 +56,7 @@ window.fetchVendorCoordinationData = async function() {
   const layoutPrefix = `
     <div class="intake-screen" style="padding: 1rem; height: 100%; box-sizing: border-box;">
       <aside class="sidebar">
-        <div class="sidebar-header">
-          <h3 class="sidebar-title">Vendor Coordination</h3>
-        </div>
-        <div class="sidebar-search" style="padding: 0 1rem 0.5rem 1rem;">
+        <div class="sidebar-search" style="padding: 1rem;">
           <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
         </div>
 
@@ -121,6 +118,7 @@ window.fetchVendorCoordinationData = async function() {
 };
 
 window.renderVendorCoordinationScreen = function(targetContainer) {
+  if (window.hideGlobalLoader) window.hideGlobalLoader();
   const demandId = sessionStorage.getItem('selectedDemandId');
   const demands = window.allDemandsList || [];
   const optionsHtml = demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === demandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');

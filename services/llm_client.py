@@ -39,8 +39,8 @@ def call_gemini(
             "The 'openai' or 'azure-identity' package is not installed."
         )
 
-    endpoint = "https://karthiksajja9098-2712-resource.services.ai.azure.com/openai/v1"
-    deployment_name = model_name or "gpt-4.1-mini"
+    endpoint = "https://dheerajch244-0186-resource.services.ai.azure.com/openai/v1"
+    deployment_name = model_name or "grok-4-1-fast-reasoning"
     
     # Try using AZURE_OPENAI_API_KEY, else use Entra ID token provider
     env_api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("GEMINI_API_KEY")

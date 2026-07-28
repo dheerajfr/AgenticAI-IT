@@ -363,11 +363,7 @@ function renderIntakeScreen() {
     <div class="intake-screen">
       <!-- Left Sidebar for Demands Listing -->
       <aside class="sidebar">
-        <div class="sidebar-header">
-          <h3 class="sidebar-title">Demands Queue</h3>
-          <button class="btn-new" id="btn-new-intake">+ New Intake</button>
-        </div>
-        <div class="sidebar-search" style="padding: 0 1rem 0.5rem 1rem;">
+        <div class="sidebar-search" style="padding: 1rem;">
           <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
         </div>
         <ul class="demand-list" id="demand-list-container">
@@ -378,18 +374,19 @@ function renderIntakeScreen() {
       </aside>
 
       <!-- Right Panel for Form or Active Details Wizard -->
-      <main class="details-panel" id="details-panel-container">
-        <!-- Rendered dynamically -->
+      <main class="details-panel" style="display: flex; flex-direction: column;">
+        <header class="main-panel-header" style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); background: var(--bg-primary); display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 1.25rem;">Demands Queue</h2>
+          <div id="demand-intake-dropdown-container">
+            <!-- Rendered by renderDemandList -->
+          </div>
+        </header>
+        <div id="details-panel-container" style="flex: 1; overflow-y: auto;">
+          <!-- Rendered dynamically -->
+        </div>
       </main>
     </div>
   `;
-
-  document.getElementById('btn-new-intake').addEventListener('click', () => {
-    selectedDemandId = null;
-    sessionStorage.removeItem('selectedDemandId');
-    clearSidebarSelection();
-    showNewIntakeForm();
-  });
 }
 
 // Helper to remove active classes on list items
@@ -408,14 +405,14 @@ async function fetchDemands() {
     demands = await res.json();
     renderDemandList();
     
-    // Automatically select the first demand if none is selected, or if the selected demand doesn't exist anymore
     const exists = demands.some(d => d.demand_id === selectedDemandId);
-    if (demands.length > 0 && (selectedDemandId === null || !exists)) {
-      selectDemand(demands[0].demand_id);
-    } else if (selectedDemandId !== null && exists) {
+    if (selectedDemandId !== null && exists) {
       selectDemand(selectedDemandId);
     } else {
+      selectedDemandId = null;
+      clearSidebarSelection();
       showNewIntakeForm();
+      renderDemandList();
     }
   } catch (err) {
     console.error("Failed to fetch demands:", err);
@@ -435,6 +432,18 @@ async function fetchDemands() {
 // Update the list of demands in the sidebar
 function renderDemandList() {
   const container = document.getElementById('demand-list-container');
+  const dropdownContainer = document.getElementById('demand-intake-dropdown-container');
+
+  if (dropdownContainer) {
+    const optionsHtml = demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === selectedDemandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
+    dropdownContainer.innerHTML = `
+      <select id="demand-intake-dropdown" onchange="window.selectDemandAction(this.value)" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
+        <option value="new" ${!selectedDemandId ? 'selected' : ''}>+ Create New Intake</option>
+        ${optionsHtml}
+      </select>
+    `;
+  }
+
   if (demands.length === 0) {
     container.innerHTML = `<li style="padding: 2rem; text-align: center; color: var(--text-muted);">No demands found. Submit one below.</li>`;
     return;
@@ -498,6 +507,18 @@ function renderDemandList() {
     });
   });
 }
+
+window.selectDemandAction = function(demandId) {
+  if (demandId === 'new') {
+    selectedDemandId = null;
+    sessionStorage.removeItem('selectedDemandId');
+    clearSidebarSelection();
+    showNewIntakeForm();
+    renderDemandList();
+    return;
+  }
+  selectDemand(demandId);
+};
 
 // Select a demand, update list states, and render the details wizard
 function selectDemand(id) {
@@ -1934,3 +1955,81 @@ function renderMarkdown(md) {
   
   return html;
 }
+
+
+// Global Loader Logic
+window.showGlobalLoader = function(message = "Processing...") {
+  let loader = document.getElementById('global-overlay-loader');
+  if (!loader) {
+    loader = document.createElement('div');
+    loader.id = 'global-overlay-loader';
+    loader.style.cssText = `
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--bg-tertiary, #1e293b);
+      border: 1px solid var(--border-color, #334155);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      border-radius: 30px;
+      padding: 0.6rem 1.5rem;
+      z-index: 100000; display: flex; flex-direction: row; align-items: center; gap: 12px;
+      opacity: 0; pointer-events: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    `;
+    
+    loader.innerHTML = `
+      <style>
+        .global-spinner {
+          width: 16px; height: 16px; border-radius: 50%;
+          border: 2px solid rgba(255,255,255,0.1);
+          border-top-color: var(--color-brand, #6366f1);
+          animation: global-spin 0.8s linear infinite;
+        }
+        @keyframes global-spin { to { transform: rotate(360deg); } }
+        .global-loader-text {
+          font-family: var(--font-sans, system-ui);
+          color: var(--text-primary, #f8fafc); font-size: 0.85rem; font-weight: 600;
+        }
+      </style>
+      <div class="global-spinner"></div>
+      <div class="global-loader-text" id="global-loader-msg"></div>
+    `;
+    document.body.appendChild(loader);
+  }
+  
+  document.getElementById('global-loader-msg').innerText = message;
+  loader.style.opacity = '1';
+  loader.style.transform = 'translateX(-50%) translateY(0)';
+};
+
+window.hideGlobalLoader = function() {
+  const loader = document.getElementById('global-overlay-loader');
+  if (loader) {
+    loader.style.opacity = '0';
+    loader.style.transform = 'translateX(-50%) translateY(20px)';
+  }
+};
+
+
+// --- Global Fetch Interceptor for Loading Overlay ---
+const originalFetch = window.fetch;
+window.fetch = async function(...args) {
+  const url = args[0] || '';
+  const options = args[1] || {};
+  
+  // Do not show loader for basic GET requests to fetch lists (prevents flickering on navigation)
+  const isBackgroundSync = (typeof url === 'string' && url.includes('/api/') && (!options.method || options.method.toUpperCase() === 'GET'));
+  
+  // Show loader for POST, PUT, DELETE, etc (AI generations, form submits)
+  if (!isBackgroundSync) {
+    if (window.showGlobalLoader) {
+      window.showGlobalLoader("Processing AI request...");
+    }
+  }
+  
+  try {
+    const response = await originalFetch(...args);
+    return response;
+  } finally {
+    if (!isBackgroundSync) {
+      if (window.hideGlobalLoader) window.hideGlobalLoader();
+    }
+  }
+};
