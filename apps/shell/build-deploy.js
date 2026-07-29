@@ -109,8 +109,9 @@ window.renderBuildDeployScreen = function () {
       <main class="details-panel" style="display: flex; flex-direction: column;">
         <header class="main-panel-header" style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); background: var(--bg-primary); display: flex; justify-content: space-between; align-items: center;">
           <h2 style="margin: 0; font-size: 1.25rem;">Build & deploy</h2>
-          <div id="deploy-dropdown-container" style="display:flex; align-items:center; gap:0.5rem;"></div>
+          <button class="btn-new" id="btn-refresh-deploy" style="padding: 0.45rem 0.75rem; font-size: 0.8rem; cursor: pointer;">↻ Refresh</button>
         </header>
+
         <div class="tabs-container" style="padding: 0.5rem 1.5rem; background: var(--bg-primary); border-bottom: 1px solid var(--border-color); display: flex; gap: 1rem;">
           <button class="tab-btn ${activeDeployTab === 'runbooks' ? 'active' : ''}" id="tab-runbooks" style="padding: 0.4rem 0.2rem; font-size: 0.85rem; border: none; background: transparent; cursor: pointer;">Runbooks</button>
           <button class="tab-btn ${activeDeployTab === 'cutover' ? 'active' : ''}" id="tab-cutover" style="padding: 0.4rem 0.2rem; font-size: 0.85rem; border: none; background: transparent; cursor: pointer;">Cutover Bridge</button>
@@ -257,32 +258,15 @@ function clearDeploySidebarSelection() {
 
 function renderDeployList() {
   const container = document.getElementById('deploy-list-container');
-  const dropdownContainer = document.getElementById('deploy-dropdown-container');
+  const refreshBtn = document.getElementById('btn-refresh-deploy');
+  if (refreshBtn) {
+    refreshBtn.onclick = () => window.fetchBuildDeployData();
+  }
+
   const items = activeDeployTab === 'runbooks' ? runbooks : activeDeployTab === 'cutover' ? cutoverSessions : deployments;
   const idField = activeDeployTab === 'runbooks' ? 'runbook_id' : activeDeployTab === 'cutover' ? 'cutover_id' : 'deployment_id';
   const selectedId = activeDeployTab === 'runbooks' ? selectedRunbookId : activeDeployTab === 'cutover' ? selectedCutoverId : selectedDeploymentId;
 
-  if (dropdownContainer && demands) {
-    const activeDemandId = sessionStorage.getItem('selectedDemandId');
-    const optionsHtml = demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === activeDemandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
-    
-    const newText = activeDeployTab === 'runbooks' ? '+ Create New Runbook' 
-      : activeDeployTab === 'cutover' ? '+ Create New Cutover' 
-      : '+ Create New Orchestration';
-
-    dropdownContainer.innerHTML = `
-      <select onchange="window.selectDeployAction(this.value)" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
-        <option value="new" ${!activeDemandId ? 'selected' : ''}>${newText}</option>
-        ${optionsHtml}
-      </select>
-      <button class="btn-new" id="btn-refresh-deploy" style="padding: 0.45rem;">↻</button>
-    `;
-    
-    const refreshBtn = document.getElementById('btn-refresh-deploy');
-    if (refreshBtn) {
-      refreshBtn.addEventListener('click', () => window.fetchBuildDeployData());
-    }
-  }
 
   let html = '';
 
@@ -444,21 +428,25 @@ function showNewRunbookForm() {
     </div>
   `;
 
-  // Restore previously selected demand if any
-  if (selectedRunbookDemandId) {
-    const sel = document.getElementById('rbk-demand-pick');
-    if (sel) sel.value = selectedRunbookDemandId;
+  // Restore previously selected demand or active demand from session if any
+  const activeDemandId = sessionStorage.getItem('selectedDemandId');
+  const targetDemandId = selectedRunbookDemandId || activeDemandId;
+  const sel = document.getElementById('rbk-demand-pick');
+  if (sel && targetDemandId) {
+    sel.value = targetDemandId;
   }
 
-  // "Load" button — fetch demand + env data and populate form
-  document.getElementById('btn-load-demand').addEventListener('click', async () => {
+  const loadDemandFn = async () => {
     const demandId = document.getElementById('rbk-demand-pick').value;
     if (!demandId) return;
     selectedRunbookDemandId = demandId;
 
     const btn = document.getElementById('btn-load-demand');
-    btn.disabled = true;
-    btn.textContent = 'Loading…';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Loading…';
+    }
+
 
     const demand = demands.find(d => d.demand_id === demandId);
     envRecordsForDemand = await _loadEnvRecordsForDemand(demandId);
@@ -519,9 +507,22 @@ function showNewRunbookForm() {
 
     document.getElementById('rbk-step2').style.display = 'block';
     
-    btn.disabled = false;
-    btn.textContent = '↺ Reload';
-  });
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '↺ Reload';
+    }
+  };
+
+  const loadBtn = document.getElementById('btn-load-demand');
+  if (loadBtn) {
+    loadBtn.addEventListener('click', loadDemandFn);
+  }
+
+  // Auto-trigger load if demand was pre-selected
+  if (targetDemandId) {
+    loadDemandFn();
+  }
+
 
   // Draft button — POST to backend
   document.getElementById('btn-draft-runbook').addEventListener('click', async () => {

@@ -428,13 +428,14 @@ function renderEnvDetail(demand_id) {
 
       ${demandEnvs.length > 0 ? `
       <div style="margin-top:2rem; padding-top:1.5rem; border-top: 1px solid var(--border-color); display:flex; justify-content:flex-end;">
-        <button type="button" onclick="window.switchStage('build-deploy')" style="padding:0.5rem 1.25rem; border-radius:var(--radius-sm); font-size:0.85rem; font-weight:700; cursor:pointer; border:none; background:var(--color-brand); color:var(--text-primary); box-shadow:0 2px 4px rgba(99,102,241,0.2);">
+        <button type="button" onclick="sessionStorage.setItem('selectedDemandId', '${demand_id}'); window.switchStage('build-deploy');" style="padding:0.5rem 1.25rem; border-radius:var(--radius-sm); font-size:0.85rem; font-weight:700; cursor:pointer; border:none; background:var(--color-brand); color:var(--text-primary); box-shadow:0 2px 4px rgba(99,102,241,0.2);">
           Next: Build & Deploy &nbsp;&rarr;
         </button>
       </div>
       ` : ''}
     </div>
   `;
+
 
   // inject inline-edit styles once
   if (!document.getElementById('env-edit-styles')) {

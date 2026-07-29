@@ -92,8 +92,8 @@ function determineCurrentStage(data) {
   if (data.releases && data.releases.length > 0) return 'release-change';
   if (data.qualityGate || (data.testQuality && (data.testQuality.test_generation || data.testQuality.test_data || data.testQuality.test_execution || data.testQuality.security_testing || data.testQuality.traceability || data.testQuality.quality_gate))) return 'test-quality';
   if (data.deployments && data.deployments.length > 0) return 'build-deploy';
-  if (data.dependencies && data.dependencies.length > 0) return 'dependencies';
   if (data.environments && data.environments.length > 0) return 'config-environments';
+  if (data.dependencies && data.dependencies.length > 0) return 'dependencies';
   if (data.plan) return 'plan-schedule';
   if (data.estimate) return 'estimate-shape';
   return 'demand-intake';
@@ -110,7 +110,7 @@ function calculateHealth(data) {
 function calculateProgress(stage) {
   const stages = [
     'demand-intake', 'estimate-shape', 'plan-schedule', 
-    'config-environments', 'dependencies', 'build-deploy', 
+    'dependencies', 'config-environments', 'build-deploy', 
     'test-quality', 'release-change', 'ops-readiness'
   ];
   const idx = stages.indexOf(stage);
@@ -219,12 +219,12 @@ async function renderProjectDetails(demandId) {
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('demand-intake', currentStage, data)};"></div>
         ${renderTimelineNode('Estimate', 'estimate-shape', currentStage, data)}
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('estimate-shape', currentStage, data)};"></div>
-        ${renderTimelineNode('Config', 'config-environments', currentStage, data)}
-        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('config-environments', currentStage, data)};"></div>
         ${renderTimelineNode('Plan', 'plan-schedule', currentStage, data)}
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('plan-schedule', currentStage, data)};"></div>
         ${renderTimelineNode('Dependencies', 'dependencies', currentStage, data)}
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('dependencies', currentStage, data)};"></div>
+        ${renderTimelineNode('Config', 'config-environments', currentStage, data)}
+        <div style="flex:1; height: 2px; background: ${getTimelineLineColor('config-environments', currentStage, data)};"></div>
         ${renderTimelineNode('Deploy', 'build-deploy', currentStage, data)}
         <div style="flex:1; height: 2px; background: ${getTimelineLineColor('build-deploy', currentStage, data)};"></div>
         ${renderTimelineNode('Test Quality', 'test-quality', currentStage, data)}
@@ -239,9 +239,9 @@ async function renderProjectDetails(demandId) {
     <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
       ${renderDemandCard(data)}
       ${renderEstimateCard(data)}
-      ${renderConfigCard(data)}
       ${renderPlanCard(data)}
       ${renderDepsCard(data)}
+      ${renderConfigCard(data)}
       ${renderDeployCard(data)}
       ${renderTestCard(data)}
       ${renderReleaseCard(data)}
@@ -258,10 +258,11 @@ async function renderProjectDetails(demandId) {
 // Timeline Helpers
 // ----------------------------------------------------------------------
 const stageOrder = [
-  'demand-intake', 'estimate-shape', 'config-environments', 
-  'plan-schedule', 'dependencies', 'build-deploy', 
+  'demand-intake', 'estimate-shape', 'plan-schedule', 
+  'dependencies', 'config-environments', 'build-deploy', 
   'test-quality', 'release-change', 'ops-readiness'
 ];
+
 
 function getStageStatus(stage, currentStage, data) {
   // Check failure conditions first
