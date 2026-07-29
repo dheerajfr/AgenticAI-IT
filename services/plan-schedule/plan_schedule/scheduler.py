@@ -61,10 +61,27 @@ _PHASE_DEMAND_ROLES: Dict[str, List[str]] = {
     PHASE_DEPLOY: ["Security Engineer", "QA Engineer", "Backend Developer"],
 }
 
+def get_role_priority(emp_role: str) -> int:
+    role_lower = str(emp_role).lower().strip()
+    if "delivery partner" in role_lower:
+        return -999
+    if "developer" in role_lower or role_lower == "dev":
+        return 5
+    if "ai engineer" in role_lower:
+        return 4
+    if "engineer" in role_lower:
+        return 3
+    if "team lead" in role_lower:
+        return 2
+    if "solution architect" in role_lower or "architect" in role_lower:
+        return 1
+    # Video Editor and others default to 0 (below architect, above delivery partner)
+    return 0
 
 # ---------------------------------------------------------------------------
 # Calendar helpers
 # ---------------------------------------------------------------------------
+
 
 def _is_working_day(d: date, working_days_per_week: int) -> bool:
     """
@@ -231,6 +248,8 @@ class _RoundRobinOwner:
             
             def is_match(emp):
                 emp_role = (emp.get("role") or "").strip().lower()
+                if "delivery partner" in emp_role:
+                    return False
                 emp_skills = (emp.get("skills") or emp.get("skill") or "").strip().lower()
                 req_lower = role_name.strip().lower()
                 
@@ -246,29 +265,34 @@ class _RoundRobinOwner:
                 
             # Filter from DB employees
             for emp in self._all_db_employees:
+                if "delivery partner" in (emp.get("role") or "").lower():
+                    continue
                 if is_match(emp) and emp["email"] not in seen_emails:
                     candidates.append(emp)
                     seen_emails.add(emp["email"])
                     
             # Filter from config employees
             for emp in self.employees:
+                if "delivery partner" in (emp.get("role") or "").lower():
+                    continue
                 if is_match(emp) and emp["email"] not in seen_emails:
                     candidates.append(emp)
                     seen_emails.add(emp["email"])
                     
             if not candidates:
-                candidates = self._all_db_employees or self.employees
+                candidates = [e for e in (self._all_db_employees or self.employees) if "delivery partner" not in (e.get("role") or "").lower()]
                 
             def get_score(emp):
                 status_avail = 1 if emp.get("status", "Available") == "Available" else 0
+                role_prio = get_role_priority(emp.get("role") or "")
                 skill_match = 1 if (role_name.lower() in (emp.get("skill") or "").lower() or role_name.lower() in (emp.get("skills") or "").lower()) else 0
                 exp = emp.get("experience", 0) or 0
                 workload = -self.get_utilization_days(emp["email"])
-                return (status_avail, skill_match, exp, workload)
+                return (status_avail, role_prio, skill_match, exp, workload)
                 
             candidates.sort(key=get_score, reverse=True)
             self._selected_teams[role_name] = candidates[:required_count]
-
+ 
     def get_assigned_team_for_phase(self, phase: str) -> List[dict]:
         phase_lower = phase.lower()
         category = ""
@@ -294,6 +318,8 @@ class _RoundRobinOwner:
                 
             if is_match:
                 for emp in emps:
+                    if "delivery partner" in (emp.get("role") or "").lower():
+                        continue
                     if emp["email"] not in seen_emails:
                         combined_team.append(emp)
                         seen_emails.add(emp["email"])
@@ -303,11 +329,13 @@ class _RoundRobinOwner:
             
         for emps in self._selected_teams.values():
             for emp in emps:
+                if "delivery partner" in (emp.get("role") or "").lower():
+                    continue
                 if emp["email"] not in seen_emails:
                     combined_team.append(emp)
                     seen_emails.add(emp["email"])
-                    
         return combined_team
+
 
     def get_adjusted_window(
         self,
@@ -380,7 +408,13 @@ class _RoundRobinOwner:
                     phase
                 )
             else:
-                assigned_team_sorted = sorted(assigned_team, key=lambda e: self.get_utilization_days(e["email"]))
+                assigned_team_sorted = sorted(
+                    assigned_team,
+                    key=lambda e: (
+                        -get_role_priority(e.get("role") or ""),
+                        self.get_utilization_days(e["email"])
+                    )
+                )
                 allocated_emails: List[str] = []
                 pool_size = len(assigned_team_sorted)
                 unique_count = min(count, pool_size)

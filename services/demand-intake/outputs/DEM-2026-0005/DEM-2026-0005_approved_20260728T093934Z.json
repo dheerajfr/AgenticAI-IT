@@ -1,0 +1,67 @@
+{
+  "demand_id": "DEM-2026-0005",
+  "title": "GTA 6 Remake",
+  "description": "Request for a remake of GTA 6.",
+  "type": "project",
+  "domain": "Game Development",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-28",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: GTA 6 Remake (DEM-2026-0005)\n\nExecutive Summary: This project requests a full remake of GTA 6 to modernize graphics, gameplay, and features for next-gen platforms in the Game Development domain.\n\nDirect Business Value/Impact: Remake leverages GTA franchise's massive fanbase for boosted sales, expanded revenue streams via DLC/microtransactions, and strengthened market dominance.\n\nPotential Risk Mitigation: Secure IP licensing early; adopt agile development to control high-risk costs; conduct phased beta testing for quality assurance.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 70,
+  "earliest_start_date": "2026-08-27",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 62 total active team members evaluated.",
+    "Technical capability profiling: 163 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 80/2480 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Developer",
+      "requiredCapacity": 4,
+      "availableCapacity": 45
+    },
+    {
+      "role": "AI Engineer",
+      "requiredCapacity": 2,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Engineer",
+      "requiredCapacity": 2,
+      "availableCapacity": 7
+    },
+    {
+      "role": "Solution Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 3
+    },
+    {
+      "role": "Video Editor",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Team Lead",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    }
+  ],
+  "skill_gaps": [
+    "Unreal Engine",
+    "Unity",
+    "3D Modeling",
+    "Graphics Programming",
+    "Physics Simulation",
+    "Animation",
+    "Sound Design",
+    "Networking",
+    "Video Editing"
+  ]
+}

@@ -540,13 +540,43 @@ def impact_node(state: DependencyState) -> Dict[str, Any]:
     predecessors = {}
     for t_id, t in all_tasks.items():
         predecessors[t_id] = set(t.predecessor_task_ids or [])
-        
+
+    def _would_create_cycle(source: str, target: str) -> bool:
+        """
+        Would adding "source depends on target" close a cycle - i.e. does
+        target already (transitively) depend on source? Walks target's own
+        predecessor chain looking for source.
+        """
+        visited = set()
+        stack = [target]
+        while stack:
+            node = stack.pop()
+            if node == source:
+                return True
+            if node in visited:
+                continue
+            visited.add(node)
+            stack.extend(predecessors.get(node, ()))
+        return False
+
     # Add cross-programme dependency edges from the database
     # In a dependency edge, source_task_id depends on target_task_id (target is predecessor of source)
+    # Sensed/manually-created edges have occasionally recorded a backwards
+    # relationship (see Sense Dependencies fix) - if trusting an edge as-is
+    # would close a cycle against the plan's own real predecessor_task_ids,
+    # exclude that edge from the relaxation below rather than let the
+    # ripple-delay loop run away to nonsense dates. Excluded edges are
+    # reported in the explanation, not silently dropped.
+    excluded_cyclic_edges = []
     for dep in db.get_all():
-        if dep.source_task_id in predecessors:
+        if dep.source_task_id in predecessors and dep.target_task_id in all_tasks:
+            if _would_create_cycle(dep.source_task_id, dep.target_task_id):
+                excluded_cyclic_edges.append(
+                    f"{dep.dependency_id} ({dep.plan_id}: {dep.source_task_id} -> {dep.target_task_id})"
+                )
+                continue
             predecessors[dep.source_task_id].add(dep.target_task_id)
-            
+
     # Relaxation constraint loop
     changed = True
     iterations = 0
@@ -648,7 +678,15 @@ def impact_node(state: DependencyState) -> Dict[str, Any]:
                 f"from {plan.end_date} to {format_date(new_project_end_dt)} (a slip of {slip_diff} days). "
                 f"Immediate mitigation and re-baselining are recommended."
             )
-        
+
+    if excluded_cyclic_edges:
+        explanation = (
+            f"Note: {len(excluded_cyclic_edges)} dependency edge(s) were excluded from this "
+            f"calculation because trusting them would have created a circular dependency "
+            f"({'; '.join(excluded_cyclic_edges)}) - likely a mis-sensed edge direction. "
+            f"Recommend reviewing those edges in Dependencies before relying on this forecast.\n\n"
+        ) + explanation
+
     return {
         "impact_detected": impact_detected,
         "original_project_end_date": plan.end_date,

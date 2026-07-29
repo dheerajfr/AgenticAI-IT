@@ -36,5 +36,6 @@ class EstimateRecord(BaseModel):
     methodology: str = Field(..., description="e.g. comparable-history, expert-judgement")
     risk_factors: Optional[List[str]] = Field(None, description="From 'Challenge the estimate'")
     requires_arb: Optional[bool] = Field(False, description="Flag for Architecture Review Board")
+    reasoning: Optional[str] = Field(None, description="Reasoning/Rationale for the estimate value")
     status: Literal["draft", "challenged", "approved", "re-baselined"] = Field(..., description="Lifecycle status")
     rebaseline_reason: Optional[str] = Field(None, description="Reason for rebaseline")

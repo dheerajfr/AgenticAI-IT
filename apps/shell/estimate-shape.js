@@ -300,59 +300,95 @@ async function handleGenerateEstimate() {
     pendingDemandId = demandId;
 
     document.getElementById('estimate-suggestion-container').innerHTML = `
-      <div class="suggestion-box">
-        <h5 class="suggestion-title">Suggested Estimate</h5>
-        <div class="grid-2col">
-          <div class="data-item"><div class="data-label">Effort Days</div><div class="data-value">${pendingEstimateData.effort_days} (${pendingEstimateData.effort_range_low}-${pendingEstimateData.effort_range_high})</div></div>
-          <div class="data-item"><div class="data-label">Cost</div><div class="data-value">$${pendingEstimateData.cost_estimate}</div></div>
-          <div class="data-item"><div class="data-label">Duration Weeks</div><div class="data-value">${pendingEstimateData.duration_weeks}</div></div>
-          <div class="data-item"><div class="data-label">Confidence</div><div class="data-value" style="text-transform: capitalize;">${pendingEstimateData.confidence}</div></div>
-          <div class="data-item"><div class="data-label">ARB Required</div><div class="data-value">${pendingEstimateData.requires_arb ? 'Yes' : 'No'}</div></div>
-          <div class="data-item"><div class="data-label">Auto-Status</div><div class="data-value" style="text-transform: capitalize; font-weight: bold; color: ${pendingEstimateData.suggested_status === 'approved' ? 'var(--color-status-green-text)' : 'var(--color-status-amber-text)'};">${pendingEstimateData.suggested_status}</div></div>
+      <div class="suggestion-box" style="padding: 1.25rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-secondary); margin-top: 1rem;">
+        <h5 class="suggestion-title" style="margin-top: 0; margin-bottom: 1rem; font-size: 1rem; color: var(--text-primary); font-family: var(--font-display);">Adjust & Verify Estimate</h5>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Effort Days</label>
+            <input type="number" id="input-effort-days" value="${pendingEstimateData.effort_days}" style="padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 100%; box-sizing: border-box;" min="2" />
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Cost ($)</label>
+            <input type="number" id="input-cost" value="${pendingEstimateData.cost_estimate}" style="padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 100%; box-sizing: border-box;" />
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Range Low</label>
+            <input type="number" id="input-effort-low" value="${pendingEstimateData.effort_range_low}" style="padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 100%; box-sizing: border-box;" min="2" />
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Range High</label>
+            <input type="number" id="input-effort-high" value="${pendingEstimateData.effort_range_high}" style="padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 100%; box-sizing: border-box;" min="2" />
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Duration (Weeks)</label>
+            <input type="number" id="input-duration" value="${pendingEstimateData.duration_weeks}" style="padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 100%; box-sizing: border-box;" min="1" />
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Confidence</label>
+            <select id="input-confidence" style="padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 100%; box-sizing: border-box; cursor: pointer;">
+              <option value="low" ${pendingEstimateData.confidence === 'low' ? 'selected' : ''}>Low</option>
+              <option value="medium" ${pendingEstimateData.confidence === 'medium' ? 'selected' : ''}>Medium</option>
+              <option value="high" ${pendingEstimateData.confidence === 'high' ? 'selected' : ''}>High</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0; grid-column: span 2;">
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">ARB Required?</label>
+            <select id="input-arb" style="padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 100%; box-sizing: border-box; cursor: pointer;">
+              <option value="false" ${!pendingEstimateData.requires_arb ? 'selected' : ''}>No</option>
+              <option value="true" ${pendingEstimateData.requires_arb ? 'selected' : ''}>Yes</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0; grid-column: span 2;">
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Estimate Rationale / Reasoning</label>
+            <textarea id="input-reasoning" style="padding: 0.45rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 100%; height: 75px; box-sizing: border-box; font-family: var(--font-sans); font-size: 0.85rem; resize: vertical; line-height: 1.45;">${pendingEstimateData.reasoning || ''}</textarea>
+          </div>
         </div>
+        
         <div style="margin-top: 1rem;">
-          <div class="data-label">Risk Factors</div>
+          <div class="data-label" style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Risk Factors</div>
           <ul style="margin: 0; padding-left: 1rem; font-size: 0.85rem; color: var(--text-secondary);">
             ${pendingEstimateData.risk_factors.map(r => `<li>${r}</li>`).join('')}
           </ul>
         </div>
       </div>
     `;
-
-    actionRow.innerHTML = `
-      <button type="button" class="btn-primary" id="btn-approve-generated">Approve Estimate</button>
-    `;
-    document.getElementById('btn-approve-generated').addEventListener('click', approveGeneratedEstimate);
-  } catch (err) {
-    showEstimateError(err.message);
-    actionRow.innerHTML = `<button type="button" class="btn-primary" id="btn-generate-estimate">Generate Estimate (AI)</button>`;
-    document.getElementById('btn-generate-estimate').addEventListener('click', handleGenerateEstimate);
-  }
-}
-
-async function approveGeneratedEstimate() {
-  const actionRow = document.getElementById('generate-actions-row');
-  actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Saving...</span>`;
-
-  try {
-    const payload = {
-      effort_days: pendingEstimateData.effort_days,
-      effort_range_low: pendingEstimateData.effort_range_low,
-      effort_range_high: pendingEstimateData.effort_range_high,
-      cost_estimate: pendingEstimateData.cost_estimate,
-      duration_weeks: pendingEstimateData.duration_weeks,
-      confidence: pendingEstimateData.confidence,
-      methodology: pendingEstimateData.methodology,
-      risk_factors: pendingEstimateData.risk_factors || [],
-      requires_arb: pendingEstimateData.requires_arb || false,
-      status: pendingEstimateData.suggested_status || 'draft'
-    };
-
-    const res = await fetch(`${ESTIMATE_API_BASE}/estimates/approve?demand_id=${pendingDemandId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+ 
+     actionRow.innerHTML = `
+       <button type="button" class="btn-primary" id="btn-approve-generated">Approve Estimate</button>
+     `;
+     document.getElementById('btn-approve-generated').addEventListener('click', approveGeneratedEstimate);
+   } catch (err) {
+     showEstimateError(err.message);
+     actionRow.innerHTML = `<button type="button" class="btn-primary" id="btn-generate-estimate">Generate Estimate (AI)</button>`;
+     document.getElementById('btn-generate-estimate').addEventListener('click', handleGenerateEstimate);
+   }
+ }
+ 
+ async function approveGeneratedEstimate() {
+   const actionRow = document.getElementById('generate-actions-row');
+   actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Saving...</span>`;
+ 
+   try {
+     const payload = {
+       effort_days: parseInt(document.getElementById('input-effort-days').value),
+       effort_range_low: parseInt(document.getElementById('input-effort-low').value),
+       effort_range_high: parseInt(document.getElementById('input-effort-high').value),
+       cost_estimate: parseInt(document.getElementById('input-cost').value),
+       duration_weeks: parseInt(document.getElementById('input-duration').value),
+       confidence: document.getElementById('input-confidence').value,
+       methodology: pendingEstimateData.methodology,
+       risk_factors: pendingEstimateData.risk_factors || [],
+       requires_arb: document.getElementById('input-arb').value === 'true',
+       reasoning: document.getElementById('input-reasoning').value,
+       status: pendingEstimateData.suggested_status || 'draft'
+     };
+ 
+     const res = await fetch(`${ESTIMATE_API_BASE}/estimates/approve?demand_id=${pendingDemandId}`, {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify(payload)
+     });
 
     if (!res.ok) throw new Error("Approval failed.");
     const newRecord = await res.json();
@@ -415,6 +451,12 @@ function renderEstimateWizard(est) {
               <div class="data-item"><div class="data-label">Methodology</div><div class="data-value">${est.methodology === 'comparable-history' ? 'LLM prediction' : est.methodology}</div></div>
               <div class="data-item"><div class="data-label">ARB Required</div><div class="data-value">${est.requires_arb ? 'Yes' : 'No'}</div></div>
             </div>
+            ${est.reasoning ? `
+            <div style="margin-top: 1rem;">
+              <div class="data-label">Estimate Rationale / Reasoning</div>
+              <div class="data-value" style="font-size: 0.85rem; line-height: 1.5; color: var(--text-secondary); background: var(--bg-tertiary); padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">${est.reasoning}</div>
+            </div>
+            ` : ''}
             <div style="margin-top: 1rem;">
               <div class="data-label">Risk Factors Identified</div>
               <div class="data-value">

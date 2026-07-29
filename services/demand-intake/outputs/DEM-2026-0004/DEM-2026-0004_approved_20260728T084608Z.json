@@ -1,0 +1,51 @@
+{
+  "demand_id": "DEM-2026-0004",
+  "title": "Chess Bot",
+  "description": "Request for a Chess bot. No additional details or specifications provided in the request text.",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "low",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-28",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Chess Bot (DEM-2026-0004)\n\nExecutive Summary\nRequest to develop a Chess Bot for interactive gameplay in the Customer Digital domain.\n\nDirect Business Value/Impact\nBoosts customer engagement and satisfaction via AI-driven entertainment. Aligns with digital innovation goals.\n\nPotential Risk Mitigation\nLow-risk project; address via agile sprints, user testing, and basic security reviews.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 94,
+  "earliest_start_date": "2026-08-27",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 62 total active team members evaluated.",
+    "Technical capability profiling: 163 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 0/2480 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Solution Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 3
+    },
+    {
+      "role": "AI Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 47
+    },
+    {
+      "role": "Team Lead",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    }
+  ],
+  "skill_gaps": [
+    "AI/ML",
+    "Algorithms",
+    "Game Development"
+  ]
+}

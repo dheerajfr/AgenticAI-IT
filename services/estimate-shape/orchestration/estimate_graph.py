@@ -27,6 +27,7 @@ class EstimateState(TypedDict):
     duration_weeks: Optional[int]
     confidence: Optional[str]
     methodology: Optional[str]
+    reasoning: Optional[str]
     
     # Challenge fields
     risk_factors: Optional[List[str]]
@@ -60,6 +61,12 @@ def estimate_node(state: EstimateState) -> Dict[str, Any]:
     prompt = f"""
     You are an AI Estimation Expert. Estimate the effort, cost, and duration for this project demand based on typical historical metrics for similar work.
     
+    CRITICAL ESTIMATION RULES:
+    1. Size the project appropriately based on scale:
+       - For standard/small/medium requests (e.g. chess bot, API endpoint, form utility), tailor the estimate for a rapid build team that works in a highly lean, sprint-based manner. Timelines and effort should be compressed accordingly.
+       - For massive-scale/enterprise/AAA-level requests (e.g. GTA remake, full ERP migrations, core banking system replacement), scale the estimate exponentially to reflect their true scope (which could be hundreds or thousands of days and millions of dollars), while keeping the team structure lean.
+    2. The absolute minimum effort required for any delivery is 2 days.
+    
     Demand Title: {title}
     Description: {description}
     Type: {dtype}
@@ -75,13 +82,14 @@ def estimate_node(state: EstimateState) -> Dict[str, Any]:
         
     prompt += """
     Output a JSON object with:
-    - effort_days: int (point estimate)
-    - effort_range_low: int (lower bound)
-    - effort_range_high: int (upper bound)
+    - effort_days: int (point estimate, absolute minimum of 2 days)
+    - effort_range_low: int (lower bound, absolute minimum of 2 days)
+    - effort_range_high: int (upper bound, absolute minimum of 2 days)
     - cost_estimate: int (in local currency, e.g., dollars/pounds)
-    - duration_weeks: int (duration)
+    - duration_weeks: int (duration, compressed for rapid development sprints, minimum 1)
     - confidence: one of "low", "medium", "high"
-    - methodology: string (e.g., "comparable-history", "expert-judgement")
+    - methodology: string (e.g., "rapid-sprint-sizing", "lean-analogy")
+    - reasoning: string (brief explanation justifying the effort, cost, and duration estimate based on the scope and complexity)
     - risk_factors: list of strings (maximum 3 short and concise risk factors)
     - requires_arb: boolean (true if Architecture Review Board is needed, e.g., for cloud migrations or new databases, else false)
     """
@@ -89,19 +97,26 @@ def estimate_node(state: EstimateState) -> Dict[str, Any]:
     try:
         estimation = call_gemini(
             prompt=prompt,
-            system_instruction="Estimate project effort and cost.",
+            system_instruction="Estimate project effort and cost for a rapid build team.",
             is_json=True
         )
         print("---------------- Prompt: ",prompt)
         print(f"[LangGraph Node: estimate] Generated estimate: {estimation}")
+        
+        effort_days = max(2, estimation.get("effort_days", 5))
+        effort_low = max(2, estimation.get("effort_range_low", 4))
+        effort_high = max(2, estimation.get("effort_range_high", 7))
+        duration_wks = max(1, estimation.get("duration_weeks", 1))
+        
         return {
-            "effort_days": estimation.get("effort_days", 50),
-            "effort_range_low": estimation.get("effort_range_low", 40),
-            "effort_range_high": estimation.get("effort_range_high", 70),
-            "cost_estimate": estimation.get("cost_estimate", 100000),
-            "duration_weeks": estimation.get("duration_weeks", 8),
-            "confidence": estimation.get("confidence", "medium"),
-            "methodology": estimation.get("methodology", "comparable-history"),
+            "effort_days": effort_days,
+            "effort_range_low": effort_low,
+            "effort_range_high": effort_high,
+            "cost_estimate": estimation.get("cost_estimate", 10000),
+            "duration_weeks": duration_wks,
+            "confidence": estimation.get("confidence", "high"),
+            "methodology": estimation.get("methodology", "rapid-sprint-sizing"),
+            "reasoning": estimation.get("reasoning", "Standard sizing based on project criteria."),
             "risk_factors": estimation.get("risk_factors", []),
             "requires_arb": estimation.get("requires_arb", False)
         }
@@ -112,18 +127,20 @@ def estimate_node(state: EstimateState) -> Dict[str, Any]:
         is_high_risk = (risk_level or "").lower() == "high"
         is_migration = "migrat" in (title + " " + description).lower() or "cloud" in (title + " " + description).lower()
         
-        base_effort = max(35, min(150, desc_words * 2 if desc_words > 10 else 45))
+        # Lean team sizing: base effort is small (minimum 2 days, maximum 30 days for small tasks)
+        base_effort = max(2, min(30, desc_words // 2 if desc_words > 10 else 5))
         if is_high_risk:
-            base_effort = int(base_effort * 1.35)
+            base_effort = int(base_effort * 1.25)
+        base_effort = max(2, base_effort)
             
-        effort_low = int(base_effort * 0.85)
-        effort_high = int(base_effort * 1.3)
-        cost = base_effort * 1200
-        duration_weeks = max(4, math.ceil(base_effort / 8))
+        effort_low = max(2, int(base_effort * 0.8))
+        effort_high = max(2, int(base_effort * 1.25))
+        cost = base_effort * 800
+        duration_weeks = max(1, math.ceil(base_effort / 10))  # compressed sprint-based timelines
         
-        risk_factors = ["Complex backend integration requirements", "Team allocation and capacity dependencies"]
+        risk_factors = ["Rapid development timeline alignment", "Sprint resource dependencies"]
         if is_high_risk:
-            risk_factors.append("High risk domain requires senior technical lead approval")
+            risk_factors.append("High risk domain requires quick sign-off")
             
         return {
             "effort_days": base_effort,
@@ -131,8 +148,9 @@ def estimate_node(state: EstimateState) -> Dict[str, Any]:
             "effort_range_high": effort_high,
             "cost_estimate": cost,
             "duration_weeks": duration_weeks,
-            "confidence": "medium",
-            "methodology": "rule-based-historical-analogy",
+            "confidence": "high",
+            "methodology": "rule-based-lean-sizing",
+            "reasoning": f"Fallback rule-based sizing based on description of {desc_words} words.",
             "risk_factors": risk_factors,
             "requires_arb": is_migration or is_high_risk
         }

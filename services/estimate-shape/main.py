@@ -42,6 +42,7 @@ class ApproveEstimateRequest(BaseModel):
     methodology: str
     risk_factors: List[str] = []
     requires_arb: bool = False
+    reasoning: Optional[str] = None
     status: str = "draft"
 
 
@@ -112,6 +113,7 @@ def generate_estimate(req: GenerateEstimateRequest):
         "methodology": graph_output.get("methodology"),
         "risk_factors": graph_output.get("risk_factors", []),
         "requires_arb": graph_output.get("requires_arb", False),
+        "reasoning": graph_output.get("reasoning", "Standard sizing based on project criteria."),
         "suggested_status": suggested_status
     }
 
@@ -133,6 +135,7 @@ def approve_estimate(demand_id: str, req: ApproveEstimateRequest):
         methodology=req.methodology,
         risk_factors=req.risk_factors,
         requires_arb=req.requires_arb,
+        reasoning=req.reasoning,
         status=req.status
     )
     db.save(new_record)

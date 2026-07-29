@@ -214,14 +214,16 @@ def create_dependency(dep: DependencyEdge):
             dep.owner = first_task.owner
         if not dep.source_task_id:
             dep.source_task_id = first_task.task_id
-        if not dep.target_task_id:
-            if first_task.predecessor_task_ids:
-                dep.target_task_id = first_task.predecessor_task_ids[0]
-            elif len(plan.tasks) > 1:
-                dep.target_task_id = plan.tasks[1].task_id
-            else:
-                dep.target_task_id = first_task.task_id
-            
+        if not dep.target_task_id and first_task.predecessor_task_ids:
+            # Only fill target_task_id from a REAL predecessor relationship.
+            # Previously this fell back to guessing plan.tasks[1] (the next
+            # task by array position) when the first task had no recorded
+            # predecessor - that guess is backwards (it made the first task
+            # "depend on" a later task) and created a cycle that broke the
+            # cross-programme impact date math. Leaving it unset is honest;
+            # a guessed direction is not.
+            dep.target_task_id = first_task.predecessor_task_ids[0]
+
     dep.activity_history = [
         "✓ Plan-level dependency registered",
         f"✓ Task List compiled: {', '.join(dep.task_list)}"
@@ -234,8 +236,19 @@ def create_dependency(dep: DependencyEdge):
 @app.post("/api/dependencies/sense", response_model=DependencySenseResponse)
 def sense_dependencies(req: DependencySenseRequest):
     """
-    Senses dependencies within a plan.
-    Saves exactly one plan-level dependency record.
+    Senses dependencies within a plan by invoking the real LangGraph "sense"
+    node (dependency_graph.sense_node), which calls the LLM to discover
+    dependencies from the plan's own task metadata (names, owners, dates,
+    predecessor links). Previously this endpoint never called the LLM at
+    all - it just copied task_id[0] -> task_id[1] as a "dependency" by
+    array position, which could (and did) produce a direction that
+    contradicts the task's own real predecessor_task_ids, creating a
+    cycle that breaks downstream ripple-impact date math.
+
+    Persists one DependencyEdge per distinct (source_task_id, target_task_id)
+    pair the LLM reports for this plan - re-running sense on an already-
+    sensed plan updates the existing edges for pairs already known rather
+    than duplicating them.
     """
     import datetime
     plan = plan_loader.load_plan_by_id(req.plan_id)
@@ -244,7 +257,7 @@ def sense_dependencies(req: DependencySenseRequest):
             status_code=404,
             detail=f"Plan record with ID {req.plan_id} not found."
         )
-        
+
     # Enforce coordination preconditions
     demand = load_demand_by_id(plan.demand_id)
     if demand:
@@ -259,53 +272,95 @@ def sense_dependencies(req: DependencySenseRequest):
                     f"It must be classified and capacity-checked before sensing dependencies."
                 )
 
-    # Check if plan-level dependency already exists
-    existing_dep = None
-    for d in db.get_all():
-        if d.plan_id == req.plan_id:
-            existing_dep = d
-            break
-            
     now_str = datetime.datetime.now().isoformat()
     task_ids = [t.task_id for t in plan.tasks]
-    
-    if existing_dep:
-        existing_dep.task_list = task_ids
-        existing_dep.last_updated = now_str
-        existing_dep.demand_id = plan.demand_id
-        db.save(existing_dep)
-        edge = existing_dep
-    else:
-        dep_id = generate_dependency_id()
-        edge = DependencyEdge(
-            dependency_id=dep_id,
-            plan_id=req.plan_id,
-            demand_id=plan.demand_id,
-            status="open",
-            risk="medium",
-            created_date=now_str,
-            last_updated=now_str,
-            task_list=task_ids,
-            activity_history=[
-                "✓ Plan-level dependency auto-sensed",
-                f"✓ Task List compiled: {', '.join(task_ids)}"
-            ],
-            draft_message=""
+    existing_all = db.get_all()
+
+    state_input = {
+        "task": "sense",
+        "plan_id": req.plan_id,
+        "plan": plan,
+        "error": None
+    }
+
+    try:
+        graph_output = dependency_graph.invoke(state_input)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"LangGraph execution failed: {str(e)}"
         )
-        # Set compatibility fallback fields
-        if plan.tasks:
-            first_task = plan.tasks[0]
-            edge.owner = first_task.owner
-            edge.source_task_id = first_task.task_id
-            if first_task.predecessor_task_ids:
-                edge.target_task_id = first_task.predecessor_task_ids[0]
-            elif len(plan.tasks) > 1:
-                edge.target_task_id = plan.tasks[1].task_id
-            else:
-                edge.target_task_id = first_task.task_id
-        db.save(edge)
-        
-    return DependencySenseResponse(detected_dependencies=[edge])
+
+    if graph_output.get("error"):
+        raise HTTPException(
+            status_code=422,
+            detail=graph_output["error"]
+        )
+
+    detected = graph_output.get("detected_dependencies") or []
+
+    def find_existing_edge(source_id: str, target_id: str) -> Optional[DependencyEdge]:
+        for d in existing_all:
+            if d.plan_id == req.plan_id and d.source_task_id == source_id and d.target_task_id == target_id:
+                return d
+        return None
+
+    saved_edges: List[DependencyEdge] = []
+    for item in detected:
+        source_id = item.get("source_task_id") or (plan.tasks[0].task_id if plan.tasks else "")
+        target_id = item.get("target_task_id") or source_id
+        if source_id == target_id:
+            # A task cannot depend on itself - skip rather than persist a
+            # degenerate self-edge that would also loop the impact relaxation.
+            continue
+        dep_type = item.get("type") or "technical"
+        owner = item.get("owner")
+        if not owner:
+            for t in plan.tasks:
+                if t.task_id == source_id:
+                    owner = t.owner
+                    break
+            owner = owner or (plan.tasks[0].owner if plan.tasks else "unassigned")
+
+        existing_edge = find_existing_edge(source_id, target_id)
+        if existing_edge:
+            existing_edge.type = dep_type
+            existing_edge.status = existing_edge.status or "open"
+            existing_edge.owner = existing_edge.owner or owner
+            existing_edge.task_list = task_ids
+            existing_edge.demand_id = plan.demand_id
+            existing_edge.last_updated = now_str
+            if not existing_edge.activity_history:
+                existing_edge.activity_history = []
+            existing_edge.activity_history.append(
+                f"✓ AI re-sensed (LangGraph sense_node): confirmed {dep_type} dependency {source_id} -> {target_id}"
+            )
+            db.save(existing_edge)
+            saved_edges.append(existing_edge)
+        else:
+            edge = DependencyEdge(
+                dependency_id=generate_dependency_id(),
+                plan_id=req.plan_id,
+                demand_id=plan.demand_id,
+                source_task_id=source_id,
+                target_task_id=target_id,
+                type=dep_type,
+                status=item.get("status") or "open",
+                owner=owner,
+                risk="medium",
+                created_date=now_str,
+                last_updated=now_str,
+                task_list=task_ids,
+                activity_history=[
+                    "✓ AI-sensed via LangGraph (dependency_graph.sense_node, real LLM call)",
+                    f"✓ Detected {dep_type} dependency: {source_id} -> {target_id}"
+                ],
+                draft_message=""
+            )
+            db.save(edge)
+            saved_edges.append(edge)
+
+    return DependencySenseResponse(detected_dependencies=saved_edges)
 
 
 @app.get("/api/dependencies/{dependency_id}/task-details", response_model=DependencyTaskDetails)

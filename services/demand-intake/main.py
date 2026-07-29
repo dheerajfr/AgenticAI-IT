@@ -446,7 +446,22 @@ def perform_capacity_check(record: DemandRecord, custom_required_people: Optiona
     for res in resources:
         all_workforce_skills.update(res["skills"])
         
-    skill_gaps = [skill for skill in required_skills if skill not in all_workforce_skills]
+    skill_gaps = []
+    for skill in required_skills:
+        skill_lower = skill.lower().strip()
+        has_skill = False
+        for ws in all_workforce_skills:
+            ws_lower = ws.lower().strip()
+            if (skill_lower in ws_lower) or (ws_lower in skill_lower):
+                # Ensure we don't match tiny single-character skills falsely (e.g. 'C')
+                if len(skill_lower) > 1 and len(ws_lower) > 1:
+                    has_skill = True
+                    break
+                elif skill_lower == ws_lower:
+                    has_skill = True
+                    break
+        if not has_skill:
+            skill_gaps.append(skill)
     
     # 5. Resource capacity check against dynamic workforce pool
     role_available_capacity = {}

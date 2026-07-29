@@ -1,0 +1,26 @@
+{
+  "demand_id": "DEM-2026-0005",
+  "title": "GTA 6",
+  "description": "Request for information or details on GTA 6.",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "low",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-28",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: GTA 6 (DEM-2026-0005)\n\nExecutive Summary\nThis project requests information on GTA 6 to support Customer Digital strategies. It enables timely intelligence on a major gaming release.\n\nDirect Business Value/Impact\nDelivers competitive insights to enhance customer engagement and digital offerings. Drives informed decisions for gaming-related services.\n\nPotential Risk Mitigation\nLow risk level managed via standard info sourcing protocols. Ensures compliance with data privacy and IP guidelines.",
+  "status": "approved",
+  "capacity_verdict": "feasible",
+  "capacity_score": 100,
+  "earliest_start_date": "2026-07-28",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 62 total active team members evaluated.",
+    "Technical capability profiling: 163 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 80/2480 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [],
+  "skill_gaps": []
+}

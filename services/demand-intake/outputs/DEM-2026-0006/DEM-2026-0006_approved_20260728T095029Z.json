@@ -1,0 +1,32 @@
+{
+  "demand_id": "DEM-2026-0006",
+  "title": "Tic Tac Toe game",
+  "description": "Develop a simple Tic Tac Toe game that runs and is played entirely in the console.",
+  "type": "project",
+  "domain": "Games",
+  "risk_level": "low",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-07-28",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Tic Tac Toe game (DEM-2026-0006)\n\nExecutive Summary\nThis project develops a simple console-based Tic Tac Toe game to showcase basic game logic and programming fundamentals in the Games domain.\n\nDirect Business Value/Impact\nProvides a quick, low-effort demonstrator for developer skills and team training, boosting morale and portfolio value with minimal resource use.\n\nPotential Risk Mitigation\nLow risk level addressed by straightforward scope, no external dependencies, and console-only execution for easy testing and deployment.",
+  "status": "approved",
+  "capacity_verdict": "feasible",
+  "capacity_score": 100,
+  "earliest_start_date": "2026-07-28",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 62 total active team members evaluated.",
+    "Technical capability profiling: 163 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 80/2480 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 45
+    }
+  ],
+  "skill_gaps": []
+}
