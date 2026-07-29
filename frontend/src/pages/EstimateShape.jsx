@@ -67,8 +67,7 @@ export default function EstimateShape() {
 
     showLoader('Sizing effort & cost...');
     try {
-      const payload = { demand: targetDemand };
-      const res = await estimateService.generateEstimate(payload);
+      const res = await estimateService.generateEstimate(targetDemand);
       setSuggestedEstimate(res);
       showToast('AI effort & cost sizing complete');
     } catch (err) {
@@ -144,7 +143,7 @@ export default function EstimateShape() {
   const handleFinalApprove = async (id, reason) => {
     showLoader('Finalizing estimate...');
     try {
-      await estimateService.finalizeEstimate(id, { reason: reason || 'No anomalies detected' });
+      await estimateService.finalize(id, reason || 'No anomalies detected');
       setTriggerCheckData(null);
       await loadData();
       showToast('Estimate finalized');

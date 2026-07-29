@@ -12,10 +12,10 @@ export const demandService = {
 
   classifyRoute: (id) => request(`${API_BASE}/demands/${id}/classify-route`, { method: 'POST' }),
 
-  approveClassify: (id, category, rationale) => request(`${API_BASE}/demands/${id}/approve-classify`, {
+  approveClassify: (id, type, risk_level, domain, duplicate_of) => request(`${API_BASE}/demands/${id}/approve-classify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ category, rationale })
+    body: JSON.stringify({ type, risk_level, domain, duplicate_of })
   }),
 
   capacityCheck: (id) => request(`${API_BASE}/demands/${id}/capacity-check`, { method: 'POST' }),
@@ -26,10 +26,10 @@ export const demandService = {
     body: JSON.stringify(data)
   }),
 
-  approveCapacity: (id, decision, comment) => request(`${API_BASE}/demands/${id}/approve-capacity`, {
+  approveCapacity: (id, verdict, resourceConstraints) => request(`${API_BASE}/demands/${id}/approve-capacity`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ decision, comment })
+    body: JSON.stringify({ verdict, resourceConstraints })
   }),
 
   getResources: () => requestSafe(`${API_BASE}/demands/resources?t=${Date.now()}`),
@@ -55,6 +55,6 @@ export const demandService = {
   approveBusinessCase: (id, decision, comment, draftText) => request(`${API_BASE}/demands/${id}/approve-business-case`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ decision, comment, business_case_draft: draftText })
+    body: JSON.stringify({ business_case_summary: draftText })
   })
 };

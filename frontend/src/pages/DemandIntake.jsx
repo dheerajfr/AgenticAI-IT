@@ -51,6 +51,7 @@ export default function DemandIntake() {
 
   // Scroll ref for details panel
   const panelRef = useRef(null);
+  const lastDemandIdRef = useRef(null);
 
   // Load workforce pool when capacity step is active
   const loadWorkforce = async () => {
@@ -64,8 +65,10 @@ export default function DemandIntake() {
 
   useEffect(() => {
     if (selectedDemand) {
-      // Setup business case draft text
-      setBusinessCaseDraft(selectedDemand.business_case_summary || '');
+      if (selectedDemand.demand_id !== lastDemandIdRef.current) {
+        setBusinessCaseDraft(selectedDemand.business_case_summary || '');
+        lastDemandIdRef.current = selectedDemand.demand_id;
+      }
       // Clear temporary suggestions
       setClassSuggestions(null);
       setCapSuggestions(null);
@@ -1213,7 +1216,7 @@ export default function DemandIntake() {
                           </button>
                         </div>
                       </div>
-                    ) : selectedDemand.business_case_summary ? (
+                    ) : (selectedDemand.business_case_summary || businessCaseDraft) ? (
                       /* ACTIVE DRAFT STATE */
                       <div>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: 0, marginBottom: '1rem' }}>
