@@ -1,0 +1,9 @@
+# Frontend Build Output & Dependencies
+node_modules/
+dist/
+.eslintcache
+.vite-inspect
+
+# Local Env Files
+.env.local
+.env.*.local

@@ -99,7 +99,7 @@ print("Gateway ready.")
 
 from starlette.staticfiles import StaticFiles
 
-static_app = StaticFiles(directory=".")
+static_app = StaticFiles(directory=os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"), html=True)
 
 async def app(scope, receive, send):
     if scope["type"] == "http":
@@ -175,7 +175,7 @@ async def app(scope, receive, send):
             await send({
                 "type": "http.response.start",
                 "status": 307,
-                "headers": [(b"location", b"/apps/shell/index.html")]
+                "headers": [(b"location", b"/index.html")]
             })
             await send({
                 "type": "http.response.body",

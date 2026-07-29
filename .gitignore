@@ -1,3 +1,4 @@
+# Backend & General
 .env
 **/__pycache__/
 *.py[cod]
@@ -10,5 +11,7 @@ venv/
 .DS_Store
 .vscode/
 .idea/
-services/demand-intake/orchestration/__pycache__/
-services/demand-intake/orchestration/__pycache__/business_case.cpython-314.pyc
+backend/services/demand-intake/orchestration/__pycache__/
+backend/services/demand-intake/orchestration/__pycache__/business_case.cpython-314.pyc
+
+

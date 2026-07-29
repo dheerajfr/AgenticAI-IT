@@ -1,58 +1,54 @@
-# AI Delivery Lifecycle Platform - Monorepo Scaffold
+# AI Delivery Lifecycle Platform - Monorepo Layout
 
-A clean monorepo scaffold designed to coordinate the development of a 5-stage AI Delivery Lifecycle Platform. It enables parallel development across modules via shared UI kit components and data contracts.
+A clean monorepo designed to coordinate the development of the AI Delivery Lifecycle Platform. It separates client-side interfaces and backend logic.
 
 ## Monorepo Layout
 
-*   `/apps/shell`: Shared UI Shell. Renders the stage pipeline navigation rail and swaps active viewports.
-*   `/services/demand-intake`: Stage 01 service (FastAPI + LangGraph orchestration).
-*   `/packages/ui-kit`: Shared styling tokens (`tokens.css`) and native Web Components (`stage-rail.js`, `status-pill.js`, `module-placeholder.js`).
-*   `/packages/contracts`: JSON Schema specification for the `DemandRecord` data contract.
+*   `/frontend`: Modern React 19 + Vite SPA. Handles all stages, routing, UI modules, and dynamic state context.
+*   `/backend/services`: Python FastAPI services for all delivery modules (demand intake, estimate shaping, scheduling Gantt, config drift scanner, testing quality gates, release governance, and ops readiness checklists).
+*   `/frontend/packages`: Client contracts and shared design system widgets.
 
 ---
 
 ## Local Development Setup
 
-### 1. Backend Service (FastAPI + LangGraph)
+### 1. Backend Service & API Gateway
 
-Navigate to the project root and install dependencies:
+Navigate to the `backend/` directory, create a virtual environment, activate it, install requirements, and run the service gateway:
 
 ```bash
+cd backend
+python -m venv venv
+
+# Activate on Windows:
+.\venv\Scripts\activate
+
+# Activate on macOS/Linux:
+source venv/bin/activate
+
 pip install -r requirements.txt
+uvicorn gateway:app --reload --port 8000
 ```
 
-Start the FastAPI server:
+The unified API gateway runs at `http://127.0.0.1:8000`.
+
+### 2. Frontend Development
+
+Navigate to the `frontend/` directory, install package dependencies, and start the local Vite development server:
 
 ```bash
-cd services/demand-intake
-uvicorn main:app --reload --port 8000
+cd frontend
+npm install
+npm run dev
 ```
 
-The REST API will be running at `http://127.0.0.1:8000`. You can explore the interactive API docs at `http://127.0.0.1:8000/docs`.
-
-### 2. Frontend App Shell
-
-Since the frontend is built entirely using vanilla HTML/JS and native Web Components, no build steps or bundlers are required. 
-
-To avoid CORS restrictions when loading ES Modules locally, start a lightweight web server from the project root:
-
-Using python:
-```bash
-python -m http.server 8080
-```
-
-Now open your browser and navigate to:
-```
-http://localhost:8080/apps/shell/
-```
+Open `http://localhost:5173` in your browser. The Vite dev server will proxy API calls (`/api/*`) to the backend gateway.
 
 ### 3. Run Automated Tests
 
-To run the backend test suite, run the following command from the project root:
+To run the backend test suite, execute pytest inside the `backend/` directory:
 
 ```bash
+cd backend
 pytest services/demand-intake/test_endpoints.py
 ```
-abcd
-
-uvicorn gateway:app --reload
