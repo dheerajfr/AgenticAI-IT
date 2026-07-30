@@ -21,8 +21,8 @@ function calculateHealth(data) {
 }
 
 const stageOrder = [
-  'demand-intake', 'estimate-shape', 'config-environments',
-  'plan-schedule', 'dependencies', 'build-deploy',
+  'demand-intake', 'estimate-shape', 'plan-schedule',
+  'dependencies', 'config-environments', 'build-deploy',
   'test-quality', 'release-change', 'ops-readiness',
 ];
 
@@ -358,9 +358,9 @@ export default function DashboardPage() {
   const cards = projectData ? [
     buildDemandCard(projectData),
     buildEstimateCard(projectData),
-    buildConfigCard(projectData),
     buildPlanCard(projectData),
     buildDepsCard(projectData),
+    buildConfigCard(projectData),
     buildDeployCard(projectData),
     buildTestCard(projectData),
     buildReleaseCard(projectData),
@@ -446,12 +446,12 @@ export default function DashboardPage() {
                 <TimelineLine fromStage="demand-intake" currentStage={currentStage} data={projectData} />
                 <TimelineNode label="Estimate" stageId="estimate-shape" currentStage={currentStage} data={projectData} />
                 <TimelineLine fromStage="estimate-shape" currentStage={currentStage} data={projectData} />
-                <TimelineNode label="Config" stageId="config-environments" currentStage={currentStage} data={projectData} />
-                <TimelineLine fromStage="config-environments" currentStage={currentStage} data={projectData} />
                 <TimelineNode label="Plan" stageId="plan-schedule" currentStage={currentStage} data={projectData} />
                 <TimelineLine fromStage="plan-schedule" currentStage={currentStage} data={projectData} />
                 <TimelineNode label="Dependencies" stageId="dependencies" currentStage={currentStage} data={projectData} />
                 <TimelineLine fromStage="dependencies" currentStage={currentStage} data={projectData} />
+                <TimelineNode label="Config" stageId="config-environments" currentStage={currentStage} data={projectData} />
+                <TimelineLine fromStage="config-environments" currentStage={currentStage} data={projectData} />
                 <TimelineNode label="Deploy" stageId="build-deploy" currentStage={currentStage} data={projectData} />
                 <TimelineLine fromStage="build-deploy" currentStage={currentStage} data={projectData} />
                 <TimelineNode label="Test Quality" stageId="test-quality" currentStage={currentStage} data={projectData} />

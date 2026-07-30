@@ -683,7 +683,7 @@ function Step4Body({ demand, isAllApproved, isCapacityApproved, onApprove, onRer
 
   const handleApprove = async () => {
     try {
-      await apiFetch(`/api/demands/${demand.demand_id}/approve`, {
+      await apiFetch(`/api/demands/${demand.demand_id}/approve-business-case`, {
         method: 'POST',
         body: JSON.stringify({ business_case_summary: bcText }),
       });
@@ -867,7 +867,7 @@ export default function DemandIntakePage() {
   const [showNewForm, setShowNewForm] = useState(!selectedDemandId);
   const { confirm, DialogComponent } = useConfirmDialog();
 
-  const fetchDemands = useCallback(async () => {
+  const fetchDemands = useCallback(async (overrideId) => {
     setLoading(true);
     setError(null);
     const data = await getDemands();
@@ -875,9 +875,10 @@ export default function DemandIntakePage() {
     if (data) {
       setLocalDemands(data);
       setDemands(data);
-      const exists = data.some((d) => d.demand_id === selectedId);
-      if (selectedId && exists) setShowNewForm(false);
-      else if (!data.length || !selectedId) setShowNewForm(true);
+      const activeId = overrideId !== undefined ? overrideId : selectedId;
+      const exists = data.some((d) => d.demand_id === activeId);
+      if (activeId && exists) setShowNewForm(false);
+      else if (!data.length || !activeId) setShowNewForm(true);
     } else {
       setError(true);
       setShowNewForm(true);
@@ -914,7 +915,7 @@ export default function DemandIntakePage() {
     setSelectedId(demandId);
     selectDemand(demandId);
     setShowNewForm(false);
-    await fetchDemands();
+    await fetchDemands(demandId);
   };
 
   const selectedDemand = demands.find((d) => d.demand_id === selectedId);

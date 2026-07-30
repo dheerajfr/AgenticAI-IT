@@ -12,4 +12,4 @@ export const deleteDependency = (depId) =>
   apiFetch(`/api/dependencies/${depId}`, { method: 'DELETE' });
 
 export const generateDependencies = (payload) =>
-  apiFetch('/api/dependencies/generate', { method: 'POST', body: JSON.stringify(payload) });
+  apiFetch('/api/dependencies/sense', { method: 'POST', body: JSON.stringify(payload) });

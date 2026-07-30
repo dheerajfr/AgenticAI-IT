@@ -16,8 +16,8 @@ export function determineCurrentStage(data) {
         data.testQuality.quality_gate))
   ) return 'test-quality';
   if (data.deployments && data.deployments.length > 0) return 'build-deploy';
-  if (data.dependencies && data.dependencies.length > 0) return 'dependencies';
   if (data.environments && data.environments.length > 0) return 'config-environments';
+  if (data.dependencies && data.dependencies.length > 0) return 'dependencies';
   if (data.plan) return 'plan-schedule';
   if (data.estimate) return 'estimate-shape';
   return 'demand-intake';
@@ -31,8 +31,8 @@ export function getStageProgress(currentStage) {
     'demand-intake',
     'estimate-shape',
     'plan-schedule',
-    'config-environments',
     'dependencies',
+    'config-environments',
     'build-deploy',
     'test-quality',
     'release-change',
