@@ -121,8 +121,6 @@ function computeDynamicRisk(dep) {
     .timeline-step { display: flex; align-items: flex-start; gap: 0.75rem; position: relative; padding-bottom: 1rem; }
     .timeline-step:not(:last-child)::after { content: ''; position: absolute; left: 11px; top: 24px; width: 2px; height: calc(100% - 12px); background: var(--border-color); }
     .timeline-dot { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0; border: 2px solid var(--border-color); background: var(--bg-secondary); }
-    .quick-action-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-md); font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-secondary); flex: 1; min-width: 140px; }
-    .quick-action-btn:hover { border-color: var(--color-brand); color: var(--color-brand); background: rgba(99,102,241,0.04); box-shadow: var(--shadow-sm); }
     .kpi-stat { text-align: center; padding: 0.75rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
     .kpi-stat .kpi-val { font-size: 1.4rem; font-weight: 800; color: var(--color-brand); line-height: 1.2; }
     .kpi-stat .kpi-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-top: 0.2rem; }
@@ -886,20 +884,6 @@ function renderDependencyDetails(dep) {
               </button>
             </div>
           ` : ''}
-
-          <!-- Quick Actions -->
-          <div style="margin-bottom: 1.5rem;">
-            <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">⚡ Quick Actions</h5>
-            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;" id="quick-actions-panel">
-              <button class="quick-action-btn" data-qaction="risk">🚨 Create Risk</button>
-              <button class="quick-action-btn" data-qaction="ado-bug">🐞 Open ADO Bug</button>
-              <button class="quick-action-btn" data-qaction="meeting">📅 Teams Meeting</button>
-              <button class="quick-action-btn" data-qaction="notify">📢 Notify Manager</button>
-              <button class="quick-action-btn" data-qaction="dashboard">📊 Update Dashboard</button>
-              <button class="quick-action-btn" data-qaction="release-note">📝 Add Release Note</button>
-            </div>
-          </div>
-
         </div>
       </div>
 

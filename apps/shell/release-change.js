@@ -31,10 +31,13 @@ window.renderReleaseChangeScreen = function () {
   window.handleCreateRelease = handleCreateRelease;
   window.triggerDraftChange = triggerDraftChange;
   window.triggerRiskAssessment = triggerRiskAssessment;
+  window.triggerRiskReview = triggerRiskReview;
   window.saveChangeRequestEdit = saveChangeRequestEdit;
   window.submitChangeRequest = submitChangeRequest;
   window.submitCABReview = submitCABReview;
+  window.triggerCabPrep = triggerCabPrep;
   window.triggerCollisionCheck = triggerCollisionCheck;
+  window.submitCollisionDecision = submitCollisionDecision;
   window.triggerAuditUpdate = triggerAuditUpdate;
   window.handleFiltersChange = handleFiltersChange;
   window.onProjectSelectChange = onProjectSelectChange;
@@ -1097,6 +1100,59 @@ function renderRiskTab() {
           ${ra.recommendation}
         </div>
       </div>
+
+      <!-- Human Review / Override -->
+      <div style="display: flex; flex-direction: column; gap: 0.75rem; border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-weight: 700; font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Human Review of Risk Score</div>
+          ${ra.human_reviewed ? `
+            <span class="status-pill status-green" style="padding: 0.25rem 0.6rem; border-radius: var(--radius-round); font-size: 0.7rem; font-weight: 700;">✓ REVIEWED</span>
+          ` : `
+            <span class="status-pill status-amber" style="padding: 0.25rem 0.6rem; border-radius: var(--radius-round); font-size: 0.7rem; font-weight: 700;">PENDING REVIEW</span>
+          `}
+        </div>
+
+        ${ra.human_reviewed ? `
+          <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 0.85rem 1rem; border-radius: var(--radius-md); font-size: 0.82rem; display: flex; flex-direction: column; gap: 0.3rem;">
+            <div><strong>Reviewed by:</strong> ${ra.reviewed_by || 'N/A'} ${ra.reviewed_at ? `<span style="color: var(--text-secondary);">(${ra.reviewed_at})</span>` : ''}</div>
+            ${ra.ai_score !== undefined && ra.ai_score !== ra.overall_score ? `<div><strong>AI-computed score:</strong> ${ra.ai_score} (${ra.ai_risk_level}) &rarr; <strong>Human override:</strong> ${ra.overall_score} (${ra.risk_level})</div>` : `<div style="color: var(--text-secondary);">Reviewer confirmed the AI-computed score without changes.</div>`}
+            ${ra.review_notes ? `<div><strong>Notes:</strong> "${ra.review_notes}"</div>` : ''}
+          </div>
+        ` : ''}
+
+        <form onsubmit="triggerRiskReview(event)" style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-md); display: flex; flex-direction: column; gap: 0.65rem; font-size: 0.82rem;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+              <label style="color: var(--text-secondary); font-weight: 700;">Reviewer</label>
+              <select id="risk-reviewer" required style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.4rem; color: var(--text-primary);">
+                ${(dropdownOptions.approvers || []).map(a => `<option value="${a}">${a}</option>`).join('')}
+              </select>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+              <label style="color: var(--text-secondary); font-weight: 700;">Override Score (optional)</label>
+              <input type="number" min="0" max="100" id="risk-override-score" placeholder="${ra.overall_score}" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.4rem; color: var(--text-primary);">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+              <label style="color: var(--text-secondary); font-weight: 700;">Override Band (optional)</label>
+              <select id="risk-override-level" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.4rem; color: var(--text-primary);">
+                <option value="">-- Keep AI Band --</option>
+                <option value="low">low</option>
+                <option value="medium">medium</option>
+                <option value="high">high</option>
+              </select>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+            <label style="color: var(--text-secondary); font-weight: 700;">Review Notes</label>
+            <textarea id="risk-review-notes" rows="2" placeholder="Rationale for confirming or overriding this score..." style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; color: var(--text-primary); resize: vertical;"></textarea>
+          </div>
+          <div style="display: flex; justify-content: flex-end;">
+            <button type="submit" class="btn-primary" style="background: var(--color-brand); border: none; padding: 0.5rem 1rem; border-radius: var(--radius-md); font-weight: 600; color: var(--text-primary); cursor: pointer;">
+              Confirm / Override Risk Score
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   `;
 }
@@ -1114,6 +1170,38 @@ function renderRiskMeterRow(label, pct) {
   `;
 }
 
+async function triggerRiskReview(e) {
+  e.preventDefault();
+  const reviewer = document.getElementById('risk-reviewer').value;
+  const overrideScoreRaw = document.getElementById('risk-override-score').value;
+  const overrideLevelRaw = document.getElementById('risk-override-level').value;
+  const notes = document.getElementById('risk-review-notes').value;
+
+  const payload = {
+    reviewed_by: reviewer,
+    review_notes: notes,
+    override_score: overrideScoreRaw !== '' ? parseInt(overrideScoreRaw, 10) : null,
+    override_level: overrideLevelRaw || null
+  };
+
+  try {
+    const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases/${selectedReleaseId}/risk-review`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      alert("Risk score review recorded.");
+      navigateToRelease(selectedReleaseId, 'risk');
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(`Failed to record review: ${err.detail || res.status}`);
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
 async function triggerRiskAssessment() {
   try {
     const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases/${selectedReleaseId}/evaluate-risk`, { method: 'POST' });
@@ -1129,6 +1217,7 @@ function renderCABTab() {
   const ra = currentReleaseDetail.risk_assessment;
   const cab = currentReleaseDetail.cab;
   const rel = currentReleaseDetail.release;
+  const prepPack = cab && cab.prep_pack;
 
   if (!ra) {
     return `
@@ -1208,7 +1297,58 @@ function renderCABTab() {
 
       </div>
 
-      ${cab ? `
+      <!-- CAB Prep Pack (real, AI-assembled pack + pre-answered Q&A + calendar check) -->
+      <div style="border-top: 1px solid var(--border-color); padding-top: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h4 style="margin: 0; font-size: 0.9rem; color: var(--text-primary);">CAB Preparation Pack</h4>
+          <button class="btn-primary" onclick="triggerCabPrep()" style="background: transparent; border: 1px solid var(--border-color); padding: 0.4rem 0.8rem; border-radius: var(--radius-md); color: var(--text-primary); cursor: pointer; font-size: 0.8rem;">
+            ${prepPack ? 'Regenerate CAB Pack' : 'Assemble CAB Pack'}
+          </button>
+        </div>
+
+        ${prepPack ? `
+          ${prepPack.missing_approvals && prepPack.missing_approvals.length > 0 ? `
+            <div style="background: var(--color-status-amber-bg); border: 1px solid var(--color-status-amber-border); padding: 0.75rem 1rem; border-radius: var(--radius-md); font-size: 0.8rem; color: var(--color-status-amber-text);">
+              <strong>Missing / Outstanding:</strong>
+              <ul style="margin: 0.3rem 0 0 1.1rem; padding: 0;">
+                ${prepPack.missing_approvals.map(m => `<li>${m}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              <div style="font-weight: 700; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Assembled Pack Sections</div>
+              ${(prepPack.pack_sections || []).map(s => `
+                <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); font-size: 0.8rem;">
+                  <div style="font-weight: 700; color: var(--text-primary);">${s.section}</div>
+                  <div style="color: var(--text-secondary); margin-top: 0.2rem;">${s.content}</div>
+                </div>
+              `).join('')}
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              <div style="font-weight: 700; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Pre-Answered Q&amp;A</div>
+              ${(prepPack.anticipated_qa || []).map(qa => `
+                <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); font-size: 0.8rem;">
+                  <div style="font-weight: 700; color: var(--color-brand);">Q: ${qa.question}</div>
+                  <div style="color: var(--text-secondary); margin-top: 0.2rem;">A: ${qa.answer}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          <div style="font-size: 0.75rem; color: var(--text-secondary);">
+            Document checklist: ${(prepPack.document_checklist || []).join(', ') || 'None'}
+            ${prepPack.generated_at ? ` &middot; Generated ${prepPack.generated_at}` : ''}
+          </div>
+        ` : `
+          <div style="text-align: center; padding: 1.5rem; color: var(--text-secondary); font-size: 0.85rem;">
+            No CAB pack assembled yet. Click "Assemble CAB Pack" to generate pack sections, pre-answered Q&amp;A, and a real calendar-conflict check.
+          </div>
+        `}
+      </div>
+
+      ${cab && cab.decision ? `
         <div style="border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
           <h4 style="margin:0 0 0.5rem 0; font-size:0.9rem; color: var(--text-primary);">Latest CAB Decision</h4>
           <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-md); font-size: 0.85rem; display:flex; flex-direction:column; gap:0.4rem;">
@@ -1220,6 +1360,20 @@ function renderCABTab() {
       ` : ''}
     </div>
   `;
+}
+
+async function triggerCabPrep() {
+  try {
+    const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases/${selectedReleaseId}/cab-prep`, { method: 'POST' });
+    if (res.ok) {
+      navigateToRelease(selectedReleaseId, 'cab');
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(`Failed to assemble CAB pack: ${err.detail || res.status}`);
+    }
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
 async function submitCABReview(e) {
@@ -1274,6 +1428,31 @@ function renderCollisionTab() {
             <div style="color: var(--color-status-green-text); font-size: 0.8rem; margin-top: 0.25rem; font-weight:700;">
               💡 Recommended Alternate Date: ${c.recommended_schedule}
             </div>
+
+            ${c.human_decision ? `
+              <div style="border-top: 1px solid var(--color-status-red-border); margin-top: 0.4rem; padding-top: 0.5rem; font-size: 0.78rem; color: var(--text-primary);">
+                <strong>Human Decision:</strong> ${c.human_decision} — by ${c.decided_by || 'N/A'} ${c.decided_at ? `(${c.decided_at})` : ''}
+                ${c.decision_notes ? `<div style="color: var(--text-secondary); margin-top: 0.2rem;">"${c.decision_notes}"</div>` : ''}
+              </div>
+            ` : `
+              <form onsubmit="submitCollisionDecision(event, '${c.collision_id}')" style="border-top: 1px solid var(--color-status-red-border); margin-top: 0.4rem; padding-top: 0.6rem; display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap;">
+                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                  <label style="font-size: 0.7rem; color: var(--text-secondary); font-weight: 700;">Decision</label>
+                  <select class="collision-decision-select" required style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.35rem; color: var(--text-primary); font-size: 0.78rem;">
+                    <option value="acknowledge-reschedule">Acknowledge &amp; Reschedule</option>
+                    <option value="override-proceed">Override &amp; Proceed Anyway</option>
+                    <option value="escalate">Escalate to CAB</option>
+                  </select>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0.25rem; flex: 1; min-width: 160px;">
+                  <label style="font-size: 0.7rem; color: var(--text-secondary); font-weight: 700;">Decided by</label>
+                  <select class="collision-decided-by-select" required style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.35rem; color: var(--text-primary); font-size: 0.78rem;">
+                    ${(dropdownOptions.approvers || []).map(a => `<option value="${a}">${a}</option>`).join('')}
+                  </select>
+                </div>
+                <button type="submit" class="btn-primary" style="background: var(--color-brand); border: none; padding: 0.4rem 0.8rem; border-radius: var(--radius-md); font-weight: 600; color: var(--text-primary); cursor: pointer; font-size: 0.78rem;">Record Decision</button>
+              </form>
+            `}
           </div>
         `).join('')}
 
@@ -1301,8 +1480,39 @@ async function triggerCollisionCheck() {
   }
 }
 
+async function submitCollisionDecision(e, collisionId) {
+  e.preventDefault();
+  const form = e.target;
+  const decision = form.querySelector('.collision-decision-select').value;
+  const decidedBy = form.querySelector('.collision-decided-by-select').value;
+
+  const payload = {
+    human_decision: decision,
+    decided_by: decidedBy,
+    notes: ''
+  };
+
+  try {
+    const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases/${selectedReleaseId}/collision/${collisionId}/decision`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      alert("Collision decision recorded.");
+      navigateToRelease(selectedReleaseId, 'collision');
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(`Failed to record decision: ${err.detail || res.status}`);
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
 function renderAuditTab() {
   const logs = currentReleaseDetail.audit_logs || [];
+  const summary = currentReleaseDetail.audit_summary || { valid: false, regulator_ready: false, latest_hash: null, event_count: logs.length };
 
   return `
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
@@ -1314,6 +1524,18 @@ function renderAuditTab() {
         <button class="btn-primary" onclick="triggerAuditUpdate()" style="background: transparent; border: 1px solid var(--border-color); padding: 0.4rem 0.8rem; border-radius: var(--radius-md); color: var(--text-primary); cursor: pointer; font-size: 0.8rem; font-weight: 600;">
           Recalculate Audit Trail
         </button>
+      </div>
+
+      <!-- Tamper-evidence / regulator-readiness summary (real hash chain, recomputed server-side) -->
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap; background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.85rem 1rem; font-size: 0.8rem; align-items: center;">
+        <span class="status-pill status-${summary.regulator_ready ? 'green' : 'amber'}" style="padding: 0.3rem 0.7rem; border-radius: var(--radius-round); font-size: 0.72rem; font-weight: 700; text-transform: uppercase;">
+          ${summary.regulator_ready ? '✓ Regulator-Ready' : 'Not Regulator-Ready'}
+        </span>
+        <span class="status-pill status-${summary.valid ? 'green' : 'red'}" style="padding: 0.3rem 0.7rem; border-radius: var(--radius-round); font-size: 0.72rem; font-weight: 700; text-transform: uppercase;">
+          ${summary.valid ? '✓ Hash Chain Intact' : '✗ Hash Chain Broken'}
+        </span>
+        <span style="color: var(--text-secondary);">${summary.event_count} event(s) chained</span>
+        ${summary.latest_hash ? `<span style="font-family: monospace; color: var(--text-primary); font-size: 0.72rem; background: var(--bg-tertiary); padding: 0.15rem 0.4rem; border-radius: 4px; border: 1px solid var(--border-color);" title="${summary.latest_hash}">Latest: ${summary.latest_hash.slice(0, 22)}…</span>` : ''}
       </div>
 
       <!-- Timeline List -->
@@ -1354,6 +1576,11 @@ function renderAuditTab() {
                 <span>Performed by: <strong style="color: var(--text-primary);">${log.performed_by}</strong></span>
                 <span>Evidence: <a href="${log.evidence_link}" target="_blank" style="color: var(--color-brand); font-weight: 600; text-decoration: underline;">${log.evidence_link}</a></span>
               </div>
+              ${log.hash ? `
+                <div style="color: var(--text-muted); font-size: 0.7rem; margin-top: 0.3rem; font-family: monospace; word-break: break-all;" title="Chained from prev_hash: ${log.prev_hash}">
+                  hash: ${log.hash}
+                </div>
+              ` : ''}
             </div>
           `;
         }).join('')}

@@ -539,7 +539,7 @@ async function showNewPlanForm() {
         <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4;">
           <div style="font-weight: 700; color: var(--color-brand); margin-bottom: 0.5rem; font-size: 0.88rem;">Selected Estimate Details</div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1rem;">
-            <div><strong>Effort Days:</strong> ${est.effort_days}d (${est.effort_range_low}d - ${est.effort_range_high}d)</div>
+            <div><strong>Number of Days:</strong> ${est.duration_weeks * 7}d</div>
             <div><strong>Cost Estimate:</strong> $${(est.cost_estimate || 0).toLocaleString()}</div>
             <div><strong>Duration:</strong> ${est.duration_weeks} weeks</div>
             <div><strong>Confidence:</strong> ${est.confidence.toUpperCase()}</div>

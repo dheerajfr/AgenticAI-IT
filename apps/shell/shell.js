@@ -2009,27 +2009,4 @@ window.hideGlobalLoader = function() {
 
 
 // --- Global Fetch Interceptor for Loading Overlay ---
-const originalFetch = window.fetch;
-window.fetch = async function(...args) {
-  const url = args[0] || '';
-  const options = args[1] || {};
-  
-  // Do not show loader for basic GET requests to fetch lists (prevents flickering on navigation)
-  const isBackgroundSync = (typeof url === 'string' && url.includes('/api/') && (!options.method || options.method.toUpperCase() === 'GET'));
-  
-  // Show loader for POST, PUT, DELETE, etc (AI generations, form submits)
-  if (!isBackgroundSync) {
-    if (window.showGlobalLoader) {
-      window.showGlobalLoader("Processing AI request...");
-    }
-  }
-  
-  try {
-    const response = await originalFetch(...args);
-    return response;
-  } finally {
-    if (!isBackgroundSync) {
-      if (window.hideGlobalLoader) window.hideGlobalLoader();
-    }
-  }
-};
+// Removed to prevent showing the global "Processing AI request..." loader during API calls.

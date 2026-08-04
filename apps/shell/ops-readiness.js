@@ -866,11 +866,14 @@ function renderHandoverKT() {
         <div class="ops-card-title">AI Generated Support Runbook & KT Pack</div>
         
         <div class="ops-form-group">
-          <label>KT SharePoint Package URL</label>
+          <label>KT Package</label>
           <div style="display:flex; align-items:center; gap:0.5rem;">
             <a href="#" id="ops-open-kt-link" style="color: var(--color-brand); font-size:0.85rem; font-weight:600; text-decoration: underline; cursor: pointer;">
-              ${ho.kt_pack_url} &nbsp;🔗 (Click to View Complete SharePoint Package)
+              ${ho.kt_pack_url} &nbsp;📄 (Click to View Local KT Package)
             </a>
+          </div>
+          <div style="font-size:0.72rem; color: var(--text-muted); margin-top:0.3rem;">
+            Local artifact only. Not yet published to SharePoint (Microsoft Graph API integration is not configured in this environment).
           </div>
         </div>
 
@@ -988,7 +991,7 @@ window.openKtPackageModal = function() {
         <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">⚠️</div>
         <h3 style="margin-top:0; color: var(--color-status-amber-text); font-family: var(--font-display);">KT Package Not Yet Generated</h3>
         <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 1rem 0; line-height: 1.5;">
-          The SharePoint KT Package for demand <strong>${demandId}</strong> has not been drafted yet.
+          The local KT Package for demand <strong>${demandId}</strong> has not been drafted yet.
         </p>
         <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">
           Please navigate to the <strong>09-B: Operations Handover & KT</strong> tab and click <em>"Draft Operations Handover Pack via AI"</em> to generate the package.
@@ -1007,9 +1010,15 @@ window.openKtPackageModal = function() {
   const env = rb ? (rb.environment || 'Production') : 'Production';
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const components = (mon && mon.component_ids && mon.component_ids.length > 0) ? mon.component_ids : ['svc-ecom-chatbot', 'no-sql-database-mongo-4-x', 'realtime-message-queue-kafka-2-6'];
-  const slos = (mon && mon.slos) ? mon.slos : { availability_slo: '99.9%', latency_p99_ms: 250 };
+  const components = (mon && mon.monitored_components_scope && mon.monitored_components_scope.length > 0) ? mon.monitored_components_scope : ['Not yet configured'];
+  let slos = { availability_slo: 'Not configured', latency_p99_ms: 'N/A' };
+  if (mon && mon.slo_targets && mon.slo_targets.length > 0) {
+    const primarySlo = mon.slo_targets[0];
+    slos = { availability_slo: `${primarySlo.availability_slo_pct}%`, latency_p99_ms: primarySlo.latency_p99_ms };
+  }
   const knownErrors = ho.known_errors || [];
+  const realDeliveryTeam = (ho.delivery_team && ho.delivery_team.length > 0) ? ho.delivery_team.join(', ') : 'Not assigned';
+  const realRunTeam = (ho.run_team && ho.run_team.length > 0) ? ho.run_team.join(', ') : 'Not assigned';
   const valStatus = val ? (val.status === 'approved' ? 'Signed-Off' : val.overall_status.toUpperCase()) : 'Signed-Off';
 
   const sectionsList = (ho.support_runbook.sections || []).map(s => `
@@ -1044,15 +1053,19 @@ window.openKtPackageModal = function() {
       <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--bg-tertiary);">
         <div>
           <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <span style="font-size: 1.2rem;">📁</span>
-            <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: var(--text-primary);">SharePoint Operations KT Package</h3>
-            <span class="ops-pill pass" style="font-size: 0.65rem; padding: 2px 6px;">Status: Ready</span>
+            <span style="font-size: 1.2rem;">📄</span>
+            <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: var(--text-primary);">Local Operations KT Package</h3>
+            <span class="ops-pill ${ho.status === 'reviewed' ? 'pass' : 'warn'}" style="font-size: 0.65rem; padding: 2px 6px;">${ho.status === 'reviewed' ? 'Reviewed' : 'Draft'}</span>
           </div>
           <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
-            Package ID: <strong>KT-${demandId}</strong> | Repository: <em>Operations Knowledge Repository (SharePoint)</em>
+            Package ID: <strong>KT-${demandId}</strong> | Repository: <em>Local artifact (${ho.kt_pack_url})</em>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--color-status-amber-text); margin-top: 0.3rem;">
+            ⚠️ Not published to SharePoint — Microsoft Graph API integration is not configured in this environment.
           </div>
         </div>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button class="ops-btn" id="ops-kt-download-btn" style="font-size: 0.75rem; padding: 0.35rem 0.75rem; background: var(--bg-primary);">⬇️ Download .md</button>
           <button class="ops-btn" onclick="window.print()" style="font-size: 0.75rem; padding: 0.35rem 0.75rem; background: var(--bg-primary);">🖨️ Print / Export</button>
           <button onclick="document.getElementById('ops-kt-modal').style.display='none'" style="background: transparent; border: none; font-size: 1.5rem; color: var(--text-secondary); cursor: pointer; padding: 0 0.5rem;">&times;</button>
         </div>
@@ -1070,7 +1083,6 @@ window.openKtPackageModal = function() {
             <div><strong>Demand ID:</strong> <code>${demandId}</code></div>
             <div><strong>Project/Application Name:</strong> ${appName}</div>
             <div><strong>Environment:</strong> <code style="text-transform: uppercase;">${env}</code></div>
-            <div><strong>Release Version:</strong> 1.0.0</div>
             <div><strong>Deployment Date:</strong> ${todayStr}</div>
             <div><strong>Prepared By:</strong> AI Ops Readiness Agent</div>
             <div><strong>Generated Date:</strong> ${todayStr}</div>
@@ -1079,19 +1091,15 @@ window.openKtPackageModal = function() {
           <!-- Operations Documents -->
           <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 0.85rem; border-radius: 6px;">
             <h4 style="margin:0 0 0.5rem 0; font-size: 0.85rem; color: var(--color-brand); border-bottom: 1px solid var(--border-color); padding-bottom: 0.3rem;">📄 Operations Documents</h4>
-            <div style="color: var(--color-status-green-text);">✓ Approved Deployment Runbook (<code>${runbookId}</code>)</div>
-            <div style="color: var(--color-status-green-text);">✓ Operations Support Manual</div>
-            <div style="color: var(--color-status-green-text);">✓ Release Notes</div>
-            <div style="color: var(--color-status-green-text);">✓ Rollback Procedure</div>
+            <div style="color: ${rb ? 'var(--color-status-green-text)' : 'var(--color-status-amber-text)'};">${rb ? '✓' : '⚠️'} Deployment Runbook (<code>${runbookId}</code>)${rb ? '' : ' — not confirmed in Stage 06 records'}</div>
+            <div style="color: ${sectionsList ? 'var(--color-status-green-text)' : 'var(--color-status-amber-text)'};">${sectionsList ? '✓' : '⚠️'} Operations Support Manual${sectionsList ? '' : ' — not yet drafted'}</div>
           </div>
 
           <!-- Deployment Summary -->
           <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 0.85rem; border-radius: 6px;">
             <h4 style="margin:0 0 0.5rem 0; font-size: 0.85rem; color: var(--color-brand); border-bottom: 1px solid var(--border-color); padding-bottom: 0.3rem;">🚀 Deployment Summary</h4>
-            <div><strong>Deployment Status:</strong> <span class="ops-pill pass" style="font-size:0.6rem; padding:1px 4px;">Completed / Approved</span></div>
-            <div><strong>Quality Gate Status:</strong> <span class="ops-pill pass" style="font-size:0.6rem; padding:1px 4px;">Evaluated (Stage 07)</span></div>
-            <div><strong>CAB Approval:</strong> <span class="ops-pill pass" style="font-size:0.6rem; padding:1px 4px;">Approved (Stage 08)</span></div>
             <div><strong>Readiness Validation Result:</strong> <span class="ops-pill pass" style="font-size:0.6rem; padding:1px 4px;">${valStatus}</span></div>
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.4rem;">Deployment status, quality gate, and CAB approval are tracked by other stages and are not independently verified by this service.</div>
           </div>
 
         </div>
@@ -1118,12 +1126,11 @@ window.openKtPackageModal = function() {
           <h4 style="margin:0 0 0.5rem 0; font-size: 0.85rem; color: var(--color-brand); border-bottom: 1px solid var(--border-color); padding-bottom: 0.3rem;">☎️ Support Information</h4>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div>
-              <div><strong>Support Group:</strong> Operations Support Team</div>
-              <div><strong>Support Email:</strong> <code>ops-support@company.com</code></div>
-              <div><strong>On-call Team:</strong> Primary On-Call Roster</div>
+              <div><strong>Support/Run Team:</strong> <code>${realRunTeam}</code></div>
+              <div><strong>On-call Roster:</strong> ${(ho.delivery_team && ho.delivery_team.length > 0) || (ho.run_team && ho.run_team.length > 0) ? 'Assigned (see contacts)' : 'Not yet assigned'}</div>
             </div>
             <div>
-              <div><strong>Delivery Team Contacts:</strong> <code>d.chen@company.com, clara.davis@company.com</code></div>
+              <div><strong>Delivery Team Contacts:</strong> <code>${realDeliveryTeam}</code></div>
               <div><strong>Escalation Matrix:</strong> L1 Support -&gt; SRE On-Call -&gt; Delivery Lead</div>
             </div>
           </div>
@@ -1138,7 +1145,7 @@ window.openKtPackageModal = function() {
         <!-- Knowledge Base -->
         <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 0.85rem; border-radius: 6px;">
           <h4 style="margin:0 0 0.5rem 0; font-size: 0.85rem; color: var(--color-brand); border-bottom: 1px solid var(--border-color); padding-bottom: 0.3rem;">📚 Knowledge Base</h4>
-          <div><strong>KB References:</strong> <code>kb://payments-api/runbooks</code></div>
+          <div><strong>KB References:</strong> Not configured for this release.</div>
           <div style="margin-top: 0.5rem;">
             ${keList || '<div style="color:var(--color-status-green-text);">No known errors pending for this release.</div>'}
           </div>
@@ -1148,8 +1155,8 @@ window.openKtPackageModal = function() {
 
       <!-- Footer -->
       <div style="padding: 0.75rem 1.25rem; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--bg-tertiary);">
-        <div style="font-size: 0.75rem; color: var(--color-status-green-text); font-weight: bold;">
-          ✓ Package Status: Ready for Production | Operations Approval: Approved
+        <div style="font-size: 0.75rem; color: ${ho.status === 'reviewed' ? 'var(--color-status-green-text)' : 'var(--color-status-amber-text)'}; font-weight: bold;">
+          ${ho.status === 'reviewed' ? `✓ Package Status: Reviewed by Operations (${ho.reviewed_by || 'n/a'})` : '⚠ Package Status: Draft — pending Operations review'}
         </div>
         <button class="ops-btn" onclick="document.getElementById('ops-kt-modal').style.display='none'">Close Package</button>
       </div>
@@ -1157,7 +1164,32 @@ window.openKtPackageModal = function() {
   `;
 
   modal.style.display = 'flex';
+
+  const downloadBtn = document.getElementById('ops-kt-download-btn');
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => downloadKtPackage(demandId));
+  }
 };
+
+async function downloadKtPackage(demandId) {
+  try {
+    const res = await fetch(`${OPS_API_BASE}/handover/${demandId}/kt-package`);
+    if (!res.ok) throw new Error('API Error');
+    const data = await res.json();
+    const blob = new Blob([data.content], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = data.filename || `KT-${demandId}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(err);
+    alert('Failed to download local KT package.');
+  }
+}
 
 async function generateHandoverPack() {
   const runbook_id = document.getElementById('ho-runbook').value;
@@ -1278,7 +1310,7 @@ function renderReadinessValidation() {
         </div>
 
         <div class="ops-check-item">
-          <input type="checkbox" id="chk-briefed" ${isHoApproved ? 'checked' : ''}>
+          <input type="checkbox" id="chk-briefed" ${isHoApproved ? 'checked' : ''} disabled>
           <div>
             <strong style="font-size:0.85rem; color:var(--text-primary);">Support Team Briefed (KT Complete)</strong>
             <div style="font-size:0.75rem; color:var(--text-secondary);">${isHoApproved ? 'Knowledge Transfer session carried out successfully with Operations center.' : 'Knowledge Transfer session pending.'}</div>
@@ -1286,7 +1318,7 @@ function renderReadinessValidation() {
         </div>
 
         <div class="ops-check-item">
-          <input type="checkbox" id="chk-runbook" ${isHoApproved ? 'checked' : ''} ${!isHoApproved ? 'disabled' : ''}>
+          <input type="checkbox" id="chk-runbook" ${isHoApproved ? 'checked' : ''} disabled>
           <div>
             <strong style="font-size:0.85rem; color:var(--text-primary);">Support Runbook Reviewed &amp; Approved</strong>
             <div style="font-size:0.75rem; color:var(--text-secondary);">${isHoApproved ? '✓ Operations team approved.' : '✗ Operations manual review pending in Step 2.'}</div>
@@ -1294,7 +1326,7 @@ function renderReadinessValidation() {
         </div>
 
         <div class="ops-check-item">
-          <input type="checkbox" id="chk-errors" ${isHoApproved ? 'checked' : ''}>
+          <input type="checkbox" id="chk-errors" ${isHoApproved ? 'checked' : ''} disabled>
           <div>
             <strong style="font-size:0.85rem; color:var(--text-primary);">Known Errors &amp; Workarounds Documented</strong>
             <div style="font-size:0.75rem; color:var(--text-secondary);">${isHoApproved ? 'Unresolved critical/high defects translated into KB workaround notes.' : 'Defect workaround documentation pending.'}</div>
@@ -1302,12 +1334,15 @@ function renderReadinessValidation() {
         </div>
 
         <div class="ops-check-item">
-          <input type="checkbox" id="chk-oncall" ${isHoApproved ? 'checked' : ''}>
+          <input type="checkbox" id="chk-oncall" ${isHoApproved ? 'checked' : ''} disabled>
           <div>
             <strong style="font-size:0.85rem; color:var(--text-primary);">On-call Roster Assigned</strong>
             <div style="font-size:0.75rem; color:var(--text-secondary);">${isHoApproved ? 'Delivery and operations engineer roster assigned for the release window.' : 'On-call personnel assignment pending.'}</div>
           </div>
         </div>
+      </div>
+      <div style="font-size:0.72rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+        These checkboxes reflect status already verified elsewhere in this workflow (SRE monitoring approval, handover pack review). The backend independently re-verifies each criterion against real records when you evaluate the checklist -- it does not trust client-side state.
       </div>
 
       <button class="ops-btn" id="ops-validate-btn">Evaluate Readiness Checklist</button>

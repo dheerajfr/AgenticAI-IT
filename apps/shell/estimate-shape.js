@@ -177,7 +177,7 @@ function renderEstimateList() {
         <h4 class="demand-item-title">Demand: ${displayTitle}</h4>
         <div class="demand-item-meta">
           <span>Cost: $${est.cost_estimate}</span>
-          <span>Effort: ${est.effort_days}d</span>
+          <span>Days: ${est.duration_weeks * 7}d</span>
         </div>
       </li>
     `;
@@ -305,24 +305,16 @@ async function handleGenerateEstimate() {
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
           <div class="form-group" style="margin-bottom: 0;">
-            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Effort Days</label>
-            <input type="number" id="input-effort-days" value="${pendingEstimateData.effort_days}" style="padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 100%; box-sizing: border-box;" min="2" />
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Duration (Weeks)</label>
+            <input type="number" id="input-duration" value="${pendingEstimateData.duration_weeks}" style="padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 100%; box-sizing: border-box;" min="1" />
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Number of Days</label>
+            <input type="number" id="input-number-of-days" value="${pendingEstimateData.duration_weeks * 7}" style="padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 100%; box-sizing: border-box;" disabled />
           </div>
           <div class="form-group" style="margin-bottom: 0;">
             <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Cost ($)</label>
             <input type="number" id="input-cost" value="${pendingEstimateData.cost_estimate}" style="padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 100%; box-sizing: border-box;" />
-          </div>
-          <div class="form-group" style="margin-bottom: 0;">
-            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Range Low</label>
-            <input type="number" id="input-effort-low" value="${pendingEstimateData.effort_range_low}" style="padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 100%; box-sizing: border-box;" min="2" />
-          </div>
-          <div class="form-group" style="margin-bottom: 0;">
-            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Range High</label>
-            <input type="number" id="input-effort-high" value="${pendingEstimateData.effort_range_high}" style="padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 100%; box-sizing: border-box;" min="2" />
-          </div>
-          <div class="form-group" style="margin-bottom: 0;">
-            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Duration (Weeks)</label>
-            <input type="number" id="input-duration" value="${pendingEstimateData.duration_weeks}" style="padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 100%; box-sizing: border-box;" min="1" />
           </div>
           <div class="form-group" style="margin-bottom: 0;">
             <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Confidence</label>
@@ -353,6 +345,16 @@ async function handleGenerateEstimate() {
         </div>
       </div>
     `;
+
+    // Add event listener to update Number of Days dynamically when Duration changes
+    const durationInput = document.getElementById('input-duration');
+    const daysInput = document.getElementById('input-number-of-days');
+    if (durationInput && daysInput) {
+      durationInput.addEventListener('input', () => {
+        const weeks = parseInt(durationInput.value) || 0;
+        daysInput.value = weeks * 7;
+      });
+    }
  
      actionRow.innerHTML = `
        <button type="button" class="btn-primary" id="btn-approve-generated">Approve Estimate</button>
@@ -370,12 +372,14 @@ async function handleGenerateEstimate() {
    actionRow.innerHTML = `<span class="loader"><span class="spinner"></span> Saving...</span>`;
  
    try {
+     const durationVal = parseInt(document.getElementById('input-duration').value);
+     const computedDays = durationVal * 7;
      const payload = {
-       effort_days: parseInt(document.getElementById('input-effort-days').value),
-       effort_range_low: parseInt(document.getElementById('input-effort-low').value),
-       effort_range_high: parseInt(document.getElementById('input-effort-high').value),
+       effort_days: computedDays,
+       effort_range_low: computedDays,
+       effort_range_high: computedDays,
        cost_estimate: parseInt(document.getElementById('input-cost').value),
-       duration_weeks: parseInt(document.getElementById('input-duration').value),
+       duration_weeks: durationVal,
        confidence: document.getElementById('input-confidence').value,
        methodology: pendingEstimateData.methodology,
        risk_factors: pendingEstimateData.risk_factors || [],
@@ -389,7 +393,7 @@ async function handleGenerateEstimate() {
        headers: { 'Content-Type': 'application/json' },
        body: JSON.stringify(payload)
      });
-
+ 
     if (!res.ok) throw new Error("Approval failed.");
     const newRecord = await res.json();
     selectedEstimateId = newRecord.estimate_id;
@@ -444,7 +448,7 @@ function renderEstimateWizard(est) {
           </div>
           <div class="wizard-step-body">
             <div class="grid-2col">
-              <div class="data-item"><div class="data-label">Effort Days</div><div class="data-value">${est.effort_days} (Range: ${est.effort_range_low}-${est.effort_range_high})</div></div>
+              <div class="data-item"><div class="data-label">Number of Days</div><div class="data-value">${est.duration_weeks * 7}</div></div>
               <div class="data-item"><div class="data-label">Cost</div><div class="data-value">$${est.cost_estimate}</div></div>
               <div class="data-item"><div class="data-label">Duration Weeks</div><div class="data-value">${est.duration_weeks}</div></div>
               <div class="data-item"><div class="data-label">Confidence</div><div class="data-value" style="text-transform: capitalize;">${est.confidence}</div></div>

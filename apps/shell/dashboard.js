@@ -422,7 +422,7 @@ function renderDemandCard(data) {
 function renderEstimateCard(data) {
   if (!data.estimate) return renderCard('Estimate & Shape', 'estimate-shape', 'Pending', '', '');
   const outputs = `
-    • Effort Estimate: <strong>${data.estimate.effort_days} days</strong><br>
+    • Duration (Days): <strong>${data.estimate.duration_weeks * 7} days</strong><br>
     • Confidence: ${data.estimate.confidence}<br>
     • Risk Factors: ${data.estimate.risk_factors ? data.estimate.risk_factors.join(', ') : 'None'}
   `;
