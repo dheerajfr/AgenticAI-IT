@@ -123,6 +123,8 @@ class HandoverPackRecord(BaseModel):
     support_runbook: SupportRunbook
     known_errors: List[KnownError]
     kt_pack_url: str
+    delivery_team: List[str] = []
+    run_team: List[str] = []
     reviewed_by: Optional[str] = None
     status: str = "draft"
 

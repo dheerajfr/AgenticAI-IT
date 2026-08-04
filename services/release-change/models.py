@@ -127,3 +127,17 @@ class CABReviewSubmit(BaseModel):
     decision: str
     comments: str
 
+class RiskReviewRequest(BaseModel):
+    reviewed_by: str
+    review_notes: Optional[str] = ""
+    override_score: Optional[int] = None
+    override_level: Optional[str] = None
+
+class CollisionDecisionRequest(BaseModel):
+    human_decision: str
+    decided_by: str
+    notes: Optional[str] = ""
+
+class CollisionScanRequest(BaseModel):
+    freeze_windows: Optional[List[Dict[str, str]]] = None
+

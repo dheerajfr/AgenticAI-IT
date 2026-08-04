@@ -544,7 +544,7 @@ window.renderKnowledgeArtifactsScreen = function(targetContainer) {
               <span>🔍 Knowledge Search &amp; Q&amp;A</span>
             </h3>
             <p style="font-size: 0.88rem; color: var(--text-secondary); margin: 0.5rem 0 0 0;">
-              Unified vector search across all project documents, specifications, and runbooks.
+              TF-IDF relevance-ranked search across all project documents, specifications, and runbooks.
             </p>
           </div>
           
@@ -560,7 +560,7 @@ window.renderKnowledgeArtifactsScreen = function(targetContainer) {
           </div>
           
           <div id="search-results" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1.5rem;">
-            <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-top: 2rem;">No search results yet. Type a query above to query the vector database.</div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-top: 2rem;">No search results yet. Type a query above to search the indexed artefacts by TF-IDF relevance.</div>
           </div>
         </div>
       </div>
@@ -800,17 +800,19 @@ window.searchArtefacts = async function() {
         <div id="ka-ai-summary-text" style="font-size:0.85rem;color:var(--text-primary);line-height:1.55;">${parseMarkdown(data.ai_summary)}</div>
       </div>
       <div>
-        <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);margin-bottom:0.5rem;">SOURCES (${data.total_artefacts_searched || 0} artefact(s) searched)</div>
+        <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);margin-bottom:0.5rem;">TOP MATCHES (${data.total_artefacts_retrieved ?? realResults.length} of ${data.total_artefacts_searched || 0} artefact(s), ranked by TF-IDF relevance)</div>
         ${realResults.length === 0
           ? '<div style="font-size:0.8rem;color:var(--text-muted);">No artefacts indexed for this project yet.</div>'
           : realResults.map(r => {
               const statusColor = r.status === 'approved' ? '#10b981' : '#f59e0b';
               const urlTag = r.url ? `<a href="${r.url}" target="_blank" style="color:var(--color-brand);margin-left:6px;font-size:0.75rem;">↗ Open</a>` : '';
+              const scoreTag = typeof r.relevance_score === 'number' ? `<span style="font-size:0.68rem;color:var(--text-muted);margin-left:6px;" title="TF-IDF cosine relevance score">match ${(r.relevance_score * 100).toFixed(0)}%</span>` : '';
               return `
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0.6rem;margin-bottom:0.35rem;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);">
                   <div>
                     <span style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">📄 ${cleanDocName(r.doc, demandId)}</span>
                     <span style="font-size:0.72rem;color:var(--text-muted);margin-left:6px;">${r.type}</span>
+                    ${scoreTag}
                     ${urlTag}
                   </div>
                   <span style="font-size:0.68rem;padding:1px 6px;border-radius:6px;background:rgba(0,0,0,0.15);color:${statusColor};font-weight:700;">${r.status}</span>

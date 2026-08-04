@@ -16,6 +16,8 @@ from models import (
 from database import db
 import sys
 import os
+import sqlite3
+import json
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from llm_client import call_gemini
 
@@ -211,17 +213,78 @@ def delete_demand_environments(demand_id: str):
 
 
 
+def _get_real_deployed_version(demand_id: str, environment: str):
+    """
+    Cross-service, read-only lookup of the REAL last-deployed version for a
+    demand/environment pair, sourced from Build & Deploy's own `deployments`
+    table (services/build-deploy/build-deploy.db) — actual deployment
+    orchestration records, not client-supplied strings.
+
+    Mirrors the same direct sibling-db-file cross-service read pattern
+    already used elsewhere in this codebase for this exact table, e.g.
+    services/ops-readiness/main.py's _get_build_deploy_db_path() +
+    services/release-change/main.py's get_real_build_details(). (The
+    `deployments` table lives in build-deploy's own local SQLite file, not
+    the shared services/source.db, so this reads that file directly rather
+    than via shared_db.connection.get_db() — the same distinction Build &
+    Deploy's own database.py draws between read_environment_state(), which
+    reads config-environments' table out of the shared source.db, and
+    fetch_runbook_context(), which reads sibling tables via a direct path.)
+
+    Returns None (not a fabricated value) if Build & Deploy has no completed
+    deployment on record for this demand/environment yet, so callers can
+    fall back gracefully instead of presenting invented data as real.
+    """
+    db_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "build-deploy", "build-deploy.db")
+    )
+    if not os.path.exists(db_path):
+        return None
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT data FROM deployments")
+            best = None
+            for (raw,) in cursor.fetchall():
+                dep = json.loads(raw)
+                if dep.get("demand_id") != demand_id or dep.get("environment") != environment:
+                    continue
+                # Only "done" represents a real, completed rollout. Statuses
+                # like "planned"/"checking"/"go"/"no-go"/"in-progress" mean
+                # nothing has actually shipped to this environment yet, so
+                # they aren't a trustworthy "live deployed version".
+                if dep.get("status") != "done":
+                    continue
+                if best is None or dep.get("updated_at", "") > best.get("updated_at", ""):
+                    best = dep
+            return best.get("version") if best else None
+    except Exception as e:
+        print(f"Error reading build-deploy deployments for {demand_id}/{environment}: {e}")
+        return None
+
+
 @app.post("/api/environments/reconcile-drift", response_model=EnvironmentStateRecord)
 def reconcile_drift(req: ReconcileDriftRequest):
     """
-    Accepts expected and deployed state payloads, compares them, flags drift if they don't match,
-    and saves/returns the updated record.
+    Compares the environment's expected baseline against the REAL deployed
+    state as recorded by Build & Deploy's deployment orchestration (the
+    `deployments` table in services/build-deploy/build-deploy.db), flags
+    drift if they don't match, and saves/returns the updated record.
+
+    The client-supplied deployed_version is used only as a fallback when
+    Build & Deploy has no completed-deployment record for this
+    demand/environment yet (e.g. nothing has ever been deployed there
+    through that service) — it is never treated as ground truth on its own.
     """
     record = db.get_by_demand_and_env(req.demand_id, req.environment)
-    drift_status = "in-sync" if req.deployed_version == req.expected_version else "drifted"
-    
+
+    real_deployed_version = _get_real_deployed_version(req.demand_id, req.environment)
+    deployed_version = real_deployed_version if real_deployed_version is not None else req.deployed_version
+
+    drift_status = "in-sync" if deployed_version == req.expected_version else "drifted"
+
     if record:
-        record.deployed_version = req.deployed_version
+        record.deployed_version = deployed_version
         record.expected_version = req.expected_version
         record.drift_status = drift_status
         record.last_checked = _get_current_time_iso()
@@ -229,14 +292,14 @@ def reconcile_drift(req: ReconcileDriftRequest):
         record = EnvironmentStateRecord(
             demand_id=req.demand_id,
             environment=req.environment,
-            deployed_version=req.deployed_version,
+            deployed_version=deployed_version,
             expected_version=req.expected_version,
             drift_status=drift_status,
             last_checked=_get_current_time_iso(),
             observed_name=None,
             cmdb_name=None
         )
-        
+
     db.save(record)
     return record
 

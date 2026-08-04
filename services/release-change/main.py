@@ -20,7 +20,10 @@ from models import (
     AuditTrailRecord,
     ReleaseCreateRequest,
     ChangeRequestEdit,
-    CABReviewSubmit
+    CABReviewSubmit,
+    RiskReviewRequest,
+    CollisionDecisionRequest,
+    CollisionScanRequest
 )
 from database import db
 from shared_db.connection import get_db
@@ -30,7 +33,8 @@ from orchestration.release_change_graph import (
     run_risk_assessment_agent,
     run_cab_assistant_agent,
     run_collision_agent,
-    run_audit_agent
+    run_audit_agent,
+    verify_audit_chain
 )
 
 app = FastAPI(
@@ -706,7 +710,11 @@ def get_release_by_id(release_id: str):
     # Mock/Real data providers
     build_details = get_real_build_details(rel["project_id"], rel["build_id"], rel["version"])
     quality_details = get_real_quality_details(rel["project_id"])
-    
+
+    # Recompute the tamper-evidence chain from the stored events themselves (not from a
+    # trusted flag) so the frontend can show real regulator-readiness/hash status.
+    audit_summary = verify_audit_chain(audit_logs)
+
     return {
         "release": rel,
         "change_request": change_req,
@@ -714,6 +722,7 @@ def get_release_by_id(release_id: str):
         "cab": cab_rec,
         "collisions": collisions,
         "audit_logs": audit_logs,
+        "audit_summary": audit_summary,
         "upstream": {
             "demand": demand,
             "plan": plan,
@@ -819,6 +828,68 @@ def evaluate_release_risk(release_id: str):
     return res
 
 
+@app.put("/api/release-change/releases/{release_id}/risk-review")
+def submit_risk_review(release_id: str, req: RiskReviewRequest):
+    """
+    Real human override path for the AI risk score: a reviewer can confirm the AI's
+    score/level as-is, or override either value. Persists human_reviewed=True plus the
+    reviewer's input (previously nothing ever set this to true).
+    """
+    rel = db.get_release(release_id)
+    if not rel:
+        raise HTTPException(status_code=404, detail="Release not found.")
+
+    ra = db.get_risk_assessment_by_release(release_id)
+    if not ra:
+        raise HTTPException(status_code=404, detail="No risk assessment exists yet to review.")
+
+    reviewed_at = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    updated = db.save_risk_review(
+        release_id=release_id,
+        human_reviewed=True,
+        reviewed_by=req.reviewed_by,
+        review_notes=req.review_notes,
+        reviewed_at=reviewed_at,
+        override_score=req.override_score,
+        override_level=req.override_level
+    )
+
+    # Keep the release-level risk_score (used on the dashboard/list view) in sync when overridden.
+    if req.override_score is not None:
+        db.save_release(
+            release_id=rel["release_id"],
+            project_id=rel["project_id"],
+            plan_id=rel["plan_id"],
+            build_id=rel["build_id"],
+            version=rel["version"],
+            environment=rel["environment"],
+            status=rel["status"],
+            planned_release_date=rel["planned_release_date"],
+            actual_release_date=rel["actual_release_date"],
+            risk_score=req.override_score,
+            cab_required=rel["cab_required"],
+            cab_status=rel["cab_status"],
+            created_at=rel["created_at"],
+            updated_at=reviewed_at
+        )
+
+    action_desc = (
+        f"overrode score to {req.override_score}" if req.override_score is not None
+        else "confirmed the AI-computed score"
+    )
+    db.add_audit_log(
+        audit_id=f"AU-{release_id.split('-')[-1]}-riskreview-{reviewed_at}",
+        release_id=release_id,
+        event=f"Human Risk Review: {req.reviewed_by} {action_desc}",
+        performed_by=req.reviewed_by,
+        timestamp=reviewed_at,
+        evidence_link=f"/api/release-change/releases/{release_id}",
+        module_name="Release & Change"
+    )
+
+    return updated
+
+
 @app.post("/api/release-change/releases/{release_id}/cab-review")
 def cab_review_release(release_id: str, req: CABReviewSubmit):
     rel = db.get_release(release_id)
@@ -878,8 +949,66 @@ def cab_review_release(release_id: str, req: CABReviewSubmit):
 
 
 @app.post("/api/release-change/releases/{release_id}/collision")
-def check_release_collision(release_id: str):
-    res = run_collision_agent(release_id, db)
+def check_release_collision(release_id: str, req: CollisionScanRequest = CollisionScanRequest()):
+    """
+    Runs the collision scan using real date-interval overlap math. Callers may optionally
+    supply structured freeze_windows ([{"start":..., "end":..., "reason":...}, ...]); if
+    omitted, the agent falls back to this app's own DEFAULT_FREEZE_WINDOWS instead of a
+    hardcoded month/string check.
+    """
+    rel = db.get_release(release_id)
+    if not rel:
+        raise HTTPException(status_code=404, detail="Release not found.")
+    res = run_collision_agent(release_id, db, freeze_windows=req.freeze_windows)
+    return res
+
+
+@app.put("/api/release-change/releases/{release_id}/collision/{collision_id}/decision")
+def submit_collision_decision(release_id: str, collision_id: str, req: CollisionDecisionRequest):
+    """
+    Real human-decision endpoint for a flagged collision/clash. CollisionDetectionRecord.
+    human_decision previously had no writer anywhere in the app - this is that writer.
+    """
+    rel = db.get_release(release_id)
+    if not rel:
+        raise HTTPException(status_code=404, detail="Release not found.")
+
+    decided_at = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    updated = db.update_collision_decision(
+        release_id=release_id,
+        collision_id=collision_id,
+        human_decision=req.human_decision,
+        decided_by=req.decided_by,
+        decided_at=decided_at,
+        decision_notes=req.notes
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Collision record not found.")
+
+    db.add_audit_log(
+        audit_id=f"AU-{release_id.split('-')[-1]}-{collision_id}-decision",
+        release_id=release_id,
+        event=f"Collision Decision Recorded: {req.human_decision} on {collision_id} by {req.decided_by}",
+        performed_by=req.decided_by,
+        timestamp=decided_at,
+        evidence_link=f"/api/release-change/releases/{release_id}",
+        module_name="Release & Change"
+    )
+
+    return updated
+
+
+@app.post("/api/release-change/releases/{release_id}/cab-prep")
+def prepare_cab_pack(release_id: str):
+    """
+    Real, frontend-reachable endpoint wiring run_cab_assistant_agent (previously imported
+    but never called by any endpoint). Assembles CAB pack sections, pre-answered Q&A, and
+    a real calendar-conflict check sourced from this app's own release records.
+    """
+    rel = db.get_release(release_id)
+    if not rel:
+        raise HTTPException(status_code=404, detail="Release not found.")
+    res = run_cab_assistant_agent(release_id, db)
     return res
 
 

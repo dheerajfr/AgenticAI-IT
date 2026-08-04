@@ -367,6 +367,24 @@ function renderEnvDetail(demand_id) {
             </div>
           </div>
 
+          <!-- Human actions: flag/act on drift, confirm baseline readiness -->
+          <div style="margin-top:auto; padding-top:0.5rem; border-top:1px solid var(--border-color); display:flex; gap:0.4rem; flex-wrap:wrap;">
+            <button type="button" class="btn-env-action" title="Compare this environment's expected baseline against the real deployed state and flag drift"
+              onclick="window.simulateDrift('${demand_id}','${envName}')"
+              style="flex:1; min-width:110px; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.35); color:#93c5fd; padding:0.4rem 0.5rem; border-radius:var(--radius-sm); font-size:0.72rem; font-weight:700; cursor:pointer; text-transform:uppercase; letter-spacing:0.03em;">
+              Check Drift
+            </button>
+            <button type="button" class="btn-env-action" title="Confirm the baseline: verify all expected requirements are satisfied before proceeding"
+              onclick="window.verifyReadiness('${demand_id}','${envName}')"
+              style="flex:1; min-width:110px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); color:#6ee7b7; padding:0.4rem 0.5rem; border-radius:var(--radius-sm); font-size:0.72rem; font-weight:700; cursor:pointer; text-transform:uppercase; letter-spacing:0.03em;">
+              Verify Readiness
+            </button>
+            <button type="button" class="btn-env-action" title="Compare the CMDB record against observed reality and propose a records-hygiene fix"
+              onclick="window.simulateHygiene('${demand_id}','${envName}')"
+              style="flex:1; min-width:110px; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.35); color:#fcd34d; padding:0.4rem 0.5rem; border-radius:var(--radius-sm); font-size:0.72rem; font-weight:700; cursor:pointer; text-transform:uppercase; letter-spacing:0.03em;">
+              Records Hygiene
+            </button>
+          </div>
 
         </div>
       </div>

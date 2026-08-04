@@ -447,6 +447,86 @@ def _to_string(val) -> str:
     return str(val)
 
 
+# ------------------------------------------------------------------------------
+# Real date/interval helpers (replace string-substring "date" hacks with actual
+# datetime parsing + interval overlap math).
+# ------------------------------------------------------------------------------
+
+def _parse_datetime(value) -> Optional[datetime.datetime]:
+    """Parse a date/datetime value into a timezone-aware UTC datetime, or None if unparseable."""
+    if not value:
+        return None
+    if isinstance(value, datetime.datetime):
+        return value if value.tzinfo else value.replace(tzinfo=datetime.timezone.utc)
+    s = str(value).strip()
+    try:
+        dt = datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=datetime.timezone.utc)
+    except Exception:
+        pass
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y"):
+        try:
+            return datetime.datetime.strptime(s, fmt).replace(tzinfo=datetime.timezone.utc)
+        except Exception:
+            continue
+    return None
+
+
+def _intervals_overlap(start_a, end_a, start_b, end_b) -> bool:
+    """Real closed-interval overlap check between [start_a, end_a] and [start_b, end_b]."""
+    a1 = _parse_datetime(start_a)
+    a2 = _parse_datetime(end_a) or a1
+    b1 = _parse_datetime(start_b)
+    b2 = _parse_datetime(end_b) or b1
+    if not a1 or not b1:
+        return False
+    return a1 <= b2 and b1 <= a2
+
+
+# Standard maintenance-window length assumed for a release that only has a single
+# planned_release_date (point in time) rather than an explicit start/end range.
+DEPLOYMENT_WINDOW_HOURS = 4
+
+# Structured default freeze windows, used only when the caller does not supply its
+# own freeze-window definition and this app has no dedicated freeze-calendar data
+# source yet. These are real date intervals checked with _intervals_overlap, not a
+# substring match against the date string.
+DEFAULT_FREEZE_WINDOWS = [
+    {"start": "2026-07-01T00:00:00Z", "end": "2026-07-31T23:59:59Z", "reason": "Mid-year change freeze"},
+    {"start": "2026-12-15T00:00:00Z", "end": "2027-01-02T23:59:59Z", "reason": "Year-end change freeze"},
+]
+
+
+def _chain_hash(prev_hash: str, event: dict) -> str:
+    """Compute a real hash-chain link: sha256(prev_hash + this event's content)."""
+    payload = json.dumps({k: v for k, v in event.items() if k not in ("hash", "prev_hash")}, sort_keys=True)
+    return "sha256:" + hashlib.sha256((prev_hash + "|" + payload).encode()).hexdigest()
+
+
+def verify_audit_chain(events: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Recomputes the hash chain from each event's own content and confirms nothing was
+    tampered with after the fact (genuine tamper-evidence rather than a stored-but-unused
+    hash field).
+    """
+    if not events:
+        return {"valid": True, "regulator_ready": False, "latest_hash": None, "event_count": 0}
+    ordered = sorted(events, key=lambda x: str(x.get("timestamp", "")))
+    prev_hash = "GENESIS"
+    valid = True
+    for e in ordered:
+        recomputed = _chain_hash(prev_hash, e)
+        if e.get("hash") != recomputed or e.get("prev_hash") != prev_hash:
+            valid = False
+        prev_hash = e.get("hash") or recomputed
+    return {
+        "valid": valid,
+        "regulator_ready": valid and len(ordered) > 0,
+        "latest_hash": ordered[-1].get("hash"),
+        "event_count": len(ordered)
+    }
+
+
 def run_change_record_agent(release_id: str, project_id: str, plan_id: str, db) -> dict:
     """
     Change Record Agent:
@@ -718,121 +798,191 @@ def run_risk_assessment_agent(release_id: str, db) -> dict:
 def run_cab_assistant_agent(release_id: str, db) -> dict:
     """
     CAB Assistant Agent:
-    Assembles CAB documentation and proactively identifies missing approvals or evidence.
+    Assembles a real CAB pack (sections + pre-answered Q&A) and proactively identifies
+    missing approvals, evidence, or calendar conflicts using this app's own data -
+    no fabricated/external calendar system involved.
     """
     print(f"[Agent: CAB Assistant] Preparing CAB packet for Release {release_id}...")
-    
+
     release_rec = db.get_release(release_id)
     change_rec = db.get_change_request_by_release(release_id)
     risk_rec = db.get_risk_assessment_by_release(release_id)
-    
+
     missing_approvals = []
     required_documents = ["Change Request", "Risk Report"]
-    
+
     # Auto-sense missing items
     if not change_rec:
         missing_approvals.append("Change Request is not drafted.")
     if not risk_rec:
         missing_approvals.append("AI Risk Assessment is missing.")
-    
+
     # Query Quality Gate (mocked/sensed from test run)
     qg_passed = True
     if qg_passed:
         required_documents.append("Test Summary Report (PASSED)")
     else:
         missing_approvals.append("Stage 07 Quality Gate verdict: FAILED.")
-        
+
+    # Real calendar-conflict check: reuse this app's own collision-detection records
+    # (other releases scheduled in an overlapping date window) instead of hardcoding
+    # an empty list or pretending to call an external calendar system.
+    collisions = db.get_release_collisions(release_id) if release_rec else []
+    if release_rec and not collisions:
+        # Make sure the scan has actually run at least once so the pack reflects live data.
+        collisions = run_collision_agent(release_id, db)
+    calendar_conflicts = [
+        f"{c.get('conflicting_release')}: {c.get('reason')}"
+        for c in collisions if c.get("status") == "conflict"
+    ]
+    if calendar_conflicts:
+        missing_approvals.append(f"{len(calendar_conflicts)} unresolved calendar/freeze conflict(s) detected.")
+
     prompt = f"""
-    You are an Executive CAB chairperson assistant. Help compile the review notes for release {release_id}:
+    You are an Executive CAB chairperson assistant. Compile a real CAB review pack for release {release_id}:
     - Change Summary: {change_rec.get('summary') if change_rec else 'N/A'}
     - Risk Score: {risk_rec.get('overall_score') if risk_rec else 'N/A'} / 100
     - Missing Approvals: {missing_approvals}
-    
+    - Calendar Conflicts: {calendar_conflicts if calendar_conflicts else 'None detected'}
+
     Provide:
-    1. A list of 3 anticipated CAB review questions.
-    2. A checklist of required items.
-    
+    1. 2-4 pack sections summarizing the release for the board (e.g. Change Summary, Risk Assessment, Calendar Check).
+    2. 3 anticipated CAB review questions, each with a pre-drafted answer grounded in the data above.
+    3. A checklist of required items for this review.
+
     Format the response as a JSON object with keys:
-    - "questions": array of string (review questions)
+    - "pack_sections": array of objects like {{"section": "Title", "content": "details..."}}
+    - "anticipated_qa": array of objects like {{"question": "How...", "answer": "The..."}}
     - "document_checklist": array of string
     """
 
-    questions = ["What is the estimated deployment duration?", "Has the rollback strategy been verified in Staging?"]
+    pack_sections = [
+        {"section": "Change Summary", "content": (change_rec.get("summary") if change_rec else f"No change request drafted yet for {release_id}.")},
+        {"section": "Risk Assessment", "content": f"Risk score: {risk_rec.get('overall_score') if risk_rec else 'N/A'}/100 ({risk_rec.get('risk_level') if risk_rec else 'unscored'})."},
+        {"section": "Calendar Check", "content": ("; ".join(calendar_conflicts) if calendar_conflicts else "No overlapping releases or freeze windows detected.")}
+    ]
+    anticipated_qa = [
+        {"question": "What is the estimated deployment duration?", "answer": f"Standard {DEPLOYMENT_WINDOW_HOURS}-hour maintenance window."},
+        {"question": "Has the rollback strategy been verified in Staging?", "answer": (change_rec.get("rollback_plan") if change_rec else "Rollback plan not yet drafted.")}
+    ]
     document_checklist = required_documents
-    
+
     try:
         res = call_gemini(prompt, is_json=True)
-        questions = res.get("questions") or questions
+        pack_sections = res.get("pack_sections") or pack_sections
+        anticipated_qa = res.get("anticipated_qa") or anticipated_qa
         document_checklist = res.get("document_checklist") or document_checklist
     except Exception as e:
         print(f"[Agent: CAB Assistant] Gemini failed: {e}")
-        
-    return {
+
+    result = {
         "release_id": release_id,
         "missing_approvals": missing_approvals,
         "document_checklist": document_checklist,
-        "anticipated_questions": questions
+        "calendar_conflicts": calendar_conflicts,
+        "pack_sections": pack_sections,
+        "anticipated_qa": anticipated_qa,
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     }
 
+    # Persist the assembled pack so it survives page reloads (merged into the existing
+    # "cab" JSON blob alongside any eventual chairperson decision - no schema change needed).
+    try:
+        db.save_cab_prep_pack(release_id, result)
+    except Exception as e:
+        print(f"[Agent: CAB Assistant] Failed to persist prep pack: {e}")
 
-def run_collision_agent(release_id: str, db) -> list[dict]:
+    return result
+
+
+def run_collision_agent(release_id: str, db, freeze_windows: Optional[List[Dict[str, str]]] = None) -> list[dict]:
     """
     Collision Detection Agent:
-    Checks for overlapping release windows, shared server/db resources, and freeze periods.
+    Checks for overlapping release windows, shared server/db resources, and freeze periods
+    using real date-interval overlap math (parsed datetimes, not substring/string-equality
+    hacks). Freeze windows can be supplied by the caller as structured {start, end, reason}
+    data; if omitted, falls back to this app's own DEFAULT_FREEZE_WINDOWS.
     """
     print(f"[Agent: Collision Detection] Checking for clashes for Release {release_id}...")
-    
+
     release_rec = db.get_release(release_id)
     if not release_rec:
         return []
-        
+
     start_date = release_rec.get("planned_release_date")
     env = release_rec.get("environment")
-    
+
+    start_dt = _parse_datetime(start_date)
+    end_dt = (start_dt + datetime.timedelta(hours=DEPLOYMENT_WINDOW_HOURS)) if start_dt else None
+
     # Default server & database values
     server = f"srv-{env}-node1"
     database = f"db-{env}-master"
-    
-    collisions = []
-    
-    # Check calendar freeze (e.g. July/December)
-    if "-07-" in start_date or "-12-" in start_date:
-        col_id = f"CL-{release_id.split('-')[-1]}-freeze"
-        col_rec = {
-            "collision_id": col_id,
-            "release_id": release_id,
-            "conflicting_release": "System Freeze Window",
-            "shared_server": "N/A",
-            "shared_database": "N/A",
-            "shared_environment": env,
-            "reason": f"Planned release on {start_date} falls within the standard mid-year/year-end production freeze period.",
-            "recommended_schedule": "Next available Tuesday off-freeze.",
-            "status": "conflict"
-        }
-        db.save_release_collision(**col_rec)
-        collisions.append(col_rec)
 
-    # Check same-environment concurrent releases
+    # Preserve any human decisions already recorded against prior collision scans for
+    # this release, so re-running the scan doesn't silently wipe out a reviewer's call.
+    existing_by_id = {c.get("collision_id"): c for c in (db.get_release_collisions(release_id) or [])}
+
+    collisions = []
+    active_freeze_windows = freeze_windows if freeze_windows else DEFAULT_FREEZE_WINDOWS
+
+    def _carry_forward_decision(col_id: str, col_rec: dict) -> dict:
+        prior = existing_by_id.get(col_id)
+        if prior:
+            col_rec["human_decision"] = prior.get("human_decision")
+            col_rec["decided_by"] = prior.get("decided_by")
+            col_rec["decided_at"] = prior.get("decided_at")
+            col_rec["decision_notes"] = prior.get("decision_notes")
+        else:
+            col_rec["human_decision"] = None
+            col_rec["decided_by"] = None
+            col_rec["decided_at"] = None
+            col_rec["decision_notes"] = None
+        return col_rec
+
+    # Check calendar freeze windows via real interval overlap (not "-07-"/"-12-" substrings)
+    if start_dt:
+        for fw in active_freeze_windows:
+            if _intervals_overlap(start_dt, end_dt, fw.get("start"), fw.get("end")):
+                col_id = f"CL-{release_id.split('-')[-1]}-freeze"
+                col_rec = _carry_forward_decision(col_id, {
+                    "collision_id": col_id,
+                    "release_id": release_id,
+                    "conflicting_release": "System Freeze Window",
+                    "shared_server": "N/A",
+                    "shared_database": "N/A",
+                    "shared_environment": env,
+                    "reason": f"Planned release window ({start_date}, +{DEPLOYMENT_WINDOW_HOURS}h) overlaps the {fw.get('reason', 'scheduled freeze')} ({fw.get('start')} to {fw.get('end')}).",
+                    "recommended_schedule": "Reschedule outside the freeze window.",
+                    "status": "conflict"
+                })
+                db.save_release_collision(**col_rec)
+                collisions.append(col_rec)
+                break  # one freeze-conflict record is sufficient
+
+    # Check same-environment concurrent releases via real window overlap, not exact
+    # date-string equality.
     all_rels = db.get_all_releases()
     for other in all_rels:
         if other["release_id"] != release_id and other["environment"] == env:
-            # Overlap test (simple date string equality for same day)
-            if other["planned_release_date"] == start_date:
+            other_dt = _parse_datetime(other.get("planned_release_date"))
+            other_end_dt = (other_dt + datetime.timedelta(hours=DEPLOYMENT_WINDOW_HOURS)) if other_dt else None
+            if start_dt and other_dt and _intervals_overlap(start_dt, end_dt, other_dt, other_end_dt):
                 col_id = f"CL-{release_id.split('-')[-1]}-{other['release_id'].split('-')[-1]}"
-                col_rec = {
+                col_rec = _carry_forward_decision(col_id, {
                     "collision_id": col_id,
                     "release_id": release_id,
                     "conflicting_release": other["release_id"],
                     "shared_server": server,
                     "shared_database": database,
                     "shared_environment": env,
-                    "reason": f"Concurrent release schedule on {env} environment. Release {other['release_id']} is scheduled at the same date.",
-                    "recommended_schedule": "Reschedule release to alternate time slot.",
+                    "reason": f"Concurrent release window on {env} environment overlaps with {other['release_id']} (scheduled {other.get('planned_release_date')}).",
+                    "recommended_schedule": "Reschedule release to a non-overlapping maintenance window.",
                     "status": "conflict"
-                }
+                })
                 db.save_release_collision(**col_rec)
                 collisions.append(col_rec)
-                
+
     return collisions
 
 
@@ -1004,7 +1154,7 @@ def run_audit_agent(release_id: str, db) -> list[dict]:
 
     # 10. Stage 08: CAB Review Decision
     cab = db.get_cab_by_release(release_id)
-    if cab:
+    if cab and cab.get("decision"):
         events.append({
             "audit_id": f"AU-{suffix}-{idx}",
             "release_id": release_id,
@@ -1016,7 +1166,17 @@ def run_audit_agent(release_id: str, db) -> list[dict]:
         })
         idx += 1
 
+    # Build a real tamper-evident hash chain over the events: each event's hash depends
+    # on its own content plus the previous event's hash, so any edit after the fact is
+    # detectable via verify_audit_chain() - not just a stored-but-never-checked field.
+    events_sorted = sorted(events, key=lambda x: str(x.get("timestamp", "")))
+    prev_hash = "GENESIS"
+    for e in events_sorted:
+        e["prev_hash"] = prev_hash
+        e["hash"] = _chain_hash(prev_hash, e)
+        prev_hash = e["hash"]
+
     # Save to DB (completely replace stale audit logs with fresh compliance records)
-    db.save_audit_logs(release_id, events)
-    return events
+    db.save_audit_logs(release_id, events_sorted)
+    return events_sorted
 

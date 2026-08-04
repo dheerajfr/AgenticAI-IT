@@ -306,7 +306,16 @@ class ChangeDatabase:
             "overall_score": overall_score,
             "risk_level": risk_level,
             "recommendation": recommendation,
-            "generated_at": generated_at
+            "generated_at": generated_at,
+            # AI-computed baseline, preserved even if a human later overrides the score below.
+            "ai_score": overall_score,
+            "ai_risk_level": risk_level,
+            # No human review path existed before - hardcoded False/None at creation is
+            # correct here as long as save_risk_review() below can actually flip it.
+            "human_reviewed": False,
+            "reviewed_by": None,
+            "review_notes": None,
+            "reviewed_at": None
         }
         with self._conn() as conn:
             cursor = conn.cursor()
@@ -333,6 +342,39 @@ class ChangeDatabase:
             row = cursor.fetchone()
             return json.loads(row[0]) if row and row[0] else None
 
+    def save_risk_review(self, release_id: str, human_reviewed: bool, reviewed_by: str, review_notes: str,
+                          reviewed_at: str, override_score: Optional[int] = None,
+                          override_level: Optional[str] = None) -> Optional[dict]:
+        """
+        Real human override path for the AI risk score: confirms or overrides the
+        score/level and persists human_reviewed=True plus the reviewer's input.
+        """
+        suffix = self._get_suffix(release_id)
+        with self._conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT risk_assessment FROM release_change WHERE id = ?", (suffix,))
+            row = cursor.fetchone()
+            if not row or not row[0]:
+                return None
+            data = json.loads(row[0])
+            if "ai_score" not in data:
+                data["ai_score"] = data.get("overall_score")
+                data["ai_risk_level"] = data.get("risk_level")
+            data["human_reviewed"] = human_reviewed
+            data["reviewed_by"] = reviewed_by
+            data["review_notes"] = review_notes
+            data["reviewed_at"] = reviewed_at
+            if override_score is not None:
+                data["overall_score"] = override_score
+            if override_level is not None:
+                data["risk_level"] = override_level
+            cursor.execute(
+                "UPDATE release_change SET risk_assessment = ? WHERE id = ?",
+                (json.dumps(data), suffix)
+            )
+            conn.commit()
+            return data
+
     # CAB methods
     def save_cab(self, cab_id: str, release_id: str, meeting_date: str, chairperson: str, decision: str, comments: str, approved_by: str, approval_time: str) -> None:
         suffix = self._get_suffix(release_id)
@@ -349,6 +391,17 @@ class ChangeDatabase:
         with self._conn() as conn:
             cursor = conn.cursor()
             self._get_or_create_row(cursor, release_id=release_id)
+            # Preserve any previously assembled prep_pack (from run_cab_assistant_agent)
+            # instead of clobbering it when the chairperson decision is recorded.
+            cursor.execute("SELECT cab FROM release_change WHERE id = ?", (suffix,))
+            row = cursor.fetchone()
+            if row and row[0]:
+                try:
+                    existing = json.loads(row[0])
+                    if existing.get("prep_pack") is not None:
+                        data["prep_pack"] = existing["prep_pack"]
+                except Exception:
+                    pass
             cursor.execute(
                 "UPDATE release_change SET cab = ? WHERE id = ?",
                 (json.dumps(data), suffix)
@@ -371,8 +424,33 @@ class ChangeDatabase:
             row = cursor.fetchone()
             return json.loads(row[0]) if row and row[0] else None
 
+    def save_cab_prep_pack(self, release_id: str, prep_pack: dict) -> None:
+        """
+        Persists the assembled CAB pack (sections + pre-answered Q&A) from
+        run_cab_assistant_agent, merged into the existing "cab" JSON blob alongside any
+        eventual chairperson decision, so no schema change is required.
+        """
+        suffix = self._get_suffix(release_id)
+        with self._conn() as conn:
+            cursor = conn.cursor()
+            self._get_or_create_row(cursor, release_id=release_id)
+            cursor.execute("SELECT cab FROM release_change WHERE id = ?", (suffix,))
+            row = cursor.fetchone()
+            data = {}
+            if row and row[0]:
+                try:
+                    data = json.loads(row[0])
+                except Exception:
+                    data = {}
+            data["prep_pack"] = prep_pack
+            cursor.execute(
+                "UPDATE release_change SET cab = ? WHERE id = ?",
+                (json.dumps(data), suffix)
+            )
+            conn.commit()
+
     # Release Collision methods
-    def save_release_collision(self, collision_id: str, release_id: str, conflicting_release: str, shared_server: str, shared_database: str, shared_environment: str, reason: str, recommended_schedule: str, status: str) -> None:
+    def save_release_collision(self, collision_id: str, release_id: str, conflicting_release: str, shared_server: str, shared_database: str, shared_environment: str, reason: str, recommended_schedule: str, status: str, human_decision: Optional[str] = None, decided_by: Optional[str] = None, decided_at: Optional[str] = None, decision_notes: Optional[str] = None) -> None:
         suffix = self._get_suffix(release_id)
         new_col = {
             "collision_id": collision_id,
@@ -383,7 +461,11 @@ class ChangeDatabase:
             "shared_environment": shared_environment,
             "reason": reason,
             "recommended_schedule": recommended_schedule,
-            "status": status
+            "status": status,
+            "human_decision": human_decision,
+            "decided_by": decided_by,
+            "decided_at": decided_at,
+            "decision_notes": decision_notes
         }
         with self._conn() as conn:
             cursor = conn.cursor()
@@ -419,6 +501,45 @@ class ChangeDatabase:
                 except Exception:
                     pass
             return []
+
+    def update_collision_decision(self, release_id: str, collision_id: str, human_decision: str,
+                                   decided_by: str, decided_at: str, decision_notes: str = "") -> Optional[dict]:
+        """
+        Real human-decision endpoint backing store for a flagged collision/clash:
+        CollisionDetectionRecord.human_decision previously had no writer anywhere - this
+        is that writer.
+        """
+        suffix = self._get_suffix(release_id)
+        with self._conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT release_collision FROM release_change WHERE id = ?", (suffix,))
+            row = cursor.fetchone()
+            collisions = []
+            if row and row[0]:
+                try:
+                    collisions = json.loads(row[0])
+                except Exception:
+                    pass
+
+            updated = None
+            for c in collisions:
+                if c.get("collision_id") == collision_id:
+                    c["human_decision"] = human_decision
+                    c["decided_by"] = decided_by
+                    c["decided_at"] = decided_at
+                    c["decision_notes"] = decision_notes
+                    updated = c
+                    break
+
+            if updated is None:
+                return None
+
+            cursor.execute(
+                "UPDATE release_change SET release_collision = ? WHERE id = ?",
+                (json.dumps(collisions), suffix)
+            )
+            conn.commit()
+            return updated
 
     # Audit Log methods
     def add_audit_log(self, audit_id: str, release_id: str, event: str, performed_by: str, timestamp: str, evidence_link: str, module_name: str) -> None:

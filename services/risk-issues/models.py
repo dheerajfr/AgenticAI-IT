@@ -12,6 +12,13 @@ class IssueRequest(BaseModel):
 class MitigationRequest(BaseModel):
     demand_id: str
     risk_id: str
+    owner: Optional[str] = None  # real assignment, if known; falls back to "Unassigned" (never a fabricated name)
+
+
+class MitigationUpdateRequest(BaseModel):
+    progress: Optional[int] = None
+    status: Optional[str] = None  # Pending, In Progress, Blocked, Completed
+    owner: Optional[str] = None
 
 class RiskModel(BaseModel):
     id: str
@@ -81,3 +88,7 @@ class RiskRecord(BaseModel):
     issues: List[IssueModel] = Field(default_factory=list)
     mitigations: List[MitigationModel] = Field(default_factory=list)
     timeline: List[TimelineEvent] = Field(default_factory=list)
+    risks_without_mitigation: List[str] = Field(
+        default_factory=list,
+        description="Risk IDs with no live (non-closed) mitigation tracked against them; computed at read-time, not persisted."
+    )

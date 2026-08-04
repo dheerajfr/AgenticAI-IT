@@ -51,6 +51,56 @@ app.add_middleware(
 def _get_build_deploy_db_path() -> str:
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "build-deploy", "build-deploy.db"))
 
+
+def _build_kt_markdown(demand_id: str, handover: Dict[str, Any]) -> str:
+    """
+    Renders the real KT/handover content this service already produces (the LLM-drafted
+    support runbook + known errors + on-call roster captured on the handover pack) as a
+    plain, honest local KT document.
+
+    This is a LOCAL artifact only -- it is not published to SharePoint. Real SharePoint
+    integration would require Microsoft Graph API credentials that are not configured in
+    this environment, so we do not fabricate a fake SharePoint URL/connector.
+    """
+    lines = [f"# Knowledge Transfer Package - {demand_id}", ""]
+    lines.append(f"- Handover ID: {handover.get('handover_id')}")
+    lines.append(f"- Created At: {handover.get('created_at')}")
+    lines.append(f"- Status: {handover.get('status')}")
+    if handover.get("reviewed_by"):
+        lines.append(f"- Reviewed By: {handover.get('reviewed_by')}")
+    lines.append("")
+    lines.append("_Note: This is a locally-generated KT package. It has not been published to_")
+    lines.append("_SharePoint -- Microsoft Graph API integration is not configured in this environment._")
+    lines.append("")
+
+    lines.append("## Delivery / On-Call Team")
+    delivery_team = handover.get("delivery_team") or []
+    run_team = handover.get("run_team") or []
+    lines.append(f"- Delivery team: {', '.join(delivery_team) if delivery_team else 'Not assigned'}")
+    lines.append(f"- Run/support team: {', '.join(run_team) if run_team else 'Not assigned'}")
+    lines.append("")
+
+    sr = handover.get("support_runbook") or {}
+    lines.append(f"## {sr.get('title', 'Ops Support Runbook')}")
+    for section in (sr.get("sections") or []):
+        lines.append(f"### {section.get('section')}")
+        lines.append(section.get("content", ""))
+        lines.append("")
+
+    lines.append("## Known Errors")
+    kes = handover.get("known_errors") or []
+    if not kes:
+        lines.append("No known errors documented for this release.")
+    else:
+        for ke in kes:
+            lines.append(f"- **{ke.get('ke_id')}** ({ke.get('severity', 'Major')}/{ke.get('priority', 'Medium')}): {ke.get('title')}")
+            lines.append(f"  - Linked defect: {ke.get('linked_defect')}")
+            lines.append(f"  - Status: {ke.get('status', 'Open')} | Assigned to: {ke.get('assigned_to', 'Unassigned')}")
+            lines.append(f"  - Workaround: {ke.get('workaround')}")
+    lines.append("")
+
+    return "\n".join(lines)
+
 @app.get("/api/ops-readiness/health")
 def health_check():
     return {"status": "healthy", "stage": 9}
@@ -376,7 +426,15 @@ def generate_handover(req: HandoverKTRequest):
         print(f"[Ops-Readiness] LLM call for handover runbook failed, using fallbacks. Error: {e}")
 
     now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-    kt_url = f"sharepoint://kt/ops-readiness-{demand_id.split('-')[-1]}-{datetime.date.today().strftime('%Y%m%d')}"
+
+    # NOTE: Real SharePoint publishing requires Microsoft Graph API credentials that are
+    # not configured in this environment. Rather than fabricate a fake sharepoint:// URL
+    # that doesn't resolve to anything real, we generate the actual KT document content
+    # (the same support runbook + known errors produced above) as a real local artifact
+    # and reference that honestly instead. kt_pack_url intentionally uses a "local://"
+    # scheme so it is never mistaken for a live SharePoint link.
+    kt_filename = f"KT-{demand_id}.md"
+    kt_url = f"local://ops-readiness/kt-packages/{kt_filename}"
 
     handover_record = HandoverPackRecord(
         handover_id=handover_id,
@@ -386,12 +444,47 @@ def generate_handover(req: HandoverKTRequest):
         support_runbook=support_runbook,
         known_errors=known_errors,
         kt_pack_url=kt_url,
+        delivery_team=req.delivery_team or [],
+        run_team=req.run_team or [],
         reviewed_by=None,
         status="draft"
     )
 
+    # Persist the real local KT document (not a SharePoint upload -- see note above).
+    try:
+        kt_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "exports", "kt_packages"))
+        os.makedirs(kt_dir, exist_ok=True)
+        kt_content = _build_kt_markdown(demand_id, handover_record.model_dump())
+        with open(os.path.join(kt_dir, kt_filename), "w", encoding="utf-8") as f:
+            f.write(kt_content)
+    except Exception as e:
+        print(f"[Ops-Readiness] Error writing local KT package file: {e}")
+
     db.update_section(demand_id, "handover", handover_record.model_dump())
     return handover_record
+
+@app.get("/api/ops-readiness/handover/{demand_id}/kt-package")
+def get_kt_package(demand_id: str):
+    """
+    Returns the real, locally-generated KT package content (markdown) for viewing or
+    downloading in the UI. This is a local artifact, NOT a SharePoint document -- real
+    SharePoint publishing requires Microsoft Graph API credentials that are not
+    configured in this environment.
+    """
+    record = db.get_record(demand_id)
+    handover = record.get("handover") if record else None
+    if not handover:
+        raise HTTPException(status_code=404, detail="Handover pack not found for this demand.")
+
+    content = _build_kt_markdown(demand_id, handover)
+    return {
+        "demand_id": demand_id,
+        "filename": f"KT-{demand_id}.md",
+        "format": "markdown",
+        "is_local_artifact": True,
+        "sharepoint_integration": "not_configured",
+        "content": content
+    }
 
 @app.post("/api/ops-readiness/handover/{demand_id}/review", response_model=HandoverPackRecord)
 def review_handover(demand_id: str, req: HandoverReviewRequest):
@@ -482,43 +575,98 @@ def validate_readiness(req: ReadinessValidationRequest):
     if mon_status == "fail":
         gaps.append(mon_evidence)
 
-    # Criterion 2: Support Team Briefed
-    brief_status = "pass" if req.readiness_criteria.support_team_briefed else "fail"
-    brief_evidence = "KT session and handover walk-through completed with operations group" if req.readiness_criteria.support_team_briefed else "Support team has not been briefed on this release"
+    # Server-side ground truth for criteria 2-5: independently re-derive from the
+    # handover pack + defects tables instead of trusting the client-supplied
+    # readiness_criteria booleans (those are pre-computed by the frontend from other
+    # tabs and are not authoritative). req.readiness_criteria is accepted for backward
+    # compatibility but is intentionally NOT used to determine pass/fail below.
+    ho_rec = rec_record.get("handover") if rec_record else None
+    ho_reviewed = bool(ho_rec) and ho_rec.get("status") == "reviewed" and bool(ho_rec.get("reviewed_by"))
+
+    # Criterion 2: Support Team Briefed (KT session + handover walk-through actually reviewed by ops)
+    if not ho_rec:
+        brief_status = "fail"
+        brief_evidence = "FAIL: No handover/KT pack has been generated for this demand."
+    elif not ho_reviewed:
+        brief_status = "fail"
+        brief_evidence = "FAIL: Handover pack generated but KT walk-through has not been reviewed/accepted by operations."
+    else:
+        brief_status = "pass"
+        brief_evidence = f"PASS: KT session and handover walk-through completed and reviewed by {ho_rec.get('reviewed_by')}."
     criteria_results.append(CriterionResult(criterion="support_team_briefed", status=brief_status, evidence=brief_evidence))
     if brief_status == "fail":
         gaps.append("Operations/Support team briefing (KT session) is pending.")
 
-    # Criterion 3: Runbook Reviewed
-    runbook_status = "pass" if req.readiness_criteria.runbook_reviewed else "fail"
-    runbook_evidence = "Operations support runbook drafted and approved by delivery lead" if req.readiness_criteria.runbook_reviewed else "Support runbook review is pending"
+    # Criterion 3: Runbook Reviewed (a real runbook record exists with content and has been reviewed)
+    runbook_sections = (ho_rec.get("support_runbook") or {}).get("sections") if ho_rec else None
+    runbook_has_content = bool(runbook_sections) and len(runbook_sections) > 0
+    if not ho_rec or not runbook_has_content:
+        runbook_status = "fail"
+        runbook_evidence = "FAIL: Operations support runbook has not been drafted."
+    elif not ho_reviewed:
+        runbook_status = "fail"
+        runbook_evidence = "FAIL: Support runbook drafted but review/approval by operations is pending."
+    else:
+        runbook_status = "pass"
+        runbook_evidence = f"PASS: Operations support runbook ({len(runbook_sections)} sections) drafted and approved by {ho_rec.get('reviewed_by')}."
     criteria_results.append(CriterionResult(criterion="runbook_reviewed", status=runbook_status, evidence=runbook_evidence))
     if runbook_status == "fail":
         gaps.append("Deployment & support runbook has not been reviewed by operations.")
 
-    # Criterion 4: Known Errors Documented
-    ke_status = "warn" if not req.readiness_criteria.known_errors_documented else "pass"
-    ke_evidence = "All active defects translated to known error items and documented in KB" if req.readiness_criteria.known_errors_documented else "Active defects exist that are not documented in KB"
+    # Criterion 4: Known Errors Documented (compare actual active defects vs. documented known-error items)
+    active_defect_ids = set()
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT data, status FROM defects WHERE demand_id = ? AND soft_delete = 0", (demand_id,))
+            for row in cursor.fetchall():
+                d_data = json.loads(row[0])
+                st = row[1] or d_data.get("status") or "Open"
+                if st.lower() not in ["resolved", "closed", "rejected", "duplicate"]:
+                    def_id = d_data.get("id") or d_data.get("defect_id")
+                    if def_id:
+                        active_defect_ids.add(str(def_id))
+    except Exception as e:
+        print(f"[Ops-Readiness] Error fetching active defects for known-errors check: {e}")
+
+    documented_defect_ids = set()
+    if ho_rec:
+        for ke in (ho_rec.get("known_errors") or []):
+            linked = ke.get("linked_defect")
+            if linked:
+                documented_defect_ids.add(str(linked))
+
+    num_unresolved = len(active_defect_ids)
+    num_undocumented = len(active_defect_ids - documented_defect_ids)
+
+    if num_unresolved == 0:
+        ke_status = "pass"
+        ke_evidence = "PASS: No active/unresolved defects require known-error documentation."
+    elif num_undocumented == 0:
+        ke_status = "pass"
+        ke_evidence = f"PASS: All {num_unresolved} active defects translated to known error items and documented in KB."
+    else:
+        ke_status = "warn"
+        ke_evidence = f"WARN: {num_undocumented} of {num_unresolved} active defects are not yet documented as known errors in KB."
     criteria_results.append(CriterionResult(criterion="known_errors_documented", status=ke_status, evidence=ke_evidence))
     if ke_status == "warn":
-        num_unresolved = 0
-        try:
-            with get_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT data FROM defects WHERE demand_id = ? AND soft_delete = 0", (demand_id,))
-                for row in cursor.fetchall():
-                    d_data = json.loads(row[0])
-                    if d_data.get("status", "").lower() not in ["resolved", "closed"]:
-                        num_unresolved += 1
-        except Exception as e:
-            print(f"[Ops-Readiness] Error fetching unresolved defects count: {e}")
-        
-        defect_count_str = f"{num_unresolved}" if num_unresolved > 0 else "2"
-        gaps.append(f"{defect_count_str} known errors or unresolved defects are pending KB documentation.")
+        gaps.append(f"{num_undocumented} known errors or unresolved defects are pending KB documentation.")
 
-    # Criterion 5: On-Call Assigned
-    oncall_status = "pass" if req.readiness_criteria.on_call_assigned else "fail"
-    oncall_evidence = "On-call roster established and personnel assigned to go-live shift" if req.readiness_criteria.on_call_assigned else "No resources assigned to the support shift rotation"
+    # Criterion 5: On-Call Assigned (real delivery/run team personnel captured on the reviewed handover pack)
+    delivery_team = (ho_rec.get("delivery_team") or []) if ho_rec else []
+    run_team = (ho_rec.get("run_team") or []) if ho_rec else []
+    has_oncall_roster = bool(delivery_team) or bool(run_team)
+
+    if not ho_rec or not has_oncall_roster:
+        oncall_status = "fail"
+        oncall_evidence = "FAIL: No delivery/run team on-call personnel have been captured on the handover pack."
+    elif not ho_reviewed:
+        oncall_status = "fail"
+        oncall_evidence = "FAIL: On-call roster captured but handover has not been reviewed/accepted by operations yet."
+    else:
+        oncall_status = "pass"
+        roster = list(dict.fromkeys(delivery_team + run_team))
+        oncall_evidence = f"PASS: On-call roster established with {len(roster)} personnel assigned to go-live shift ({', '.join(roster)})."
     criteria_results.append(CriterionResult(criterion="on_call_assigned", status=oncall_status, evidence=oncall_evidence))
     if oncall_status == "fail":
         gaps.append("Support on-call schedule has not been assigned for production go-live.")

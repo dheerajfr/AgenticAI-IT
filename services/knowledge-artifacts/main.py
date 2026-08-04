@@ -32,6 +32,7 @@ from models import (
 )
 from database import db
 from llm_client import call_gemini
+from retrieval import rank_artefacts_by_relevance
 
 app = FastAPI(title="Knowledge & Artefacts Service (Always-on)")
 
@@ -530,11 +531,17 @@ def generate_stubs(demand_id: str, req: GenerateStubsRequest = None):
 # Search — grounded in real indexed artefacts
 # ==========================================
 
+_SEARCH_TOP_K = 5
+
+
 @app.post("/api/knowledge-artifacts/search")
 def search_artefacts(req: SearchRequest):
     """
-    Semantic search across indexed artefacts.
-    Now includes content from auto-harvested, uploaded, and AI-generated artefacts.
+    Real retrieval across indexed artefacts: artefacts are ranked by TF-IDF
+    cosine similarity to the query (see retrieval.rank_artefacts_by_relevance),
+    and only the top-K most relevant artefacts are handed to the LLM for
+    answer synthesis — instead of dumping every artefact's truncated content
+    into the prompt regardless of relevance.
     """
     real_artefacts = []
     if req.demand_id:
@@ -542,19 +549,28 @@ def search_artefacts(req: SearchRequest):
         if record:
             real_artefacts = record.get("indexed_artefacts", [])
 
-    # Build artefact context string for the LLM prompt (include content snippets)
-    if real_artefacts:
-        artefact_context = "The following artefacts are indexed for this project:\n"
-        for a in real_artefacts:
+    # Rank by real (TF-IDF / cosine) textual relevance before touching the LLM.
+    top_artefacts = rank_artefacts_by_relevance(req.query, real_artefacts, top_k=_SEARCH_TOP_K)
+
+    # Build artefact context string for the LLM prompt from only the
+    # top-ranked, relevant artefacts (include content snippets).
+    if top_artefacts:
+        artefact_context = (
+            f"The following artefacts were retrieved as the most relevant "
+            f"(of {len(real_artefacts)} indexed) for this query, ranked by "
+            f"TF-IDF/cosine textual similarity:\n"
+        )
+        for a in top_artefacts:
             status_tag = f"[{a.get('status', 'pending-review')}]"
             source_tag = f"[{a.get('source', 'manual')}]"
             url_info   = f" — URL: {a['url']}" if a.get("url") else ""
+            score_tag  = f" (relevance: {a.get('_relevance_score', 0.0):.2f})"
             content_snippet = ""
             if a.get("content"):
-                content_snippet = f"\n    Full Document Content:\n{a['content']}"
+                content_snippet = f"\n    Content snippet: {a['content'][:400]}..."
             artefact_context += (
                 f"  - {a['name']} (Type: {a['type']}, v{a.get('version', '1.0')}) "
-                f"{status_tag} {source_tag}{url_info}{content_snippet}\n"
+                f"{status_tag} {source_tag}{score_tag}{url_info}{content_snippet}\n"
             )
     else:
         artefact_context = "No artefacts have been indexed for this project yet."
@@ -581,14 +597,15 @@ def search_artefacts(req: SearchRequest):
             "url": a.get("url"),
             "status": a.get("status", "pending-review"),
             "source": a.get("source", "manual"),
+            "relevance_score": a.get("_relevance_score", 0.0),
             "snippet": (a.get("content") or "")[:120] + "..." if a.get("content") else f"Version {a.get('version', '1.0')} — {a.get('type', '')} document",
         }
-        for a in real_artefacts
+        for a in top_artefacts
     ]
 
     if not results:
         results = [{"doc": "No artefacts indexed yet", "type": "—", "url": None,
-                    "status": "—", "source": "—",
+                    "status": "—", "source": "—", "relevance_score": 0.0,
                     "snippet": "Use Auto-Harvest or Generate Stubs to populate the index."}]
 
     return {
@@ -597,7 +614,9 @@ def search_artefacts(req: SearchRequest):
         "query": req.query,
         "ai_summary": ai_res,
         "results": results,
-        "total_artefacts_searched": len(real_artefacts)
+        "total_artefacts_searched": len(real_artefacts),
+        "total_artefacts_retrieved": len(top_artefacts),
+        "retrieval_method": "tfidf-cosine",
     }
 
 

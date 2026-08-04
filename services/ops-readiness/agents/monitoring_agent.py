@@ -204,8 +204,9 @@ class MonitoringSetupAgent:
             p95_target = round((hist_p95_ms or (hist_p99_ms * 0.75)) * 1.15, 1)
             slo_source = "stage_07_load_test_baseline"
         else:
-            # Intelligent technology-tier defaults
-            slo_source = "ai_technology_tier_analysis"
+            # Deterministic technology-tier defaults (rule-based fallback; used verbatim only
+            # if the LLM-driven refinement in generate_ai_monitoring_insights is unavailable)
+            slo_source = "rule_based_tech_tier_fallback"
             if spec.component_type == "redis":
                 p95_target, p99_target = 15.0, 35.0
             elif spec.component_type in ["postgresql", "mongodb"]:
@@ -401,6 +402,175 @@ class MonitoringSetupAgent:
 
         return alerts
 
+    def generate_ai_monitoring_insights(
+        self,
+        ctx: Dict[str, Any],
+        component_specs: List[ComponentSpec],
+        slo_targets: List[SLOTargetSpec]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Calls the LLM to generate/refine SLO thresholds and propose additional,
+        context-aware alert recommendations grounded in the real SDLC context already
+        gathered by gather_sdlc_context (Stage 03 dependencies, Stage 05 environment/CMDB,
+        Stage 07 test runs/defects, Stage 08 release risk/ownership).
+
+        Returns the parsed JSON payload on success, or None if the LLM call fails or
+        returns an unusable payload -- callers must keep the deterministic rule-based
+        thresholds from calculate_slo_target as the genuine fallback in that case.
+        """
+        components_summary = []
+        for spec, slo in zip(component_specs, slo_targets):
+            components_summary.append({
+                "component_id": spec.component_id,
+                "component_type": spec.component_type,
+                "criticality": spec.criticality,
+                "environment": spec.environment,
+                "technology_stack": spec.technology_stack,
+                "historical_p99_latency_ms": spec.historical_p99_latency_ms,
+                "rule_based_availability_slo_pct": slo.availability_slo_pct,
+                "rule_based_latency_p95_ms": slo.latency_p95_ms,
+                "rule_based_latency_p99_ms": slo.latency_p99_ms,
+                "rule_based_source": slo.source
+            })
+
+        defects_summary = [
+            {
+                "id": d.get("id") or d.get("defect_id"),
+                "severity": d.get("severity"),
+                "status": d.get("status"),
+                "summary": d.get("summary") or d.get("title")
+            }
+            for d in (ctx.get("test_defects") or [])[:15]
+        ]
+
+        prompt = f"""
+        You are a Senior Site Reliability Engineer setting up production observability for demand {ctx.get('demand_id')}.
+
+        Real context gathered from prior SDLC stages for this demand:
+        - Components in scope, with rule-engine baseline thresholds shown as a reference floor:
+        {json.dumps(components_summary, indent=2)}
+        - Architecture dependencies (Stage 03): {json.dumps((ctx.get('arch_dependencies') or [])[:10])}
+        - Environment/CMDB records (Stage 05): {json.dumps((ctx.get('env_components') or [])[:10])}
+        - Recent test runs / load test baselines (Stage 07): {json.dumps((ctx.get('test_runs') or [])[:10])}
+        - Open/recent defects (Stage 07): {json.dumps(defects_summary)}
+        - Release metadata & risk rating (Stage 08): {json.dumps(ctx.get('release_info') or {{}})}
+
+        Task:
+        1. For each component_id, propose a refined SLO target. You may keep the rule-engine value if it is
+           already appropriate, or tighten/loosen it based on criticality, defect history, and dependency risk.
+           Only propose realistic, internally consistent values (latency_p95_ms must be less than latency_p99_ms;
+           percentages must be in valid ranges).
+        2. Propose up to 2 additional alert recommendations (beyond the standard rule-based alerts) for any
+           component you judge to be at elevated operational risk -- e.g. because of open critical/high defects,
+           fragile dependencies, or unusually tight SLOs.
+
+        Respond ONLY with JSON matching this schema:
+        {{
+          "slo_targets": [
+            {{
+              "component_id": "...",
+              "availability_slo_pct": 99.9,
+              "latency_p95_ms": 120.0,
+              "latency_p99_ms": 250.0,
+              "error_rate_threshold_pct": 0.1,
+              "cpu_threshold_pct": 85.0,
+              "memory_threshold_pct": 88.0,
+              "rationale": "1-sentence reasoning grounded in the context above."
+            }}
+          ],
+          "additional_alerts": [
+            {{
+              "component_id": "...",
+              "name": "...",
+              "condition": "...",
+              "threshold": "...",
+              "severity": "critical|high|medium|low",
+              "rationale": "1-sentence reasoning."
+            }}
+          ]
+        }}
+        """
+
+        try:
+            result = call_gemini(prompt=prompt, is_json=True)
+            if isinstance(result, dict) and ("slo_targets" in result or "additional_alerts" in result):
+                return result
+            print("[MonitoringAgent] AI SLO/alert refinement returned an unexpected payload shape, using rule-based fallback.")
+        except Exception as e:
+            print(f"[MonitoringAgent] AI SLO/alert refinement call failed, using rule-based fallback thresholds. Error: {e}")
+        return None
+
+    def apply_ai_monitoring_insights(
+        self,
+        ai_insights: Optional[Dict[str, Any]],
+        component_specs: List[ComponentSpec],
+        slo_targets: List[SLOTargetSpec],
+        notification_group: List[str]
+    ) -> List[ProposedAlert]:
+        """
+        Validates and merges the LLM's proposed SLO refinements into slo_targets in place
+        (marking source="ai_dynamic_analysis" only for entries the LLM actually and validly
+        refined), and returns any additional AI-recommended alerts as ProposedAlert objects.
+        Invalid or missing LLM output for a given component is silently discarded and that
+        component's rule-based SLOTargetSpec (from calculate_slo_target) is left untouched.
+        """
+        ai_alerts: List[ProposedAlert] = []
+        if not ai_insights:
+            return ai_alerts
+
+        valid_component_ids = {s.component_id for s in component_specs}
+
+        for item in (ai_insights.get("slo_targets") or []):
+            comp_id = item.get("component_id")
+            if comp_id not in valid_component_ids:
+                continue
+            try:
+                avail = float(item["availability_slo_pct"])
+                p95 = float(item["latency_p95_ms"])
+                p99 = float(item["latency_p99_ms"])
+                err = float(item["error_rate_threshold_pct"])
+                cpu = float(item["cpu_threshold_pct"])
+                mem = float(item["memory_threshold_pct"])
+                if not (0 < avail <= 100 and 0 < p95 < p99 and 0 <= err <= 100 and 0 < cpu <= 100 and 0 < mem <= 100):
+                    raise ValueError("AI-proposed SLO values failed sanity range checks")
+            except (KeyError, TypeError, ValueError) as ve:
+                print(f"[MonitoringAgent] Discarding invalid AI SLO proposal for {comp_id}: {ve}")
+                continue
+
+            for slo in slo_targets:
+                if slo.component_id == comp_id:
+                    slo.availability_slo_pct = avail
+                    slo.latency_p95_ms = p95
+                    slo.latency_p99_ms = p99
+                    slo.error_rate_threshold_pct = err
+                    slo.cpu_threshold_pct = cpu
+                    slo.memory_threshold_pct = mem
+                    slo.source = "ai_dynamic_analysis"
+                    break
+
+        for item in (ai_insights.get("additional_alerts") or []):
+            comp_id = item.get("component_id")
+            name = item.get("name")
+            condition = item.get("condition")
+            if comp_id not in valid_component_ids or not name or not condition:
+                continue
+            severity = item.get("severity") if item.get("severity") in ["critical", "high", "medium", "low"] else "medium"
+            comp_upper = comp_id.upper().replace("-", "_")
+            comp_type = next((s.component_type for s in component_specs if s.component_id == comp_id), "rest_api")
+            ai_alerts.append(ProposedAlert(
+                alert_id=f"ALT-{comp_upper}-AI-{len(ai_alerts) + 1}",
+                component_id=comp_id,
+                component_type=comp_type,
+                alert_type="ai_recommended",
+                name=name,
+                condition=condition,
+                threshold=item.get("threshold"),
+                severity=severity,
+                notify=notification_group
+            ))
+
+        return ai_alerts
+
     def generate_dynamic_dashboards(self, demand_id: str, env: str, spec_list: List[ComponentSpec]) -> List[ProposedDashboard]:
         """Generates dashboard widget specifications filtered strictly by detected component technology stacks."""
         detected_types = set(s.component_type for s in spec_list)
@@ -529,12 +699,25 @@ class MonitoringSetupAgent:
         # 3. Dynamic Notification Groups
         notification_group = self.generate_notification_groups(component_specs, env, ctx["release_info"])
 
-        # 4. Dynamic Alerts Generation
+        # 3.5. AI-Driven SLO Refinement & Alert Recommendations.
+        # This is the primary, actually-AI path: the LLM reviews the real gathered SDLC
+        # context (dependencies, environment/CMDB, test runs, defects, release risk) and can
+        # tighten/loosen the rule-based SLO thresholds computed above, plus recommend extra
+        # alerts for components it judges to be at elevated risk. If the LLM call fails or
+        # returns something unusable, the deterministic rule-based thresholds/alerts computed
+        # in steps 2 and 4 remain in effect untouched as the genuine fallback.
+        ai_insights = self.generate_ai_monitoring_insights(ctx, component_specs, slo_targets)
+        ai_recommended_alerts = self.apply_ai_monitoring_insights(
+            ai_insights, component_specs, slo_targets, notification_group
+        )
+
+        # 4. Dynamic Alerts Generation (uses slo_targets as possibly refined by the AI pass above)
         proposed_alerts: List[ProposedAlert] = []
         for spec in component_specs:
             slo = next((s for s in slo_targets if s.component_id == spec.component_id), slo_targets[0])
             alerts = self.generate_dynamic_alerts(spec, slo, notification_group)
             proposed_alerts.extend(alerts)
+        proposed_alerts.extend(ai_recommended_alerts)
 
         # 5. Dynamic Dashboard Specifications Generation
         proposed_dashboards = self.generate_dynamic_dashboards(demand_id, env, component_specs)

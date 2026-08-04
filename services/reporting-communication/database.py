@@ -21,6 +21,18 @@ def init_db():
                 communications TEXT
             )
         ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS meeting_actions (
+                id TEXT PRIMARY KEY,
+                demand_id TEXT,
+                type TEXT,
+                description TEXT,
+                owner TEXT,
+                status TEXT DEFAULT 'Open',
+                due_date TEXT,
+                created_at TEXT
+            )
+        ''')
         conn.commit()
 
 init_db()
@@ -58,3 +70,45 @@ class DB:
             conn.commit()
 
 db = DB()
+
+class MeetingActionsDB:
+    @staticmethod
+    def get_by_demand(demand_id: str) -> List[Dict]:
+        with _get_conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM meeting_actions WHERE demand_id = ? ORDER BY created_at DESC",
+                (demand_id,)
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    @staticmethod
+    def get_by_id(action_id: str) -> Optional[Dict]:
+        with _get_conn() as conn:
+            row = conn.execute("SELECT * FROM meeting_actions WHERE id = ?", (action_id,)).fetchone()
+            return dict(row) if row else None
+
+    @staticmethod
+    def save(action: Dict):
+        with _get_conn() as conn:
+            conn.execute('''
+                INSERT INTO meeting_actions (id, demand_id, type, description, owner, status, due_date, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    type=excluded.type,
+                    description=excluded.description,
+                    owner=excluded.owner,
+                    status=excluded.status,
+                    due_date=excluded.due_date
+            ''', (
+                action.get('id'),
+                action.get('demand_id'),
+                action.get('type', 'action_item'),
+                action.get('description', ''),
+                action.get('owner', 'Unassigned'),
+                action.get('status', 'Open'),
+                action.get('due_date', ''),
+                action.get('created_at')
+            ))
+            conn.commit()
+
+meeting_actions_db = MeetingActionsDB()
