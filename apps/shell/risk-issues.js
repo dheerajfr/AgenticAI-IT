@@ -1,6 +1,8 @@
 const BASE_URL = '/api';
 
 window.fetchRiskIssuesData = async function(targetContainer) {
+  if (window.showGlobalLoader) window.showGlobalLoader("Loading Risk & Issues...");
+
   try {
     const demRes = await fetch('/api/demands');
     if (demRes.ok) window.allDemandsList = await demRes.json();
@@ -46,7 +48,7 @@ window.fetchRiskIssuesData = async function(targetContainer) {
   
   const layoutSuffix = `
         <div style="padding: 1.5rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; background: var(--bg-primary);">
-          <button onclick="window.location.hash = 'budget-cost';" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,0.35); font-weight: 700; padding: 0.75rem 1.5rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-family: var(--font-sans); transition: transform 0.2s ease;">
+          <button onclick="if(window.switchStage) window.switchStage('budget-cost');" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,0.35); font-weight: 700; padding: 0.75rem 1.5rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-family: var(--font-sans); transition: transform 0.2s ease;">
             Proceed to Budget & Cost &rarr;
           </button>
         </div>
@@ -452,6 +454,11 @@ window.renderRiskIssuesScreen = function(targetContainer) {
   `;
   
   const layoutSuffix = `
+        <div style="padding: 1.5rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; background: var(--bg-primary);">
+          <button onclick="if(window.switchStage) window.switchStage('budget-cost');" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,0.35); font-weight: 700; padding: 0.75rem 1.5rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-family: var(--font-sans); transition: transform 0.2s ease;">
+            Proceed to Budget & Cost &rarr;
+          </button>
+        </div>
       </main>
     </div>
     

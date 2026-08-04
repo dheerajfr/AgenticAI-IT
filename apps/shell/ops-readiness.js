@@ -605,8 +605,13 @@ function renderMonitoringSetup() {
             <button class="ops-btn" id="ops-sre-approve-btn">Approve Monitoring Plan (${mon.monitoring_plan_id || 'MON-PLAN-' + suffix})</button>
           </div>
         ` : `
-          <div style="border-top:1px solid var(--border-color); padding-top: 1rem; margin-top:1.5rem; font-size: 0.8rem; color: var(--color-status-green-text); font-weight: bold; text-align: right;">
-            ✓ Monitoring Plan ${mon.monitoring_plan_id || 'MON-PLAN-' + suffix} signed off by ${mon.sre_reviewed_by || 'SRE Lead'}. Ready for Stage 09-A Validation.
+          <div style="border-top:1px solid var(--border-color); padding-top: 1rem; margin-top:1.5rem; display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 0.8rem; color: var(--color-status-green-text); font-weight: bold; text-align: left;">
+              ✓ Monitoring Plan ${mon.monitoring_plan_id || 'MON-PLAN-' + suffix} signed off by ${mon.sre_reviewed_by || 'SRE Lead'}. Ready for Stage 09-A Validation.
+            </div>
+            <button class="ops-btn" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: 700;" onclick="if(window.switchStage) window.switchStage('budget-cost')">
+              Proceed to Budget & Cost &rarr;
+            </button>
           </div>
         `}
       </div>
