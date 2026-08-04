@@ -808,7 +808,6 @@ window.bcSignOffItem = async function (itemId, demandId) {
   } catch (e) { console.error(e); }
 };
 
-<<<<<<< HEAD
 window.bcSubmitSpendClassification = async function(demandId) {
   const val = (id) => document.getElementById(id)?.value.trim() || '';
   const description = val(`capex-description-${demandId}`);
@@ -850,8 +849,6 @@ window.bcSubmitSpendClassification = async function(demandId) {
   }
 };
 
-window.generateInvoices = async function(demandId) {
-=======
 window.bcSignOff = async function (demandId) {
   try {
     await fetch(`${BC_API}/capex-opex/sign-off`, {
@@ -863,7 +860,6 @@ window.bcSignOff = async function (demandId) {
 };
 
 window.generateInvoices = async function (demandId) {
->>>>>>> main
   try {
     const res = await fetch(`${BASE_URL}/budget-cost/project/${demandId}/invoices/generate`, {
       method: 'POST'

@@ -1957,56 +1957,114 @@ function renderMarkdown(md) {
 }
 
 
-// Global Loader Logic
+// Global Loader Logic (Replaced with Button In-Place Loading)
 window.showGlobalLoader = function(message = "Processing...") {
-  let loader = document.getElementById('global-overlay-loader');
-  if (!loader) {
-    loader = document.createElement('div');
-    loader.id = 'global-overlay-loader';
-    loader.style.cssText = `
-      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
-      background: var(--bg-tertiary, #1e293b);
-      border: 1px solid var(--border-color, #334155);
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-      border-radius: 30px;
-      padding: 0.6rem 1.5rem;
-      z-index: 100000; display: flex; flex-direction: row; align-items: center; gap: 12px;
-      opacity: 0; pointer-events: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    `;
-    
-    loader.innerHTML = `
-      <style>
-        .global-spinner {
-          width: 16px; height: 16px; border-radius: 50%;
-          border: 2px solid rgba(255,255,255,0.1);
-          border-top-color: var(--color-brand, #6366f1);
-          animation: global-spin 0.8s linear infinite;
-        }
-        @keyframes global-spin { to { transform: rotate(360deg); } }
-        .global-loader-text {
-          font-family: var(--font-sans, system-ui);
-          color: var(--text-primary, #f8fafc); font-size: 0.85rem; font-weight: 600;
-        }
-      </style>
-      <div class="global-spinner"></div>
-      <div class="global-loader-text" id="global-loader-msg"></div>
-    `;
-    document.body.appendChild(loader);
-  }
-  
-  document.getElementById('global-loader-msg').innerText = message;
-  loader.style.opacity = '1';
-  loader.style.transform = 'translateX(-50%) translateY(0)';
+  // Deprecated: Loading is now handled in-place on buttons
 };
 
 window.hideGlobalLoader = function() {
-  const loader = document.getElementById('global-overlay-loader');
-  if (loader) {
-    loader.style.opacity = '0';
-    loader.style.transform = 'translateX(-50%) translateY(20px)';
+  // Deprecated
+};
+
+let lastClickedButton = null;
+let lastClickedTime = 0;
+
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (btn) {
+    lastClickedButton = btn;
+    lastClickedTime = Date.now();
+  }
+}, true);
+
+function generateLoadingText(originalText) {
+  let text = originalText.replace(/[\n\r]+|[\s]{2,}/g, ' ').trim();
+  if (!text) return "Processing...";
+  
+  const verbMap = {
+    'initialize': 'Initializing',
+    'create': 'Creating',
+    'submit': 'Submitting',
+    'generate': 'Generating',
+    'save': 'Saving',
+    'update': 'Updating',
+    'delete': 'Deleting',
+    'load': 'Loading',
+    'add': 'Adding',
+    'edit': 'Editing',
+    'approve': 'Approving',
+    'reject': 'Rejecting',
+    'draft': 'Drafting',
+    'analyze': 'Analyzing',
+    'run': 'Running',
+    'start': 'Starting'
+  };
+  
+  const words = text.split(' ');
+  const firstWordLower = words[0].toLowerCase();
+  
+  if (verbMap[firstWordLower]) {
+    words[0] = verbMap[firstWordLower];
+  } else {
+    // Fallback heuristic for other verbs
+    let firstWord = words[0];
+    if (firstWord.endsWith('e') && firstWord.length > 2) {
+      firstWord = firstWord.slice(0, -1) + 'ing';
+    } else {
+      firstWord = firstWord + 'ing';
+    }
+    words[0] = firstWord;
+  }
+  
+  return words.join(' ') + '...';
+}
+
+// --- Global Fetch Interceptor for Loading Overlay ---
+const originalFetch = window.fetch;
+window.fetch = async function(...args) {
+  const url = args[0] || '';
+  const options = args[1] || {};
+  
+  // Do not show loader for basic GET requests to fetch lists (prevents flickering on navigation)
+  const isBackgroundSync = (typeof url === 'string' && url.includes('/api/') && (!options.method || options.method.toUpperCase() === 'GET'));
+  
+  const hash = window.location.hash.substring(1);
+  const isTargetModule = hash === 'release-change' || hash === 'risk-issues';
+
+  let activeBtn = null;
+
+  // Show loader for POST, PUT, DELETE, etc (AI generations, form submits)
+  if (!isBackgroundSync && isTargetModule) {
+    if (lastClickedButton && (Date.now() - lastClickedTime < 500)) {
+      activeBtn = lastClickedButton;
+      if (!activeBtn.dataset.fetching) {
+        activeBtn.dataset.fetching = "1";
+        activeBtn.dataset.originalHtml = activeBtn.innerHTML;
+        activeBtn.disabled = true;
+        
+        const loadingText = generateLoadingText(activeBtn.textContent);
+        activeBtn.innerHTML = `<span class="spinner" style="display:inline-block;width:1rem;height:1rem;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:global-spin 0.8s linear infinite;vertical-align:middle;margin-right:0.5rem;"></span>${loadingText}`;
+      } else {
+        activeBtn.dataset.fetching = (parseInt(activeBtn.dataset.fetching) + 1).toString();
+      }
+    }
+  }
+  
+  try {
+    const response = await originalFetch(...args);
+    return response;
+  } finally {
+    if (activeBtn && activeBtn.dataset.fetching) {
+      let count = parseInt(activeBtn.dataset.fetching) - 1;
+      if (count <= 0) {
+        activeBtn.innerHTML = activeBtn.dataset.originalHtml;
+        activeBtn.disabled = false;
+        delete activeBtn.dataset.fetching;
+        delete activeBtn.dataset.originalHtml;
+      } else {
+        activeBtn.dataset.fetching = count.toString();
+      }
+    }
   }
 };
 
-
-// --- Global Fetch Interceptor for Loading Overlay ---
-// Removed to prevent showing the global "Processing AI request..." loader during API calls.
