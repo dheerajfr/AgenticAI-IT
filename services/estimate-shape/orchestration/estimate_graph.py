@@ -2,11 +2,13 @@ from typing import TypedDict, Optional, Dict, Any, List
 from langgraph.graph import StateGraph, END
 import sys
 import os
+import json
 import random
 
 # Add parent to path to access llm_client
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from llm_client import call_gemini
+from shared_db.connection import get_db
 
 class EstimateState(TypedDict):
     task: str # 'estimate', 'challenge', or 'trigger_check'
@@ -48,6 +50,66 @@ class EstimateState(TypedDict):
     error: Optional[str]
 
 
+def fetch_comparable_history(current_demand_id: str, dtype: str, domain: str) -> List[Dict[str, Any]]:
+    """
+    Real comparable-past-work lookup: cross-references the estimates table
+    against the demands table's domain/type to find up to 2 real past
+    estimates for comparable prior work, so sizing is grounded in actual
+    delivery history rather than only the current demand's own fields.
+    Returns [] - not a fabricated comparison - if none exist yet.
+    """
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT demand_id, data FROM demands")
+            demand_rows = cursor.fetchall()
+            cursor.execute("SELECT demand_id, data FROM estimates")
+            estimate_rows = cursor.fetchall()
+    except Exception:
+        return []
+
+    demand_meta = {}
+    for d_id, data in demand_rows:
+        try:
+            parsed = json.loads(data)
+            demand_meta[d_id] = {
+                "domain": parsed.get("domain"),
+                "type": parsed.get("type"),
+                "title": parsed.get("title"),
+            }
+        except Exception:
+            continue
+
+    scored = []
+    seen_demands = set()
+    for d_id, data in estimate_rows:
+        if d_id == current_demand_id or d_id in seen_demands:
+            continue
+        meta = demand_meta.get(d_id)
+        if not meta:
+            continue
+        score = (2 if domain and meta.get("domain") == domain else 0) + \
+                (1 if dtype and meta.get("type") == dtype else 0)
+        if score <= 0:
+            continue
+        try:
+            est = json.loads(data)
+        except Exception:
+            continue
+        seen_demands.add(d_id)
+        scored.append((score, {
+            "demand_id": d_id,
+            "title": meta.get("title"),
+            "effort_days": est.get("effort_days"),
+            "cost_estimate": est.get("cost_estimate"),
+            "duration_weeks": est.get("duration_weeks"),
+            "confidence": est.get("confidence"),
+        }))
+
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [item for _, item in scored[:2]]
+
+
 def estimate_node(state: EstimateState) -> Dict[str, Any]:
     print(f"[LangGraph Node: estimate] Estimating demand {state.get('demand_id')}...")
     title = state.get("title") or ""
@@ -57,16 +119,37 @@ def estimate_node(state: EstimateState) -> Dict[str, Any]:
     business_case_summary = state.get("business_case_summary") or ""
     risk_level = state.get("risk_level") or ""
     funding_status = state.get("funding_status") or ""
-    
+    demand_id = state.get("demand_id") or ""
+
+    comparable = fetch_comparable_history(demand_id, dtype, domain)
+    if comparable:
+        comparable_lines = "\n".join(
+            f"- {c['demand_id']} \"{c['title']}\": {c['effort_days']} effort days, "
+            f"${c['cost_estimate']}, {c['duration_weeks']} weeks (confidence: {c['confidence']})"
+            for c in comparable
+        )
+        comparable_section = f"""
+    Comparable Past Estimates (real prior work in this same domain/type):
+    {comparable_lines}
+    Use these as real anchors for sizing - if this request is similar in
+    scope, your estimate should be in the same range; explain any deviation.
+    """
+    else:
+        comparable_section = """
+    Comparable Past Estimates: none found yet - no prior estimate in this
+    domain/type exists in the system. Do not fabricate a comparison; size
+    this from first principles and note it is a first-of-kind estimate.
+    """
+
     prompt = f"""
     You are an AI Estimation Expert. Estimate the effort, cost, and duration for this project demand based on typical historical metrics for similar work.
-    
+
     CRITICAL ESTIMATION RULES:
     1. Size the project appropriately based on scale:
        - For standard/small/medium requests (e.g. chess bot, API endpoint, form utility), tailor the estimate for a rapid build team that works in a highly lean, sprint-based manner. Timelines and effort should be compressed accordingly.
        - For massive-scale/enterprise/AAA-level requests (e.g. GTA remake, full ERP migrations, core banking system replacement), scale the estimate exponentially to reflect their true scope (which could be hundreds or thousands of days and millions of dollars), while keeping the team structure lean.
     2. The absolute minimum effort required for any delivery is 2 days.
-    
+
     Demand Title: {title}
     Description: {description}
     Type: {dtype}
@@ -74,6 +157,7 @@ def estimate_node(state: EstimateState) -> Dict[str, Any]:
     Business Case Summary: {business_case_summary}
     Risk Level: {risk_level}
     Funding Status: {funding_status}
+    {comparable_section}
     """
     
     reason = state.get("rebaseline_reason")

@@ -259,6 +259,46 @@ def check_duplicates_node(state: WorkflowState) -> Dict[str, Any]:
 # Node 6: Business Case Generation Node
 # ---------------------------------------------------------------------------
 
+def fetch_comparable_demands(demand_id: str, dtype: str, domain: str) -> List[Dict[str, Any]]:
+    """
+    Real comparable-past-work lookup: scores every other demand already in
+    this app's own demands table by domain/type match and returns up to 2
+    of the closest ones (with their real outcome), so the business case can
+    be grounded in actual comparable history instead of just the current
+    demand's own fields. Returns [] - not a fabricated comparison - if no
+    other demand exists yet.
+    """
+    try:
+        all_demands = db.get_all()
+    except Exception:
+        return []
+
+    scored = []
+    for d in all_demands:
+        if d.demand_id == demand_id:
+            continue
+        score = 0
+        if domain and d.domain == domain:
+            score += 2
+        if dtype and d.type == dtype:
+            score += 1
+        if score > 0:
+            scored.append((score, d))
+
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    comparable = []
+    for _, d in scored[:2]:
+        comparable.append({
+            "demand_id": d.demand_id,
+            "title": d.title,
+            "domain": d.domain,
+            "type": d.type,
+            "risk_level": d.risk_level,
+            "status": d.status,
+        })
+    return comparable
+
+
 def generate_draft_node(state: WorkflowState) -> Dict[str, Any]:
     print(f"[LangGraph Node: generate_draft] Generating business case for demand {state.get('demand_id')}...")
     title = state.get("title") or ""
@@ -267,10 +307,30 @@ def generate_draft_node(state: WorkflowState) -> Dict[str, Any]:
     domain = state.get("domain") or ""
     risk_level = state.get("risk_level") or ""
     demand_id = state.get("demand_id") or ""
-    
+
+    comparable = fetch_comparable_demands(demand_id, dtype, domain)
+    if comparable:
+        comparable_lines = "\n".join(
+            f"- {c['demand_id']} \"{c['title']}\" (domain: {c['domain']}, type: {c['type']}, "
+            f"risk: {c['risk_level']}, status: {c['status']})"
+            for c in comparable
+        )
+        comparable_section = f"""
+    Comparable Past Projects (real prior demands in this same domain/type):
+    {comparable_lines}
+    Reference these where relevant to ground the business case in actual
+    delivery history (e.g. similar risk profile, similar domain outcomes).
+    """
+    else:
+        comparable_section = """
+    Comparable Past Projects: none found yet - no prior demand in this
+    domain/type exists in the system. Do not fabricate a comparison; note
+    plainly that this is a first-of-kind request in this domain if relevant.
+    """
+
     prompt = f"""
     Draft a concise, short business case summary for the following project request.
-    
+
     PROJECT DETAILS:
     ID: {demand_id}
     Title: {title}
@@ -278,10 +338,10 @@ def generate_draft_node(state: WorkflowState) -> Dict[str, Any]:
     Type: {dtype}
     Domain: {domain}
     Risk Level: {risk_level}
-    
+    {comparable_section}
     At the very beginning of your response, you MUST include the following title line:
     Business Case Summary: {title} ({demand_id})
-    
+
     Provide a very brief executive summary (max 2 sentences), direct business value/impact (max 2 sentences), and potential risk mitigation (max 2 sentences).
     Keep the entire draft extremely short, concise, and professional (under 120 words total).
     Do NOT use any markdown formatting like asterisks (** or *), hashes (#), or list symbols. Use plain text headings on their own lines instead.
