@@ -146,8 +146,8 @@ def estimate_node(state: EstimateState) -> Dict[str, Any]:
 
     CRITICAL ESTIMATION RULES:
     1. Size the project appropriately based on scale:
-       - For standard/small/medium requests (e.g. chess bot, API endpoint, form utility), tailor the estimate for a rapid build team that works in a highly lean, sprint-based manner. Timelines and effort should be compressed accordingly.
-       - For massive-scale/enterprise/AAA-level requests (e.g. GTA remake, full ERP migrations, core banking system replacement), scale the estimate exponentially to reflect their true scope (which could be hundreds or thousands of days and millions of dollars), while keeping the team structure lean.
+       - For standard/small/medium requests, business software, internal utilities, licensing tools, workflow automation, and dashboard apps (e.g. chess bot, API endpoint, form utility, Automated Data-Driven Licensing Management Solution), tailor the estimate strictly for a rapid build team that works in a highly lean, sprint-based manner. Timelines and effort must be highly compressed (e.g., 2 to 4 weeks duration, effort in the range of 10 to 30 days, cost roughly $100 to $1,000 max).
+       - For massive-scale/enterprise/AAA-level requests (e.g. GTA remake, full ERP migrations, core banking system replacement), scale the estimate exponentially to reflect their true scope (which could be hundreds or thousands of days and millions of dollars), while keeping the team structure lean. Do NOT use these massive AAA-level projects as anchors for simple business utilities or licensing software.
     2. The absolute minimum effort required for any delivery is 2 days.
 
     Demand Title: {title}
