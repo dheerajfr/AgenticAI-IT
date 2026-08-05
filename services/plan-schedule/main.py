@@ -314,6 +314,8 @@ def generate(req: GeneratePlanRequest):
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Planning engine error: {exc}")
 
     if not plans:
@@ -728,4 +730,35 @@ def _get_team_config_from_db():
         "roles": roles_config
     }
 
+class OverrideRequest(BaseModel):
+    demand_id: str
+    role: str
+    allocated_count: int
+    justification: str
 
+@app.post("/api/plans/{plan_id}/override")
+def override_allocation(plan_id: str, req: OverrideRequest):
+    """Override the capacity headcount manually with a justification."""
+    from datetime import datetime
+    import json
+    
+    plan = db.get_by_id(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+        
+    override_record = {
+        "plan_id": plan_id,
+        "demand_id": req.demand_id,
+        "role": req.role,
+        "allocated_count": req.allocated_count,
+        "justification": req.justification,
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    # Store audit in plan metadata/warnings or dedicated audit table (mocking it into plan metadata)
+    warnings = plan.get("warnings", [])
+    warnings.append(f"Override for {req.role}: {req.allocated_count} (Justification: {req.justification})")
+    plan["warnings"] = warnings
+    
+    db.save(plan)
+    return {"message": "Override saved", "audit": override_record}
