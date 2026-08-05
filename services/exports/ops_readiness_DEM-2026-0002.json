@@ -1,7 +1,33 @@
 {
   "demand_id": "DEM-2026-0002",
   "monitoring": null,
-  "handover": null,
+  "handover": {
+    "handover_id": "HO-0002-1",
+    "demand_id": "DEM-2026-0002",
+    "plan_id": "PLN-0002-1",
+    "created_at": "2026-08-05T06:24:09Z",
+    "support_runbook": {
+      "title": "Ops Support Runbook - Dem_2026_0002 - prod",
+      "sections": [
+        {
+          "section": "Health Checks",
+          "content": "Verify endpoint `/api/health` status returns 200 OK within 150ms."
+        },
+        {
+          "section": "Log Inspection",
+          "content": "Filter container logs in Splunk or Datadog for keywords: ERROR, EXCEPTION, CRITICAL."
+        },
+        {
+          "section": "Escalation Matrix",
+          "content": "Primary on-call contact: dheeraj@example.com, fardeen@example.com, raj@example.com, karthik@example.com. Support distribution list: ops-support@company.com."
+        }
+      ]
+    },
+    "known_errors": [],
+    "kt_pack_url": "sharepoint://kt/ops-readiness-0002-20260805",
+    "reviewed_by": null,
+    "status": "draft"
+  },
   "validation": {
     "validation_id": "RV-0002-1",
     "demand_id": "DEM-2026-0002",

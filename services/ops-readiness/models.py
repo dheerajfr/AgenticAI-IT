@@ -16,6 +16,7 @@ class ComponentSpec(BaseModel):
     technology_stack: str = "java-spring-boot"
     owner_team: Optional[str] = "core-engineering"
     owner_email: Optional[str] = "team-core@company.com"
+    reason: Optional[str] = None
     historical_p99_latency_ms: Optional[float] = None
     historical_availability_pct: Optional[float] = None
 
@@ -37,6 +38,7 @@ class ProposedAlert(BaseModel):
     name: str
     condition: str
     threshold: Optional[str] = None
+    threshold_source: Optional[str] = "Production Monitoring Policy"
     severity: str  # critical, high, medium, low
     notify: List[str]
 
@@ -47,6 +49,7 @@ class WidgetSpec(BaseModel):
     query: str
     target_metric: Optional[str] = None
     component_id: Optional[str] = None
+    reason: Optional[str] = None
 
 class ProposedDashboard(BaseModel):
     dashboard_id: str
@@ -76,6 +79,7 @@ class MonitoringConfigRecord(BaseModel):
     slo_targets: Optional[List[SLOTargetSpec]] = []
     proposed_alerts: List[ProposedAlert]
     proposed_dashboards: List[ProposedDashboard]
+    policy_summary: Optional[Dict[str, Any]] = None
     generated_at: Optional[str] = None
     sre_reviewed: bool = False
     sre_reviewed_by: Optional[str] = None

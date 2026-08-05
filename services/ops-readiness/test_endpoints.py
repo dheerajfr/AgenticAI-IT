@@ -70,6 +70,12 @@ def test_dynamic_multi_tech_monitoring():
     widgets = dashboards[0].get("widgets", [])
     assert len(widgets) > 0
 
+    # Verify policy summary and threshold source
+    assert data["policy_summary"] is not None
+    assert data["policy_summary"]["policy_version"] == "MON-POLICY-v1.0"
+    for alert in data["proposed_alerts"]:
+        assert alert.get("threshold_source") is not None
+
 def test_sre_review():
     payload = {"reviewed_by": "sre-lead@company.com"}
     response = client.post("/api/ops-readiness/monitoring/DEM-2026-0068/sre-review", json=payload)

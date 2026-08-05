@@ -277,6 +277,23 @@ def generate_handover(req: HandoverKTRequest):
             )
         )
 
+    if not fallback_known_errors and req.defect_ids:
+        for def_id in req.defect_ids:
+            fallback_known_errors.append(
+                KnownError(
+                    ke_id=f"KE-{def_id}",
+                    title=f"Unresolved defect {def_id}",
+                    workaround=f"[AI-Generated] Temporarily monitor {def_id} and apply failover or restart services if degradation occurs.",
+                    linked_defect=def_id,
+                    priority="Medium",
+                    severity="Major",
+                    assigned_to="Unassigned",
+                    status="Open",
+                    description=f"Defect {def_id} reported during Stage 07 testing.",
+                    operational_impact=f"Potential operational degradation when triggering features related to {def_id}."
+                )
+            )
+
     fallback_runbook = SupportRunbook(
         title=f"Ops Support Runbook - {runbook_title}",
         sections=[
@@ -290,7 +307,7 @@ def generate_handover(req: HandoverKTRequest):
             ),
             RunbookSection(
                 section="Escalation Matrix",
-                content=f"Primary on-call contact: {', '.join(req.delivery_team) if req.delivery_team else 'delivery-oncall@company.com'}. Support distribution list: {', '.join(req.run_team) if req.run_team else 'ops-support@company.com'}."
+                content=f"Primary on-call contact: {', '.join(req.delivery_team) if req.delivery_team else 'bob@example.com, karthik@example.com, fardeen@example.com, alice@example.com, john@example.com, raj@example.com, diana@example.com'}. Support distribution list: {', '.join(req.run_team) if req.run_team else 'ops-support@company.com'}."
             )
         ]
     )

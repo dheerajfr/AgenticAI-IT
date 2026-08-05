@@ -21,6 +21,7 @@
         "technology_stack": "Java Spring Boot Microservice",
         "owner_team": "core-engineering",
         "owner_email": "team-core-engineering@company.com",
+        "reason": "Authentication & security dependency.",
         "historical_p99_latency_ms": null,
         "historical_availability_pct": null
       },
@@ -33,6 +34,7 @@
         "technology_stack": "Java Spring Boot Microservice",
         "owner_team": "core-engineering",
         "owner_email": "team-core-engineering@company.com",
+        "reason": "Critical business transaction processing service.",
         "historical_p99_latency_ms": null,
         "historical_availability_pct": null
       }
@@ -46,17 +48,17 @@
         "error_rate_threshold_pct": 0.05,
         "cpu_threshold_pct": 85.0,
         "memory_threshold_pct": 88.0,
-        "source": "ai_technology_tier_analysis"
+        "source": "monitoring_policy"
       },
       {
         "component_id": "svc-payments-api",
         "availability_slo_pct": 99.9,
         "latency_p95_ms": 375.0,
         "latency_p99_ms": 500.0,
-        "error_rate_threshold_pct": 0.05,
-        "cpu_threshold_pct": 85.0,
-        "memory_threshold_pct": 88.0,
-        "source": "user_override_user_latency_override"
+        "error_rate_threshold_pct": 0.1,
+        "cpu_threshold_pct": 90.0,
+        "memory_threshold_pct": 92.0,
+        "source": "user_override"
       }
     ],
     "proposed_alerts": [
@@ -65,16 +67,17 @@
         "component_id": "svc-auth",
         "component_type": "rest_api",
         "alert_type": "latency",
-        "name": "Svc Auth p99 Latency Violation",
-        "condition": "p99_latency_ms > 250.0ms",
-        "threshold": "250.0ms",
+        "name": "Svc Auth \u2013 High Response Latency",
+        "condition": "Response latency exceeds configured operational threshold",
+        "threshold": "Configured Latency Policy",
+        "threshold_source": "Production Monitoring Policy (MON-POLICY-v1.0)",
         "severity": "critical",
         "notify": [
-          "team-core-engineering-alerts@company.com",
+          "sre-prod-lead@company.com",
           "oncall-prod@company.com",
           "release-leads@company.com",
           "team-core-engineering@company.com",
-          "sre-prod-lead@company.com"
+          "team-core-engineering-alerts@company.com"
         ]
       },
       {
@@ -82,16 +85,17 @@
         "component_id": "svc-auth",
         "component_type": "rest_api",
         "alert_type": "availability",
-        "name": "Svc Auth Availability Drop",
-        "condition": "availability_pct < 99.99%",
-        "threshold": "99.99%",
+        "name": "Svc Auth \u2013 Service Availability Drop",
+        "condition": "Service availability drops below required SLO threshold",
+        "threshold": "Configured Availability SLO",
+        "threshold_source": "Production Monitoring Policy (MON-POLICY-v1.0)",
         "severity": "critical",
         "notify": [
-          "team-core-engineering-alerts@company.com",
+          "sre-prod-lead@company.com",
           "oncall-prod@company.com",
           "release-leads@company.com",
           "team-core-engineering@company.com",
-          "sre-prod-lead@company.com"
+          "team-core-engineering-alerts@company.com"
         ]
       },
       {
@@ -99,16 +103,17 @@
         "component_id": "svc-auth",
         "component_type": "rest_api",
         "alert_type": "http_5xx",
-        "name": "Svc Auth HTTP 5xx Error Rate Spike",
-        "condition": "error_rate_pct > 0.05%",
-        "threshold": "0.05%",
+        "name": "Svc Auth \u2013 High Error Rate Spike",
+        "condition": "HTTP 5xx server error rate exceeds configured threshold",
+        "threshold": "Configured Error Budget",
+        "threshold_source": "Production Monitoring Policy (MON-POLICY-v1.0)",
         "severity": "critical",
         "notify": [
-          "team-core-engineering-alerts@company.com",
+          "sre-prod-lead@company.com",
           "oncall-prod@company.com",
           "release-leads@company.com",
           "team-core-engineering@company.com",
-          "sre-prod-lead@company.com"
+          "team-core-engineering-alerts@company.com"
         ]
       },
       {
@@ -116,16 +121,17 @@
         "component_id": "svc-payments-api",
         "component_type": "rest_api",
         "alert_type": "latency",
-        "name": "Svc Payments Api p99 Latency Violation",
-        "condition": "p99_latency_ms > 500.0ms",
-        "threshold": "500.0ms",
+        "name": "Svc Payments Api \u2013 High Response Latency",
+        "condition": "Response latency exceeds configured operational threshold",
+        "threshold": "Configured Latency Policy",
+        "threshold_source": "User Request Override",
         "severity": "critical",
         "notify": [
-          "team-core-engineering-alerts@company.com",
+          "sre-prod-lead@company.com",
           "oncall-prod@company.com",
           "release-leads@company.com",
           "team-core-engineering@company.com",
-          "sre-prod-lead@company.com"
+          "team-core-engineering-alerts@company.com"
         ]
       },
       {
@@ -133,16 +139,17 @@
         "component_id": "svc-payments-api",
         "component_type": "rest_api",
         "alert_type": "availability",
-        "name": "Svc Payments Api Availability Drop",
-        "condition": "availability_pct < 99.9%",
-        "threshold": "99.9%",
+        "name": "Svc Payments Api \u2013 Service Availability Drop",
+        "condition": "Service availability drops below required SLO threshold",
+        "threshold": "Configured Availability SLO",
+        "threshold_source": "User Request Override",
         "severity": "critical",
         "notify": [
-          "team-core-engineering-alerts@company.com",
+          "sre-prod-lead@company.com",
           "oncall-prod@company.com",
           "release-leads@company.com",
           "team-core-engineering@company.com",
-          "sre-prod-lead@company.com"
+          "team-core-engineering-alerts@company.com"
         ]
       },
       {
@@ -150,16 +157,17 @@
         "component_id": "svc-payments-api",
         "component_type": "rest_api",
         "alert_type": "http_5xx",
-        "name": "Svc Payments Api HTTP 5xx Error Rate Spike",
-        "condition": "error_rate_pct > 0.05%",
-        "threshold": "0.05%",
+        "name": "Svc Payments Api \u2013 High Error Rate Spike",
+        "condition": "HTTP 5xx server error rate exceeds configured threshold",
+        "threshold": "Configured Error Budget",
+        "threshold_source": "User Request Override",
         "severity": "critical",
         "notify": [
-          "team-core-engineering-alerts@company.com",
+          "sre-prod-lead@company.com",
           "oncall-prod@company.com",
           "release-leads@company.com",
           "team-core-engineering@company.com",
-          "sre-prod-lead@company.com"
+          "team-core-engineering-alerts@company.com"
         ]
       }
     ],
@@ -180,33 +188,47 @@
             "type": "timeseries",
             "title": "Application Response Latency (p50, p95, p99)",
             "query": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
-            "target_metric": "http_request_duration_seconds"
+            "target_metric": "http_request_duration_seconds",
+            "reason": "Tracks response latency percentiles to detect API degradation and user-facing slow responses."
           },
           {
             "widget_id": "WID-API-ERRORS",
             "type": "stat",
             "title": "HTTP 5xx Error Rate %",
             "query": "sum(rate(http_requests_total{status=~'5..'}[5m])) / sum(rate(http_requests_total[5m])) * 100",
-            "target_metric": "http_requests_total_5xx"
+            "target_metric": "http_requests_total_5xx",
+            "reason": "Monitors application-level HTTP 5xx server failure rates to protect error budget."
           },
           {
             "widget_id": "WID-API-RPS",
             "type": "gauge",
             "title": "Throughput (Requests / Sec)",
             "query": "sum(rate(http_requests_total[5m]))",
-            "target_metric": "http_requests_throughput"
+            "target_metric": "http_requests_throughput",
+            "reason": "Measures active request throughput to analyze incoming traffic spikes."
           },
           {
             "widget_id": "WID-INFRA-RESOURCES",
             "type": "timeseries",
             "title": "Cluster Resource Utilization (CPU, Memory, Network I/O)",
             "query": "sum(container_cpu_usage_seconds_total) by (pod) / sum(container_spec_cpu_quota) by (pod)",
-            "target_metric": "container_cpu_memory"
+            "target_metric": "container_cpu_memory",
+            "reason": "Monitors host node CPU and memory saturation to prevent OOM kills."
           }
         ]
       }
     ],
-    "generated_at": "2026-07-23T06:05:43Z",
+    "policy_summary": {
+      "policy_version": "MON-POLICY-v1.0",
+      "policy_name": "Production Monitoring Policy",
+      "environment": "Prod",
+      "component_types": [
+        "rest_api"
+      ],
+      "primary_threshold_source": "Production Monitoring Policy (MON-POLICY-v1.0)",
+      "has_performance_baseline": false
+    },
+    "generated_at": "2026-08-05T11:21:33Z",
     "sre_reviewed": true,
     "sre_reviewed_by": null,
     "status": "approved"
@@ -215,7 +237,7 @@
     "handover_id": "HO-0068-1",
     "demand_id": "DEM-2026-0068",
     "plan_id": "PLN-0068-1",
-    "created_at": "2026-07-23T06:05:46Z",
+    "created_at": "2026-08-05T11:21:36Z",
     "support_runbook": {
       "title": "Ops Support Runbook - Deployment Runbook",
       "sections": [
@@ -236,18 +258,18 @@
     "known_errors": [
       {
         "ke_id": "KE-BUG-4421",
-        "title": "Unresolved defect",
+        "title": "Unresolved defect BUG-4421",
         "workaround": "[AI-Generated] Temporarily monitor BUG-4421 and apply failover or restart services if degradation occurs.",
         "linked_defect": "BUG-4421",
-        "priority": "1",
-        "severity": "critical",
-        "assigned_to": "d.chen",
+        "priority": "Medium",
+        "severity": "Major",
+        "assigned_to": "Unassigned",
         "status": "Open",
-        "description": "Unresolved defect",
-        "operational_impact": "[AI-Generated] Potential operational degradation in production when triggering Unresolved defect."
+        "description": "Defect BUG-4421 reported during Stage 07 testing.",
+        "operational_impact": "Potential operational degradation when triggering features related to BUG-4421."
       }
     ],
-    "kt_pack_url": "sharepoint://kt/ops-readiness-0068-20260723",
+    "kt_pack_url": "sharepoint://kt/ops-readiness-0068-20260805",
     "reviewed_by": "ops-manager@company.com",
     "status": "reviewed"
   },
@@ -255,7 +277,7 @@
     "validation_id": "RV-0068-1",
     "demand_id": "DEM-2026-0068",
     "plan_id": "PLN-0068-1",
-    "validated_at": "2026-07-23T06:05:46Z",
+    "validated_at": "2026-08-05T11:21:36Z",
     "criteria_results": [
       {
         "criterion": "monitoring_configured",
