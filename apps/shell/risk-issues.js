@@ -1,121 +1,191 @@
 const BASE_URL = '/api';
 
-window.fetchRiskIssuesData = async function(targetContainer) {
-  try {
-    const demRes = await fetch('/api/demands');
-    if (demRes.ok) window.allDemandsList = await demRes.json();
-  } catch(e) { console.warn("Could not fetch demands list", e); }
+window.cachedRiskData = window.cachedRiskData || {};
 
-  const demandId = sessionStorage.getItem('selectedDemandId');
-  const demands = window.allDemandsList || [];
-  const optionsHtml = demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === demandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
-  const dropdownHtml = `
-    <select onchange="sessionStorage.setItem('selectedDemandId', this.value); window.fetchRiskIssuesData();" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
-      <option value="">Select a Project...</option>
-      ${optionsHtml}
-    </select>
-  `;
-
+window.fetchRiskIssuesData = function (targetContainer) {
+  if (window.hideGlobalLoader) window.hideGlobalLoader();
   const viewport = targetContainer || window.currentModuleTargetContainer || document.getElementById('viewport');
-
-  let sidebarItemsHtml = '<li style="padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">No demands found.</li>';
-  if (demands && demands.length > 0) {
-    sidebarItemsHtml = demands.map(d => {
-      const isActive = d.demand_id === demandId;
-      return `
-        <li class="demand-item ${isActive ? 'active' : ''}" onclick="sessionStorage.setItem('selectedDemandId', '${d.demand_id}'); window.fetchRiskIssuesData();" style="cursor: pointer; padding: 0.75rem 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.05); border-left: ${isActive ? '3px solid var(--color-brand)' : '3px solid transparent'}; background: ${isActive ? 'rgba(99,102,241,0.1)' : 'transparent'};">
-          <div style="font-family: monospace; font-weight: 700; color: var(--color-brand); font-size: 0.78rem;">${d.demand_id}</div>
-          <h4 style="margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); line-height: 1.3;">${d.title || 'Untitled Demand'}</h4>
-        </li>
-      `;
-    }).join('');
-  }
-
-  const layoutPrefix = `
+  const demandId = sessionStorage.getItem('selectedDemandId');
+  
+  // Render intake shell instantly
+  viewport.innerHTML = `
     <div class="intake-screen" style="padding: 1rem; height: calc(100vh - 70px); overflow: hidden; box-sizing: border-box;">
       <aside class="sidebar" style="display: flex; flex-direction: column; overflow: hidden;">
         <div class="sidebar-search" style="padding: 1rem;">
           <input type="text" placeholder="Search project..." oninput="window.filterSidebarDemands(this)" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box;" />
         </div>
-        <ul class="demand-list" style="padding: 0; margin: 0; list-style: none; overflow-y: auto; flex: 1;">
-          ${sidebarItemsHtml}
+        <ul class="demand-list" id="risk-demand-sidebar-list" style="padding: 0; margin: 0; list-style: none; overflow-y: auto; flex: 1;">
+          <li style="padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">Loading demands...</li>
         </ul>
       </aside>
       <main class="details-panel" style="display: flex; flex-direction: column; overflow-y: hidden; height: 100%; align-self: stretch; padding: 0; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color); position: relative;">
-  `;
-  
-  const layoutSuffix = `
-        <div style="padding: 1.5rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; background: var(--bg-primary);">
-          <button onclick="window.location.hash = 'budget-cost';" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,0.35); font-weight: 700; padding: 0.75rem 1.5rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-family: var(--font-sans); transition: transform 0.2s ease;">
-            Proceed to Budget & Cost &rarr;
-          </button>
+        <header class="main-panel-header" style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); background: var(--bg-primary); display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 1.25rem;">Risk & Issues Intake</h2>
+          <div id="risk-demand-dropdown-container"></div>
+        </header>
+        <div id="risk-intake-content" style="padding: 2rem; max-width: 1200px; margin: 0 auto; flex: 1; overflow-y: auto; width: 100%; box-sizing: border-box;">
         </div>
       </main>
     </div>
-    
-    <!-- Toast Container -->
     <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px;"></div>
   `;
+  
+  // Async fetch demands
+  fetch('/api/demands')
+    .then(r => r.ok ? r.json() : [])
+    .then(demands => {
+      window.allDemandsList = demands;
+      renderRiskSidebarAndDropdown(demands, demandId);
+      renderRiskIntakeSummary(demandId);
+    })
+    .catch(e => {
+      console.warn("Could not fetch demands", e);
+      renderRiskSidebarAndDropdown(window.allDemandsList || [], demandId);
+      renderRiskIntakeSummary(demandId);
+    });
+};
 
+window.handleRiskProjectSelect = function(demandId) {
+  sessionStorage.setItem('selectedDemandId', demandId);
+  window.renderRiskSidebarAndDropdown(window.allDemandsList || [], demandId);
+  // Fetch automatically instead of waiting for the user to click "Open"
+  delete window.cachedRiskData[demandId];
+  window.openRiskIssuesWorkspace(demandId);
+};
+
+function renderRiskSidebarAndDropdown(demands, selectedId) {
+  const sidebar = document.getElementById('risk-demand-sidebar-list');
+  const dropdownContainer = document.getElementById('risk-demand-dropdown-container');
+  
+  if (sidebar) {
+    if (demands.length > 0) {
+      sidebar.innerHTML = demands.map(d => {
+        const isActive = d.demand_id === selectedId;
+        return `
+          <li class="demand-item ${isActive ? 'active' : ''}" onclick="window.handleRiskProjectSelect('${d.demand_id}')" style="cursor: pointer; padding: 0.75rem 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.05); border-left: ${isActive ? '3px solid var(--color-brand)' : '3px solid transparent'}; background: ${isActive ? 'rgba(99,102,241,0.1)' : 'transparent'};">
+            <div style="font-family: monospace; font-weight: 700; color: var(--color-brand); font-size: 0.78rem;">${d.demand_id}</div>
+            <h4 style="margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); line-height: 1.3;">${d.title || 'Untitled Demand'}</h4>
+          </li>
+        `;
+      }).join('');
+    } else {
+      sidebar.innerHTML = '<li style="padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">No demands found.</li>';
+    }
+  }
+  
+  if (dropdownContainer) {
+    const options = demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === selectedId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
+    dropdownContainer.innerHTML = `
+      <select onchange="window.handleRiskProjectSelect(this.value)" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
+        <option value="">Select a Project...</option>
+        ${options}
+      </select>
+    `;
+  }
+}
+
+function renderRiskIntakeSummary(demandId) {
+  const content = document.getElementById('risk-intake-content');
+  if (!content) return;
+  
   if (!demandId) {
-    viewport.innerHTML = layoutPrefix + `
-      <div style="padding: 2rem; max-width: 1200px; margin: 0 auto; flex: 1; overflow-y: auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-          <h2 style="margin: 0; font-family: var(--font-display); color: var(--text-primary);">Module Selector</h2>
-          ${dropdownHtml}
-        </div>
-        <div style="padding: 4rem; text-align: center; border: 1px dashed var(--border-color); border-radius: var(--radius-md); color: var(--text-muted);">
-          Please select a Demand from the sidebar or dropdown to view this capability.
-        </div>
-      </div>` + layoutSuffix;
+    content.innerHTML = `
+      <div style="padding: 4rem; text-align: center; border: 1px dashed var(--border-color); border-radius: var(--radius-md); color: var(--text-muted);">
+        Please select a Demand from the sidebar or dropdown to view this capability.
+      </div>
+    `;
     return;
   }
   
-  // Skeleton Loading State
-  viewport.innerHTML = layoutPrefix + `
-      <div style="padding: 2rem; flex: 1; display: flex; flex-direction: column; gap: 2rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div style="width: 250px; height: 30px; background: rgba(255,255,255,0.05); border-radius: 4px; animation: pulse 1.5s infinite;"></div>
-          ${dropdownHtml}
+  const demands = window.allDemandsList || [];
+  const demand = demands.find(d => d.demand_id === demandId) || { demand_id: demandId, title: 'Unknown', status: 'Unknown', type: 'Unknown', priority: 'Normal' };
+  
+  const dData = typeof demand.data === 'string' ? JSON.parse(demand.data) : (demand.data || {});
+  
+  content.innerHTML = `
+    <div style="background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 2rem; margin-bottom: 2rem; display: flex; flex-direction: column; gap: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+          <div style="font-family: monospace; color: var(--color-brand); font-weight: 700; margin-bottom: 0.5rem;">${demand.demand_id}</div>
+          <h2 style="margin: 0; font-size: 1.8rem; color: var(--text-primary); font-family: var(--font-display);">${demand.title || dData.title || 'Untitled'}</h2>
         </div>
-        
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
-           ${[1,2,3,4].map(() => `<div style="height: 120px; background: rgba(255,255,255,0.05); border-radius: 8px; animation: pulse 1.5s infinite;"></div>`).join('')}
-        </div>
-        
-        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; flex: 1;">
-          <div style="background: rgba(255,255,255,0.05); border-radius: 8px; animation: pulse 1.5s infinite;"></div>
-          <div style="background: rgba(255,255,255,0.05); border-radius: 8px; animation: pulse 1.5s infinite;"></div>
-        </div>
-        
-        <style>
-          @keyframes pulse {
-            0% { opacity: 0.6; }
-            50% { opacity: 0.3; }
-            100% { opacity: 0.6; }
-          }
-        </style>
+        <span style="background: rgba(99,102,241,0.15); color: #818cf8; padding: 0.4rem 1rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem; text-transform: uppercase;">${demand.status || 'Active'}</span>
       </div>
-  ` + layoutSuffix;
+      
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.05);">
+        <div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Customer / Domain</div>
+          <div style="font-weight: 600; color: var(--text-primary);">${dData.domain || 'Internal'}</div>
+        </div>
+        <div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Risk Level</div>
+          <div style="font-weight: 600; color: ${dData.risk_level === 'high' ? '#ef4444' : dData.risk_level === 'medium' ? '#eab308' : '#10b981'}; text-transform: capitalize;">${dData.risk_level || 'Low'}</div>
+        </div>
+        <div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Current Phase</div>
+          <div style="font-weight: 600; color: var(--text-primary);">Execution</div>
+        </div>
+        <div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Overall Health</div>
+          <div style="font-weight: 600; color: #10b981;">Stable</div>
+        </div>
+      </div>
+      
+      <div id="risk-intake-action-row" style="margin-top: 1rem; display: flex; justify-content: flex-end;">
+        <button onclick="window.openRiskIssuesWorkspace('${demandId}')" class="btn-primary" style="padding: 0.75rem 2rem; font-size: 1rem; font-weight: 700; border-radius: var(--radius-md); box-shadow: 0 4px 14px rgba(139,92,246,0.4); display: flex; align-items: center; gap: 0.5rem; transition: transform 0.2s;">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          Open Risk & Issues Workspace
+        </button>
+      </div>
+    </div>
+  `;
+}
 
+window.openRiskIssuesWorkspace = async function(demandId) {
+  const content = document.getElementById('risk-intake-content');
+  if (!content) return;
+  
+  const actionRow = document.getElementById('risk-intake-action-row');
+  if (actionRow) {
+    actionRow.innerHTML = `<span class="loader" style="display: flex; align-items: center; gap: 0.5rem; color: var(--color-brand); font-weight: 600;"><span class="spinner" style="width: 20px; height: 20px; border: 3px solid rgba(99,102,241,0.3); border-radius: 50%; border-top-color: var(--color-brand); animation: spin 1s ease-in-out infinite;"></span> Loading project risks & issues...</span><style>@keyframes spin { to { transform: rotate(360deg); } }</style>`;
+  }
+  
+  if (window.cachedRiskData[demandId]) {
+    window.currentRiskData = window.cachedRiskData[demandId];
+    window.riskActiveTab = 'overview';
+    window.renderRiskIssuesScreen();
+    return;
+  }
+  
   try {
-    const res = await fetch(`${BASE_URL}/risk-issues/project/${demandId}/aggregate`, { method: 'POST' });
+    const res = await fetch(`/api/risk-issues/project/${demandId}/aggregate`, { method: 'POST' });
     if (res.ok) {
       const data = await res.json();
-      window.currentRiskData = data.record || data;
-      window.riskActiveTab = window.riskActiveTab || 'overview';
-      window.riskSortCol = window.riskSortCol || 'severity';
-      window.riskSortAsc = window.riskSortAsc !== undefined ? window.riskSortAsc : false;
-      window.riskFilterTerm = window.riskFilterTerm || '';
+      window.cachedRiskData[demandId] = data.record || data;
+      window.currentRiskData = window.cachedRiskData[demandId];
+      window.riskActiveTab = 'overview';
+      window.riskSortCol = 'severity';
+      window.riskSortAsc = false;
+      window.riskFilterTerm = '';
       window.renderRiskIssuesScreen();
+    } else {
+      throw new Error("HTTP " + res.status);
     }
   } catch (err) {
     console.error("Risk Issues fetch error", err);
-    if (window.hideGlobalLoader) window.hideGlobalLoader(); window.showToast("Failed to fetch risk & issues data", "error");
+    content.innerHTML = `
+      <div style="padding: 3rem; text-align: center; border: 1px solid #ef4444; border-radius: var(--radius-md); background: rgba(239,68,68,0.1);">
+        <div style="color: #ef4444; font-size: 3rem; margin-bottom: 1rem;">⚠</div>
+        <h3 style="margin: 0 0 1rem 0; color: var(--text-primary);">Failed to load project risks</h3>
+        <p style="color: var(--text-muted); margin-bottom: 2rem;">${err.message}</p>
+        <button onclick="window.openRiskIssuesWorkspace('${demandId}')" style="background: #ef4444; color: white; border: none; padding: 0.75rem 2rem; border-radius: var(--radius-md); font-weight: 700; cursor: pointer;">Retry</button>
+      </div>
+    `;
+    window.showToast("Failed to fetch risk & issues data", "error");
   }
 };
 
-window.showToast = function(message, type="info") {
+window.showToast = function (message, type = "info") {
   const container = document.getElementById('toast-container');
   if (!container) return;
   const toast = document.createElement('div');
@@ -128,13 +198,13 @@ window.showToast = function(message, type="info") {
   `;
   toast.innerText = message;
   container.appendChild(toast);
-  
+
   // Animate in
   requestAnimationFrame(() => {
     toast.style.opacity = '1';
     toast.style.transform = 'translateY(0)';
   });
-  
+
   // Remove after 3s
   setTimeout(() => {
     toast.style.opacity = '0';
@@ -143,7 +213,7 @@ window.showToast = function(message, type="info") {
   }, 3000);
 };
 
-window.renderRiskIssuesScreen = function(targetContainer) {
+window.renderRiskIssuesScreen = function (targetContainer) {
   if (window.hideGlobalLoader) window.hideGlobalLoader();
   const demandId = sessionStorage.getItem('selectedDemandId');
   const data = window.currentRiskData || {};
@@ -152,16 +222,16 @@ window.renderRiskIssuesScreen = function(targetContainer) {
   const mitigations = data.mitigations || [];
   const timeline = data.timeline || [];
   const health = data.health_score || 0;
-  
+
   const viewport = targetContainer || window.currentModuleTargetContainer || document.getElementById('viewport');
-  
+
   const demands = window.allDemandsList || [];
   let sidebarItemsHtml = '';
   if (demands && demands.length > 0) {
     sidebarItemsHtml = demands.map(d => {
       const isActive = d.demand_id === demandId;
       return `
-        <li class="demand-item ${isActive ? 'active' : ''}" onclick="sessionStorage.setItem('selectedDemandId', '${d.demand_id}'); window.fetchRiskIssuesData();" style="cursor: pointer; padding: 0.75rem 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.05); border-left: ${isActive ? '3px solid var(--color-brand)' : '3px solid transparent'}; background: ${isActive ? 'rgba(99,102,241,0.1)' : 'transparent'};">
+        <li class="demand-item ${isActive ? 'active' : ''}" onclick="sessionStorage.setItem('selectedDemandId', '${d.demand_id}'); window.openRiskIssuesWorkspace('${d.demand_id}');" style="cursor: pointer; padding: 0.75rem 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.05); border-left: ${isActive ? '3px solid var(--color-brand)' : '3px solid transparent'}; background: ${isActive ? 'rgba(99,102,241,0.1)' : 'transparent'};">
           <div style="font-family: monospace; font-weight: 700; color: var(--color-brand); font-size: 0.78rem;">${d.demand_id}</div>
           <h4 style="margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); line-height: 1.3;">${d.title || 'Untitled Demand'}</h4>
         </li>
@@ -173,12 +243,12 @@ window.renderRiskIssuesScreen = function(targetContainer) {
   const filteredRisks = risks.filter(r => {
     if (!window.riskFilterTerm) return true;
     const term = window.riskFilterTerm.toLowerCase();
-    return (r.description && r.description.toLowerCase().includes(term)) || 
-           (r.category && r.category.toLowerCase().includes(term)) ||
-           (r.id && r.id.toLowerCase().includes(term)) ||
-           (r.related_module && r.related_module.toLowerCase().includes(term));
+    return (r.description && r.description.toLowerCase().includes(term)) ||
+      (r.category && r.category.toLowerCase().includes(term)) ||
+      (r.id && r.id.toLowerCase().includes(term)) ||
+      (r.related_module && r.related_module.toLowerCase().includes(term));
   });
-  
+
   const severityVal = { 'Critical': 4, 'High': 3, 'Medium': 2, 'Low': 1 };
   filteredRisks.sort((a, b) => {
     let valA = a[window.riskSortCol];
@@ -203,7 +273,7 @@ window.renderRiskIssuesScreen = function(targetContainer) {
     { id: 'issues', label: 'Issues & Mitigations' },
     { id: 'timeline', label: 'Project Timeline' },
   ];
-  
+
   const tabHtml = tabs.map(t => `
     <button onclick="window.riskActiveTab='${t.id}'; window.renderRiskIssuesScreen();" 
             style="padding: 0.75rem 1.25rem; font-weight: 600; background: transparent; border: none; border-bottom: 2px solid ${window.riskActiveTab === t.id ? 'var(--color-brand)' : 'transparent'}; color: ${window.riskActiveTab === t.id ? 'var(--text-primary)' : 'var(--text-muted)'}; cursor: pointer; transition: all 0.2s; white-space: nowrap;">
@@ -214,14 +284,14 @@ window.renderRiskIssuesScreen = function(targetContainer) {
   // Dropdown
   const optionsHtml = demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === demandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
   const dropdownHtml = `
-    <select onchange="sessionStorage.setItem('selectedDemandId', this.value); window.fetchRiskIssuesData();" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
+    <select onchange="sessionStorage.setItem('selectedDemandId', this.value); window.openRiskIssuesWorkspace(this.value);" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
       <option value="">Select a Project...</option>
       ${optionsHtml}
     </select>
   `;
 
   let contentHtml = '';
-  
+
   // DASHBOARD
   if (window.riskActiveTab === 'overview') {
     contentHtml = `
@@ -252,18 +322,18 @@ window.renderRiskIssuesScreen = function(targetContainer) {
           <h3 style="margin-top: 0; color: var(--text-primary); margin-bottom: 1.5rem;">Risks by Severity Analytics</h3>
           <div style="flex: 1; display: flex; align-items: flex-end; gap: 1rem; padding-top: 2rem; border-bottom: 1px solid var(--border-color);">
             ${['Critical', 'High', 'Medium', 'Low'].map(sev => {
-              const count = risksBySeverity[sev] || 0;
-              const maxCount = Math.max(...Object.values(risksBySeverity), 1);
-              const height = (count / maxCount) * 100;
-              const color = sev === 'Critical' ? '#ef4444' : sev === 'High' ? '#f97316' : sev === 'Medium' ? '#eab308' : '#3b82f6';
-              return `
+      const count = risksBySeverity[sev] || 0;
+      const maxCount = Math.max(...Object.values(risksBySeverity), 1);
+      const height = (count / maxCount) * 100;
+      const color = sev === 'Critical' ? '#ef4444' : sev === 'High' ? '#f97316' : sev === 'Medium' ? '#eab308' : '#3b82f6';
+      return `
                 <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 0.5rem; height: 100%;">
                   <span style="font-size: 0.85rem; font-weight: bold; color: ${color};">${count}</span>
                   <div style="width: 100%; background: ${color}; height: ${height}%; border-radius: 4px 4px 0 0; min-height: 5px; transition: height 0.5s ease;"></div>
                   <span style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">${sev}</span>
                 </div>
               `;
-            }).join('')}
+    }).join('')}
           </div>
         </div>
         
@@ -286,7 +356,7 @@ window.renderRiskIssuesScreen = function(targetContainer) {
         </div>
       </div>
     `;
-  } 
+  }
   // RISKS TAB
   else if (window.riskActiveTab === 'risks') {
     contentHtml = `
@@ -295,7 +365,7 @@ window.renderRiskIssuesScreen = function(targetContainer) {
           <input type="text" placeholder="Smart Search risks..." value="${window.riskFilterTerm || ''}" onkeyup="window.riskFilterTerm = this.value; window.renderRiskIssuesScreen();" style="padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary); width: 300px;" />
           <button style="background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary); padding: 0.5rem 1rem; border-radius: 20px; cursor: pointer;">Filters</button>
         </div>
-        <button onclick="window.fetchRiskIssuesData()" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
+        <button onclick="delete window.cachedRiskData[sessionStorage.getItem('selectedDemandId')]; window.openRiskIssuesWorkspace(sessionStorage.getItem('selectedDemandId'))" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
           &#8635; Refresh AI Analysis
         </button>
       </div>
@@ -305,21 +375,21 @@ window.renderRiskIssuesScreen = function(targetContainer) {
           <thead>
             <tr style="border-bottom: 2px solid var(--border-color); background: rgba(0,0,0,0.2); text-align: left;">
               ${['ID', 'Description', 'Category', 'Severity', 'Score', 'Status', 'Actions'].map(col => {
-                const key = col === 'Score' ? 'risk_score' : col.toLowerCase();
-                const isSort = window.riskSortCol === key;
-                return `
+      const key = col === 'Score' ? 'risk_score' : col.toLowerCase();
+      const isSort = window.riskSortCol === key;
+      return `
                   <th style="padding: 1rem; cursor: pointer; user-select: none;" onclick="window.riskSortCol='${key}'; window.riskSortAsc=!window.riskSortAsc; window.renderRiskIssuesScreen();">
                     ${col} ${isSort ? (window.riskSortAsc ? '↑' : '↓') : ''}
                   </th>
                 `;
-              }).join('')}
+    }).join('')}
             </tr>
           </thead>
           <tbody>
             ${filteredRisks.map(r => {
-              const sevColor = r.severity === 'Critical' ? '#ef4444' : r.severity === 'High' ? '#f97316' : r.severity === 'Medium' ? '#eab308' : '#3b82f6';
-              const sevBg = r.severity === 'Critical' ? 'rgba(239,68,68,0.1)' : r.severity === 'High' ? 'rgba(249,115,22,0.1)' : r.severity === 'Medium' ? 'rgba(234,179,8,0.1)' : 'rgba(59,130,246,0.1)';
-              return `
+      const sevColor = r.severity === 'Critical' ? '#ef4444' : r.severity === 'High' ? '#f97316' : r.severity === 'Medium' ? '#eab308' : '#3b82f6';
+      const sevBg = r.severity === 'Critical' ? 'rgba(239,68,68,0.1)' : r.severity === 'High' ? 'rgba(249,115,22,0.1)' : r.severity === 'Medium' ? 'rgba(234,179,8,0.1)' : 'rgba(59,130,246,0.1)';
+      return `
                 <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">
                   <td style="padding: 1rem; font-family: monospace; color: var(--text-muted);">${r.id}</td>
                   <td style="padding: 1rem; max-width: 300px;">
@@ -347,7 +417,7 @@ window.renderRiskIssuesScreen = function(targetContainer) {
                   </td>
                 </tr>
               `;
-            }).join('') || '<tr><td colspan="7" style="padding: 3rem; text-align: center; color: var(--text-muted);">No risks match the current filters.</td></tr>'}
+    }).join('') || '<tr><td colspan="7" style="padding: 3rem; text-align: center; color: var(--text-muted);">No risks match the current filters.</td></tr>'}
           </tbody>
         </table>
       </div>
@@ -450,8 +520,13 @@ window.renderRiskIssuesScreen = function(targetContainer) {
       </aside>
       <main class="details-panel" style="display: flex; flex-direction: column; overflow-y: hidden; height: 100%; align-self: stretch; padding: 0; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color); position: relative;">
   `;
-  
+
   const layoutSuffix = `
+        <div style="padding: 1.5rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; background: var(--bg-primary);">
+          <button onclick="window.location.hash = 'budget-cost';" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,0.35); font-weight: 700; padding: 0.75rem 1.5rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-family: var(--font-sans); transition: transform 0.2s ease;">
+            Proceed to Budget & Cost &rarr;
+          </button>
+        </div>
       </main>
     </div>
     
@@ -470,7 +545,12 @@ window.renderRiskIssuesScreen = function(targetContainer) {
         <h2 style="margin: 0; font-family: var(--font-display); color: var(--text-primary); margin-bottom: 0.25rem;">Risk & Issues Intelligence</h2>
         <div style="font-size: 0.85rem; color: var(--text-muted);">Always-On AI Monitoring for Project <strong>${data.project_summary?.title || demandId}</strong></div>
       </div>
-      ${dropdownHtml}
+      <div id="risk-workspace-dropdown">
+        <select onchange="sessionStorage.setItem('selectedDemandId', this.value); delete window.cachedRiskData[this.value]; window.openRiskIssuesWorkspace(this.value);" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
+          <option value="">Select a Project...</option>
+          ${window.allDemandsList?.map(d => `<option value="${d.demand_id}" ${d.demand_id === demandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('') || ''}
+        </select>
+      </div>
     </div>
     
     <div style="padding: 0 1.5rem; background: var(--bg-primary); border-bottom: 1px solid var(--border-color); display: flex; gap: 1rem; overflow-x: auto;">
@@ -483,7 +563,7 @@ window.renderRiskIssuesScreen = function(targetContainer) {
   ` + layoutSuffix;
 };
 
-window.convertRisk = async function(riskId) {
+window.convertRisk = async function (riskId) {
   if (window.showGlobalLoader) window.showGlobalLoader('Converting risk to issue...');
   const demandId = sessionStorage.getItem('selectedDemandId');
   if (!demandId) return;
@@ -495,12 +575,12 @@ window.convertRisk = async function(riskId) {
     });
     if (res.ok) {
       if (window.hideGlobalLoader) window.hideGlobalLoader(); window.showToast('Successfully converted Risk to Issue!', 'success');
-      window.fetchRiskIssuesData();
+      delete window.cachedRiskData[sessionStorage.getItem('selectedDemandId')]; window.openRiskIssuesWorkspace(sessionStorage.getItem('selectedDemandId'));
     }
-  } catch(e) { console.error(e); if (window.hideGlobalLoader) window.hideGlobalLoader(); window.showToast('Failed to convert risk', 'error'); }
+  } catch (e) { console.error(e); if (window.hideGlobalLoader) window.hideGlobalLoader(); window.showToast('Failed to convert risk', 'error'); }
 };
 
-window.generateMitigation = async function(riskId) {
+window.generateMitigation = async function (riskId) {
   if (window.showGlobalLoader) window.showGlobalLoader('Generating mitigation plan...');
   const demandId = sessionStorage.getItem('selectedDemandId');
   if (!demandId) return;
@@ -512,19 +592,19 @@ window.generateMitigation = async function(riskId) {
     });
     if (res.ok) {
       if (window.hideGlobalLoader) window.hideGlobalLoader(); window.showToast('AI Generated Mitigation successfully!', 'success');
-      window.fetchRiskIssuesData();
+      delete window.cachedRiskData[sessionStorage.getItem('selectedDemandId')]; window.openRiskIssuesWorkspace(sessionStorage.getItem('selectedDemandId'));
     }
-  } catch(e) { console.error(e); if (window.hideGlobalLoader) window.hideGlobalLoader(); window.showToast('Failed to generate mitigation', 'error'); }
+  } catch (e) { console.error(e); if (window.hideGlobalLoader) window.hideGlobalLoader(); window.showToast('Failed to generate mitigation', 'error'); }
 };
 
-window.viewRiskDetails = function(riskId) {
+window.viewRiskDetails = function (riskId) {
   const risk = window.currentRiskData.risks.find(r => r.id === riskId);
   if (!risk) return;
-  
+
   const panel = document.getElementById('risk-side-panel');
   const overlay = document.getElementById('risk-side-panel-overlay');
   if (!panel || !overlay) return;
-  
+
   panel.innerHTML = `
     <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary);">
       <h3 style="margin: 0; font-family: var(--font-display); color: var(--text-primary);">Risk Details</h3>
@@ -583,17 +663,17 @@ window.viewRiskDetails = function(riskId) {
       ${risk.status !== 'Converted' ? `<button onclick="window.convertRisk('${risk.id}'); window.closeRiskDetails();" style="background: var(--color-brand); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer; font-weight: 600;">Convert to Issue</button>` : ''}
     </div>
   `;
-  
+
   overlay.style.pointerEvents = 'auto';
   overlay.style.opacity = '1';
   panel.style.right = '0';
 };
 
-window.closeRiskDetails = function() {
+window.closeRiskDetails = function () {
   const panel = document.getElementById('risk-side-panel');
   const overlay = document.getElementById('risk-side-panel-overlay');
   if (!panel || !overlay) return;
-  
+
   panel.style.right = '-600px';
   overlay.style.opacity = '0';
   overlay.style.pointerEvents = 'none';

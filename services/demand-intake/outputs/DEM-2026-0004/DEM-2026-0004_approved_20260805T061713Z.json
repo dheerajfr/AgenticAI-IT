@@ -1,0 +1,62 @@
+{
+  "demand_id": "DEM-2026-0004",
+  "title": "Automated Data-Driven Licensing Management Transformation",
+  "description": "The Licensing & Partnerships function suffers from manual, spreadsheet-driven contract and royalty processes, causing limited visibility between contractual intent and sales performance. This leads to revenue leakage, partner dissatisfaction, compliance risks, and masks untapped value in contracts and real-time sales data. The business challenge involves fragmented manual processes resulting in misalignment, unrealized value at the intersection of legal agreements and sales data, and opportunities for efficient inventory optimization and IP-led merchandise lifecycle management. The request seeks a shift to automated, data-driven licensing management to unlock revenue growth, strengthen governance, enhance partner trust, and enable proactive management at scale.",
+  "type": "project",
+  "domain": "Licensing & Partnerships",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-08-05",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Automated Data-Driven Licensing Management Transformation (DEM-2026-0004)\n\nExecutive Summary\nLicensing & Partnerships relies on manual spreadsheet processes, causing revenue leakage, compliance risks, and limited visibility into contracts and sales. This project shifts to automated, data-driven management for proactive optimization.\n\nDirect Business Value/Impact\nUnlocks revenue growth via inventory optimization and IP lifecycle management. Enhances governance, partner trust, and scalable operations.\n\nPotential Risk Mitigation\nMitigates compliance risks and revenue leakage through real-time data alignment. Reduces partner dissatisfaction with improved visibility and efficiency.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 65,
+  "earliest_start_date": "2026-09-04",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 62 total active team members evaluated.",
+    "Technical capability profiling: 59 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 0/2480 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Solution Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 3
+    },
+    {
+      "role": "Business Analyst/ Data Analyst",
+      "requiredCapacity": 2,
+      "availableCapacity": 1
+    },
+    {
+      "role": "AI Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Developer",
+      "requiredCapacity": 2,
+      "availableCapacity": 45
+    },
+    {
+      "role": "Team Lead",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    }
+  ],
+  "skill_gaps": [
+    "Python",
+    "SQL",
+    "Cloud",
+    "Data Engineering",
+    "BI Tools",
+    "Automation",
+    "Machine Learning",
+    "Security",
+    "DevOps"
+  ]
+}
