@@ -13,6 +13,11 @@ let classificationSuggestions = null;
 let capacitySuggestion = null;
 let businessCaseSuggestion = null;
 
+// Workforce capacity editor state
+let isEditingWorkforce = false;
+let originalWorkforcePool = [];
+let currentWorkforceState = [];
+
 // Scroll state management for Demand & Intake wizard
 let demandPanelScrollTop = 0;
 let demandPanelScrollId = null;
@@ -528,6 +533,9 @@ function selectDemand(id) {
   const activeItem = document.querySelector(`.demand-item[data-id="${id}"]`);
   if (activeItem) activeItem.classList.add('active');
 
+  // Reset editing mode state when changing demands
+  isEditingWorkforce = false;
+
   const demand = demands.find(d => d.demand_id === id);
   if (demand) {
     renderDemandWizard(demand);
@@ -955,29 +963,7 @@ function renderDemandWizard(demand) {
                 </h5>
                 
                 <div id="workforce-pool-details">
-                  <div id="workforce-table-container" style="max-height: 200px; overflow-y: auto; margin-bottom: 1rem;">
-                    Loading workforce pool...
-                  </div>
-                  
-                  <div style="border-top: 1px dashed var(--border-color); padding-top: 0.75rem; margin-top: 0.75rem;">
-                    <h6 style="margin: 0 0 0.5rem 0; font-size: 0.8rem; color: var(--text-secondary);">Add Resource</h6>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
-                      <input type="text" id="new-res-name" placeholder="Name (e.g. Emma)" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
-                      <select id="new-res-role" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
-                        <option value="Backend Developer">Backend Developer</option>
-                        <option value="Frontend Developer">Frontend Developer</option>
-                        <option value="Senior Architect">Senior Architect</option>
-                        <option value="Security Engineer">Security Engineer</option>
-                      </select>
-                      <input type="text" id="new-res-skills" placeholder="Skills (comma separated)" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; align-items: center;">
-                      <input type="number" id="new-res-total" placeholder="Total Cap (e.g. 40)" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
-                      <input type="number" id="new-res-alloc" placeholder="Alloc Cap (e.g. 20)" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
-                      <button type="button" class="btn-primary" id="btn-add-resource" style="padding: 4px 12px; font-size: 0.75rem;">Add</button>
-                    </div>
-                    <div id="add-resource-error" style="color: var(--color-status-red-text); font-size: 0.7rem; margin-top: 0.25rem; display: none;"></div>
-                  </div>
+                  Loading workforce pool...
                 </div>
               </div>
 
@@ -1551,111 +1537,309 @@ async function saveApprovedHeadcountChanges(id) {
 }
 
 async function loadWorkforcePool() {
-  const container = document.getElementById('workforce-table-container');
+  const container = document.getElementById('workforce-pool-details');
   if (!container) return;
   
-  const workforceScrollTop = container.scrollTop;
+  // If editing, render the edit view instead of fetching and rendering read-only
+  if (isEditingWorkforce) {
+    renderWorkforcePoolEditView();
+    return;
+  }
   
   try {
     const res = await fetch(`${API_BASE}/demands/resources?t=${Date.now()}`);
     if (!res.ok) throw new Error("Failed to fetch workforce pool");
     const pool = await res.json();
+    originalWorkforcePool = pool;
     
     if (pool.length === 0) {
-      container.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 1rem;">No resources in pool. Add one below.</div>`;
+      container.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 1rem;">No resources in pool.</div>`;
       return;
     }
     
     container.innerHTML = `
+      <div id="workforce-table-container" style="max-height: 200px; overflow-y: auto; margin-bottom: 1rem;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: left;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
+              <th style="padding: 4px 0;">Name</th>
+              <th>Role</th>
+              <th>Skills</th>
+              <th style="text-align: center;">Total</th>
+              <th style="text-align: center;">Alloc</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${pool.map(r => `
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <td style="padding: 6px 0; font-weight: 600; color: var(--text-primary);">${r.name}</td>
+                <td style="color: var(--text-secondary);">${r.role}</td>
+                <td style="color: var(--text-muted); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${r.skills.join(', ')}">${r.skills.join(', ')}</td>
+                <td style="text-align: center; color: var(--text-primary);">${r.total_capacity}</td>
+                <td style="text-align: center; color: var(--text-primary); font-weight: 600;">${r.allocated_capacity}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
+        <button type="button" class="btn-secondary" id="btn-edit-workforce" style="padding: 4px 12px; font-size: 0.75rem; font-weight: 600; cursor: pointer;">
+          Edit Workforce Pool
+        </button>
+      </div>
+    `;
+    
+    // Attach listener for switching to Edit Mode
+    document.getElementById('btn-edit-workforce').addEventListener('click', () => {
+      isEditingWorkforce = true;
+      currentWorkforceState = JSON.parse(JSON.stringify(originalWorkforcePool)); // Deep copy
+      renderWorkforcePoolEditView();
+    });
+  } catch (err) {
+    container.innerHTML = `<div style="color: var(--color-status-red-text); font-size: 0.85rem;">${err.message}</div>`;
+  }
+}
+
+function renderWorkforcePoolEditView() {
+  const container = document.getElementById('workforce-pool-details');
+  if (!container) return;
+  
+  // Track scroll position of the table wrapper so it doesn't jump
+  const tableWrapper = document.getElementById('workforce-table-container');
+  const scrollTop = tableWrapper ? tableWrapper.scrollTop : 0;
+  
+  container.innerHTML = `
+    <div id="workforce-table-container" style="max-height: 200px; overflow-y: auto; margin-bottom: 1rem;">
       <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: left;">
         <thead>
           <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
             <th style="padding: 4px 0;">Name</th>
             <th>Role</th>
             <th>Skills</th>
-            <th>Total</th>
-            <th>Alloc</th>
+            <th style="text-align: center;">Total</th>
+            <th style="text-align: center;">Alloc</th>
             <th style="text-align: right; padding-right: 4px;">Action</th>
           </tr>
         </thead>
         <tbody>
-          ${pool.map(r => `
+          ${currentWorkforceState.map(r => `
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);" data-name="${r.name}">
               <td style="padding: 6px 0; font-weight: 600; color: var(--text-primary);">${r.name}</td>
               <td style="color: var(--text-secondary);">${r.role}</td>
               <td style="color: var(--text-muted); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${r.skills.join(', ')}">${r.skills.join(', ')}</td>
-              <td>
+              <td style="text-align: center;">
                 <input type="number" class="res-edit-total" value="${r.total_capacity}" style="width: 40px; padding: 2px; font-size: 0.75rem; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; text-align: center;">
               </td>
-              <td>
+              <td style="text-align: center;">
                 <input type="number" class="res-edit-alloc" value="${r.allocated_capacity}" style="width: 40px; padding: 2px; font-size: 0.75rem; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; text-align: center;">
               </td>
               <td style="text-align: right; white-space: nowrap; padding-right: 4px;">
-                <button type="button" class="btn-res-save" style="background: none; border: none; color: var(--color-status-green-text); cursor: pointer; padding: 2px 4px; font-weight: 700; font-size: 0.7rem;">Save</button>
                 <button type="button" class="btn-res-delete" style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 2px 4px; font-weight: 700; font-size: 0.7rem;">Del</button>
               </td>
             </tr>
           `).join('')}
         </tbody>
       </table>
-    `;
+    </div>
     
-    // Attach listener events
-    container.querySelectorAll('tr[data-name]').forEach(row => {
-      const name = row.getAttribute('data-name');
-      const resource = pool.find(r => r.name === name);
-      
-      row.querySelector('.btn-res-save').addEventListener('click', async () => {
-        const total = parseInt(row.querySelector('.res-edit-total').value);
-        const alloc = parseInt(row.querySelector('.res-edit-alloc').value);
-        
-        if (isNaN(total) || isNaN(alloc)) {
-          alert("Total and Allocated capacities must be valid integers.");
-          return;
-        }
-        
-        row.querySelector('.btn-res-save').textContent = '...';
-        
-        try {
-          const resSave = await fetch(`${API_BASE}/demands/resources`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: resource.name,
-              role: resource.role,
-              skills: resource.skills,
-              total_capacity: total,
-              allocated_capacity: alloc
-            })
-          });
-          if (!resSave.ok) throw new Error("Failed to save resource changes");
-          loadWorkforcePool();
-        } catch (err) {
-          alert(err.message);
-          row.querySelector('.btn-res-save').textContent = 'Save';
-        }
-      });
-      
-      row.querySelector('.btn-res-delete').addEventListener('click', async () => {
-        if (confirm(`Remove ${name} from available capacity resources?`)) {
-          row.querySelector('.btn-res-delete').textContent = '...';
-          try {
-            const resDel = await fetch(`${API_BASE}/demands/resources/${name}`, {
-              method: 'DELETE'
-            });
-            if (!resDel.ok) throw new Error("Failed to delete resource");
-            loadWorkforcePool();
-          } catch (err) {
-            alert(err.message);
-            row.querySelector('.btn-res-delete').textContent = 'Del';
-          }
-        }
-      });
+    <div style="border-top: 1px dashed var(--border-color); padding-top: 0.75rem; margin-top: 0.75rem;">
+      <h6 style="margin: 0 0 0.5rem 0; font-size: 0.8rem; color: var(--text-secondary);">Add Resource</h6>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+        <input type="text" id="new-res-name" placeholder="Name (e.g. Emma)" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
+        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+          <select id="new-res-role-select" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
+            <option value="Backend Developer">Backend Developer</option>
+            <option value="Frontend Developer">Frontend Developer</option>
+            <option value="Senior Architect">Senior Architect</option>
+            <option value="Security Engineer">Security Engineer</option>
+            <option value="">-- Custom Role --</option>
+          </select>
+          <input type="text" id="new-res-role" placeholder="Or type custom role..." style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
+        </div>
+        <input type="text" id="new-res-skills" placeholder="Skills (comma separated)" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; align-items: center;">
+        <input type="number" id="new-res-total" placeholder="Total Cap (e.g. 40)" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
+        <input type="number" id="new-res-alloc" placeholder="Alloc Cap (e.g. 20)" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
+        <button type="button" class="btn-primary" id="btn-add-resource" style="padding: 4px 12px; font-size: 0.75rem;">Add</button>
+      </div>
+      <div id="add-resource-error" style="color: var(--color-status-red-text); font-size: 0.7rem; margin-top: 0.25rem; display: none;"></div>
+    </div>
+    
+    <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+      <button type="button" class="btn-secondary" id="btn-cancel-workforce" style="padding: 4px 12px; font-size: 0.75rem; font-weight: 600; cursor: pointer;">Cancel</button>
+      <button type="button" class="btn-primary" id="btn-save-workforce" style="padding: 4px 12px; font-size: 0.75rem; font-weight: 600; cursor: pointer;">Save Changes</button>
+    </div>
+  `;
+  
+  // Restore scroll position
+  const newTableWrapper = document.getElementById('workforce-table-container');
+  if (newTableWrapper) newTableWrapper.scrollTop = scrollTop;
+  
+  // Attach edit row event listeners
+  container.querySelectorAll('tr[data-name]').forEach(row => {
+    const name = row.getAttribute('data-name');
+    const resource = currentWorkforceState.find(r => r.name === name);
+    if (!resource) return;
+    
+    const totalInput = row.querySelector('.res-edit-total');
+    const allocInput = row.querySelector('.res-edit-alloc');
+    
+    const updateValues = () => {
+      const totalVal = parseInt(totalInput.value);
+      const allocVal = parseInt(allocInput.value);
+      if (!isNaN(totalVal)) resource.total_capacity = totalVal;
+      if (!isNaN(allocVal)) resource.allocated_capacity = allocVal;
+    };
+    
+    totalInput.addEventListener('input', updateValues);
+    allocInput.addEventListener('input', updateValues);
+    
+    row.querySelector('.btn-res-delete').addEventListener('click', () => {
+      if (confirm(`Remove ${name} from available capacity resources locally?`)) {
+        currentWorkforceState = currentWorkforceState.filter(r => r.name !== name);
+        renderWorkforcePoolEditView();
+      }
+    });
+  });
+  
+  // Attach add resource listener
+  const btnAdd = document.getElementById('btn-add-resource');
+  btnAdd.addEventListener('click', () => {
+    const errorDiv = document.getElementById('add-resource-error');
+    errorDiv.style.display = 'none';
+    
+    const name = document.getElementById('new-res-name').value.trim();
+    const role = document.getElementById('new-res-role').value;
+    const skillsStr = document.getElementById('new-res-skills').value.trim();
+    const total = parseInt(document.getElementById('new-res-total').value);
+    const alloc = parseInt(document.getElementById('new-res-alloc').value);
+    
+    if (!name) {
+      errorDiv.textContent = "Name is required.";
+      errorDiv.style.display = 'block';
+      return;
+    }
+    
+    if (currentWorkforceState.some(r => r.name.toLowerCase() === name.toLowerCase())) {
+      errorDiv.textContent = `A resource with name "${name}" already exists in the pool.`;
+      errorDiv.style.display = 'block';
+      return;
+    }
+    
+    if (isNaN(total) || isNaN(alloc)) {
+      errorDiv.textContent = "Total and Allocated capacities must be valid numbers.";
+      errorDiv.style.display = 'block';
+      return;
+    }
+    
+    const skills = skillsStr ? skillsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+    
+    currentWorkforceState.push({
+      name: name,
+      role: role,
+      skills: skills,
+      total_capacity: total,
+      allocated_capacity: alloc
     });
     
-    container.scrollTop = workforceScrollTop;
-  } catch (err) {
-    container.innerHTML = `<div style="color: var(--color-status-red-text); font-size: 0.85rem;">${err.message}</div>`;
+    renderWorkforcePoolEditView();
+  });
+  
+  // Cancel button listener
+  document.getElementById('btn-cancel-workforce').addEventListener('click', () => {
+    isEditingWorkforce = false;
+    loadWorkforcePool();
+  });
+  
+  // Save Changes button listener
+  document.getElementById('btn-save-workforce').addEventListener('click', async () => {
+    const saveBtn = document.getElementById('btn-save-workforce');
+    const cancelBtn = document.getElementById('btn-cancel-workforce');
+    
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+    cancelBtn.disabled = true;
+    
+    try {
+      const promises = [];
+      
+      // 1. Delete removed resources from database
+      originalWorkforcePool.forEach(orig => {
+        const stillExists = currentWorkforceState.some(curr => curr.name === orig.name);
+        if (!stillExists) {
+          promises.push(
+            fetch(`${API_BASE}/demands/resources/${orig.name}`, { method: 'DELETE' })
+          );
+        }
+      });
+      
+      // 2. Save new or modified resources to database
+      currentWorkforceState.forEach(curr => {
+        const orig = originalWorkforcePool.find(o => o.name === curr.name);
+        const isModified = !orig || 
+                           orig.total_capacity !== curr.total_capacity || 
+                           orig.allocated_capacity !== curr.allocated_capacity ||
+                           orig.role !== curr.role ||
+                           JSON.stringify(orig.skills) !== JSON.stringify(curr.skills);
+                           
+        if (isModified) {
+          promises.push(
+            fetch(`${API_BASE}/demands/resources`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(curr)
+            })
+          );
+        }
+      });
+      
+      const results = await Promise.all(promises);
+      const failed = results.filter(r => !r.ok);
+      if (failed.length > 0) {
+        throw new Error("Failed to save some resource changes. Please try again.");
+      }
+      
+      isEditingWorkforce = false;
+      await loadWorkforcePool();
+    } catch (err) {
+      alert(err.message);
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save Changes';
+      cancelBtn.disabled = false;
+    }
+  });
+
+  // Set up role select and text input bidirectional synchronization
+  const roleSelect = document.getElementById('new-res-role-select');
+  const roleInput = document.getElementById('new-res-role');
+  if (roleSelect && roleInput) {
+    roleInput.value = roleSelect.value;
+    
+    roleSelect.addEventListener('change', () => {
+      const selectedVal = roleSelect.value;
+      if (selectedVal) {
+        roleInput.value = selectedVal;
+      } else {
+        roleInput.value = '';
+        roleInput.focus();
+      }
+    });
+    
+    roleInput.addEventListener('input', () => {
+      const typedVal = roleInput.value.trim();
+      let matched = false;
+      for (let option of roleSelect.options) {
+        if (option.value && option.value.toLowerCase() === typedVal.toLowerCase()) {
+          roleSelect.value = option.value;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        roleSelect.value = '';
+      }
+    });
   }
 }
 
@@ -1667,65 +1851,6 @@ function attachWorkforceListeners() {
       const isHidden = poolDetails.style.display === 'none';
       poolDetails.style.display = isHidden ? 'block' : 'none';
       btnToggle.textContent = isHidden ? 'Hide Pool' : 'Show Pool';
-    });
-  }
-  
-  const btnAdd = document.getElementById('btn-add-resource');
-  if (btnAdd) {
-    btnAdd.addEventListener('click', async () => {
-      const errorDiv = document.getElementById('add-resource-error');
-      errorDiv.style.display = 'none';
-      
-      const name = document.getElementById('new-res-name').value.trim();
-      const role = document.getElementById('new-res-role').value;
-      const skillsStr = document.getElementById('new-res-skills').value.trim();
-      const total = parseInt(document.getElementById('new-res-total').value);
-      const alloc = parseInt(document.getElementById('new-res-alloc').value);
-      
-      if (!name) {
-        errorDiv.textContent = "Name is required.";
-        errorDiv.style.display = 'block';
-        return;
-      }
-      if (isNaN(total) || isNaN(alloc)) {
-        errorDiv.textContent = "Total and Allocated capacities must be valid numbers.";
-        errorDiv.style.display = 'block';
-        return;
-      }
-      
-      const skills = skillsStr ? skillsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
-      
-      btnAdd.disabled = true;
-      btnAdd.textContent = '...';
-      
-      try {
-        const res = await fetch(`${API_BASE}/demands/resources`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name,
-            role,
-            skills,
-            total_capacity: total,
-            allocated_capacity: alloc
-          })
-        });
-        if (!res.ok) throw new Error("Failed to add resource.");
-        
-        // Reset form
-        document.getElementById('new-res-name').value = '';
-        document.getElementById('new-res-skills').value = '';
-        document.getElementById('new-res-total').value = '';
-        document.getElementById('new-res-alloc').value = '';
-        
-        loadWorkforcePool();
-      } catch (err) {
-        errorDiv.textContent = err.message;
-        errorDiv.style.display = 'block';
-      } finally {
-        btnAdd.disabled = false;
-        btnAdd.textContent = 'Add';
-      }
     });
   }
 }
