@@ -1,7 +1,37 @@
 {
   "demand_id": "DEM-2026-0002",
   "monitoring": null,
-  "handover": null,
+  "handover": {
+    "handover_id": "HO-0002-1",
+    "demand_id": "DEM-2026-0002",
+    "plan_id": "PLN-0002-1",
+    "created_at": "2026-08-05T10:11:22Z",
+    "support_runbook": {
+      "title": "Ops Support Runbook for DEM-2026-0002 Deployment",
+      "sections": [
+        {
+          "section": "Health Checks",
+          "content": "Perform the following post-deployment health checks for svc-dem_2026_0002-prod-svr-01:\n- Verify service health endpoints return HTTP 200 (e.g., /health, /ready, /alive).\n- Execute smoke tests as defined in the deployment 'verify' step to confirm core functionality.\n- Monitor key metrics: CPU < 80%, Memory < 80%, error rates < 1%, latency < 500ms (p95).\n- Check application logs for errors using 'kubectl logs <pod-name>' or centralized logging (e.g., ELK).\nSuccess criteria: All checks pass within 15 minutes post-deployment."
+        },
+        {
+          "section": "Triaging Issues",
+          "content": "1. Review deployment steps and current status (pre-check, execute, verify, rollback-trigger).\n2. Identify symptoms: Health check failures, smoke test errors, elevated errors/alarms.\n3. Check logs: Deployment logs, pod logs, cluster events ('kubectl describe pod <name>').\n4. Validate prerequisites: Change approval, release-readiness sign-off.\n5. Escalate: If unresolved in 30 mins, notify deployment owner and rollback if criteria met.\n6. Use monitoring tools (Prometheus/Grafana) for dashboards."
+        },
+        {
+          "section": "Common Errors and Resolutions",
+          "content": "- **Deployment Failure (execute step)**: Image pull errors - Verify image exists in registry, check quotas. Resolution: Retry or use fallback tag.\n- **Health Check Failures (verify step)**: Pod not ready - Check readiness probes, resource limits. Resolution: Scale deployment or patch config.\n- **Smoke Test Failures**: API timeouts - Inspect network policies, ingress. Resolution: Validate routes, restart ingress controller.\n- **High Latency/Errors**: Traffic spike - Auto-scale HPA. Resolution: Monitor and adjust replicas.\nAlways document findings in incident ticket."
+        },
+        {
+          "section": "Rollback Procedures",
+          "content": "Trigger rollback if: Health checks fail >10 mins, smoke tests fail, P1 incidents reported.\n- Owner: Deployment lead (confirm in rollback-trigger step).\n- Steps: 1. kubectl rollout undo deployment/svc-dem_2026_0002-prod-svr-01.\n2. Verify rollback health/smoke tests.\n3. Notify stakeholders via Slack/Incident channel.\n4. Open retrospective ticket."
+        }
+      ]
+    },
+    "known_errors": [],
+    "kt_pack_url": "sharepoint://kt/ops-readiness-0002-20260805",
+    "reviewed_by": null,
+    "status": "draft"
+  },
   "validation": {
     "validation_id": "RV-0002-1",
     "demand_id": "DEM-2026-0002",

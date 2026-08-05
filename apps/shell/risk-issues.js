@@ -45,6 +45,14 @@ window.fetchRiskIssuesData = function (targetContainer) {
     });
 };
 
+window.handleRiskProjectSelect = function(demandId) {
+  sessionStorage.setItem('selectedDemandId', demandId);
+  window.renderRiskSidebarAndDropdown(window.allDemandsList || [], demandId);
+  // Fetch automatically instead of waiting for the user to click "Open"
+  delete window.cachedRiskData[demandId];
+  window.openRiskIssuesWorkspace(demandId);
+};
+
 function renderRiskSidebarAndDropdown(demands, selectedId) {
   const sidebar = document.getElementById('risk-demand-sidebar-list');
   const dropdownContainer = document.getElementById('risk-demand-dropdown-container');
@@ -54,7 +62,7 @@ function renderRiskSidebarAndDropdown(demands, selectedId) {
       sidebar.innerHTML = demands.map(d => {
         const isActive = d.demand_id === selectedId;
         return `
-          <li class="demand-item ${isActive ? 'active' : ''}" onclick="sessionStorage.setItem('selectedDemandId', '${d.demand_id}'); window.fetchRiskIssuesData();" style="cursor: pointer; padding: 0.75rem 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.05); border-left: ${isActive ? '3px solid var(--color-brand)' : '3px solid transparent'}; background: ${isActive ? 'rgba(99,102,241,0.1)' : 'transparent'};">
+          <li class="demand-item ${isActive ? 'active' : ''}" onclick="window.handleRiskProjectSelect('${d.demand_id}')" style="cursor: pointer; padding: 0.75rem 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.05); border-left: ${isActive ? '3px solid var(--color-brand)' : '3px solid transparent'}; background: ${isActive ? 'rgba(99,102,241,0.1)' : 'transparent'};">
             <div style="font-family: monospace; font-weight: 700; color: var(--color-brand); font-size: 0.78rem;">${d.demand_id}</div>
             <h4 style="margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); line-height: 1.3;">${d.title || 'Untitled Demand'}</h4>
           </li>
@@ -68,7 +76,7 @@ function renderRiskSidebarAndDropdown(demands, selectedId) {
   if (dropdownContainer) {
     const options = demands.map(d => `<option value="${d.demand_id}" ${d.demand_id === selectedId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('');
     dropdownContainer.innerHTML = `
-      <select onchange="sessionStorage.setItem('selectedDemandId', this.value); window.fetchRiskIssuesData();" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
+      <select onchange="window.handleRiskProjectSelect(this.value)" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
         <option value="">Select a Project...</option>
         ${options}
       </select>
@@ -537,7 +545,12 @@ window.renderRiskIssuesScreen = function (targetContainer) {
         <h2 style="margin: 0; font-family: var(--font-display); color: var(--text-primary); margin-bottom: 0.25rem;">Risk & Issues Intelligence</h2>
         <div style="font-size: 0.85rem; color: var(--text-muted);">Always-On AI Monitoring for Project <strong>${data.project_summary?.title || demandId}</strong></div>
       </div>
-      ${dropdownHtml}
+      <div id="risk-workspace-dropdown">
+        <select onchange="sessionStorage.setItem('selectedDemandId', this.value); delete window.cachedRiskData[this.value]; window.openRiskIssuesWorkspace(this.value);" style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; min-width: 280px; max-width: 380px; cursor: pointer;">
+          <option value="">Select a Project...</option>
+          ${window.allDemandsList?.map(d => `<option value="${d.demand_id}" ${d.demand_id === demandId ? 'selected' : ''}>${d.demand_id} - ${d.title}</option>`).join('') || ''}
+        </select>
+      </div>
     </div>
     
     <div style="padding: 0 1.5rem; background: var(--bg-primary); border-bottom: 1px solid var(--border-color); display: flex; gap: 1rem; overflow-x: auto;">
