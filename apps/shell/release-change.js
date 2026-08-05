@@ -76,7 +76,7 @@ window.fetchReleaseChange = function () {
 
 async function loadDropdownOptions() {
   try {
-    const res = await fetch(`${RELEASE_CHANGE_API_BASE}/dropdowns`);
+    const res = await fetch(`${RELEASE_CHANGE_API_BASE}/dropdowns?t=${new Date().getTime()}`, { cache: 'no-store' });
     if (res.ok) {
       dropdownOptions = await res.json();
       populateCreateModalDropdowns();
@@ -113,7 +113,7 @@ function populateCreateModalDropdowns() {
 async function fetchReleases() {
   filterProject = sessionStorage.getItem('selectedDemandId') || filterProject;
   try {
-    const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases`);
+    const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases?t=${new Date().getTime()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     releaseList = await res.json();
     renderMainView();
@@ -522,7 +522,7 @@ async function navigateToRelease(releaseId, targetTab = null) {
   }
 
   try {
-    const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases/${releaseId}`);
+    const res = await fetch(`${RELEASE_CHANGE_API_BASE}/releases/${releaseId}?t=${new Date().getTime()}`, { cache: 'no-store' });
     if (res.ok) {
       currentReleaseDetail = await res.json();
       renderMainView();
@@ -938,7 +938,7 @@ function renderChangeTab() {
   return `
     <div style="display: flex; flex-direction: column; gap: 1.25rem;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: var(--text-primary);">Drafted ITSM Change Request</h3>
+        <h3 style="margin: 0; font-family: var(--font-display); font-size: 1.15rem; color: var(--text-primary);">Change Request</h3>
         <div>
           <button class="btn-primary" onclick="submitChangeRequest()" style="background: var(--color-brand); border: none; padding: 0.5rem 1rem; border-radius: var(--radius-md); font-weight: 600; color: var(--text-primary); cursor: pointer; font-size: 0.8rem;">
             Submit Change Request

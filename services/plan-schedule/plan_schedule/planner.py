@@ -144,7 +144,7 @@ def generate_plans(
             log.debug("  WBS  : phase=%-8s  frac=%.2f  days=%.2f", a.phase, a.fraction, a.effort_days)
 
         # --- Step 3: Schedule ---
-        tasks, cp_task_ids = schedule_phases(
+        tasks, cp_task_ids, unfilled_positions, warnings = schedule_phases(
             estimate_id=estimate.estimate_id,
             demand_id=estimate.demand_id,
             plan_seq=seq,
@@ -167,6 +167,8 @@ def generate_plans(
             end_date=end_date,
             critical_path_task_ids=cp_ids,
             tasks=tasks,
+            unfilled_positions=unfilled_positions,
+            warnings=warnings,
         )
         plans.append(plan)
         log.info(
