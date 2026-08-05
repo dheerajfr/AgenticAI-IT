@@ -116,22 +116,11 @@ window.fetchReportingCommunicationData = async function() {
     const res = await fetch(`${BASE_URL}/reporting-communication/project/${demandId}`);
     if (res.ok) {
       window.currentReportingData = await res.json();
+      window.renderReportingCommunicationScreen();
     }
   } catch (err) {
     console.error("Reporting fetch error", err);
   }
-
-  try {
-    const maRes = await fetch(`${BASE_URL}/reporting-communication/meeting-actions/${demandId}`);
-    if (maRes.ok) {
-      const maData = await maRes.json();
-      window.currentMeetingActions = maData.actions || [];
-    }
-  } catch (err) {
-    console.error("Meeting actions fetch error", err);
-  }
-
-  window.renderReportingCommunicationScreen();
 };
 
 window.renderReportingCommunicationScreen = function(targetContainer) {
@@ -277,17 +266,13 @@ window.renderReportingCommunicationScreen = function(targetContainer) {
               style="background: none; border: none; padding: 0.75rem 1rem; cursor: pointer; font-family: var(--font-sans); font-weight: 600; font-size: 0.9rem; color: ${activeTab === 'comms' ? 'var(--color-brand)' : 'var(--text-muted)'}; border-bottom: ${activeTab === 'comms' ? '2px solid var(--color-brand)' : '2px solid transparent'}; transition: all 0.2s ease;">
         Comm Drafting
       </button>
-      <button onclick="window.reportingActiveTab = 'history'; window.renderReportingCommunicationScreen();"
+      <button onclick="window.reportingActiveTab = 'history'; window.renderReportingCommunicationScreen();" 
               style="background: none; border: none; padding: 0.75rem 1rem; cursor: pointer; font-family: var(--font-sans); font-weight: 600; font-size: 0.9rem; color: ${activeTab === 'history' ? 'var(--color-brand)' : 'var(--text-muted)'}; border-bottom: ${activeTab === 'history' ? '2px solid var(--color-brand)' : '2px solid transparent'}; transition: all 0.2s ease;">
         Past Reports
       </button>
-      <button onclick="window.reportingActiveTab = 'meeting-actions'; window.renderReportingCommunicationScreen();"
-              style="background: none; border: none; padding: 0.75rem 1rem; cursor: pointer; font-family: var(--font-sans); font-weight: 600; font-size: 0.9rem; color: ${activeTab === 'meeting-actions' ? 'var(--color-brand)' : 'var(--text-muted)'}; border-bottom: ${activeTab === 'meeting-actions' ? '2px solid var(--color-brand)' : '2px solid transparent'}; transition: all 0.2s ease;">
-        Meeting Actions
-      </button>
     </div>
   `;
-
+  
   viewport.innerHTML = layoutPrefix + `
     <div style="padding: 2rem; max-width: 1200px; margin: 0 auto; animation: fade-in 0.3s ease;">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
@@ -356,11 +341,6 @@ window.renderReportingCommunicationScreen = function(targetContainer) {
               <option value="Outage_Notification">Outage Notification</option>
               <option value="Weekly_Status">Weekly Status Update</option>
             </select>
-            <select id="comm-audience" style="padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 0.85rem;">
-              <option value="CIO">CIO / Executive</option>
-              <option value="Tech_Lead">Technical Lead</option>
-              <option value="Business_Owner">Business Owner</option>
-            </select>
             <button onclick="draftComm('${demandId}')" class="btn-secondary" style="padding: 0.4rem 1rem; font-size: 0.85rem;">Draft Comm</button>
           </div>
           
@@ -414,45 +394,6 @@ window.renderReportingCommunicationScreen = function(targetContainer) {
           </div>
 
         </div>
-
-        <!-- Meeting Actions -->
-        <div style="display: ${activeTab === 'meeting-actions' ? 'block' : 'none'}; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; animation: fade-in 0.3s ease;">
-          <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
-            <span>Meeting Actions</span>
-            <span style="font-size: 0.75rem; background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 2px 6px; border-radius: 4px;">AI Extracts</span>
-          </h3>
-          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
-            Paste a meeting transcript below. AI extracts decisions and action items with owners, so they can be tracked to closure.
-          </p>
-
-          <textarea id="meeting-transcript" placeholder="Paste meeting transcript here..." style="width: 100%; min-height: 140px; padding: 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; box-sizing: border-box; resize: vertical; margin-bottom: 0.75rem;"></textarea>
-
-          <div style="display: flex; justify-content: flex-end; margin-bottom: 1.5rem;">
-            <button onclick="window.submitMeetingTranscript('${demandId}')" class="btn-primary" style="padding: 0.4rem 1rem; font-size: 0.85rem;">Extract Actions</button>
-          </div>
-
-          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-            ${(() => {
-              const meetingActions = window.currentMeetingActions || [];
-              if (meetingActions.length === 0) {
-                return '<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 2rem; border: 1px dashed var(--border-color); border-radius: 4px;">No meeting actions extracted yet. Paste a transcript above.</div>';
-              }
-              return meetingActions.map(a => `
-                <div style="padding: 1rem; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; ${a.status === 'Done' ? 'opacity: 0.6;' : ''}">
-                  <div style="flex: 1;">
-                    <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: ${a.type === 'decision' ? '#8b5cf6' : 'var(--color-brand)'}; margin-bottom: 0.25rem;">${a.type === 'decision' ? 'Decision' : 'Action Item'}</div>
-                    <div style="font-size: 0.9rem; color: var(--text-primary); margin-bottom: 0.35rem; ${a.status === 'Done' ? 'text-decoration: line-through;' : ''}">${a.description}</div>
-                    <div style="font-size: 0.78rem; color: var(--text-secondary);">Owner: <strong>${a.owner || 'Unassigned'}</strong>${a.due_date ? ` &middot; Due: <strong>${a.due_date}</strong>` : ''}</div>
-                  </div>
-                  <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem;">
-                    <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 12px; background: ${a.status === 'Done' ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)'}; color: ${a.status === 'Done' ? '#10b981' : 'var(--color-status-amber-text)'}; font-weight: 700;">${a.status}</span>
-                    ${a.status !== 'Done' ? `<button onclick="window.markMeetingActionDone('${demandId}', '${a.id}')" class="btn-secondary" style="padding: 0.3rem 0.75rem; font-size: 0.75rem;">Mark Done</button>` : ''}
-                  </div>
-                </div>
-              `).join('');
-            })()}
-          </div>
-        </div>
       </div>
     </div>` + layoutSuffix;
 };
@@ -471,43 +412,16 @@ window.generateSummary = async function(demandId) {
 
 window.draftComm = async function(demandId) {
   const type = document.getElementById('comm-type').value;
-  const audienceEl = document.getElementById('comm-audience');
-  const audience = audienceEl ? audienceEl.value : 'general';
   try {
     await fetch(`${BASE_URL}/reporting-communication/draft-comm`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ demand_id: demandId, comm_type: type, audience: audience })
+      body: JSON.stringify({ demand_id: demandId, comm_type: type })
     });
     window.fetchReportingCommunicationData();
   } catch(e) { console.error(e); }
 };
 
-window.submitMeetingTranscript = async function(demandId) {
-  const textarea = document.getElementById('meeting-transcript');
-  const transcript = textarea ? textarea.value.trim() : '';
-  if (!transcript) return;
-  try {
-    await fetch(`${BASE_URL}/reporting-communication/meeting-actions`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ demand_id: demandId, transcript: transcript })
-    });
-    if (textarea) textarea.value = '';
-    await window.fetchReportingCommunicationData();
-  } catch(e) { console.error(e); }
-};
-
-window.markMeetingActionDone = async function(demandId, actionId) {
-  try {
-    await fetch(`${BASE_URL}/reporting-communication/meeting-actions/${actionId}`, {
-      method: 'PATCH',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ status: 'Done' })
-    });
-    await window.fetchReportingCommunicationData();
-  } catch(e) { console.error(e); }
-};
 
 
 
