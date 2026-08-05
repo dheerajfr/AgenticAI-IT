@@ -104,33 +104,53 @@ def _add_working_days(start: date, n_days: int, working_days_per_week: int) -> d
 
 def get_required_count_for_role(phase: str, constraints: list) -> int:
     """
-    Sum the `requiredCapacity` values from the demand resource_constraints
-    for all roles that belong to the given WBS phase.
-
-    Matching is done by exact role name against _PHASE_DEMAND_ROLES[phase].
-    If no constraints match, returns 1 (default single-assignee).
-
-    Example:
-        demand has: Backend Developer: required=2, QA Engineer: required=1
-        Phase 'build'  → demand roles = [Backend Developer, Frontend Developer, Senior Architect]
-                       → matches Backend Developer (2) → returns 2
-        Phase 'test'   → demand roles = [QA Engineer, Security Engineer]
-                       → matches QA Engineer (1) → returns 1
+    Intelligently group any demand role into the 4 phases to sum up the required headcount.
     """
-    demand_roles_for_phase = _PHASE_DEMAND_ROLES.get(phase, [])
-    if not demand_roles_for_phase or not constraints:
+    if not constraints:
         return 1
 
     total = 0
-    found = False
+    phase_lower = phase.lower()
+    
     for c in constraints:
-        role_name = (c.get("role") or "").strip()
-        headcount = c.get("requiredCapacity", 0)
-        if role_name in demand_roles_for_phase and headcount > 0:
+        role_name = (c.get("role") or "").strip().lower()
+        try:
+            headcount = int(c.get("requiredCapacity", 0))
+        except (ValueError, TypeError):
+            headcount = 0
+            
+        if headcount <= 0:
+            continue
+            
+        # Determine which phase this role belongs to
+        assigned_phase = "build" # Default to build if unknown
+        
+        if any(x in role_name for x in ["architect", "analyst", "lead", "manager", "design", "product"]):
+            assigned_phase = "design"
+        elif any(x in role_name for x in ["qa", "test", "quality"]):
+            assigned_phase = "test"
+        elif any(x in role_name for x in ["devops", "security", "ops", "infra", "cloud", "release", "admin"]):
+            assigned_phase = "deploy"
+        elif any(x in role_name for x in ["developer", "engineer", "programmer", "coder", "software"]):
+            # Double check it's not a QA Engineer or Security Engineer
+            if "qa " not in role_name and "security " not in role_name and "cloud " not in role_name:
+                assigned_phase = "build"
+        
+        # Check if this role belongs to the requested phase
+        is_match = False
+        if "design" in phase_lower and assigned_phase == "design":
+            is_match = True
+        elif "build" in phase_lower and assigned_phase == "build":
+            is_match = True
+        elif "test" in phase_lower and assigned_phase == "test":
+            is_match = True
+        elif "deploy" in phase_lower and assigned_phase == "deploy":
+            is_match = True
+            
+        if is_match:
             total += headcount
-            found = True
 
-    return total if found else 1
+    return total if total > 0 else 1
 
 
 # ---------------------------------------------------------------------------
@@ -262,7 +282,10 @@ class _RoundRobinOwner:
             def get_score(emp):
                 status_avail = 1 if emp.get("status", "Available") == "Available" else 0
                 skill_match = 1 if (role_name.lower() in (emp.get("skill") or "").lower() or role_name.lower() in (emp.get("skills") or "").lower()) else 0
-                exp = emp.get("experience", 0) or 0
+                try:
+                    exp = float(emp.get("experience", 0) or 0)
+                except (ValueError, TypeError):
+                    exp = 0.0
                 workload = -self.get_utilization_days(emp["email"])
                 return (status_avail, skill_match, exp, workload)
                 
@@ -272,24 +295,34 @@ class _RoundRobinOwner:
     def get_assigned_team_for_phase(self, phase: str) -> List[dict]:
         phase_lower = phase.lower()
         category = ""
-        if "design" in phase_lower or "build" in phase_lower:
-            category = "developer"
+        if "design" in phase_lower:
+            category = "design"
+        elif "build" in phase_lower:
+            category = "build"
         elif "test" in phase_lower:
-            category = "qa"
+            category = "test"
         elif "deploy" in phase_lower:
-            category = "devops"
+            category = "deploy"
             
         combined_team = []
         seen_emails = set()
         
         for role_name, emps in self._selected_teams.items():
             norm_role = role_name.lower()
+            assigned_phase = "build"
+            
+            if any(x in norm_role for x in ["architect", "analyst", "lead", "manager", "design", "product"]):
+                assigned_phase = "design"
+            elif any(x in norm_role for x in ["qa", "test", "quality"]):
+                assigned_phase = "test"
+            elif any(x in norm_role for x in ["devops", "security", "ops", "infra", "cloud", "release", "admin"]):
+                assigned_phase = "deploy"
+            elif any(x in norm_role for x in ["developer", "engineer", "programmer", "coder", "software"]):
+                if "qa " not in norm_role and "security " not in norm_role and "cloud " not in norm_role:
+                    assigned_phase = "build"
+                    
             is_match = False
-            if category == "developer" and ("developer" in norm_role or "architect" in norm_role or "backend" in norm_role or "frontend" in norm_role):
-                is_match = True
-            elif category == "qa" and ("qa" in norm_role or "test" in norm_role):
-                is_match = True
-            elif category == "devops" and ("devops" in norm_role or "security" in norm_role or "ops" in norm_role or "infra" in norm_role or "cloud" in norm_role):
+            if category == assigned_phase:
                 is_match = True
                 
             if is_match:
@@ -374,14 +407,16 @@ class _RoundRobinOwner:
             self._init_selected_teams(demand_constraints)
             assigned_team = self.get_assigned_team_for_phase(phase)
             
+            allocated_emails: List[str] = []
             if not assigned_team:
                 log.warning(
                     "[scheduler] No pre-selected team members for phase '%s'. Falling back.",
                     phase
                 )
+                for _ in range(count):
+                    allocated_emails.append("Unfilled")
             else:
                 assigned_team_sorted = sorted(assigned_team, key=lambda e: self.get_utilization_days(e["email"]))
-                allocated_emails: List[str] = []
                 pool_size = len(assigned_team_sorted)
                 unique_count = min(count, pool_size)
                 for i in range(unique_count):
@@ -389,8 +424,12 @@ class _RoundRobinOwner:
                     email = emp["email"]
                     allocated_emails.append(email)
                     self.assignments.append((email, start_date, end_date))
+                
+                if unique_count < count:
+                    for _ in range(count - unique_count):
+                        allocated_emails.append("Unfilled")
                     
-                return allocated_emails
+            return allocated_emails
 
         # ─── LEGACY / TEST ROUND-ROBIN PATH ─────────────────────────────────
         candidates = []
@@ -522,20 +561,17 @@ def schedule_phases(
         constraints.working_days_per_week,
     )
 
+    unfilled_positions = []
+    warnings = []
+    
     for alloc in allocations:
         phase_role = _PHASE_ROLE[alloc.phase]
         
         # Determine required headcount directly from demand constraints.
         # requiredCapacity is the literal number of employees to assign (e.g. 2 means assign 2 people).
         required_count = get_required_count_for_role(alloc.phase, demand_constraints)
-
-        # The allocation of multiple persons for a task depends on the time/effort taking for completion.
-        # If the task takes less time (effort_days < 10.0), allocate a single person.
-        # If it takes more time (effort_days >= 10.0), multiple employees are allocated.
-        if alloc.effort_days < 10.0:
-            allocated_count = 1
-        else:
-            allocated_count = required_count
+        
+        allocated_count = required_count
 
         # Compute duration working days based on the allocated count
         duration_days = _phase_duration_working_days(
@@ -556,6 +592,16 @@ def schedule_phases(
             demand_constraints=demand_constraints or None,
             phase=alloc.phase,
         )
+        
+        unfilled_count = owners.count("Unfilled")
+        if unfilled_count > 0:
+            msg = f"Phase {alloc.phase} requires {allocated_count} {phase_role}(s), but {unfilled_count} position(s) are unfilled."
+            warnings.append(msg)
+            unfilled_positions.append({
+                "phase": alloc.phase,
+                "role": phase_role,
+                "missing": unfilled_count
+            })
 
         # Build task_id: PLN-<seq>-<PHASE>
         task_id = f"PLN-{plan_seq:04d}-{alloc.phase.upper()}"
@@ -581,4 +627,26 @@ def schedule_phases(
         current_start = _next_working_day(next_day, constraints.working_days_per_week)
 
     critical_path = [t.task_id for t in tasks]
-    return tasks, critical_path
+    
+    # Create Risk entry if unfilled positions exist
+    if unfilled_positions:
+        try:
+            import sqlite3
+            import uuid
+            from datetime import datetime
+            risk_db_path = "services/risk-issues/risk_issues.db"
+            conn = sqlite3.connect(risk_db_path)
+            c = conn.cursor()
+            for uf in unfilled_positions:
+                risk_id = f"RSK-{str(uuid.uuid4())[:8].upper()}"
+                desc = f"Unfilled position in phase {uf['phase']} for role {uf['role']} ({uf['missing']} missing)"
+                c.execute(
+                    "INSERT INTO risks (id, demand_id, category, description, probability, impact, severity, risk_score, confidence_score, status, created_at, related_module) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (risk_id, demand_id, "Resource", desc, "High", "High", "Critical", 90, 100, "Open", datetime.now().isoformat(), "Plan & Schedule")
+                )
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            log.error("Failed to create risk entry for unfilled positions: %s", e)
+
+    return tasks, critical_path, unfilled_positions, warnings

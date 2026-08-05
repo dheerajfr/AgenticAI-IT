@@ -144,6 +144,8 @@ class PlanRecord(BaseModel):
     end_date: date
     critical_path_task_ids: List[str] = Field(..., min_length=1)
     tasks: List[Task] = Field(..., min_length=1)
+    unfilled_positions: List[dict] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _end_date_matches_last_task(self) -> "PlanRecord":
@@ -172,9 +174,20 @@ class PlanRecord(BaseModel):
             "demand_id": self.demand_id,
             "end_date": self.end_date.isoformat(),
             "critical_path_task_ids": self.critical_path_task_ids,
+            "unfilled_positions": self.unfilled_positions,
+            "warnings": self.warnings,
             "tasks": [t.model_dump_iso() for t in self.tasks],
         }
         return d
+
+
+class AllocationOverride(BaseModel):
+    plan_id: str
+    demand_id: str
+    role: str
+    allocated_count: int
+    justification: str
+    timestamp: str
 
 
 # ---------------------------------------------------------------------------
