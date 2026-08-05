@@ -1271,6 +1271,19 @@ function renderPlanDetail(plan) {
       <!-- Replan Form Section Container -->
       <div id="replan-section-container" style="display:none; margin-bottom: 1.5rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; background: var(--bg-secondary);"></div>
 
+      <!-- Warnings Banner -->
+      ${plan.warnings && plan.warnings.length > 0 ? `
+      <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid var(--color-status-red-text); border-radius: var(--radius-md); padding: 0.75rem 1rem; margin-bottom: 1.5rem; display: flex; align-items: flex-start; gap: 0.75rem; flex-shrink: 0;">
+        <span style="font-size: 1.2rem; color: var(--color-status-red-text);">⚠</span>
+        <div>
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--color-status-red-text); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">Resource Warnings</div>
+          <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.8rem; color: var(--color-status-red-text);">
+            ${plan.warnings.map(w => `<li>${w}</li>`).join('')}
+          </ul>
+        </div>
+      </div>
+      ` : ''}
+      
       <!-- Critical Path Banner -->
       <div style="background: var(--bg-tertiary); border: 1px solid var(--border-color);
                   border-radius: var(--radius-md); padding: 0.75rem 1rem; margin-bottom: 1.5rem;
