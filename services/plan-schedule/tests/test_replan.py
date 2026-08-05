@@ -116,10 +116,13 @@ def test_ai_reallocation_leaves():
     db.save(plan_data)
 
     with patch("llm_client.call_gemini") as mock_gemini:
+        import datetime
+        today_str = datetime.date.today().isoformat()
+        future_str = (datetime.date.today() + datetime.timedelta(days=14)).isoformat()
         mock_gemini.return_value = {
             "employee_on_leave": email_leave,
-            "leave_start_date": "2026-07-07",
-            "leave_end_date": "2026-07-21",
+            "leave_start_date": today_str,
+            "leave_end_date": future_str,
             "reallocation_required": True
         }
         

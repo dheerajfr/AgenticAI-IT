@@ -146,7 +146,7 @@ class TestSchedulePhases:
     def test_sequential_ordering(self, team, constraints):
         """Every task must start after the previous one ends."""
         allocs = compute_phase_allocations(60.0, [])
-        tasks, _ = schedule_phases(
+        tasks, cp_ids, _, _ = schedule_phases(
             estimate_id="EST-TEST-1",
             demand_id="DEM-TEST-1",
             plan_seq=1,
@@ -161,7 +161,7 @@ class TestSchedulePhases:
 
     def test_four_tasks_produced(self, team, constraints):
         allocs = compute_phase_allocations(60.0, [])
-        tasks, _ = schedule_phases(
+        tasks, cp_ids, _, _ = schedule_phases(
             estimate_id="EST-TEST-1",
             demand_id="DEM-TEST-1",
             plan_seq=1,
@@ -173,7 +173,7 @@ class TestSchedulePhases:
 
     def test_all_tasks_critical_single_plan(self, team, constraints):
         allocs = compute_phase_allocations(60.0, [])
-        tasks, cp_ids = schedule_phases(
+        tasks, cp_ids, _, _ = schedule_phases(
             estimate_id="EST-TEST-1",
             demand_id="DEM-TEST-1",
             plan_seq=1,
@@ -186,7 +186,7 @@ class TestSchedulePhases:
     def test_start_date_respects_planning_start(self, team, constraints):
         """First task must start on or after planning_start_date."""
         allocs = compute_phase_allocations(60.0, [])
-        tasks, _ = schedule_phases(
+        tasks, cp_ids, _, _ = schedule_phases(
             estimate_id="EST-TEST-1",
             demand_id="DEM-TEST-1",
             plan_seq=1,
@@ -198,7 +198,7 @@ class TestSchedulePhases:
 
     def test_first_task_start_is_working_day(self, team, constraints):
         allocs = compute_phase_allocations(60.0, [])
-        tasks, _ = schedule_phases(
+        tasks, cp_ids, _, _ = schedule_phases(
             estimate_id="EST-TEST-1",
             demand_id="DEM-TEST-1",
             plan_seq=1,
@@ -210,7 +210,7 @@ class TestSchedulePhases:
 
     def test_predecessors_wired_correctly(self, team, constraints):
         allocs = compute_phase_allocations(60.0, [])
-        tasks, _ = schedule_phases(
+        tasks, cp_ids, _, _ = schedule_phases(
             estimate_id="EST-TEST-1",
             demand_id="DEM-TEST-1",
             plan_seq=1,
@@ -224,7 +224,7 @@ class TestSchedulePhases:
 
     def test_owner_assigned(self, team, constraints):
         allocs = compute_phase_allocations(60.0, [])
-        tasks, _ = schedule_phases(
+        tasks, cp_ids, _, _ = schedule_phases(
             estimate_id="EST-TEST-1",
             demand_id="DEM-TEST-1",
             plan_seq=1,

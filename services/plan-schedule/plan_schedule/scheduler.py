@@ -444,7 +444,6 @@ class _RoundRobinOwner:
                 for _ in range(count):
                     allocated_emails.append("Unfilled")
             else:
-<<<<<<< HEAD
                 assigned_team_sorted = sorted(
                     assigned_team,
                     key=lambda e: (
@@ -452,10 +451,6 @@ class _RoundRobinOwner:
                         self.get_utilization_days(e["email"])
                     )
                 )
-                allocated_emails: List[str] = []
-=======
-                assigned_team_sorted = sorted(assigned_team, key=lambda e: self.get_utilization_days(e["email"]))
->>>>>>> main
                 pool_size = len(assigned_team_sorted)
                 unique_count = min(count, pool_size)
                 for i in range(unique_count):
