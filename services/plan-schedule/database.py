@@ -143,6 +143,89 @@ class PlanDatabase:
     def save(self, plan_dict: dict) -> None:
         """Upsert a PlanRecord dict (keyed by plan_id)."""
         plan_dict.setdefault("status", "draft")
+        
+        # ─── Recalculate Resource Warnings & Unfilled Positions ─────────────
+        existing_plan = self.get_by_id(plan_dict["plan_id"])
+        
+        # Load or reconstruct target headcount required per task
+        req_headcounts = plan_dict.get("_required_headcounts")
+        if not req_headcounts:
+            req_headcounts = {}
+            if existing_plan:
+                req_headcounts = existing_plan.get("_required_headcounts") or {}
+                if not req_headcounts:
+                    # Reconstruct from original task owners list length (which includes "Unfilled" slots)
+                    req_headcounts = {
+                        t["task_id"]: len(t.get("owners", []))
+                        for t in existing_plan.get("tasks", [])
+                    }
+            else:
+                # Initialize headcount for a new plan
+                req_headcounts = {
+                    t["task_id"]: len(t.get("owners", []))
+                    for t in plan_dict.get("tasks", [])
+                }
+        plan_dict["_required_headcounts"] = req_headcounts
+        
+        # Determine target role based on phase display name
+        def get_phase_role(phase_name: str) -> str:
+            name = phase_name.lower()
+            if "design" in name or "setup" in name:
+                return "frontend"
+            if "build" in name:
+                return "backend"
+            if "test" in name or "qa" in name:
+                return "qa"
+            if "deploy" in name or "release" in name:
+                return "devops"
+            return "backend"
+            
+        new_warnings = []
+        new_unfilled_positions = []
+        phase_key_map = {
+            "Design & Setup": "design & setup",
+            "Build": "build",
+            "Test & QA": "test & qa",
+            "Deploy & Release": "deploy & release"
+        }
+        
+        # Synchronize task["owners"] array and calculate capacity mismatch
+        for task in plan_dict.get("tasks", []):
+            task_id = task["task_id"]
+            owner_str = task.get("owner", "")
+            
+            # Sync owners array with comma-separated owner string (excluding "Unfilled" placeholders)
+            current_owners = [
+                o.strip() for o in owner_str.split(",") 
+                if o.strip() and o.strip().lower() != "unfilled"
+            ]
+            task["owners"] = current_owners
+            
+            phase_name = task.get("name", "")
+            phase_role = get_phase_role(phase_name)
+            phase_key = phase_key_map.get(phase_name, phase_name.lower())
+            
+            req_count = req_headcounts.get(task_id, 0)
+            if req_count == 0:
+                req_count = len(current_owners)
+                req_headcounts[task_id] = req_count
+                
+            current_count = len(current_owners)
+            missing = req_count - current_count
+            
+            if missing > 0:
+                msg = f"Phase {phase_key} requires {req_count} {phase_role}(s), but {missing} position(s) are unfilled."
+                new_warnings.append(msg)
+                new_unfilled_positions.append({
+                    "phase": phase_key,
+                    "role": phase_role,
+                    "missing": missing
+                })
+                
+        plan_dict["warnings"] = new_warnings
+        plan_dict["unfilled_positions"] = new_unfilled_positions
+        # ───────────────────────────────────────────────────────────────────
+
         with self._plan_conn() as conn:
             cursor = conn.cursor()
             cursor.execute(

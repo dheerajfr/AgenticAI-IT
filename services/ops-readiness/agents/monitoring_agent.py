@@ -31,6 +31,45 @@ class MonitoringSetupAgent:
     def __init__(self, db_conn_func=get_db):
         self.db_conn_func = db_conn_func
 
+    def load_policy(self) -> Dict[str, Any]:
+        """Loads configurable monitoring policy thresholds from monitoring_policy.json."""
+        policy_path = os.path.join(os.path.dirname(__file__), "..", "monitoring_policy.json")
+        if os.path.exists(policy_path):
+            try:
+                with open(policy_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"[MonitoringAgent] Error reading monitoring_policy.json: {e}")
+        # Default policy fallback schema
+        return {
+            "policy_version": "MON-POLICY-v1.0",
+            "policy_name": "Production Monitoring Policy",
+            "environment": "production",
+            "categories": {
+                "api": {"availability_pct": 99.95, "latency_p95_ms": 180.0, "latency_p99_ms": 350.0, "error_rate_pct": 0.1, "cpu_threshold_pct": 90.0, "memory_threshold_pct": 92.0},
+                "authentication": {"availability_pct": 99.99, "latency_p95_ms": 120.0, "latency_p99_ms": 250.0, "error_rate_pct": 0.05, "cpu_threshold_pct": 85.0, "memory_threshold_pct": 88.0},
+                "database": {"availability_pct": 99.99, "latency_p95_ms": 45.0, "latency_p99_ms": 90.0, "error_rate_pct": 0.01, "connection_pool_pct": 85.0, "slow_query_ms": 90.0, "replication_lag_sec": 5.0, "cpu_threshold_pct": 85.0, "memory_threshold_pct": 90.0},
+                "kafka": {"availability_pct": 99.99, "latency_p95_ms": 50.0, "latency_p99_ms": 120.0, "error_rate_pct": 0.01, "consumer_lag_messages": 1000, "queue_depth_messages": 5000, "cpu_threshold_pct": 85.0, "memory_threshold_pct": 90.0},
+                "redis": {"availability_pct": 99.99, "latency_p95_ms": 15.0, "latency_p99_ms": 35.0, "error_rate_pct": 0.01, "memory_threshold_pct": 92.0, "cache_hit_ratio_pct": 90.0, "cpu_threshold_pct": 85.0},
+                "queue": {"availability_pct": 99.95, "latency_p95_ms": 50.0, "latency_p99_ms": 120.0, "error_rate_pct": 0.05, "queue_depth_messages": 5000, "dlq_messages_count": 0, "cpu_threshold_pct": 85.0, "memory_threshold_pct": 90.0},
+                "infrastructure": {"availability_pct": 99.99, "latency_p95_ms": 20.0, "latency_p99_ms": 50.0, "error_rate_pct": 0.01, "cpu_threshold_pct": 85.0, "memory_threshold_pct": 90.0}
+            }
+        }
+
+    def get_category_policy(self, comp_type: str, comp_name: str, policy: Dict[str, Any]) -> Dict[str, Any]:
+        """Maps a component to its category threshold policy."""
+        categories = policy.get("categories", {})
+        comp_lower = comp_name.lower()
+        if "auth" in comp_lower or "oauth" in comp_lower or "sso" in comp_lower:
+            return categories.get("authentication", categories.get("api", {}))
+        elif comp_type in categories:
+            return categories.get(comp_type, {})
+        elif comp_type in ["postgresql", "mongodb"]:
+            return categories.get("database", {})
+        elif comp_type == "rest_api":
+            return categories.get("api", {})
+        return categories.get("api", {})
+
     def gather_sdlc_context(self, demand_id: str, requested_components: Optional[List[str]] = None) -> Dict[str, Any]:
         """Reads data from previous SDLC stages (03, 05, 06, 07, 08)."""
         sdlc_components = set(requested_components or [])
@@ -111,30 +150,42 @@ class MonitoringSetupAgent:
         }
 
     def classify_component(self, comp_name: str, env: str, release_info: Dict[str, Any]) -> ComponentSpec:
-        """Classifies a component's technology stack, type, and business criticality dynamically."""
+        """Classifies a component's technology stack, type, business criticality, and monitoring strategy reason dynamically."""
         comp_lower = comp_name.lower()
 
         if any(k in comp_lower for k in ["mongo", "nosql"]):
             comp_type = "mongodb"
             tech_stack = "MongoDB Enterprise NoSQL Database"
+            reason = "Primary NoSQL persistence layer for document storage."
         elif any(k in comp_lower for k in ["sql", "db", "postgres"]):
             comp_type = "postgresql"
             tech_stack = "PostgreSQL RDBMS"
+            reason = "Primary relational persistence layer for transactional storage."
         elif any(k in comp_lower for k in ["kafka"]):
             comp_type = "kafka"
             tech_stack = "Apache Kafka Event Streaming Platform"
+            reason = "Processes asynchronous events and event-driven data streaming."
         elif any(k in comp_lower for k in ["redis", "cache"]):
             comp_type = "redis"
             tech_stack = "Redis In-Memory Cache Cluster"
+            reason = "In-memory caching layer for fast state retrieval and session storage."
         elif any(k in comp_lower for k in ["queue", "mq", "amqp", "rabbitmq"]):
             comp_type = "queue"
             tech_stack = "RabbitMQ Message Broker"
+            reason = "Asynchronous message queue handling background task processing."
         elif any(k in comp_lower for k in ["host", "vm", "cmdb", "node", "infra", "cluster"]):
             comp_type = "infrastructure"
             tech_stack = "Kubernetes Cluster Infrastructure Node"
+            reason = "Core container host infrastructure and cluster node capacity."
         else:
             comp_type = "rest_api"
             tech_stack = "Java Spring Boot Microservice"
+            if any(k in comp_lower for k in ["auth", "oauth", "sso"]):
+                reason = "Authentication & security dependency."
+            elif any(k in comp_lower for k in ["payment", "checkout", "billing", "order"]):
+                reason = "Critical business transaction processing service."
+            else:
+                reason = "Customer-facing API handling production traffic."
 
         # Determine Criticality dynamically from Stage 08 risk rating and component naming
         risk_rating = (release_info.get("risk_rating") or release_info.get("risk") or "Medium").lower()
@@ -157,7 +208,8 @@ class MonitoringSetupAgent:
             environment=env,
             technology_stack=tech_stack,
             owner_team=owner_team,
-            owner_email=owner_email
+            owner_email=owner_email,
+            reason=reason
         )
 
     def calculate_slo_target(
@@ -165,22 +217,11 @@ class MonitoringSetupAgent:
         spec: ComponentSpec,
         load_test_results: List[Dict[str, Any]],
         req_availability: Optional[float] = None,
-        req_latency_p99: Optional[int] = None
+        req_latency_p99: Optional[int] = None,
+        policy: Optional[Dict[str, Any]] = None
     ) -> SLOTargetSpec:
-        """Dynamically calculates Availability, Latency (p95/p99), Error-rate, CPU, and Memory thresholds."""
-        env = spec.environment.lower()
-        criticality = spec.criticality.lower()
-
-        # Availability SLO calculation
-        if req_availability is not None and req_availability > 0:
-            avail_slo = req_availability
-            slo_source = "user_override"
-        elif env in ["prod", "production"]:
-            avail_slo = 99.99 if criticality == "critical" else (99.95 if criticality == "high" else 99.90)
-            slo_source = "stage_08_risk_environment_policy"
-        else:
-            avail_slo = 99.50 if criticality == "critical" else 99.00
-            slo_source = "non_prod_baseline_policy"
+        """Loads threshold targets from Stage 07 Performance Results or the configurable Monitoring Policy."""
+        cat_policy = self.get_category_policy(spec.component_type, spec.component_id, policy or self.load_policy())
 
         # Check Stage 07 performance test baselines
         hist_p99_ms = None
@@ -198,12 +239,13 @@ class MonitoringSetupAgent:
         if req_latency_p99 is not None and req_latency_p99 > 0:
             p99_target = float(req_latency_p99)
             p95_target = round(p99_target * 0.75, 1)
-            slo_source += "_user_latency_override"
+            slo_source = "user_override"
         elif hist_p99_ms:
             p99_target = round(hist_p99_ms * 1.2, 1)
             p95_target = round((hist_p95_ms or (hist_p99_ms * 0.75)) * 1.15, 1)
             slo_source = "stage_07_load_test_baseline"
         else:
+<<<<<<< HEAD
             # Deterministic technology-tier defaults (rule-based fallback; used verbatim only
             # if the LLM-driven refinement in generate_ai_monitoring_insights is unavailable)
             slo_source = "rule_based_tech_tier_fallback"
@@ -219,10 +261,16 @@ class MonitoringSetupAgent:
                 p95_target, p99_target = 180.0, 350.0
             else:
                 p95_target, p99_target = 250.0, 500.0
+=======
+            p99_target = float(cat_policy.get("latency_p99_ms", 350.0))
+            p95_target = float(cat_policy.get("latency_p95_ms", 180.0))
+            slo_source = "monitoring_policy"
+>>>>>>> main
 
-        err_rate_threshold = 0.05 if criticality == "critical" else (0.1 if criticality == "high" else 0.5)
-        cpu_threshold = 85.0 if criticality == "critical" else 90.0
-        mem_threshold = 88.0 if criticality == "critical" else 92.0
+        avail_slo = float(req_availability) if (req_availability and req_availability > 0) else float(cat_policy.get("availability_pct", 99.95))
+        err_rate_threshold = float(cat_policy.get("error_rate_pct", 0.1))
+        cpu_threshold = float(cat_policy.get("cpu_threshold_pct", 85.0))
+        mem_threshold = float(cat_policy.get("memory_threshold_pct", 90.0))
 
         return SLOTargetSpec(
             component_id=spec.component_id,
@@ -254,13 +302,25 @@ class MonitoringSetupAgent:
 
         return sorted(list(notify_set))
 
-    def generate_dynamic_alerts(self, spec: ComponentSpec, slo: SLOTargetSpec, notify_group: List[str]) -> List[ProposedAlert]:
-        """Generates dynamic, technology-specific alert rules for a component."""
+    def generate_dynamic_alerts(self, spec: ComponentSpec, slo: SLOTargetSpec, notify_group: List[str], policy: Optional[Dict[str, Any]] = None) -> List[ProposedAlert]:
+        """Generates dynamic, policy-driven alert rules for a component with explicit threshold source tracking."""
         alerts: List[ProposedAlert] = []
         comp_id = spec.component_id
         comp_type = spec.component_type
         comp_upper = comp_id.upper().replace("-", "_")
         comp_notify = list(set(notify_group + [f"team-{spec.owner_team.lower().replace(' ', '-')}-alerts@company.com"]))
+
+        pol = policy or self.load_policy()
+        cat_policy = self.get_category_policy(comp_type, comp_id, pol)
+        pol_version = pol.get("policy_version", "MON-POLICY-v1.0")
+        pol_name = pol.get("policy_name", "Production Monitoring Policy")
+
+        if slo.source == "stage_07_load_test_baseline":
+            thresh_source = "Stage 07 Performance Baseline"
+        elif slo.source == "user_override":
+            thresh_source = "User Request Override"
+        else:
+            thresh_source = f"{pol_name} ({pol_version})"
 
         if comp_type in ["postgresql", "mongodb"]:
             alerts.append(ProposedAlert(
@@ -268,9 +328,10 @@ class MonitoringSetupAgent:
                 component_id=comp_id,
                 component_type=comp_type,
                 alert_type="connection_pool",
-                name=f"{spec.component_name} Connection Pool Exhaustion",
-                condition="connection_pool_utilization > 85%",
-                threshold="85%",
+                name=f"{spec.component_name} – Connection Pool Saturation",
+                condition="Connection pool utilization exceeds configured operational threshold",
+                threshold="Configured Operational Policy",
+                threshold_source=f"{pol_name} ({pol_version})",
                 severity="critical" if spec.criticality in ["critical", "high"] else "high",
                 notify=comp_notify + [f"dba-oncall-{spec.environment.lower()}@company.com"]
             ))
@@ -279,9 +340,10 @@ class MonitoringSetupAgent:
                 component_id=comp_id,
                 component_type=comp_type,
                 alert_type="slow_queries",
-                name=f"{spec.component_name} Slow Query Threshold Exceeded",
-                condition=f"slow_query_duration_ms > {slo.latency_p99_ms}ms",
-                threshold=f"{slo.latency_p99_ms}ms",
+                name=f"{spec.component_name} – Slow Query Execution",
+                condition="Query execution duration exceeds configured latency baseline",
+                threshold="Configured Performance Baseline",
+                threshold_source=thresh_source,
                 severity="high",
                 notify=comp_notify
             ))
@@ -290,9 +352,10 @@ class MonitoringSetupAgent:
                 component_id=comp_id,
                 component_type=comp_type,
                 alert_type="replication_lag",
-                name=f"{spec.component_name} Replication Lag Warning",
-                condition="replication_lag_seconds > 5s",
-                threshold="5s",
+                name=f"{spec.component_name} – Replication Lag Warning",
+                condition="Replica lag exceeds configured synchronization threshold",
+                threshold="Configured Synchronization Policy",
+                threshold_source=f"{pol_name} ({pol_version})",
                 severity="high",
                 notify=comp_notify
             ))
@@ -302,9 +365,10 @@ class MonitoringSetupAgent:
                 component_id=comp_id,
                 component_type=comp_type,
                 alert_type="consumer_lag",
-                name=f"{spec.component_name} Consumer Lag Saturation",
-                condition="consumer_lag_messages > 1000",
-                threshold="1000 messages",
+                name=f"{spec.component_name} – Consumer Lag Saturation",
+                condition="Unconsumed message backlog exceeds configured consumer threshold",
+                threshold="Configured Messaging Policy",
+                threshold_source=f"{pol_name} ({pol_version})",
                 severity="critical",
                 notify=comp_notify + [f"messaging-oncall-{spec.environment.lower()}@company.com"]
             ))
@@ -313,9 +377,10 @@ class MonitoringSetupAgent:
                 component_id=comp_id,
                 component_type=comp_type,
                 alert_type="broker_isr",
-                name=f"{spec.component_name} Broker ISR Offline Alert",
-                condition="active_brokers < min_in_sync_replicas",
-                threshold="min_isr",
+                name=f"{spec.component_name} – Broker Replica Offline",
+                condition="Active in-sync brokers fall below required replica threshold",
+                threshold="Min In-Sync Replicas",
+                threshold_source=f"{pol_name} ({pol_version})",
                 severity="critical",
                 notify=comp_notify
             ))
@@ -325,9 +390,10 @@ class MonitoringSetupAgent:
                 component_id=comp_id,
                 component_type=comp_type,
                 alert_type="memory_usage",
-                name=f"{spec.component_name} Cache Memory Utilization High",
-                condition=f"memory_utilization_pct > {slo.memory_threshold_pct}%",
-                threshold=f"{slo.memory_threshold_pct}%",
+                name=f"{spec.component_name} – High Memory Utilization",
+                condition="Cache memory utilization exceeds configured capacity threshold",
+                threshold="Configured Memory Limit",
+                threshold_source=thresh_source,
                 severity="high",
                 notify=comp_notify
             ))
@@ -336,9 +402,10 @@ class MonitoringSetupAgent:
                 component_id=comp_id,
                 component_type=comp_type,
                 alert_type="cache_hit_ratio",
-                name=f"{spec.component_name} Cache Hit Ratio Degradation",
-                condition="cache_hit_ratio_pct < 90%",
-                threshold="90%",
+                name=f"{spec.component_name} – Low Cache Hit Ratio",
+                condition="Cache hit ratio falls below configured performance baseline",
+                threshold="Configured Hit Ratio Policy",
+                threshold_source=f"{pol_name} ({pol_version})",
                 severity="high",
                 notify=comp_notify
             ))
@@ -348,9 +415,10 @@ class MonitoringSetupAgent:
                 component_id=comp_id,
                 component_type=comp_type,
                 alert_type="queue_depth",
-                name=f"{spec.component_name} Queue Saturation Warning",
-                condition="queue_depth_messages > 5000",
-                threshold="5000 messages",
+                name=f"{spec.component_name} – Queue Backlog Warning",
+                condition="Queue depth exceeds configured message backlog threshold",
+                threshold="Configured Queue Depth",
+                threshold_source=f"{pol_name} ({pol_version})",
                 severity="high",
                 notify=comp_notify
             ))
@@ -359,9 +427,10 @@ class MonitoringSetupAgent:
                 component_id=comp_id,
                 component_type=comp_type,
                 alert_type="dead_letter_queue",
-                name=f"{spec.component_name} Dead Letter Queue Spike",
-                condition="dlq_messages_count > 0",
-                threshold="0",
+                name=f"{spec.component_name} – Dead Letter Queue Spike",
+                condition="Unprocessable messages detected in Dead Letter Queue",
+                threshold="0 Messages",
+                threshold_source=f"{pol_name} ({pol_version})",
                 severity="critical",
                 notify=comp_notify
             ))
@@ -371,9 +440,10 @@ class MonitoringSetupAgent:
                 component_id=comp_id,
                 component_type=comp_type,
                 alert_type="latency",
-                name=f"{spec.component_name} p99 Latency Violation",
-                condition=f"p99_latency_ms > {slo.latency_p99_ms}ms",
-                threshold=f"{slo.latency_p99_ms}ms",
+                name=f"{spec.component_name} – High Response Latency",
+                condition="Response latency exceeds configured operational threshold",
+                threshold="Configured Latency Policy",
+                threshold_source=thresh_source,
                 severity="critical" if spec.criticality == "critical" else "high",
                 notify=comp_notify
             ))
@@ -382,9 +452,10 @@ class MonitoringSetupAgent:
                 component_id=comp_id,
                 component_type=comp_type,
                 alert_type="availability",
-                name=f"{spec.component_name} Availability Drop",
-                condition=f"availability_pct < {slo.availability_slo_pct}%",
-                threshold=f"{slo.availability_slo_pct}%",
+                name=f"{spec.component_name} – Service Availability Drop",
+                condition="Service availability drops below required SLO threshold",
+                threshold="Configured Availability SLO",
+                threshold_source=thresh_source,
                 severity="critical",
                 notify=comp_notify
             ))
@@ -393,9 +464,10 @@ class MonitoringSetupAgent:
                 component_id=comp_id,
                 component_type=comp_type,
                 alert_type="http_5xx",
-                name=f"{spec.component_name} HTTP 5xx Error Rate Spike",
-                condition=f"error_rate_pct > {slo.error_rate_threshold_pct}%",
-                threshold=f"{slo.error_rate_threshold_pct}%",
+                name=f"{spec.component_name} – High Error Rate Spike",
+                condition="HTTP 5xx server error rate exceeds configured threshold",
+                threshold="Configured Error Budget",
+                threshold_source=thresh_source,
                 severity="critical" if spec.criticality == "critical" else "high",
                 notify=comp_notify
             ))
@@ -583,21 +655,24 @@ class MonitoringSetupAgent:
                 "type": "timeseries",
                 "title": "Application Response Latency (p50, p95, p99)",
                 "query": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
-                "target_metric": "http_request_duration_seconds"
+                "target_metric": "http_request_duration_seconds",
+                "reason": "Tracks response latency percentiles to detect API degradation and user-facing slow responses."
             })
             widgets.append({
                 "widget_id": "WID-API-ERRORS",
                 "type": "stat",
                 "title": "HTTP 5xx Error Rate %",
                 "query": "sum(rate(http_requests_total{status=~'5..'}[5m])) / sum(rate(http_requests_total[5m])) * 100",
-                "target_metric": "http_requests_total_5xx"
+                "target_metric": "http_requests_total_5xx",
+                "reason": "Monitors application-level HTTP 5xx server failure rates to protect error budget."
             })
             widgets.append({
                 "widget_id": "WID-API-RPS",
                 "type": "gauge",
                 "title": "Throughput (Requests / Sec)",
                 "query": "sum(rate(http_requests_total[5m]))",
-                "target_metric": "http_requests_throughput"
+                "target_metric": "http_requests_throughput",
+                "reason": "Measures active request throughput to analyze incoming traffic spikes."
             })
 
         # PostgreSQL & MongoDB Database Widgets
@@ -607,14 +682,16 @@ class MonitoringSetupAgent:
                 "type": "gauge",
                 "title": "Database Connection Pool Utilization",
                 "query": "database_connections_active / database_connections_max * 100",
-                "target_metric": "database_connection_pool"
+                "target_metric": "database_connection_pool",
+                "reason": "Tracks active connection pool capacity to prevent database connection exhaustion."
             })
             widgets.append({
                 "widget_id": "WID-DB-SLOWQUERIES",
                 "type": "bar",
                 "title": "Slow Queries & Lock Contention",
                 "query": "rate(database_slow_queries_total[5m])",
-                "target_metric": "database_slow_queries"
+                "target_metric": "database_slow_queries",
+                "reason": "Identifies unindexed or blocking query performance bottlenecks."
             })
 
         # Kafka / Queue Widgets
@@ -624,7 +701,8 @@ class MonitoringSetupAgent:
                 "type": "timeseries",
                 "title": "Kafka Consumer Group Lag & Queue Depth",
                 "query": "sum(kafka_consumergroup_lag) by (consumergroup, topic)",
-                "target_metric": "kafka_consumergroup_lag"
+                "target_metric": "kafka_consumergroup_lag",
+                "reason": "Monitors unconsumed message backlog across topics to prevent pipeline delays."
             })
 
         # Redis Cache Widgets
@@ -634,7 +712,8 @@ class MonitoringSetupAgent:
                 "type": "stat",
                 "title": "Redis Cache Hit Ratio %",
                 "query": "rate(redis_keyspace_hits_total[5m]) / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m])) * 100",
-                "target_metric": "redis_cache_hit_ratio"
+                "target_metric": "redis_cache_hit_ratio",
+                "reason": "Ensures caching efficiency to minimize direct database lookups."
             })
 
         # Infrastructure Widgets (Always included)
@@ -643,7 +722,8 @@ class MonitoringSetupAgent:
             "type": "timeseries",
             "title": "Cluster Resource Utilization (CPU, Memory, Network I/O)",
             "query": "sum(container_cpu_usage_seconds_total) by (pod) / sum(container_spec_cpu_quota) by (pod)",
-            "target_metric": "container_cpu_memory"
+            "target_metric": "container_cpu_memory",
+            "reason": "Monitors host node CPU and memory saturation to prevent OOM kills."
         })
 
         suffix = demand_id.split('-')[-1]
@@ -660,7 +740,7 @@ class MonitoringSetupAgent:
         ]
 
     def create_monitoring_plan(self, req: MonitoringSetupRequest) -> MonitoringConfigRecord:
-        """Executes full dynamic AI monitoring setup process."""
+        """Executes full policy-driven AI monitoring setup process."""
         demand_id = req.demand_id
         plan_id = req.plan_id
         env = req.environment or "production"
@@ -669,14 +749,17 @@ class MonitoringSetupAgent:
         monitoring_plan_id = f"MON-PLAN-{demand_id}"
         release_id = f"REL-{suffix}-1"
 
-        # 1. Gather SDLC context
+        # 1. Load policy configuration
+        policy = self.load_policy()
+
+        # 2. Gather SDLC context
         ctx = self.gather_sdlc_context(demand_id, req.component_ids)
 
         monitored_scope = ctx["sdlc_components"]
         if not monitored_scope:
             monitored_scope = req.component_ids or ["svc-ecom-chatbot", "nosql-database-mongo-4-2", "realtime-message-queue-kafka-2-6", "oauth2-auth-service", "redis-cache-cluster"]
 
-        # 2. Build Component Specifications & Dynamic SLO Targets
+        # 3. Build Component Specifications & Dynamic SLO Targets
         component_specs: List[ComponentSpec] = []
         slo_targets: List[SLOTargetSpec] = []
 
@@ -693,12 +776,13 @@ class MonitoringSetupAgent:
                     user_avail = matching_slo.availability_pct
                     user_lat = matching_slo.latency_p99_ms
 
-            slo = self.calculate_slo_target(spec, ctx["test_runs"], user_avail, user_lat)
+            slo = self.calculate_slo_target(spec, ctx["test_runs"], user_avail, user_lat, policy)
             slo_targets.append(slo)
 
-        # 3. Dynamic Notification Groups
+        # 4. Dynamic Notification Groups
         notification_group = self.generate_notification_groups(component_specs, env, ctx["release_info"])
 
+<<<<<<< HEAD
         # 3.5. AI-Driven SLO Refinement & Alert Recommendations.
         # This is the primary, actually-AI path: the LLM reviews the real gathered SDLC
         # context (dependencies, environment/CMDB, test runs, defects, release risk) and can
@@ -712,15 +796,31 @@ class MonitoringSetupAgent:
         )
 
         # 4. Dynamic Alerts Generation (uses slo_targets as possibly refined by the AI pass above)
+=======
+        # 5. Policy-Driven Alerts Generation
+>>>>>>> main
         proposed_alerts: List[ProposedAlert] = []
         for spec in component_specs:
             slo = next((s for s in slo_targets if s.component_id == spec.component_id), slo_targets[0])
-            alerts = self.generate_dynamic_alerts(spec, slo, notification_group)
+            alerts = self.generate_dynamic_alerts(spec, slo, notification_group, policy)
             proposed_alerts.extend(alerts)
         proposed_alerts.extend(ai_recommended_alerts)
 
-        # 5. Dynamic Dashboard Specifications Generation
+        # 6. Dynamic Dashboard Specifications Generation
         proposed_dashboards = self.generate_dynamic_dashboards(demand_id, env, component_specs)
+
+        # 7. Policy Summary
+        has_baseline = any(s.source == "stage_07_load_test_baseline" for s in slo_targets)
+        primary_source = "Stage 07 Performance Baseline" if has_baseline else f"{policy.get('policy_name', 'Production Monitoring Policy')} ({policy.get('policy_version', 'MON-POLICY-v1.0')})"
+
+        policy_summary = {
+            "policy_version": policy.get("policy_version", "MON-POLICY-v1.0"),
+            "policy_name": policy.get("policy_name", "Production Monitoring Policy"),
+            "environment": env.title(),
+            "component_types": sorted(list(set(s.component_type for s in component_specs))),
+            "primary_threshold_source": primary_source,
+            "has_performance_baseline": has_baseline
+        }
 
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -736,6 +836,7 @@ class MonitoringSetupAgent:
             slo_targets=slo_targets,
             proposed_alerts=proposed_alerts,
             proposed_dashboards=proposed_dashboards,
+            policy_summary=policy_summary,
             generated_at=timestamp,
             sre_reviewed=False,
             sre_reviewed_by=None,

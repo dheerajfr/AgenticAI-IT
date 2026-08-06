@@ -895,8 +895,9 @@ function renderDemandWizard(demand) {
                             const role = c.role;
                             const req = c.requiredCapacity ?? 0;
                             const avail = c.availableCapacity ?? 0;
+                            const isHidden = req === 0 && avail === 0;
                             const isConstrained = avail < req;
-                            return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                            return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.04); ${isHidden ? 'display: none;' : ''}">
                               <td style="padding: 6px 8px 6px 0; font-weight: 600; color: var(--text-primary);">${role}</td>
                               <td style="padding: 6px 8px; text-align: center;">
                                 <input type="number" class="approved-staffing-req-input" data-role="${role}" value="${req}" data-original="${req}" min="0" disabled style="width: 55px; text-align: center; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; font-size: 0.8rem; padding: 2px 4px;">
@@ -1349,8 +1350,9 @@ async function runCapacityCheckFlow(id) {
                     const role = c.role;
                     const req = c.requiredCapacity ?? 0;
                     const avail = c.availableCapacity ?? 0;
+                    const isHidden = req === 0 && avail === 0;
                     const isConstrained = avail < req;
-                    return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                    return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.04); ${isHidden ? 'display: none;' : ''}">
                       <td style="padding: 6px 8px 6px 0; font-weight: 600; color: var(--text-primary);">${role}</td>
                       <td style="padding: 6px 8px; text-align: center;">
                         <input type="number" class="staffing-req-input" data-role="${role}" value="${req}" min="0" style="width: 55px; text-align: center; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; font-size: 0.8rem; padding: 2px 4px;">
@@ -1628,10 +1630,10 @@ function renderWorkforcePoolEditView() {
               <td style="color: var(--text-secondary);">${r.role}</td>
               <td style="color: var(--text-muted); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${r.skills.join(', ')}">${r.skills.join(', ')}</td>
               <td style="text-align: center;">
-                <input type="number" class="res-edit-total" value="${r.total_capacity}" style="width: 40px; padding: 2px; font-size: 0.75rem; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; text-align: center;">
+                <input type="number" class="res-edit-total" value="${r.total_capacity}" min="0" style="width: 40px; padding: 2px; font-size: 0.75rem; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; text-align: center;">
               </td>
               <td style="text-align: center;">
-                <input type="number" class="res-edit-alloc" value="${r.allocated_capacity}" style="width: 40px; padding: 2px; font-size: 0.75rem; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; text-align: center;">
+                <input type="number" class="res-edit-alloc" value="${r.allocated_capacity}" min="0" style="width: 40px; padding: 2px; font-size: 0.75rem; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; text-align: center;">
               </td>
               <td style="text-align: right; white-space: nowrap; padding-right: 4px;">
                 <button type="button" class="btn-res-delete" style="background: none; border: none; color: var(--color-status-red-text); cursor: pointer; padding: 2px 4px; font-weight: 700; font-size: 0.7rem;">Del</button>
@@ -1648,19 +1650,19 @@ function renderWorkforcePoolEditView() {
         <input type="text" id="new-res-name" placeholder="Name (e.g. Emma)" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
         <div style="display: flex; flex-direction: column; gap: 0.25rem;">
           <select id="new-res-role-select" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
+            <option value="" selected>-- Custom Role --</option>
             <option value="Backend Developer">Backend Developer</option>
             <option value="Frontend Developer">Frontend Developer</option>
             <option value="Senior Architect">Senior Architect</option>
             <option value="Security Engineer">Security Engineer</option>
-            <option value="">-- Custom Role --</option>
           </select>
           <input type="text" id="new-res-role" placeholder="Or type custom role..." style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
         </div>
         <input type="text" id="new-res-skills" placeholder="Skills (comma separated)" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; align-items: center;">
-        <input type="number" id="new-res-total" placeholder="Total Cap (e.g. 40)" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
-        <input type="number" id="new-res-alloc" placeholder="Alloc Cap (e.g. 20)" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
+        <input type="number" id="new-res-total" placeholder="Total Cap (e.g. 40)" min="0" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
+        <input type="number" id="new-res-alloc" placeholder="Alloc Cap (e.g. 20)" min="0" style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm);">
         <button type="button" class="btn-primary" id="btn-add-resource" style="padding: 4px 12px; font-size: 0.75rem;">Add</button>
       </div>
       <div id="add-resource-error" style="color: var(--color-status-red-text); font-size: 0.7rem; margin-top: 0.25rem; display: none;"></div>
@@ -1733,6 +1735,18 @@ function renderWorkforcePoolEditView() {
       return;
     }
     
+    if (total < 0 || alloc < 0) {
+      errorDiv.textContent = "Capacities cannot be negative.";
+      errorDiv.style.display = 'block';
+      return;
+    }
+    
+    if (alloc > total) {
+      errorDiv.textContent = "Allocated capacity cannot exceed Total capacity.";
+      errorDiv.style.display = 'block';
+      return;
+    }
+    
     const skills = skillsStr ? skillsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
     
     currentWorkforceState.push({
@@ -1754,6 +1768,42 @@ function renderWorkforcePoolEditView() {
   
   // Save Changes button listener
   document.getElementById('btn-save-workforce').addEventListener('click', async () => {
+    const container = document.getElementById('workforce-pool-details');
+    let hasValidationError = false;
+    
+    // Read and validate all table inputs directly from DOM before saving
+    container.querySelectorAll('tr[data-name]').forEach(row => {
+      const name = row.getAttribute('data-name');
+      const totalInput = row.querySelector('.res-edit-total');
+      const allocInput = row.querySelector('.res-edit-alloc');
+      if (totalInput && allocInput) {
+        const totalVal = parseInt(totalInput.value);
+        const allocVal = parseInt(allocInput.value);
+        
+        if (isNaN(totalVal) || isNaN(allocVal)) {
+          alert(`Capacities for ${name} must be valid numbers.`);
+          hasValidationError = true;
+        } else if (totalVal < 0 || allocVal < 0) {
+          alert(`Capacities for ${name} cannot be negative.`);
+          hasValidationError = true;
+        } else if (allocVal > totalVal) {
+          alert(`Allocated capacity cannot exceed Total capacity for ${name}.`);
+          hasValidationError = true;
+        } else {
+          // Update local state with latest validated values
+          const resource = currentWorkforceState.find(r => r.name === name);
+          if (resource) {
+            resource.total_capacity = totalVal;
+            resource.allocated_capacity = allocVal;
+          }
+        }
+      }
+    });
+    
+    if (hasValidationError) {
+      return;
+    }
+    
     const saveBtn = document.getElementById('btn-save-workforce');
     const cancelBtn = document.getElementById('btn-cancel-workforce');
     
