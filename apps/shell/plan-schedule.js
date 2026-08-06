@@ -1865,6 +1865,16 @@ function renderTimelineBars(plan) {
   const maxDate = new Date(Math.max(...dates));
   const totalMs = maxDate - minDate || 1;
 
+  const formatDate = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const minDateStr = formatDate(minDate);
+  const maxDateStr = formatDate(maxDate);
+
   const phaseColors = {
     'Design & Setup': '#818cf8',
     'Build': '#6366f1',
@@ -1872,7 +1882,7 @@ function renderTimelineBars(plan) {
     'Deploy & Release': '#34d399',
   };
 
-  return plan.tasks.map(t => {
+  const rowsHtml = plan.tasks.map(t => {
     const start = new Date(t.start_date);
     const end = new Date(t.end_date);
     const leftPct = ((start - minDate) / totalMs * 100).toFixed(1);
@@ -1880,34 +1890,439 @@ function renderTimelineBars(plan) {
     const color = phaseColors[t.name] || 'var(--color-brand)';
     const isCritical = plan.critical_path_task_ids.includes(t.task_id);
     const displayName = getEmployeeDisplayName(t.owner);
+    const durationMs = end - start;
+    const durationDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24)) || 1;
+
+    // Premium styling: critical path has a beautiful glow and border
+    const glowStyle = isCritical
+      ? `box-shadow: 0 0 8px ${color}bf; border: 1.5px solid rgba(255, 255, 255, 0.85); z-index: 1;`
+      : `border: 1px solid rgba(255, 255, 255, 0.15);`;
+
     return `
-      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-        <div style="width: 130px; flex-shrink: 0; font-size: 0.75rem; color: var(--text-secondary); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-          ${t.name}
+      <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.85rem; position: relative;">
+        <!-- Phase Label & Assignee (interactive) -->
+        <div class="assignee-dropdown-container" style="width: 130px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.3; position: relative;">
+          <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px;" title="${t.name}">
+            ${t.name}
+          </span>
+          <button 
+            onclick="window.toggleAssigneeDropdown('${t.task_id}', event)"
+            style="
+              background: transparent;
+              border: none;
+              padding: 0;
+              margin: 0;
+              color: var(--text-muted);
+              cursor: pointer;
+              font-size: 0.65rem;
+              display: flex;
+              align-items: center;
+              gap: 3px;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              max-width: 130px;
+              text-align: right;
+            "
+            title="Click to edit assignees"
+          >
+            <span style="text-decoration: underline; text-underline-offset: 2px;">${displayName}</span>
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" style="opacity: 0.7; flex-shrink: 0;">
+              <path d="M7 10l5 5 5-5z"/>
+            </svg>
+          </button>
+          
+          <!-- Absolute Positioned Dropdown Popover (aligned left so it overflows right over the tracks safely) -->
+          <div 
+            id="assignee-dropdown-${t.task_id}" 
+            class="assignee-dropdown-popover"
+            style="
+              display: none;
+              position: absolute;
+              top: calc(100% + 2px);
+              left: 0;
+              z-index: 1000;
+              background: var(--bg-secondary);
+              border: 1px solid var(--border-color);
+              border-radius: var(--radius-sm);
+              box-shadow: var(--shadow-md);
+              padding: 0.5rem;
+              min-width: 180px;
+              max-height: 220px;
+              text-align: left;
+            "
+          ></div>
         </div>
-        <div style="flex: 1; position: relative; height: 22px; background: rgba(30,41,59,0.5); border-radius: 4px;">
-          <div style="
-            position: absolute;
-            left: ${leftPct}%;
-            width: ${widthPct}%;
-            height: 100%;
-            background: ${color};
-            opacity: ${isCritical ? '1' : '0.8'};
-            border-radius: 3px;
-            display: flex;
-            align-items: center;
-            padding-left: 6px;
-            font-size: 0.68rem;
-            color: var(--text-primary);
-            text-shadow: 0px 1px 3px rgba(0,0,0,0.9);
-            font-weight: 700;
-            white-space: nowrap;
-          ">${displayName}</div>
+
+        <!-- Visual Timeline Track & Pill Bar -->
+        <div style="flex: 1; position: relative; height: 26px; display: flex; align-items: center;">
+          <!-- Subtle track background axis line -->
+          <div style="position: absolute; left: 0; right: 0; height: 4px; background: rgba(255, 255, 255, 0.08); border-radius: 2px;"></div>
+          
+          <!-- Gantt Pill Bar -->
+          <div 
+            title="${t.name} (${durationDays}d: ${t.start_date} to ${t.end_date})&#10;Assigned: ${displayName}"
+            style="
+              position: absolute;
+              left: ${leftPct}%;
+              width: ${widthPct}%;
+              height: 14px;
+              background: linear-gradient(90deg, ${color}d0, ${color});
+              border-radius: 7px;
+              cursor: pointer;
+              transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+              ${glowStyle}
+            "
+            onmouseover="this.style.transform='scaleY(1.25) scaleX(1.005)'; this.style.filter='brightness(1.15)';"
+            onmouseout="this.style.transform='scaleY(1) scaleX(1)'; this.style.filter='brightness(1)';"
+          ></div>
         </div>
-        <div style="width: 80px; flex-shrink: 0; font-size: 0.7rem; color: var(--text-muted); font-family: monospace;">${t.end_date}</div>
       </div>
     `;
   }).join('');
+
+  return `
+    <div style="display: flex; flex-direction: column; width: 100%;">
+      <!-- Horizontal Time Ruler / Header Axis -->
+      <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 0.5rem;">
+        <div style="width: 130px; flex-shrink: 0; text-align: right; font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+          Phase
+        </div>
+        <div style="flex: 1; display: flex; justify-content: space-between; align-items: center; font-family: monospace; font-size: 0.65rem; color: var(--text-muted); position: relative; padding: 0 4px;">
+          <div style="display: flex; flex-direction: column; align-items: flex-start;">
+            <span style="font-size: 0.55rem; text-transform: uppercase; color: var(--text-muted); opacity: 0.7;">Project Start</span>
+            <span style="font-weight: 600; color: var(--text-secondary);">${minDateStr}</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end;">
+            <span style="font-size: 0.55rem; text-transform: uppercase; color: var(--text-muted); opacity: 0.7;">Project End</span>
+            <span style="font-weight: 600; color: var(--text-secondary);">${maxDateStr}</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Timeline Rows -->
+      ${rowsHtml}
+    </div>
+  `;
+}
+
+// ─── Assignee Dropdown Editing Helpers ─────────────────────────────────────
+
+window.getPhaseRole = function(phaseName) {
+  const name = (phaseName || '').toLowerCase();
+  if (name.includes('design') || name.includes('setup')) return 'frontend';
+  if (name.includes('build')) return 'backend';
+  if (name.includes('test') || name.includes('qa')) return 'qa';
+  if (name.includes('deploy') || name.includes('release')) return 'devops';
+  return 'backend';
+};
+
+window.getCurrentTask = function(taskId) {
+  if (selectedPlanId === null) return null;
+  const plan = plans.find(p => p.plan_id === selectedPlanId);
+  if (!plan) return null;
+  return plan.tasks.find(t => t.task_id === taskId);
+};
+
+window.toggleAssigneeDropdown = function(taskId, event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  
+  // Close all other dropdowns
+  document.querySelectorAll('.assignee-dropdown-popover').forEach(pop => {
+    if (pop.id !== `assignee-dropdown-${taskId}`) {
+      pop.style.display = 'none';
+    }
+  });
+  
+  const popover = document.getElementById(`assignee-dropdown-${taskId}`);
+  if (!popover) return;
+  
+  if (popover.style.display === 'block') {
+    popover.style.display = 'none';
+  } else {
+    const task = window.getCurrentTask(taskId);
+    if (!task) return;
+    
+    popover.innerHTML = window.buildAssigneeDropdownContent(taskId, task.owner, task.name);
+    popover.style.display = 'block';
+  }
+};
+
+window.buildAssigneeDropdownContent = function(taskId, currentOwner, phaseName) {
+  if (!window.allEmployees || window.allEmployees.length === 0) {
+    return `<div style="font-size:0.7rem;color:var(--text-muted);padding:0.4rem;">No employees fetched from database</div>`;
+  }
+  
+  const targetRole = window.getPhaseRole(phaseName);
+  const currentOwnersLower = currentOwner
+    ? currentOwner.split(',').map(o => o.trim().toLowerCase()).filter(Boolean)
+    : [];
+    
+  const selected = [];
+  const recommended = [];
+  const others = [];
+  
+  window.allEmployees.forEach(emp => {
+    const isRecommended = (emp.role || '').toLowerCase() === targetRole.toLowerCase() || 
+                          (emp.skill || '').toLowerCase() === targetRole.toLowerCase();
+    const empEmail = (emp.email || '').toLowerCase();
+    const empName = (emp.employee_name || emp.name || '').toLowerCase();
+    const isChecked = currentOwnersLower.some(o => o === empEmail || o === empName);
+    
+    const item = { emp, isChecked };
+    if (isChecked) {
+      selected.push(item);
+    } else if (isRecommended) {
+      recommended.push(item);
+    } else {
+      others.push(item);
+    }
+  });
+  
+  const renderItem = (item) => {
+    const emp = item.emp;
+    const name = emp.employee_name || emp.name;
+    const email = emp.email || name;
+    return `
+      <label class="assignee-row-${taskId}" data-email="${email.toLowerCase()}" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.4rem; font-size: 0.72rem; color: var(--text-primary); cursor: pointer; user-select: none; border-radius: 3px; transition: background 0.15s ease;"
+             onmouseover="this.style.background='rgba(255,255,255,0.04)'"
+             onmouseout="this.style.background='transparent'">
+        <input 
+          type="checkbox" 
+          class="assignee-chk-${taskId}" 
+          value="${email}" 
+          ${item.isChecked ? 'checked' : ''} 
+          style="cursor: pointer; margin: 0; flex-shrink: 0;"
+        />
+        <div style="display: flex; flex-direction: column; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          <span style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${name}</span>
+          <span style="font-size: 0.58rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            ${emp.role || emp.skill} • ${emp.status}
+          </span>
+        </div>
+      </label>
+    `;
+  };
+  
+  let html = `<div style="max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;">`;
+  
+  if (selected.length > 0) {
+    html += `
+      <div style="font-size: 0.58rem; font-weight: 700; color: var(--color-status-green-text); text-transform: uppercase; letter-spacing: 0.05em; padding: 0.25rem 0.4rem 0.1rem 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.03);">
+        Assigned
+      </div>
+      ${selected.map(renderItem).join('')}
+    `;
+  }
+  
+  if (recommended.length > 0) {
+    html += `
+      <div style="font-size: 0.58rem; font-weight: 700; color: var(--color-brand); text-transform: uppercase; letter-spacing: 0.05em; padding: 0.4rem 0.4rem 0.1rem 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.03); margin-top: 4px;">
+        Recommended (${targetRole})
+      </div>
+      ${recommended.map(renderItem).join('')}
+    `;
+  }
+  
+  if (others.length > 0) {
+    html += `
+      <div style="font-size: 0.58rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 0.4rem 0.4rem 0.1rem 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.03); margin-top: 4px;">
+        Others
+      </div>
+      ${others.map(renderItem).join('')}
+    `;
+  }
+  
+  html += `</div>`;
+  
+  // Hidden inline alert/warning dialog for auto-assignment feedback
+  html += `<div id="auto-assign-error-${taskId}" style="display: none; font-size: 0.62rem; color: var(--color-status-red-text); margin-top: 0.35rem; padding: 4px 6px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.15); border-radius: var(--radius-sm); line-height: 1.3;"></div>`;
+  
+  html += `
+    <div style="display: flex; gap: 0.4rem; align-items: center; border-top: 1px solid var(--border-color); padding-top: 0.45rem; margin-top: 0.45rem;">
+      <button 
+        onclick="window.autoAssignBestFit('${taskId}', '${phaseName.replace(/'/g, "\\'")}', event)" 
+        style="margin-right: auto; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); color: var(--color-brand); font-size: 0.62rem; padding: 3px 6px; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; font-weight: 600;"
+        onmouseover="this.style.background='rgba(99, 102, 241, 0.2)';"
+        onmouseout="this.style.background='rgba(99, 102, 241, 0.1)';"
+        title="Automatically select the best suited matching resource"
+      >Auto-Assign</button>
+      <button 
+        onclick="window.closeAssigneeDropdown('${taskId}', event)" 
+        style="background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.65rem; padding: 3px 8px; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;"
+        onmouseover="this.style.borderColor='var(--text-secondary)';"
+        onmouseout="this.style.borderColor='var(--border-color)';"
+      >Cancel</button>
+      <button 
+        onclick="window.saveAssigneeSelection('${taskId}', event)" 
+        style="background: var(--color-brand); border: none; color: white; font-size: 0.65rem; padding: 3px 10px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600; box-shadow: 0 1px 3px rgba(99,102,241,0.3); transition: all 0.2s;"
+        onmouseover="this.style.filter='brightness(1.15)';"
+        onmouseout="this.style.filter='brightness(1)';"
+      >Save</button>
+    </div>
+  `;
+  
+  return html;
+};
+
+window.autoAssignBestFit = function(taskId, phaseName, event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  
+  const errorEl = document.getElementById(`auto-assign-error-${taskId}`);
+  if (errorEl) {
+    errorEl.style.display = 'none';
+    errorEl.textContent = '';
+  }
+  
+  if (!window.allEmployees || window.allEmployees.length === 0) {
+    if (errorEl) {
+      errorEl.textContent = 'No employees loaded in resource directory.';
+      errorEl.style.display = 'block';
+    }
+    return;
+  }
+  
+  const targetRole = window.getPhaseRole(phaseName);
+  
+  // Find currently checked assignees in this popover
+  const checkedCheckboxes = document.querySelectorAll(`.assignee-chk-${taskId}:checked`);
+  const checkedEmails = Array.from(checkedCheckboxes).map(chk => chk.value.toLowerCase());
+  
+  // Filter all employees strictly by role/skill match
+  const matchingEmployees = window.allEmployees.filter(emp => {
+    const roleLower = (emp.role || '').toLowerCase();
+    const skillLower = (emp.skill || '').toLowerCase();
+    return roleLower.includes(targetRole.toLowerCase()) || skillLower.includes(targetRole.toLowerCase());
+  });
+  
+  if (matchingEmployees.length === 0) {
+    if (errorEl) {
+      errorEl.textContent = `No employee found in directory with matching ${targetRole} skills.`;
+      errorEl.style.display = 'block';
+    }
+    return;
+  }
+  
+  // Filter out already checked candidates (so we check a new one)
+  const candidates = matchingEmployees.map(emp => {
+    const isFree = emp.status === 'free' || emp.status === 'Available';
+    const email = (emp.email || emp.name || '').toLowerCase();
+    const isChecked = checkedEmails.includes(email);
+    return { emp, isFree, isChecked };
+  });
+  
+  const unassignedCandidates = candidates.filter(c => !c.isChecked);
+  
+  if (unassignedCandidates.length === 0) {
+    if (errorEl) {
+      errorEl.textContent = `All matching ${targetRole} employees are already assigned to this task.`;
+      errorEl.style.display = 'block';
+    }
+    return;
+  }
+  
+  // Sort: free/Available first, then Allocated
+  unassignedCandidates.sort((a, b) => {
+    if (a.isFree && !b.isFree) return -1;
+    if (!a.isFree && b.isFree) return 1;
+    return 0;
+  });
+  
+  const bestCandidate = unassignedCandidates[0].emp;
+  const bestEmail = (bestCandidate.email || bestCandidate.name || '').toLowerCase();
+  
+  // Check the checkbox in the popover
+  const chk = Array.from(document.querySelectorAll(`.assignee-chk-${taskId}`)).find(c => c.value.toLowerCase() === bestEmail);
+  if (chk) {
+    chk.checked = true;
+    
+    // Scroll row into view and add green flash styling
+    const row = document.querySelector(`.assignee-row-${taskId}[data-email="${bestEmail}"]`);
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      
+      // Flash green effect
+      row.style.transition = 'none';
+      row.style.background = 'rgba(52, 211, 153, 0.25)';
+      row.style.borderLeft = '3px solid var(--color-status-green-text)';
+      
+      setTimeout(() => {
+        row.style.transition = 'background 1.5s ease, border-left 1.5s ease';
+        row.style.background = 'transparent';
+        row.style.borderLeft = 'none';
+      }, 1500);
+    }
+  }
+};
+
+window.closeAssigneeDropdown = function(taskId, event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const popover = document.getElementById(`assignee-dropdown-${taskId}`);
+  if (popover) {
+    popover.style.display = 'none';
+  }
+};
+
+window.saveAssigneeSelection = async function(taskId, event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  
+  const checkboxes = document.querySelectorAll(`.assignee-chk-${taskId}`);
+  const selectedEmails = [];
+  checkboxes.forEach(chk => {
+    if (chk.checked) {
+      selectedEmails.push(chk.value);
+    }
+  });
+  
+  const newOwnerString = selectedEmails.length > 0 ? selectedEmails.join(', ') : 'unassigned';
+  
+  const plan = plans.find(p => p.plan_id === selectedPlanId);
+  if (!plan) return;
+  
+  const task = plan.tasks.find(t => t.task_id === taskId);
+  if (!task) return;
+  
+  task.owner = newOwnerString;
+  
+  window.closeAssigneeDropdown(taskId);
+  
+  try {
+    const res = await fetch(`${PLAN_API_BASE}/plans`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(plan)
+    });
+    if (!res.ok) throw new Error('Failed to update assignee in backend');
+    
+    await window.fetchPlans();
+  } catch (err) {
+    console.error('Error saving assignee selection:', err);
+    alert('Failed to save changes: ' + err.message);
+  }
+};
+
+// Setup global document click handler to close open assignees dropdowns
+if (!window.hasSetupAssigneeCloseListener) {
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.assignee-dropdown-container')) {
+      document.querySelectorAll('.assignee-dropdown-popover').forEach(pop => {
+        pop.style.display = 'none';
+      });
+    }
+  });
+  window.hasSetupAssigneeCloseListener = true;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────

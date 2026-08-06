@@ -895,8 +895,9 @@ function renderDemandWizard(demand) {
                             const role = c.role;
                             const req = c.requiredCapacity ?? 0;
                             const avail = c.availableCapacity ?? 0;
+                            const isHidden = req === 0 && avail === 0;
                             const isConstrained = avail < req;
-                            return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                            return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.04); ${isHidden ? 'display: none;' : ''}">
                               <td style="padding: 6px 8px 6px 0; font-weight: 600; color: var(--text-primary);">${role}</td>
                               <td style="padding: 6px 8px; text-align: center;">
                                 <input type="number" class="approved-staffing-req-input" data-role="${role}" value="${req}" data-original="${req}" min="0" disabled style="width: 55px; text-align: center; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; font-size: 0.8rem; padding: 2px 4px;">
@@ -1349,8 +1350,9 @@ async function runCapacityCheckFlow(id) {
                     const role = c.role;
                     const req = c.requiredCapacity ?? 0;
                     const avail = c.availableCapacity ?? 0;
+                    const isHidden = req === 0 && avail === 0;
                     const isConstrained = avail < req;
-                    return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                    return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.04); ${isHidden ? 'display: none;' : ''}">
                       <td style="padding: 6px 8px 6px 0; font-weight: 600; color: var(--text-primary);">${role}</td>
                       <td style="padding: 6px 8px; text-align: center;">
                         <input type="number" class="staffing-req-input" data-role="${role}" value="${req}" min="0" style="width: 55px; text-align: center; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 3px; font-size: 0.8rem; padding: 2px 4px;">
