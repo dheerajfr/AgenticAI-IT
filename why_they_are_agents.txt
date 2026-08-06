@@ -1,0 +1,19 @@
+Why These Components are Classified as Agents:
+
+In our Agentic AI in IT Delivery (AgenticAI-IT) project, the system components are classified as agents because they are not just static scripts or simple wrapper functions. They exhibit the key characteristics of autonomous agents:
+
+1. Core LLM Reasoning Engine (The Brain)
+   - Every agent uses the LLM (grok-4-1-fast-reasoning via call_gemini) to reason about the goal, analyze variables, and formulate responses. For instance, the Sizing & Estimation Agent evaluates domain complexity, the Quality Gate Agent reviews testing coverage metrics to determine if threshold gates are met, and the Chase Commitment Agent crafts custom messages.
+
+2. State & Memory Management (LangGraph / StateGraph)
+   - The orchestration components use StateGraph structures (e.g., WorkflowState in demand-intake, EstimateState in estimate-shape, and ReleaseChangeState in release-change) to store current variables and drive decisions. The execution path transitions dynamically between nodes (e.g. going from document parsing to key-value extraction, or routing conditional entry points) using state-based memory.
+
+3. Tool & Database Integration (Actionable Interactions)
+   - Agents are provided with tool functions to interact with their environment (such as read/write operations to SQLite databases):
+     - The Sizing Agent fetches live resource capacity and historical anchors.
+     - The Dependency Sensing Agent reads task logs to map relationships.
+     - The Monitoring Setup Agent reads metadata from separate SDLC databases (environments, test-quality, releases) to build a unified context.
+     - The Drift Detection Agent reads live environment state logs to compare against the target record.
+
+4. Goal-Oriented Autonomy & Structured Output
+   - Instead of producing simple chat responses, the agents are designed with specific roles and goals. They output structured, schema-validated JSON objects (e.g. SLO specs, cost numbers, re-baseline flags, defect routing arrays). This structured data is fed directly into downstream software delivery workflows, achieving end-to-end automation.

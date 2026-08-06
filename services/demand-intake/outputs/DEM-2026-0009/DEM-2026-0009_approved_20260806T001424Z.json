@@ -1,0 +1,61 @@
+{
+  "demand_id": "DEM-2026-0009",
+  "title": "Valorant Clone",
+  "description": "Request to create or develop a clone of Valorant, a popular multiplayer tactical first-person shooter game.",
+  "type": "project",
+  "domain": "Gaming",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-08-06",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": "DEM-2026-0007",
+  "business_case_summary": "Business Case Summary: Valorant Clone (DEM-2026-0009)\n\nExecutive Summary\nThis project develops a clone of the popular multiplayer tactical FPS Valorant, mirroring the approved DEM-2026-0007 request in Gaming domain.\n\nDirect Business Value/Impact\nCapitalizes on high-demand FPS genre for user engagement and revenue, building on successful Gaming precedents like DEM-2026-0007.\n\nPotential Risk Mitigation\nHigh risk addressed via proven delivery of identical prior project (DEM-2026-0007, approved); apply lessons from low-risk DEM-2026-0004 for efficient scoping.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 80,
+  "earliest_start_date": "2026-09-05",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 62 total active team members evaluated.",
+    "Technical capability profiling: 163 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 91/2480 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Solution Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 3
+    },
+    {
+      "role": "AI Engineer",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Developer",
+      "requiredCapacity": 6,
+      "availableCapacity": 45
+    },
+    {
+      "role": "Team Lead",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Engineer",
+      "requiredCapacity": 4,
+      "availableCapacity": 7
+    }
+  ],
+  "skill_gaps": [
+    "Unreal Engine",
+    "Unity",
+    "C#",
+    "Multiplayer Networking",
+    "Game Physics",
+    "3D Graphics",
+    "Backend Development",
+    "UI Design"
+  ]
+}

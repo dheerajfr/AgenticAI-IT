@@ -1,0 +1,36 @@
+{
+  "demand_id": "DEM-2026-0014",
+  "title": "AI-Powered Client Query Resolution Agent for Banking Customer Support",
+  "description": "Develop a conversational AI agent with a web-based UI for banking customer support to handle queries on account management, transactions, loans, and compliance. Addresses issues like high query volumes, manual interventions, long wait times, and inconsistent responses from rigid FAQs or generic chatbots lacking domain knowledge and API integration. Key features: natural language understanding tuned for banking terminology, dynamic real-time integration with secure internal APIs for account/transaction/loan data, context-aware response generation, fallback/error handling. Data: structured API data (accounts, transactions, loans), semi-structured query logs/transcripts, public banking datasets; use anonymized/synthetic data for testing, ensure GDPR/compliance, high quality preprocessing. Success metrics: >85% query resolution accuracy, 50% reduction in response time. Deliverables: functional app, API integration code, user guide, technical docs on architecture/compliance. Leverage GenAI for document understanding, intent detection, responses; explore creative aligned solutions.",
+  "type": "project",
+  "domain": "Customer Digital",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-08-06",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: AI-Powered Client Query Resolution Agent for Banking Customer Support (DEM-2026-0014)\n\nExecutive Summary\nDevelops a GenAI conversational agent with web UI and secure API integration for autonomous banking query resolution on accounts, transactions, and loans. Builds on approved AI projects like DEM-2026-0011 (medium risk).\n\nDirect Business Value/Impact\nTargets >85% accuracy and 50% faster responses, reducing high query volumes, wait times, and manual efforts. Boosts efficiency and consistency in Customer Digital domain.\n\nPotential Risk Mitigation\nHigh risk addressed via GDPR-compliant anonymized data, fallback handling, and precedents from approved DEM-2026-0011/0012. Includes rigorous testing and technical docs.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 89,
+  "earliest_start_date": "2026-09-05",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 62 total active team members evaluated.",
+    "Technical capability profiling: 163 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 0/2480 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Developer",
+      "requiredCapacity": 3,
+      "availableCapacity": 47
+    }
+  ],
+  "skill_gaps": [
+    "API Integration",
+    "UI Design",
+    "Payments"
+  ]
+}

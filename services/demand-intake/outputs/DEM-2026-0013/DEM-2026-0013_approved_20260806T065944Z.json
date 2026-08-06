@@ -1,0 +1,34 @@
+{
+  "demand_id": "DEM-2026-0013",
+  "title": "Public Services Emergency Response FAQ Chatbot",
+  "description": "Develop a generative AI chatbot prototype for public services to provide real-time, accurate emergency response information. Problem: Overwhelming call volumes, misinformation, and insufficient static FAQs during emergencies. Data: Use emergency guidelines, FAQs, scenario scripts (100 Q&A pairs); preprocess with normalization and tagging; prioritize synthetic/anonymized public data for privacy and quality. Solution: Conversational interface supporting FAQs, follow-up questions, context-sensitive responses, scenario selection, and fallback handling. Integrate with static FAQ datasets. Metrics: High answer accuracy, response time under 5 seconds. Demo: Live user interaction with emergency scenarios. Explore creative aligned solutions.",
+  "type": "project",
+  "domain": "Public Services",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-08-06",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Public Services Emergency Response FAQ Chatbot (DEM-2026-0013)\n\nExecutive Summary\nDevelop a generative AI chatbot prototype for public services to deliver real-time emergency FAQs, reducing call volumes and misinformation via conversational interfaces and preprocessed datasets.\n\nDirect Business Value/Impact\nEnhances response accuracy and speed (under 5 seconds), improving public safety. Aligns with approved AI projects like DEM-2026-0011 for high-impact prototypes.\n\nPotential Risk Mitigation\nPrioritize synthetic/anonymized data for privacy; enforce accuracy metrics and fallbacks. High risk offset by recent domain successes (e.g., DEM-2026-0012).",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 93,
+  "earliest_start_date": "2026-09-05",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 62 total active team members evaluated.",
+    "Technical capability profiling: 163 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 0/2480 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Developer",
+      "requiredCapacity": 2,
+      "availableCapacity": 47
+    }
+  ],
+  "skill_gaps": [
+    "UI Design"
+  ]
+}

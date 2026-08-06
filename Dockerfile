@@ -26,4 +26,4 @@ ENV DATABASE_PATH=/data/source.db
 ENV PORT=8000
 
 # Start script to initialize DB and run gateway
-CMD sh -c "if [ ! -f /data/source.db ] && [ -f /app/default_source.db ]; then cp /app/default_source.db /data/source.db; fi && uvicorn gateway:app --host 0.0.0.0 --port 8000"
+CMD sh -c "if [ \"\$RESET_DB\" = \"true\" ] || [ ! -f /data/source.db ]; then if [ -f /app/default_source.db ]; then cp /app/default_source.db /data/source.db; fi; fi && uvicorn gateway:app --host 0.0.0.0 --port 8000"

@@ -38,14 +38,16 @@ def load_service(service_name):
     # unless __pycache__ is also on sys.path, or if the internal modules are renamed. 
     # To be safe, we'll also append the pyc_dir.
     pyc_dir = os.path.join(service_dir, "__pycache__")
+    inserted_pyc = False
     if os.path.exists(pyc_dir):
         sys.path.insert(0, pyc_dir)
+        inserted_pyc = True
         
     spec.loader.exec_module(mod)
     
-    sys.path.pop(0)
-    if os.path.exists(pyc_dir):
+    if inserted_pyc:
         sys.path.pop(0)
+    sys.path.pop(0)
     
     return mod.app
 

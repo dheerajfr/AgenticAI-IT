@@ -1,0 +1,32 @@
+{
+  "demand_id": "DEM-2026-0010",
+  "title": "CLI Tic Tac Toe",
+  "description": "Request for a command-line interface (CLI) implementation of the Tic Tac Toe game.",
+  "type": "project",
+  "domain": "Infrastructure",
+  "risk_level": "low",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-08-06",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: CLI Tic Tac Toe (DEM-2026-0010)\n\nExecutive Summary\nRequest for CLI Tic Tac Toe implementation in Infrastructure domain, low risk, akin to past projects like DEM-2026-0008 (Infrastructure).\n\nDirect Business Value/Impact\nDelivers quick, low-cost demo of CLI skills, boosting team proficiency and portfolio. Mirrors efficient outcomes from similar Infrastructure deliveries.\n\nPotential Risk Mitigation\nLow risk with standard scoping; leverages success of high-risk peers like DEM-2026-0007 (approved) via proven testing protocols.",
+  "status": "approved",
+  "capacity_verdict": "feasible",
+  "capacity_score": 100,
+  "earliest_start_date": "2026-08-06",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 62 total active team members evaluated.",
+    "Technical capability profiling: 163 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 0/2480 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Developer",
+      "requiredCapacity": 1,
+      "availableCapacity": 47
+    }
+  ],
+  "skill_gaps": []
+}

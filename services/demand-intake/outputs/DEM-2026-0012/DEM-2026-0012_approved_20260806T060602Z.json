@@ -1,0 +1,68 @@
+{
+  "demand_id": "DEM-2026-0012",
+  "title": "GTA 6 Clone",
+  "description": "Request to create or develop a clone of Grand Theft Auto 6 (GTA 6), likely an open-world action-adventure game similar to the popular franchise.",
+  "type": "project",
+  "domain": "Gaming",
+  "risk_level": "high",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-08-06",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: GTA 6 Clone (DEM-2026-0012)\n\nExecutive Summary:\nRequest to develop an open-world action-adventure game cloning GTA 6 in Gaming domain, high risk unlike approved medium-risk Supply Chain project DEM-2026-0011.\n\nDirect Business Value/Impact:\nTargets massive gaming market with potential for high revenue and user engagement. Builds on franchise-like demand for expansive entertainment experiences.\n\nPotential Risk Mitigation:\nPerform thorough IP analysis to mitigate legal exposure. Limit scope to original assets, drawing from successful delivery of comparable projects.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 65,
+  "earliest_start_date": "2026-09-05",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 62 total active team members evaluated.",
+    "Technical capability profiling: 163 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 0/2480 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Team Lead",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Engineer",
+      "requiredCapacity": 4,
+      "availableCapacity": 7
+    },
+    {
+      "role": "AI Engineer",
+      "requiredCapacity": 3,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Solution Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 3
+    },
+    {
+      "role": "Video Editor",
+      "requiredCapacity": 2,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Developer",
+      "requiredCapacity": 10,
+      "availableCapacity": 47
+    }
+  ],
+  "skill_gaps": [
+    "Unreal Engine",
+    "Unity",
+    "C#",
+    "3D Graphics",
+    "Physics Simulation",
+    "Animation",
+    "Scripting",
+    "Networking",
+    "Optimization",
+    "Vehicle Physics"
+  ]
+}

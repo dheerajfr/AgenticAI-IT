@@ -1,0 +1,60 @@
+{
+  "demand_id": "DEM-2026-0011",
+  "title": "Interactive AI Agent for Explainable Demand Forecasting in CPG",
+  "description": "Develop an interactive AI agent for Consumer Packaged Goods (CPG) companies to address black-box forecasting issues. The agent ingests forecast data (numerical demand, historical sales, product metadata in CSV/JSON from internal systems or public datasets; synthetic/anonymized data acceptable; high quality with timestamps, normalization, anomaly tagging; no PII). It provides natural language explanations of demand trends, key influencing factors, and anomaly alerts. Features include data upload, Q&A interface, visualizations (charts/graphs), and integration with forecasting system APIs. Success criteria: 85% user comprehension score, accurate anomaly detection, positive usability feedback. Demo with live upload and queries. Explore creative solutions aligned with objectives.",
+  "type": "project",
+  "domain": "Supply Chain",
+  "risk_level": "medium",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-08-06",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Interactive AI Agent for Explainable Demand Forecasting in CPG (DEM-2026-0011)\n\nExecutive Summary\nThis first-of-kind project develops an interactive AI agent for CPG demand forecasting, ingesting CSV/JSON data to deliver natural language explanations, visualizations, Q&A, and anomaly alerts.\n\nDirect Business Value/Impact\nImproves supply chain accuracy and decision-making by addressing black-box forecasting issues, targeting 85% user comprehension and positive usability feedback.\n\nPotential Risk Mitigation\nMedium risks addressed via synthetic data (no PII), live demo prototypes, and defined success metrics for anomaly detection and integration.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 71,
+  "earliest_start_date": "2026-09-05",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 62 total active team members evaluated.",
+    "Technical capability profiling: 163 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 0/2480 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Team Lead",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Solution Architect",
+      "requiredCapacity": 1,
+      "availableCapacity": 3
+    },
+    {
+      "role": "AI Engineer",
+      "requiredCapacity": 2,
+      "availableCapacity": 1
+    },
+    {
+      "role": "Developer",
+      "requiredCapacity": 2,
+      "availableCapacity": 47
+    },
+    {
+      "role": "Business Analyst/ Data Analyst",
+      "requiredCapacity": 1,
+      "availableCapacity": 1
+    }
+  ],
+  "skill_gaps": [
+    "Time Series Forecasting",
+    "Natural Language Processing",
+    "Data Visualization",
+    "Frontend Development",
+    "Backend Development",
+    "API Integration",
+    "UI Design"
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "demand_id": "DEM-2026-0012",
+  "title": "Automated Exploratory Data Analysis Report Generator",
+  "description": "Develop a prototype tool that automates exploratory data analysis (EDA) for structured tabular datasets in CSV or Excel formats (up to 10k rows). The tool should handle data type inference, missing value preprocessing, and generate comprehensive reports including statistical summaries, visualizations (e.g., histograms, box plots), and natural language explanations using GenAI. Features include an interactive UI with expandable sections for data profiling and insights. Use synthetic or anonymized data for testing to ensure privacy compliance. Demo should include sample datasets showcasing time savings and improved data comprehension. Success measured by report completeness, insight accuracy, and user feedback.",
+  "type": "project",
+  "domain": "Data & Analytics",
+  "risk_level": "low",
+  "funding_status": "approved",
+  "submitted_by": "system.intake",
+  "submitted_date": "2026-08-06",
+  "source": "text",
+  "source_filename": null,
+  "duplicate_of": null,
+  "business_case_summary": "Business Case Summary: Automated Exploratory Data Analysis Report Generator (DEM-2026-0012)\n\nExecutive Summary: Prototype automates EDA for tabular CSV/Excel data (up to 10k rows), generating statistical summaries, visualizations, and GenAI explanations via interactive UI.\n\nBusiness Value/Impact: Saves analyst time on routine profiling, boosts data comprehension and insights. Mirrors outcomes from approved DEM-2026-0011 in Data & Analytics.\n\nRisk Mitigation: Low risk with synthetic data for privacy; leverages similar domain delivery history for quick prototyping and demo success.",
+  "status": "approved",
+  "capacity_verdict": "at risk",
+  "capacity_score": 90,
+  "earliest_start_date": "2026-09-05",
+  "capacity_reasoning": [
+    "Workforce pool database scanning: 62 total active team members evaluated.",
+    "Technical capability profiling: 163 unique validated skills registered in workforce pool.",
+    "Global resource utilization: 0/2480 total weekly effort units currently allocated."
+  ],
+  "resource_constraints": [
+    {
+      "role": "Developer",
+      "requiredCapacity": 5,
+      "availableCapacity": 47
+    }
+  ],
+  "skill_gaps": [
+    "Pandas",
+    "Data Visualization",
+    "Prompt Engineering",
+    "UI Development",
+    "Data Profiling"
+  ]
+}

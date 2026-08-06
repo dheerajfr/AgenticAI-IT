@@ -1,0 +1,74 @@
+Frontend: Vanilla HTML5 & CSS (Sleek glassmorphism single-page shell application) [React.js migration in progress]
+Frameworks: LangGraph, FastAPI, Pytest
+Cloud: Azure (Azure OpenAI Service, Azure Entra ID / Default credentials)
+LLM: grok-4-1-fast-reasoning (Accessed via Azure OpenAI Service API)
+Database: SQLite
+Text Extraction: local PyPDF / python-docx parses and LLM NLU extraction
+Roles: Portfolio Manager, Technical Lead, QA Engineer, Security Engineer, SRE, Release Manager, Risk Officer, Budget Owner, Vendor Manager
+
+10 Modules & Active Agents:
+
+1) Demand Intake Module (Stage 01)
+   - Document Parser Agent: Handles file parsing (TXT, PDF, DOCX) and structures text blocks.
+   - Key-Value Extractor Agent (extract_node): Uses LLM to parse raw title, description, and submitter.
+   - Classify & Route Agent (classify_node): Suggests project type, domain, risk level, and classification reason.
+   - Duplicate Check Agent (check_duplicates_node): Programmatic similarity scan across existing database demands.
+   - Business Case Generation Agent (generate_draft_node): Auto-drafts executive summaries and risk mitigations grounded in historical comparable demands.
+
+2) Estimate & Shape Module (Stage 02)
+   - Sizing & Sizing Analogy Agent (estimate_node): Forecasts effort days, duration, and non-human resource cost, comparing actual prior work history.
+   - Challenge & Rebaseline Agent (trigger_check_node): Monitors resource pools and over-allocation anomalies to trigger project re-baselines.
+
+3) Plan & Schedule Module (Stage 03)
+   - Scheduling & Resource Allocation Agent (scheduler.py): Performs capability mapping, sequencing phase timelines, and assigning owners based on skills and workloads.
+   - Re-planner Agent (test_replan.py): Recalculates phase schedules when anomalies (e.g. employee leaves) occur using simulation.
+
+4) Dependencies Module (Stage 04)
+   - Dependency Sensing Agent (sense_node): Auto-discovers logical, technical, or vendor dependencies from task metadata.
+   - Chase Commitment Agent (chase_node): Triggers targeted nudges with customized tones to delayed task owners.
+   - Ripple Impact Agent (impact_node): Conducts graph relaxation date calculations to identify final milestone slippage.
+
+5) Config & Environments Module (Stage 05)
+   - Drift Detection Agent: Scans deployment states against target records to flag environment drift.
+   - Baseline Reconcile Agent: Matches environment release bundles and confirms configuration hygiene.
+
+6) Build & Deploy Module (Stage 06)
+   - Deployment Orchestration Agent: Coordinates pipeline tasks, monitors preconditions, and handles cutover communications.
+   - Release Readiness Agent: Assesses checklists and verifies release go/no-go parameters.
+
+7) Test & Quality Module (Stage 07)
+   - Test Generation Agent (test_generation_agent.py): LLM-driven generation of test cases from code diffs and requirements.
+   - Test Data Agent (test_data_agent.py): Synthesizes masked/synthetic data mapping test requirements.
+   - Defect Triage Agent (defect_triage_agent.py): Routes and prioritizes defects, hinting root causes.
+   - Security Testing Agent (security_testing_agent.py): Evaluates vulnerabilities in pipelines and drafts fixes.
+   - Test Execution Agent (test_execution_agent.py): Dynamically runs impact-based test suites.
+   - Traceability Agent (traceability_agent.py): Resolves requirement-test-defect mappings.
+   - Quality Gate Agent (quality_gate_agent.py): Assesses test results against gates and explains gaps.
+
+8) Release & Change Module (Stage 08)
+   - Release Change Agent (release_change_graph.py): Compiles change sets, checks for calendar collisions, drafts change records, and prepares CAB pack Q&As.
+
+9) Ops Readiness Module (Stage 09)
+   - Monitoring Setup Agent (MonitoringSetupAgent): Structures dashboard widgets, alert thresholds, and SLO targets using multi-stage context.
+   - Handover KT Agent: Assembles support runbooks and known-error notes for operations.
+
+10) Always-On Operations Modules (Stage 10)
+    - Risk Sensing Agent: Monitors velocity signals and communications to surface RAID logs.
+    - Burn & Cost Forecaster Agent: Reconciles actual spending with plans and tracks capex/opex categorization.
+    - Vendor Status Normalizer Agent: Normalizes status reports, SLA tracking, and SOW contracts.
+    - Status Reporting & Comms Agent: Generates audience-tuned weekly status reports and executive narratives.
+
+Problem Statement:
+IT delivery execution is plagued by manual coordination, fragmented tools, and a lack of real-time visibility between demand intake, scheduling dependencies, and live resource capacity. This gap leads to delayed releases, overruns, resource burnout, and unmitigated risks. A shift to automated, agentic AI-driven IT delivery orchestration can streamline resource utilization, predict downstream dependency delays, enforce release gates, and deliver data-driven predictability at scale.
+
+Business Challenge:
+- Fragmented, manual coordination across software delivery lifecycle stages.
+- Resource constraints, over-allocation, and skills gaps missed during initiation.
+- Downstream ripple impacts of delays are unseen until milestones slip.
+- Governance, CAB approvals, and deployment readiness require significant administrative effort.
+
+Business Outcome:
+- Auto-sensed dependencies and automated critical-path analysis.
+- Live resource monitoring and intelligent re-baselining.
+- Automated generation of production alerts, dashboards, and CAB documentation.
+- Reduced project slippage, optimized resource utilization, and transparent delivery governance.

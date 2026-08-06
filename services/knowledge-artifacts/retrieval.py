@@ -23,8 +23,7 @@ import math
 import re
 from collections import Counter
 from typing import Dict, List, Sequence
-
-import numpy as np
+# Pure Python TF-IDF without numpy dependency
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
 
@@ -92,7 +91,7 @@ def rank_artefacts_by_relevance(
     doc_tokens = [_tokenize(_artefact_text(a)) for a in artefacts]
 
     if not query_tokens or not any(doc_tokens):
-        # Nothing to rank on lexically — fall back to insertion order.
+        # Nothing to rank on lexical term overlap — fall back to insertion order.
         for a in artefacts[:top_k]:
             a = dict(a)
             a["_relevance_score"] = 0.0
@@ -107,16 +106,16 @@ def rank_artefacts_by_relevance(
     vocab_index = {tok: i for i, tok in enumerate(vocab)}
 
     # Document frequency per term.
-    df = np.zeros(len(vocab), dtype=np.float64)
+    df = [0.0] * len(vocab)
     for tokens in corpus:
         for tok in set(tokens):
-            df[vocab_index[tok]] += 1
+            df[vocab_index[tok]] += 1.0
 
     # Smoothed IDF (add-one smoothing avoids div-by-zero / negative values).
-    idf = np.log((1 + n_docs) / (1 + df)) + 1.0
+    idf = [math.log((1 + n_docs) / (1 + df_val)) + 1.0 for df_val in df]
 
-    def _tfidf_vector(tokens: List[str]) -> np.ndarray:
-        vec = np.zeros(len(vocab), dtype=np.float64)
+    def _tfidf_vector(tokens: List[str]) -> List[float]:
+        vec = [0.0] * len(vocab)
         if not tokens:
             return vec
         counts = Counter(tokens)
@@ -124,16 +123,21 @@ def rank_artefacts_by_relevance(
         for tok, cnt in counts.items():
             tf = cnt / total
             vec[vocab_index[tok]] = tf * idf[vocab_index[tok]]
-        norm = np.linalg.norm(vec)
+        
+        # Calculate Euclidean L2 norm
+        sq_sum = sum(x * x for x in vec)
+        norm = math.sqrt(sq_sum)
         if norm > 0:
-            vec = vec / norm
+            vec = [x / norm for x in vec]
         return vec
 
     query_vec = _tfidf_vector(query_tokens)
     scored = []
     for artefact, tokens in zip(artefacts, doc_tokens):
         doc_vec = _tfidf_vector(tokens)
-        score = float(np.dot(query_vec, doc_vec))
+        
+        # Dot product
+        score = sum(q * d for q, d in zip(query_vec, doc_vec))
         if not math.isfinite(score):
             score = 0.0
         scored.append((score, artefact))
