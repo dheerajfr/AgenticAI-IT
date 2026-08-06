@@ -1,0 +1,78 @@
+{
+  "policy_version": "MON-POLICY-v1.0",
+  "policy_name": "Production Monitoring Policy",
+  "environment": "production",
+  "categories": {
+    "api": {
+      "name": "Application API Microservice",
+      "availability_pct": 99.95,
+      "latency_p95_ms": 180.0,
+      "latency_p99_ms": 350.0,
+      "error_rate_pct": 0.1,
+      "cpu_threshold_pct": 90.0,
+      "memory_threshold_pct": 92.0
+    },
+    "authentication": {
+      "name": "Authentication & Security Service",
+      "availability_pct": 99.99,
+      "latency_p95_ms": 120.0,
+      "latency_p99_ms": 250.0,
+      "error_rate_pct": 0.05,
+      "cpu_threshold_pct": 85.0,
+      "memory_threshold_pct": 88.0
+    },
+    "database": {
+      "name": "Database Persistence Layer (PostgreSQL / MongoDB)",
+      "availability_pct": 99.99,
+      "latency_p95_ms": 45.0,
+      "latency_p99_ms": 90.0,
+      "error_rate_pct": 0.01,
+      "connection_pool_pct": 85.0,
+      "slow_query_ms": 90.0,
+      "replication_lag_sec": 5.0,
+      "cpu_threshold_pct": 85.0,
+      "memory_threshold_pct": 90.0
+    },
+    "kafka": {
+      "name": "Apache Kafka Event Streaming Platform",
+      "availability_pct": 99.99,
+      "latency_p95_ms": 50.0,
+      "latency_p99_ms": 120.0,
+      "error_rate_pct": 0.01,
+      "consumer_lag_messages": 1000,
+      "queue_depth_messages": 5000,
+      "cpu_threshold_pct": 85.0,
+      "memory_threshold_pct": 90.0
+    },
+    "redis": {
+      "name": "Redis In-Memory Cache Cluster",
+      "availability_pct": 99.99,
+      "latency_p95_ms": 15.0,
+      "latency_p99_ms": 35.0,
+      "error_rate_pct": 0.01,
+      "memory_threshold_pct": 92.0,
+      "cache_hit_ratio_pct": 90.0,
+      "cpu_threshold_pct": 85.0
+    },
+    "queue": {
+      "name": "RabbitMQ Message Broker",
+      "availability_pct": 99.95,
+      "latency_p95_ms": 50.0,
+      "latency_p99_ms": 120.0,
+      "error_rate_pct": 0.05,
+      "queue_depth_messages": 5000,
+      "dlq_messages_count": 0,
+      "cpu_threshold_pct": 85.0,
+      "memory_threshold_pct": 90.0
+    },
+    "infrastructure": {
+      "name": "Kubernetes Cluster Infrastructure Node",
+      "availability_pct": 99.99,
+      "latency_p95_ms": 20.0,
+      "latency_p99_ms": 50.0,
+      "error_rate_pct": 0.01,
+      "cpu_threshold_pct": 85.0,
+      "memory_threshold_pct": 90.0
+    }
+  }
+}

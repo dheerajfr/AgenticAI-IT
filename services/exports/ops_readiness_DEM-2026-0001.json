@@ -8,18 +8,42 @@
     "plan_id": "PLN-0001-1",
     "environment": "prod",
     "monitored_components_scope": [
+      "redis-cache-v6",
       "oauth2-auth-service-v1",
-      "postgresql-db-v12",
-      "rabbitmq-message-queue-v3",
       "svc-agentic-ai-it-delivery",
-      "redis-cache-v6"
+      "postgresql-db-v12",
+      "rabbitmq-message-queue-v3"
     ],
     "component_specs": [
+      {
+        "component_id": "redis-cache-v6",
+        "component_name": "Redis Cache V6",
+        "component_type": "redis",
+        "criticality": "high",
+        "environment": "prod",
+        "technology_stack": "Redis In-Memory Cache Cluster",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
       {
         "component_id": "oauth2-auth-service-v1",
         "component_name": "Oauth2 Auth Service V1",
         "component_type": "rest_api",
         "criticality": "critical",
+        "environment": "prod",
+        "technology_stack": "Java Spring Boot Microservice",
+        "owner_team": "core-engineering",
+        "owner_email": "team-core-engineering@company.com",
+        "historical_p99_latency_ms": null,
+        "historical_availability_pct": null
+      },
+      {
+        "component_id": "svc-agentic-ai-it-delivery",
+        "component_name": "Svc Agentic Ai It Delivery",
+        "component_type": "rest_api",
+        "criticality": "high",
         "environment": "prod",
         "technology_stack": "Java Spring Boot Microservice",
         "owner_team": "core-engineering",
@@ -50,33 +74,19 @@
         "owner_email": "team-core-engineering@company.com",
         "historical_p99_latency_ms": null,
         "historical_availability_pct": null
-      },
-      {
-        "component_id": "svc-agentic-ai-it-delivery",
-        "component_name": "Svc Agentic Ai It Delivery",
-        "component_type": "rest_api",
-        "criticality": "high",
-        "environment": "prod",
-        "technology_stack": "Java Spring Boot Microservice",
-        "owner_team": "core-engineering",
-        "owner_email": "team-core-engineering@company.com",
-        "historical_p99_latency_ms": null,
-        "historical_availability_pct": null
-      },
-      {
-        "component_id": "redis-cache-v6",
-        "component_name": "Redis Cache V6",
-        "component_type": "redis",
-        "criticality": "high",
-        "environment": "prod",
-        "technology_stack": "Redis In-Memory Cache Cluster",
-        "owner_team": "core-engineering",
-        "owner_email": "team-core-engineering@company.com",
-        "historical_p99_latency_ms": null,
-        "historical_availability_pct": null
       }
     ],
     "slo_targets": [
+      {
+        "component_id": "redis-cache-v6",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 15.0,
+        "latency_p99_ms": 35.0,
+        "error_rate_threshold_pct": 0.1,
+        "cpu_threshold_pct": 90.0,
+        "memory_threshold_pct": 92.0,
+        "source": "ai_technology_tier_analysis"
+      },
       {
         "component_id": "oauth2-auth-service-v1",
         "availability_slo_pct": 99.99,
@@ -85,6 +95,16 @@
         "error_rate_threshold_pct": 0.05,
         "cpu_threshold_pct": 85.0,
         "memory_threshold_pct": 88.0,
+        "source": "ai_technology_tier_analysis"
+      },
+      {
+        "component_id": "svc-agentic-ai-it-delivery",
+        "availability_slo_pct": 99.95,
+        "latency_p95_ms": 180.0,
+        "latency_p99_ms": 350.0,
+        "error_rate_threshold_pct": 0.1,
+        "cpu_threshold_pct": 90.0,
+        "memory_threshold_pct": 92.0,
         "source": "ai_technology_tier_analysis"
       },
       {
@@ -106,29 +126,43 @@
         "cpu_threshold_pct": 90.0,
         "memory_threshold_pct": 92.0,
         "source": "ai_technology_tier_analysis"
-      },
-      {
-        "component_id": "svc-agentic-ai-it-delivery",
-        "availability_slo_pct": 99.95,
-        "latency_p95_ms": 180.0,
-        "latency_p99_ms": 350.0,
-        "error_rate_threshold_pct": 0.1,
-        "cpu_threshold_pct": 90.0,
-        "memory_threshold_pct": 92.0,
-        "source": "ai_technology_tier_analysis"
-      },
-      {
-        "component_id": "redis-cache-v6",
-        "availability_slo_pct": 99.95,
-        "latency_p95_ms": 15.0,
-        "latency_p99_ms": 35.0,
-        "error_rate_threshold_pct": 0.1,
-        "cpu_threshold_pct": 90.0,
-        "memory_threshold_pct": 92.0,
-        "source": "ai_technology_tier_analysis"
       }
     ],
     "proposed_alerts": [
+      {
+        "alert_id": "ALT-REDIS_CACHE_V6-MEMORY",
+        "component_id": "redis-cache-v6",
+        "component_type": "redis",
+        "alert_type": "memory_usage",
+        "name": "Redis Cache V6 Cache Memory Utilization High",
+        "condition": "memory_utilization_pct > 92.0%",
+        "threshold": "92.0%",
+        "severity": "high",
+        "notify": [
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-REDIS_CACHE_V6-HITRATIO",
+        "component_id": "redis-cache-v6",
+        "component_type": "redis",
+        "alert_type": "cache_hit_ratio",
+        "name": "Redis Cache V6 Cache Hit Ratio Degradation",
+        "condition": "cache_hit_ratio_pct < 90%",
+        "threshold": "90%",
+        "severity": "high",
+        "notify": [
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
       {
         "alert_id": "ALT-OAUTH2_AUTH_SERVICE_V1-LATENCY",
         "component_id": "oauth2-auth-service-v1",
@@ -139,11 +173,11 @@
         "threshold": "250.0ms",
         "severity": "critical",
         "notify": [
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
           "release-leads@company.com",
           "sre-prod-lead@company.com",
-          "team-core-engineering-alerts@company.com",
-          "oncall-prod@company.com",
-          "team-core-engineering@company.com"
+          "oncall-prod@company.com"
         ]
       },
       {
@@ -156,11 +190,11 @@
         "threshold": "99.99%",
         "severity": "critical",
         "notify": [
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
           "release-leads@company.com",
           "sre-prod-lead@company.com",
-          "team-core-engineering-alerts@company.com",
-          "oncall-prod@company.com",
-          "team-core-engineering@company.com"
+          "oncall-prod@company.com"
         ]
       },
       {
@@ -173,11 +207,62 @@
         "threshold": "0.05%",
         "severity": "critical",
         "notify": [
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
           "release-leads@company.com",
           "sre-prod-lead@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_AGENTIC_AI_IT_DELIVERY-LATENCY",
+        "component_id": "svc-agentic-ai-it-delivery",
+        "component_type": "rest_api",
+        "alert_type": "latency",
+        "name": "Svc Agentic Ai It Delivery p99 Latency Violation",
+        "condition": "p99_latency_ms > 350.0ms",
+        "threshold": "350.0ms",
+        "severity": "high",
+        "notify": [
           "team-core-engineering-alerts@company.com",
-          "oncall-prod@company.com",
-          "team-core-engineering@company.com"
+          "team-core-engineering@company.com",
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_AGENTIC_AI_IT_DELIVERY-AVAIL",
+        "component_id": "svc-agentic-ai-it-delivery",
+        "component_type": "rest_api",
+        "alert_type": "availability",
+        "name": "Svc Agentic Ai It Delivery Availability Drop",
+        "condition": "availability_pct < 99.95%",
+        "threshold": "99.95%",
+        "severity": "critical",
+        "notify": [
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "oncall-prod@company.com"
+        ]
+      },
+      {
+        "alert_id": "ALT-SVC_AGENTIC_AI_IT_DELIVERY-5XX",
+        "component_id": "svc-agentic-ai-it-delivery",
+        "component_type": "rest_api",
+        "alert_type": "http_5xx",
+        "name": "Svc Agentic Ai It Delivery HTTP 5xx Error Rate Spike",
+        "condition": "error_rate_pct > 0.1%",
+        "threshold": "0.1%",
+        "severity": "high",
+        "notify": [
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
+          "release-leads@company.com",
+          "sre-prod-lead@company.com",
+          "oncall-prod@company.com"
         ]
       },
       {
@@ -190,11 +275,11 @@
         "threshold": "85%",
         "severity": "critical",
         "notify": [
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
           "release-leads@company.com",
           "sre-prod-lead@company.com",
-          "team-core-engineering-alerts@company.com",
           "oncall-prod@company.com",
-          "team-core-engineering@company.com",
           "dba-oncall-prod@company.com"
         ]
       },
@@ -208,11 +293,11 @@
         "threshold": "90.0ms",
         "severity": "high",
         "notify": [
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
           "release-leads@company.com",
           "sre-prod-lead@company.com",
-          "team-core-engineering-alerts@company.com",
-          "oncall-prod@company.com",
-          "team-core-engineering@company.com"
+          "oncall-prod@company.com"
         ]
       },
       {
@@ -225,11 +310,11 @@
         "threshold": "5s",
         "severity": "high",
         "notify": [
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
           "release-leads@company.com",
           "sre-prod-lead@company.com",
-          "team-core-engineering-alerts@company.com",
-          "oncall-prod@company.com",
-          "team-core-engineering@company.com"
+          "oncall-prod@company.com"
         ]
       },
       {
@@ -242,11 +327,11 @@
         "threshold": "5000 messages",
         "severity": "high",
         "notify": [
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
           "release-leads@company.com",
           "sre-prod-lead@company.com",
-          "team-core-engineering-alerts@company.com",
-          "oncall-prod@company.com",
-          "team-core-engineering@company.com"
+          "oncall-prod@company.com"
         ]
       },
       {
@@ -259,96 +344,11 @@
         "threshold": "0",
         "severity": "critical",
         "notify": [
+          "team-core-engineering-alerts@company.com",
+          "team-core-engineering@company.com",
           "release-leads@company.com",
           "sre-prod-lead@company.com",
-          "team-core-engineering-alerts@company.com",
-          "oncall-prod@company.com",
-          "team-core-engineering@company.com"
-        ]
-      },
-      {
-        "alert_id": "ALT-SVC_AGENTIC_AI_IT_DELIVERY-LATENCY",
-        "component_id": "svc-agentic-ai-it-delivery",
-        "component_type": "rest_api",
-        "alert_type": "latency",
-        "name": "Svc Agentic Ai It Delivery p99 Latency Violation",
-        "condition": "p99_latency_ms > 350.0ms",
-        "threshold": "350.0ms",
-        "severity": "high",
-        "notify": [
-          "release-leads@company.com",
-          "sre-prod-lead@company.com",
-          "team-core-engineering-alerts@company.com",
-          "oncall-prod@company.com",
-          "team-core-engineering@company.com"
-        ]
-      },
-      {
-        "alert_id": "ALT-SVC_AGENTIC_AI_IT_DELIVERY-AVAIL",
-        "component_id": "svc-agentic-ai-it-delivery",
-        "component_type": "rest_api",
-        "alert_type": "availability",
-        "name": "Svc Agentic Ai It Delivery Availability Drop",
-        "condition": "availability_pct < 99.95%",
-        "threshold": "99.95%",
-        "severity": "critical",
-        "notify": [
-          "release-leads@company.com",
-          "sre-prod-lead@company.com",
-          "team-core-engineering-alerts@company.com",
-          "oncall-prod@company.com",
-          "team-core-engineering@company.com"
-        ]
-      },
-      {
-        "alert_id": "ALT-SVC_AGENTIC_AI_IT_DELIVERY-5XX",
-        "component_id": "svc-agentic-ai-it-delivery",
-        "component_type": "rest_api",
-        "alert_type": "http_5xx",
-        "name": "Svc Agentic Ai It Delivery HTTP 5xx Error Rate Spike",
-        "condition": "error_rate_pct > 0.1%",
-        "threshold": "0.1%",
-        "severity": "high",
-        "notify": [
-          "release-leads@company.com",
-          "sre-prod-lead@company.com",
-          "team-core-engineering-alerts@company.com",
-          "oncall-prod@company.com",
-          "team-core-engineering@company.com"
-        ]
-      },
-      {
-        "alert_id": "ALT-REDIS_CACHE_V6-MEMORY",
-        "component_id": "redis-cache-v6",
-        "component_type": "redis",
-        "alert_type": "memory_usage",
-        "name": "Redis Cache V6 Cache Memory Utilization High",
-        "condition": "memory_utilization_pct > 92.0%",
-        "threshold": "92.0%",
-        "severity": "high",
-        "notify": [
-          "release-leads@company.com",
-          "sre-prod-lead@company.com",
-          "team-core-engineering-alerts@company.com",
-          "oncall-prod@company.com",
-          "team-core-engineering@company.com"
-        ]
-      },
-      {
-        "alert_id": "ALT-REDIS_CACHE_V6-HITRATIO",
-        "component_id": "redis-cache-v6",
-        "component_type": "redis",
-        "alert_type": "cache_hit_ratio",
-        "name": "Redis Cache V6 Cache Hit Ratio Degradation",
-        "condition": "cache_hit_ratio_pct < 90%",
-        "threshold": "90%",
-        "severity": "high",
-        "notify": [
-          "release-leads@company.com",
-          "sre-prod-lead@company.com",
-          "team-core-engineering-alerts@company.com",
-          "oncall-prod@company.com",
-          "team-core-engineering@company.com"
+          "oncall-prod@company.com"
         ]
       }
     ],
@@ -427,7 +427,7 @@
         ]
       }
     ],
-    "generated_at": "2026-07-24T10:56:10Z",
+    "generated_at": "2026-08-05T10:07:53Z",
     "sre_reviewed": true,
     "sre_reviewed_by": null,
     "status": "approved"
