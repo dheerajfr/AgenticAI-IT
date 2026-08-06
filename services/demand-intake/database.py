@@ -27,10 +27,6 @@ class DemandDatabase:
             ''')
             conn.commit()
 
-            # Seed from fixtures if table is empty
-            cursor.execute('SELECT COUNT(*) FROM demands')
-            if cursor.fetchone()[0] == 0:
-                self._load_fixtures(conn)
 
     def _load_fixtures(self, conn):
         if not os.path.exists(self.fixtures_dir):

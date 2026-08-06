@@ -263,6 +263,7 @@ const stageOrder = [
   'test-quality', 'release-change', 'ops-readiness'
 ];
 
+
 function getStageStatus(stage, currentStage, data) {
   // Check failure conditions first
   if (stage === 'test-quality' && data.qualityGate && data.qualityGate.verdict === 'FAIL') return 'failed';
