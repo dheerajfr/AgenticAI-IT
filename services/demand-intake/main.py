@@ -328,97 +328,14 @@ def perform_capacity_check(record: DemandRecord, custom_required_people: Optiona
     available_roles_list = list(set(res["role"] for res in resources))
     available_roles_str = ", ".join(f'"{role}"' for role in available_roles_list)
     
-    # 2. Prompt Gemini for requirement extraction using the dynamic roles list
-    prompt = f"""
-    You are an AI Architect. Analyze the following project demand:
-    Title: {record.title}
-    Description: {record.description}
-    
-    Available Roles: {available_roles_str}
-    
-    Extract:
-    - requiredSkills: A list of technical skills required to deliver this request (e.g. ["Java", "Cloud", "Payments", "Architecture", "Python", "React", "UI Design", "Security"]).
-    - requiredRoles: A list of roles from the Available Roles list needed for this request.
-    - requiredCapacity: A dictionary mapping each required role to the weekly effort units needed (integer, e.g. 5, 10, 15, 20).
-    - requiredPeople: A dictionary mapping each required role to the number of people (headcount) needed to staff this demand (integer, e.g. 1, 2, 3). This must represent the total staffing demand regardless of availability.
-    
-    Format your response as a valid JSON object with fields: requiredSkills (list of strings), requiredRoles (list of strings), requiredCapacity (object/dict), and requiredPeople (object/dict).
-    """
-    
-    try:
-        from llm_client import call_gemini
-        res_json = call_gemini(
-            prompt=prompt,
-            system_instruction="Extract project delivery resource requirements.",
-            is_json=True
-        )
-        if isinstance(res_json, dict):
-            required_skills = res_json.get("requiredSkills", [])
-            required_roles = res_json.get("requiredRoles", [])
-            required_capacity = res_json.get("requiredCapacity", {})
-            required_people = res_json.get("requiredPeople", {})
-    except Exception as e:
-        print(f"Gemini capacity extraction failed, falling back to dynamic rules: {e}")
-        
-    # 3. Dynamic Fallback Rules (derived directly from Resource DB data)
-    if not required_skills or not required_roles or not required_capacity:
-        title_lower = record.title.lower()
-        description_lower = record.description.lower()
-        
-        # Get all skills in the DB
-        skills_in_db = list(set(s for r in resources for s in r["skills"]))
-        
-        # Match roles based on keywords
-        matched_roles = []
-        for role in available_roles_list:
-            role_words = set(role.lower().replace("&", " ").replace("-", " ").split())
-            if any(w in title_lower or w in description_lower for w in role_words if len(w) > 2):
-                matched_roles.append(role)
-                
-        # Default role fallback if no match
-        if not matched_roles:
-            if "Backend Developer" in available_roles_list:
-                matched_roles = ["Backend Developer"]
-            else:
-                matched_roles = [available_roles_list[0]]
-                
-        # Match skills based on keywords
-        matched_skills = []
-        for skill in skills_in_db:
-            if skill.lower() in title_lower or skill.lower() in description_lower:
-                matched_skills.append(skill)
-                
-        # Default skill fallback if no match
-        if not matched_skills:
-            matched_skills = ["Java", "Cloud"]
+    # 2. Extract or reuse requirements
+    if custom_required_people is not None or (record.resource_constraints and len(record.resource_constraints) > 0):
+        # FAST PATH: Skip Gemini because requirements/constraints are already available
+        if custom_required_people is not None:
+            required_people = custom_required_people
+        else:
+            required_people = {c.get("role"): c.get("requiredCapacity", 1) for c in record.resource_constraints if c.get("role")}
             
-        required_skills = matched_skills
-        required_roles = matched_roles
-        
-        required_capacity = {}
-        for role in required_roles:
-            if "senior" in role.lower() or "architect" in role.lower() or "lead" in role.lower():
-                required_capacity[role] = 15
-            else:
-                required_capacity[role] = 10
-
-    # Derive required_people from required_capacity if not provided by Gemini (ceil of hours/40, minimum 1)
-    if not required_people:
-        required_people = {role: max(1, math.ceil(hrs / 40)) for role, hrs in required_capacity.items()}
-
-    # 3.5 Apply custom headcount overrides if saving customized values from frontend
-    if custom_required_people is not None:
-        required_people = custom_required_people
-        required_roles = list(custom_required_people.keys())
-        required_capacity = {}
-        for role in required_roles:
-            count = required_people.get(role, 1)
-            if "senior" in role.lower() or "architect" in role.lower() or "lead" in role.lower():
-                required_capacity[role] = 15 * count
-            else:
-                required_capacity[role] = 10 * count
-    elif record.resource_constraints:
-        required_people = {c.get("role"): c.get("requiredCapacity", 1) for c in record.resource_constraints if c.get("role")}
         required_roles = list(required_people.keys())
         required_capacity = {}
         for role in required_roles:
@@ -427,26 +344,122 @@ def perform_capacity_check(record: DemandRecord, custom_required_people: Optiona
                 required_capacity[role] = 15 * count
             else:
                 required_capacity[role] = 10 * count
-                
-    # Ensure High Risk demands require Senior Architect (if Senior Architect role exists in DB)
-    if record.risk_level == "high" and "Senior Architect" in available_roles_list:
-        if "Senior Architect" not in required_roles:
-            required_roles.append("Senior Architect")
-            required_capacity["Senior Architect"] = 15
-            required_people["Senior Architect"] = required_people.get("Senior Architect", 1)
-        if "Architecture" not in required_skills:
-            required_skills.append("Architecture")
-            
-    # Filter to only keep roles with > 0 required headcount
-    required_people = {role: count for role, count in required_people.items() if count > 0}
-    required_roles = [role for role in required_roles if required_people.get(role, 0) > 0]
-            
-    # 4. Skill availability check against dynamic workforce pool
-    all_workforce_skills = set()
-    for res in resources:
-        all_workforce_skills.update(res["skills"])
         
-    skill_gaps = [skill for skill in required_skills if skill not in all_workforce_skills]
+        # Ensure High Risk demands require Senior Architect (if Senior Architect role exists in DB)
+        if record.risk_level == "high" and "Senior Architect" in available_roles_list:
+            if "Senior Architect" not in required_roles:
+                required_roles.append("Senior Architect")
+                required_capacity["Senior Architect"] = 15
+                required_people["Senior Architect"] = required_people.get("Senior Architect", 1)
+        
+        # Keep existing skill gaps
+        skill_gaps = record.skill_gaps or []
+        
+        # Ensure High Risk demands check Architecture skill gap
+        if record.risk_level == "high" and "Senior Architect" in available_roles_list:
+            all_workforce_skills = set()
+            for res in resources:
+                all_workforce_skills.update(res["skills"])
+            if "Architecture" not in all_workforce_skills and "Architecture" not in skill_gaps:
+                skill_gaps.append("Architecture")
+    else:
+        # SLOW PATH: Prompt Gemini for requirement extraction using the dynamic roles list
+        prompt = f"""
+        You are an AI Architect. Analyze the following project demand:
+        Title: {record.title}
+        Description: {record.description}
+        
+        Available Roles: {available_roles_str}
+        
+        Extract:
+        - requiredSkills: A list of technical skills required to deliver this request (e.g. ["Java", "Cloud", "Payments", "Architecture", "Python", "React", "UI Design", "Security"]).
+        - requiredRoles: A list of roles from the Available Roles list needed for this request.
+        - requiredCapacity: A dictionary mapping each required role to the weekly effort units needed (integer, e.g. 5, 10, 15, 20).
+        - requiredPeople: A dictionary mapping each required role to the number of people (headcount) needed to staff this demand (integer, e.g. 1, 2, 3). This must represent the total staffing demand regardless of availability.
+        
+        Format your response as a valid JSON object with fields: requiredSkills (list of strings), requiredRoles (list of strings), requiredCapacity (object/dict), and requiredPeople (object/dict).
+        """
+        
+        try:
+            from llm_client import call_gemini
+            res_json = call_gemini(
+                prompt=prompt,
+                system_instruction="Extract project delivery resource requirements.",
+                is_json=True
+            )
+            if isinstance(res_json, dict):
+                required_skills = res_json.get("requiredSkills", [])
+                required_roles = res_json.get("requiredRoles", [])
+                required_capacity = res_json.get("requiredCapacity", {})
+                required_people = res_json.get("requiredPeople", {})
+        except Exception as e:
+            print(f"Gemini capacity extraction failed, falling back to dynamic rules: {e}")
+            
+        # 3. Dynamic Fallback Rules (derived directly from Resource DB data)
+        if not required_skills or not required_roles or not required_capacity:
+            title_lower = record.title.lower()
+            description_lower = record.description.lower()
+            
+            # Get all skills in the DB
+            skills_in_db = list(set(s for r in resources for s in r["skills"]))
+            
+            # Match roles based on keywords
+            matched_roles = []
+            for role in available_roles_list:
+                role_words = set(role.lower().replace("&", " ").replace("-", " ").split())
+                if any(w in title_lower or w in description_lower for w in role_words if len(w) > 2):
+                    matched_roles.append(role)
+                    
+            # Default role fallback if no match
+            if not matched_roles:
+                if "Backend Developer" in available_roles_list:
+                    matched_roles = ["Backend Developer"]
+                else:
+                    matched_roles = [available_roles_list[0]]
+                    
+            # Match skills based on keywords
+            matched_skills = []
+            for skill in skills_in_db:
+                if skill.lower() in title_lower or skill.lower() in description_lower:
+                    matched_skills.append(skill)
+                    
+            # Default skill fallback if no match
+            if not matched_skills:
+                matched_skills = ["Java", "Cloud"]
+                
+            required_skills = matched_skills
+            required_roles = matched_roles
+            
+            required_capacity = {}
+            for role in required_roles:
+                if "senior" in role.lower() or "architect" in role.lower() or "lead" in role.lower():
+                    required_capacity[role] = 15
+                else:
+                    required_capacity[role] = 10
+    
+        # Derive required_people from required_capacity if not provided by Gemini (ceil of hours/40, minimum 1)
+        if not required_people:
+            required_people = {role: max(1, math.ceil(hrs / 40)) for role, hrs in required_capacity.items()}
+            
+        # Ensure High Risk demands require Senior Architect (if Senior Architect role exists in DB)
+        if record.risk_level == "high" and "Senior Architect" in available_roles_list:
+            if "Senior Architect" not in required_roles:
+                required_roles.append("Senior Architect")
+                required_capacity["Senior Architect"] = 15
+                required_people["Senior Architect"] = required_people.get("Senior Architect", 1)
+            if "Architecture" not in required_skills:
+                required_skills.append("Architecture")
+                
+        # Filter to only keep roles with > 0 required headcount
+        required_people = {role: count for role, count in required_people.items() if count > 0}
+        required_roles = [role for role in required_roles if required_people.get(role, 0) > 0]
+                
+        # 4. Skill availability check against dynamic workforce pool
+        all_workforce_skills = set()
+        for res in resources:
+            all_workforce_skills.update(res["skills"])
+            
+        skill_gaps = [skill for skill in required_skills if skill not in all_workforce_skills]
     
     # 5. Resource capacity check against dynamic workforce pool
     role_available_capacity = {}
