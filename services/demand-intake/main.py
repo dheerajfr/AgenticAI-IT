@@ -345,24 +345,6 @@ def perform_capacity_check(record: DemandRecord, custom_required_people: Optiona
             else:
                 required_capacity[role] = 10 * count
         
-<<<<<<< HEAD
-    skill_gaps = []
-    for skill in required_skills:
-        skill_lower = skill.lower().strip()
-        has_skill = False
-        for ws in all_workforce_skills:
-            ws_lower = ws.lower().strip()
-            if (skill_lower in ws_lower) or (ws_lower in skill_lower):
-                # Ensure we don't match tiny single-character skills falsely (e.g. 'C')
-                if len(skill_lower) > 1 and len(ws_lower) > 1:
-                    has_skill = True
-                    break
-                elif skill_lower == ws_lower:
-                    has_skill = True
-                    break
-        if not has_skill:
-            skill_gaps.append(skill)
-=======
         # Ensure High Risk demands require Senior Architect (if Senior Architect role exists in DB)
         if record.risk_level == "high" and "Senior Architect" in available_roles_list:
             if "Senior Architect" not in required_roles:
@@ -478,7 +460,6 @@ def perform_capacity_check(record: DemandRecord, custom_required_people: Optiona
             all_workforce_skills.update(res["skills"])
             
         skill_gaps = [skill for skill in required_skills if skill not in all_workforce_skills]
->>>>>>> main
     
     # 5. Resource capacity check against dynamic workforce pool
     role_available_capacity = {}

@@ -4,7 +4,7 @@ let dependencies = [];
 let selectedDependencyId = null;
 let planToDemandMap = {};
 let selectedTone = 'friendly';
-let selectedChannel = 'teams';
+let selectedChannel = 'email';
 
 // ====== DYNAMIC RISK TRACKING ======
 // Tracks, per dependency, when a nudge was last sent and when the owner last
@@ -712,31 +712,14 @@ function renderDependencyDetails(dep) {
 
                 <div class="form-group" style="margin-bottom: 1rem;">
                   <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Delivery Channel</label>
-                  <div id="chase-channel-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem;">
-                    <button type="button" class="wf-btn-toggle active" data-channel="teams">💬 Teams</button>
-                    <button type="button" class="wf-btn-toggle" data-channel="email">📧 Email</button>
-                    <button type="button" class="wf-btn-toggle" data-channel="slack">⚡ Slack</button>
-                    <button type="button" class="wf-btn-toggle" data-channel="ado">🔷 ADO</button>
+                  <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.35rem;">
+                    📧 Email (SMTP client)
                   </div>
                 </div>
 
                 <div class="form-group" style="margin-bottom: 1rem;">
-                  <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Schedule</label>
-                  <div id="chase-schedule-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem;">
-                    <button type="button" class="wf-btn-toggle active" data-schedule="now">Send Now</button>
-                    <button type="button" class="wf-btn-toggle" data-schedule="1hour">In 1 Hour</button>
-                    <button type="button" class="wf-btn-toggle" data-schedule="tomorrow">Tomorrow 9am</button>
-                    <button type="button" class="wf-btn-toggle" data-schedule="custom">Custom</button>
-                  </div>
-                </div>
-
-                <div class="form-group" style="margin-bottom: 1rem;">
-                  <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Suggested Recipients</label>
-                  <div id="recipient-list" style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.25rem;">
-                    <label class="ai-pill active" style="cursor: pointer; justify-content: space-between;"><span><input type="checkbox" checked style="display:none;"> ✓ Dependency Owner (${ownerShort})</span><span style="font-size:0.65rem; opacity:0.7;">92%</span></label>
-                    <label class="ai-pill" style="cursor: pointer; justify-content: space-between;"><span><input type="checkbox" style="display:none;"> Program Manager</span><span style="font-size:0.65rem; opacity:0.7;">76%</span></label>
-                    <label class="ai-pill" style="cursor: pointer; justify-content: space-between;"><span><input type="checkbox" style="display:none;"> Architecture Owner</span><span style="font-size:0.65rem; opacity:0.7;">65%</span></label>
-                  </div>
+                  <label for="chase-recipient-email" style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Recipient Email Address</label>
+                  <input type="email" id="chase-recipient-email" value="${dep.owner || ''}" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); box-sizing: border-box; margin-top: 0.25rem;" />
                 </div>
 
                 <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;" id="chase-setup-actions">
@@ -747,47 +730,14 @@ function renderDependencyDetails(dep) {
 
               <!-- Generated Message & Metrics -->
               <div id="chase-workflow-results" style="display: ${hasDraft ? 'block' : 'none'}; margin-top: 1.5rem;">
-                <div id="chase-results-card" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem;">
-                  <h5 style="margin: 0 0 0.75rem 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">💡 AI Suggested Next Best Actions</h5>
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem;" id="nba-list">
-                    ${dep.is_self_dependency ? `
-                      <label class="ai-pill active" data-nba="update-predecessor" style="cursor: pointer;"><input type="checkbox" checked style="display:none;"> Update predecessor task</label>
-                      <label class="ai-pill" data-nba="mark-complete" style="cursor: pointer;"><input type="checkbox" style="display:none;"> Mark task complete</label>
-                      <label class="ai-pill" data-nba="revise-eta" style="cursor: pointer;"><input type="checkbox" style="display:none;"> Revise ETA</label>
-                      <label class="ai-pill" data-nba="notify-stakeholders" style="cursor: pointer;"><input type="checkbox" style="display:none;"> Notify stakeholders if delayed</label>
-                    ` : `
-                      <label class="ai-pill ${dep.status !== 'resolved' ? 'active' : ''}" data-nba="send-reminder" style="cursor: pointer;"><input type="checkbox" ${dep.status !== 'resolved' ? 'checked' : ''} style="display:none;"> ✉ Send reminder</label>
-                      <label class="ai-pill" data-nba="schedule-sync" style="cursor: pointer;"><input type="checkbox" style="display:none;"> 📅 Schedule 15 min sync</label>
-                      <label class="ai-pill ${dep.status === 'at-risk' ? 'active' : ''}" data-nba="escalate-lead" style="cursor: pointer;"><input type="checkbox" ${dep.status === 'at-risk' ? 'checked' : ''} style="display:none;"> ⚠️ Escalate to Team Lead</label>
-                      <label class="ai-pill" data-nba="create-risk" style="cursor: pointer;"><input type="checkbox" style="display:none;"> 🚨 Create Risk Item</label>
-                      <label class="ai-pill" data-nba="wait-24h" style="cursor: pointer;"><input type="checkbox" style="display:none;"> ⏳ Wait 24 hrs</label>
-                    `}
-                  </div>
-                  <div style="background: rgba(99,102,241,0.03); border: 1px solid rgba(99,102,241,0.1); border-radius: var(--radius-md); padding: 0.6rem 0.8rem;">
-                    <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">AI Recommendation</div>
-                    <div style="font-size: 0.8rem; color: var(--text-primary); font-weight: 600;">${dep.is_self_dependency ? 'Both tasks are owned by you. Update predecessor task details directly.' : (dep.status === 'at-risk' ? 'Schedule Teams meeting before escalation.' : 'Send friendly reminder first, then follow up in 48hrs.')}</div>
-                  </div>
-                </div>
+
 
                 <div class="form-group" style="display: ${dep.is_self_dependency ? 'none' : 'block'};">
                   <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Nudge Message</label>
-                  <textarea class="wf-textarea" id="chase-message-text" placeholder="Generated message will appear here...">${nudgeMessage}</textarea>
+                  <textarea class="wf-textarea" id="chase-message-text" placeholder="Generated message will appear here..." data-baseline="${nudgeMessage}">${nudgeMessage}</textarea>
                 </div>
 
-                <!-- AI EDITING TOOLBAR -->
-                <div style="display: ${dep.is_self_dependency ? 'none' : 'flex'}; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem;" id="ai-edit-toolbar">
-                  <button class="ai-action-btn" data-edit="edit">✏ Edit</button>
-                  <button class="ai-action-btn" data-edit="regenerate">🔄 Regenerate</button>
-                  <button class="ai-action-btn" data-edit="friendlier">✨ Friendlier</button>
-                  <button class="ai-action-btn" data-edit="professional">💼 Professional</button>
-                  <button class="ai-action-btn" data-edit="urgent">⚡ More Urgent</button>
-                  <button class="ai-action-btn" data-edit="personalize">🧠 Personalize</button>
-                  <button class="ai-action-btn" data-edit="context">➕ Add Context</button>
-                  <button class="ai-action-btn" data-edit="shorten">➖ Shorten</button>
-                  <button class="ai-action-btn" data-edit="summarize">📋 Summarize</button>
-                  <button class="ai-action-btn" data-edit="evidence">📎 Attach Evidence</button>
-                  <button class="ai-action-btn" data-edit="explain">🔍 Explain AI</button>
-                </div>
+
 
                 <!-- DRAFT COMPARISON -->
                 <div style="display: ${dep.is_self_dependency ? 'none' : 'flex'}; gap: 0.35rem; margin-bottom: 1.25rem;">
@@ -796,23 +746,7 @@ function renderDependencyDetails(dep) {
                   <button class="ai-action-btn" id="btn-compare-v3" style="flex: 1; justify-content: center;">V3: Technical</button>
                 </div>
 
-                <!-- HUMAN APPROVAL BANNER -->
-                <div class="approval-banner" style="margin-bottom: 1.25rem; display: ${dep.is_self_dependency ? 'none' : 'flex'};">
-                  <div style="display: flex; align-items: center; gap: 0.75rem;">
-                    <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand); display: flex; align-items: center; justify-content: center; color: var(--text-primary); font-size: 1rem;">🧠</div>
-                    <div>
-                      <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">AI Recommendation Ready</div>
-                      <div style="font-size: 0.72rem; color: var(--text-secondary);">Pending Human Approval — Review draft and assessment before sending.</div>
-                    </div>
-                  </div>
-                  <div style="display: flex; gap: 0.4rem;" id="approval-actions">
-                    <button class="ai-action-btn" data-approval="approve" style="background: var(--color-status-green-bg); border-color: var(--color-status-green-border); color: var(--color-status-green-text);">✓ Approve</button>
-                    <button class="ai-action-btn" data-approval="modify" style="background: var(--color-status-amber-bg); border-color: var(--color-status-amber-border); color: var(--color-status-amber-text);">✏ Modify</button>
-                    <button class="ai-action-btn" data-approval="reject" style="background: var(--color-status-red-bg); border-color: var(--color-status-red-border); color: var(--color-status-red-text);">✗ Reject</button>
-                  </div>
-                </div>
-
-                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
                   ${dep.is_self_dependency ? `
                     <button type="button" class="btn-primary" id="btn-nba-take-action" style="background-color: var(--color-brand); height: 36px; padding: 0 1rem; font-size: 0.85rem; flex-grow: 1;">
                       Take Action (Update Predecessor Task)
@@ -823,15 +757,6 @@ function renderDependencyDetails(dep) {
                       Send via ${selectedChannel.charAt(0).toUpperCase() + selectedChannel.slice(1)}
                     </button>
                   `}
-                </div>
-
-                <!-- LEARNING FEEDBACK -->
-                <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
-                  <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Was this suggestion useful?</span>
-                  <button class="ai-action-btn" id="feedback-up" data-feedback="up" style="font-size: 1rem; padding: 0.25rem 0.5rem;">👍</button>
-                  <button class="ai-action-btn" id="feedback-down" data-feedback="down" style="font-size: 1rem; padding: 0.25rem 0.5rem;">👎</button>
-                  <button class="ai-action-btn" id="feedback-improve" data-feedback="improve" style="font-size: 0.75rem;">Needs Improvement</button>
-                  <span style="font-size: 0.7rem; color: var(--text-muted); font-style: italic; margin-left: auto;">AI learns from your feedback</span>
                 </div>
               </div>
             </div>
@@ -1059,35 +984,7 @@ function renderDependencyDetails(dep) {
     });
   });
 
-  // Recipient pill toggles
-  document.querySelectorAll('#recipient-list .ai-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
-      pill.classList.toggle('active');
-      const cb = pill.querySelector('input[type=checkbox]');
-      if (cb) cb.checked = pill.classList.contains('active');
-    });
-  });
 
-  // Next Best Action pill toggles
-  document.querySelectorAll('#nba-list .ai-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
-      pill.classList.toggle('active');
-      const cb = pill.querySelector('input[type=checkbox]');
-      if (cb) cb.checked = pill.classList.contains('active');
-      if (pill.classList.contains('active')) {
-        const nba = pill.getAttribute('data-nba');
-        if (nba === 'send-reminder') nbaSendReminder(dep);
-        else if (nba === 'schedule-sync') nbaScheduleSync(dep);
-        else if (nba === 'escalate-lead') nbaEscalateTeamLead(dep);
-        else if (nba === 'create-risk') nbaCreateRiskItem(dep);
-        else if (nba === 'wait-24h') nbaWait24h(dep);
-        else if (nba === 'update-predecessor') nbaUpdatePredecessor(dep);
-        else if (nba === 'mark-complete') nbaMarkComplete(dep);
-        else if (nba === 'revise-eta') nbaReviseEta(dep);
-        else if (nba === 'notify-stakeholders') nbaNotifyStakeholders(dep);
-      }
-    });
-  });
 
   // Run chase
   if (btnRunChase) {
@@ -1131,7 +1028,7 @@ function renderDependencyDetails(dep) {
 
   // Escalate
   if (document.getElementById('btn-escalate-manager')) {
-    document.getElementById('btn-escalate-manager').addEventListener('click', () => { escalateManager(dep.dependency_id); });
+    document.getElementById('btn-escalate-manager').addEventListener('click', () => { escalateManager(dep); });
   }
 
   // Impact check
@@ -1140,29 +1037,7 @@ function renderDependencyDetails(dep) {
     btnCheckImpact.addEventListener('click', handleCheckImpact);
   }
 
-  // Human Approval banner
-  document.querySelectorAll('#approval-actions button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const action = btn.getAttribute('data-approval');
-      handleApproval(action, dep.dependency_id);
-    });
-  });
 
-  // AI Editing Toolbar
-  document.querySelectorAll('#ai-edit-toolbar button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const editAction = btn.getAttribute('data-edit');
-      handleAIEdit(editAction, dep.dependency_id);
-    });
-  });
-
-  // Learning Feedback
-  document.querySelectorAll('[data-feedback]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fb = btn.getAttribute('data-feedback');
-      submitFeedback(dep.dependency_id, fb);
-    });
-  });
 
 
 
@@ -1249,13 +1124,16 @@ function renderDependencyDetails(dep) {
         const textarea = document.getElementById('chase-message-text');
         if (!textarea) return;
         const currentTask = window.currentSelectedTaskId || dep.source_task_id || "BUILD";
+        let newMsg = '';
         if (id === 'btn-compare-v1') {
-          textarea.value = dep.draft_message || nudgeMessage || `Hi, just a friendly follow-up on this dependency. Could you share an update?`;
+          newMsg = dep.draft_message || nudgeMessage || `Hi, just a friendly follow-up on this dependency. Could you share an update?`;
         } else if (id === 'btn-compare-v2') {
-          textarea.value = `Executive Summary: Dependency ${dep.dependency_id} requires immediate attention. Task ${currentTask} requires status check. Impact: critical path at risk. Action required: Updated ETA by EOD.`;
+          newMsg = `Executive Summary: Dependency ${dep.dependency_id} requires immediate attention. Task ${currentTask} requires status check. Impact: critical path at risk. Action required: Updated ETA by EOD.`;
         } else {
-          textarea.value = `Technical Follow-up [${dep.dependency_id}]: Task ${currentTask} is awaiting predecessor status. Please confirm completion status, share blockers, deployment logs, or endpoint readiness details.`;
+          newMsg = `Technical Follow-up [${dep.dependency_id}]: Task ${currentTask} is awaiting predecessor status. Please confirm completion status, share blockers, deployment logs, or endpoint readiness details.`;
         }
+        textarea.value = newMsg;
+        textarea.setAttribute('data-baseline', newMsg);
       });
     }
   });
@@ -1384,23 +1262,55 @@ async function undoResolved(id) {
   }
 }
 
-async function escalateManager(id) {
-  const managerOptions = ["Project Manager", "Release Manager", "Program Manager"];
-  const chosen = prompt("Escalate dependency risk to leadership:\n1. Project Manager\n2. Release Manager\n3. Program Manager\n(Enter number 1-3):", "2");
-  if (!chosen) return;
+async function escalateManager(dep) {
+  const id = dep.dependency_id;
+  const managerEmail = prompt("Enter the email address of the Manager / Release Lead to escalate to:", "manager@example.com");
+  if (!managerEmail) return;
 
-  let managerName = "Release Manager";
-  if (chosen === "1") managerName = "Project Manager";
-  else if (chosen === "3") managerName = "Program Manager";
+  const currentTask = window.currentSelectedTaskId || dep.source_task_id || "BUILD";
+
+  const emailSubject = `🚨 CRITICAL PATH ESCALATION: Dependency ${id} Risk Alert`;
+  const emailBody = `Dear Manager,
+
+This is an automated escalation alert for dependency ${id}.
+
+This dependency is on the critical path and currently threatens project release milestones. Immediate attention and resolution of blockers is required.
+
+Dependency Details:
+- Dependency ID: ${id}
+- Escalated by: Team Delivery Agent
+- Impacted Task: ${currentTask}
+- Predecessor Task: ${dep.source_task_id}
+- Predecessor Owner: ${dep.owner}
+
+Please review the dependency graph and coordinate with the owners to mitigate this timeline risk.
+
+Sincerely,
+AI Delivery Lifecycle Agent`;
 
   try {
-    const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/${id}/activity`, {
+    const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/${id}/send-email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ activity: `⚠️ Escalated dependency risk to ${managerName}` })
+      body: JSON.stringify({
+        recipient: managerEmail,
+        subject: emailSubject,
+        body: emailBody
+      })
     });
-    if (!res.ok) throw new Error("Failed to log escalation activity.");
-    alert(`Risk successfully escalated to ${managerName}!`);
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || "Failed to send escalation email.");
+    }
+
+    const data = await res.json();
+    if (data.status === 'simulated') {
+      alert(`Escalation registered (Simulated Email to ${managerEmail}).\n\n(Set SENDER_EMAIL and SENDER_PASSWORD secrets on Fly.io to send a real email!)`);
+    } else {
+      alert(`Critical path risk successfully escalated to ${managerEmail}!`);
+    }
+
     await selectDependencyAndRestoreScroll(id);
   } catch (err) {
     alert("Error: " + err.message);
@@ -1410,28 +1320,55 @@ async function escalateManager(id) {
 async function sendMessage(dep) {
   const textInput = document.getElementById('chase-message-text');
   const text = textInput ? textInput.value : dep.draft_message;
-  const channelText = selectedChannel.toUpperCase();
-  const activeScheduleBtn = document.querySelector('#chase-schedule-group .wf-btn-toggle.active');
-  const scheduleVal = activeScheduleBtn ? activeScheduleBtn.getAttribute('data-schedule') : 'now';
-  const scheduleLabels = { 'now': 'immediately', '1hour': 'in 1 hour', 'tomorrow': 'tomorrow at 9am', 'custom': 'custom schedule' };
-  const scheduleText = scheduleLabels[scheduleVal] || 'immediately';
+  
+  const recipientInput = document.getElementById('chase-recipient-email');
+  const recipient = recipientInput ? recipientInput.value.trim() : dep.owner;
+  
+  if (!recipient) {
+    alert("Please enter a valid recipient email address.");
+    return;
+  }
+
+  const sendBtn = document.getElementById('btn-send-message');
+  const originalText = sendBtn ? sendBtn.textContent : "Send via Email";
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.textContent = "Sending Email...";
+  }
 
   try {
-    const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/${dep.dependency_id}/activity`, {
+    const res = await fetch(`${DEPENDENCIES_API_BASE}/dependencies/${dep.dependency_id}/send-email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ activity: `✓ Nudge reminder sent to ${dep.owner} via ${channelText} (${scheduleText})` })
+      body: JSON.stringify({
+        recipient: recipient,
+        subject: `Urgent: Dependency ${dep.dependency_id} Update Required`,
+        body: text
+      })
     });
-    if (!res.ok) throw new Error("Failed to record message transmission.");
 
-    // Record the send time so "days since last contact" (and the threat level
-    // it drives) starts counting from right now.
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || "Failed to send email.");
+    }
+
+    const data = await res.json();
+    if (data.status === 'simulated') {
+      alert("Simulated Send: " + data.message + "\n\n(To send a real email, set SENDER_EMAIL and SENDER_PASSWORD secrets on Fly.io!)");
+    } else {
+      alert("Email sent successfully!");
+    }
+
+    // Record the send time so "days since last contact" starts counting from right now.
     setChaseTracking(dep.dependency_id, { lastSentAt: new Date().toISOString(), lastResponseAt: null });
-
-    alert(`Nudge reminder message sent via ${channelText}!`);
     await selectDependencyAndRestoreScroll(dep.dependency_id);
   } catch (err) {
     alert("Error sending message: " + err.message);
+  } finally {
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.textContent = originalText;
+    }
   }
 }
 
@@ -2088,6 +2025,7 @@ async function handleApproval(action, depId) {
 async function handleAIEdit(action, depId) {
   const textarea = document.getElementById('chase-message-text');
   if (!textarea) return;
+  const baselineText = textarea.getAttribute('data-baseline') || textarea.value;
   const currentText = textarea.value;
 
   const editActions = {
@@ -2097,36 +2035,36 @@ async function handleAIEdit(action, depId) {
       await triggerChaseFlow(depId, selectedTone, selectedChannel);
     },
     'friendlier': () => {
-      textarea.value = currentText
+      textarea.value = baselineText
         .replace(/immediately/gi, 'at your earliest convenience')
         .replace(/required/gi, 'appreciated')
         .replace(/must/gi, 'would be great to')
         .replace(/^/g, 'Hi there! Hope you\'re doing well. ');
     },
     'professional': () => {
-      textarea.value = currentText
+      textarea.value = baselineText
         .replace(/Hi there!.*?\. /g, '')
         .replace(/Hey/gi, 'Dear')
         .replace(/Thanks!/gi, 'Thank you for your prompt attention to this matter.');
     },
     'urgent': () => {
-      textarea.value = '\u{1F6A8} URGENT: ' + currentText + '\n\nThis requires immediate action. Deadline is approaching.';
+      textarea.value = '🚨 URGENT: ' + baselineText + '\n\nThis requires immediate action. Deadline is approaching.';
     },
     'personalize': () => {
-      textarea.value = currentText + `\n\nNote: This message has been personalized for the ${depId} dependency context.`;
+      textarea.value = baselineText + `\n\nNote: This message has been personalized for the ${depId} dependency context.`;
     },
     'context': () => {
-      textarea.value = currentText + `\n\nAdditional Context: This dependency is part of the current sprint and affects the upcoming release milestone.`;
+      textarea.value = baselineText + `\n\nAdditional Context: This dependency is part of the current sprint and affects the upcoming release milestone.`;
     },
     'shorten': () => {
-      const sentences = currentText.split(/[.!?]+/).filter(s => s.trim().length > 0);
+      const sentences = baselineText.split(/[.!?]+/).filter(s => s.trim().length > 0);
       textarea.value = sentences.slice(0, Math.max(2, Math.ceil(sentences.length / 2))).join('. ').trim() + '.';
     },
     'summarize': () => {
       textarea.value = `Summary: Dependency ${depId} requires attention. Please provide an updated ETA.`;
     },
     'evidence': () => {
-      textarea.value = currentText + `\n\n\u{1F4CE} Evidence attached:\n- Dependency graph showing critical path\n- Activity history log\n- Schedule impact analysis`;
+      textarea.value = baselineText + `\n\n📎 Evidence attached:\n- Dependency graph showing critical path\n- Activity history log\n- Schedule impact analysis`;
     },
     'explain': () => {
       alert(`AI Explanation for ${depId}:\n\n\u2022 Risk was calculated using dependency graph traversal and critical path analysis.\n\u2022 Confidence score factors: owner response history, task float, historical slip patterns.\n\u2022 Message tone was generated using the selected "${selectedTone}" template.\n\u2022 Channel formatting applied for "${selectedChannel}".`);

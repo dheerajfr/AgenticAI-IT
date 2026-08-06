@@ -564,6 +564,53 @@ def save_draft_message(dependency_id: str, req: SaveDraftRequest):
     return dep
 
 
+class SendEmailRequest(BaseModel):
+    recipient: str
+    subject: str
+    body: str
+
+@app.post("/api/dependencies/{dependency_id}/send-email")
+def send_email(dependency_id: str, req: SendEmailRequest):
+    import smtplib
+    from email.mime.text import MIMEText
+    
+    sender_email = os.environ.get("SENDER_EMAIL")
+    sender_password = os.environ.get("SENDER_PASSWORD")
+    
+    if not sender_email or not sender_password:
+        # Fallback to simulated log output if credentials aren't set
+        print(f"[Simulated Email] From: (unconfigured) | To: {req.recipient} | Subject: {req.subject}\nBody: {req.body}")
+        
+        dep = db.get_by_id(dependency_id)
+        if dep:
+            if not dep.activity_history:
+                dep.activity_history = []
+            dep.activity_history.append(f"✓ (Simulated) Email drafted to {req.recipient} via web browser")
+            db.save(dep)
+        return {"status": "simulated", "message": "SMTP credentials (SENDER_EMAIL/SENDER_PASSWORD) not set. Email printed to console logs."}
+        
+    try:
+        msg = MIMEText(req.body)
+        msg['Subject'] = req.subject
+        msg['From'] = sender_email
+        msg['To'] = req.recipient
+        
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, req.recipient, msg.as_string())
+            
+        dep = db.get_by_id(dependency_id)
+        if dep:
+            if not dep.activity_history:
+                dep.activity_history = []
+            dep.activity_history.append(f"📧 Email successfully sent to {req.recipient}")
+            db.save(dep)
+            
+        return {"status": "success", "message": f"Email successfully sent to {req.recipient}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"SMTP failed to send email: {str(e)}")
+
+
 @app.get("/api/dependencies/{dependency_id}/graph")
 def get_dependency_graph(dependency_id: str, selected_task: Optional[str] = None):
     dep = db.get_by_id(dependency_id)

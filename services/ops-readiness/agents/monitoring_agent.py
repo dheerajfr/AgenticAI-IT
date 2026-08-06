@@ -245,27 +245,9 @@ class MonitoringSetupAgent:
             p95_target = round((hist_p95_ms or (hist_p99_ms * 0.75)) * 1.15, 1)
             slo_source = "stage_07_load_test_baseline"
         else:
-<<<<<<< HEAD
-            # Deterministic technology-tier defaults (rule-based fallback; used verbatim only
-            # if the LLM-driven refinement in generate_ai_monitoring_insights is unavailable)
-            slo_source = "rule_based_tech_tier_fallback"
-            if spec.component_type == "redis":
-                p95_target, p99_target = 15.0, 35.0
-            elif spec.component_type in ["postgresql", "mongodb"]:
-                p95_target, p99_target = 45.0, 90.0
-            elif spec.component_type in ["kafka", "queue"]:
-                p95_target, p99_target = 50.0, 120.0
-            elif criticality == "critical":
-                p95_target, p99_target = 120.0, 250.0
-            elif criticality == "high":
-                p95_target, p99_target = 180.0, 350.0
-            else:
-                p95_target, p99_target = 250.0, 500.0
-=======
             p99_target = float(cat_policy.get("latency_p99_ms", 350.0))
             p95_target = float(cat_policy.get("latency_p95_ms", 180.0))
             slo_source = "monitoring_policy"
->>>>>>> main
 
         avail_slo = float(req_availability) if (req_availability and req_availability > 0) else float(cat_policy.get("availability_pct", 99.95))
         err_rate_threshold = float(cat_policy.get("error_rate_pct", 0.1))
@@ -782,23 +764,7 @@ class MonitoringSetupAgent:
         # 4. Dynamic Notification Groups
         notification_group = self.generate_notification_groups(component_specs, env, ctx["release_info"])
 
-<<<<<<< HEAD
-        # 3.5. AI-Driven SLO Refinement & Alert Recommendations.
-        # This is the primary, actually-AI path: the LLM reviews the real gathered SDLC
-        # context (dependencies, environment/CMDB, test runs, defects, release risk) and can
-        # tighten/loosen the rule-based SLO thresholds computed above, plus recommend extra
-        # alerts for components it judges to be at elevated risk. If the LLM call fails or
-        # returns something unusable, the deterministic rule-based thresholds/alerts computed
-        # in steps 2 and 4 remain in effect untouched as the genuine fallback.
-        ai_insights = self.generate_ai_monitoring_insights(ctx, component_specs, slo_targets)
-        ai_recommended_alerts = self.apply_ai_monitoring_insights(
-            ai_insights, component_specs, slo_targets, notification_group
-        )
-
-        # 4. Dynamic Alerts Generation (uses slo_targets as possibly refined by the AI pass above)
-=======
         # 5. Policy-Driven Alerts Generation
->>>>>>> main
         proposed_alerts: List[ProposedAlert] = []
         for spec in component_specs:
             slo = next((s for s in slo_targets if s.component_id == spec.component_id), slo_targets[0])
