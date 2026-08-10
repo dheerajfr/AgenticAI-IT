@@ -90,6 +90,8 @@ def check_sow(req: SOWCheckRequest):
     record = _get_or_create(req.demand_id)
     
     demand_desc = ""
+    plan_tasks = []
+    estimate_info = {}
     try:
         with get_db() as conn:
             conn.row_factory = sqlite3.Row
@@ -97,20 +99,63 @@ def check_sow(req: SOWCheckRequest):
             if row and row['data']:
                 demand_data = json.loads(row['data'])
                 demand_desc = demand_data.get('description', '')
+            
+            plan_row = conn.execute("SELECT data FROM plans WHERE demand_id = ?", (req.demand_id,)).fetchone()
+            if plan_row and plan_row['data']:
+                plan_data = json.loads(plan_row['data'])
+                plan_tasks = [{"name": t.get("name"), "owner": t.get("owner")} for t in plan_data.get("tasks", [])]
+                
+            est_row = conn.execute("SELECT data FROM estimates WHERE demand_id = ?", (req.demand_id,)).fetchone()
+            if est_row and est_row['data']:
+                est_data = json.loads(est_row['data'])
+                estimate_info = {
+                    "effort_days": est_data.get("effort_days"),
+                    "cost_estimate": est_data.get("cost_estimate"),
+                    "duration_weeks": est_data.get("duration_weeks")
+                }
     except Exception:
         pass
 
     prompt = f"""
-    Check for discrepancies between SOW {req.sow_document_id} and the actual PM tool deliverables for project {req.demand_id}.
-    Project description from demand intake: {demand_desc}
-    Compare these and identify missing deliverables. Keep your analysis concise (2 sentences).
+    You are an AI SOW Compliance Analyst. Analyze the Statement of Work (SOW) against actual project deliverables.
+
+    SOW Document ID: {req.sow_document_id}
+    Project ID: {req.demand_id}
+    Project Description: {demand_desc}
+    Planned Tasks in Project Management Tool: {json.dumps(plan_tasks)}
+    Estimate: {json.dumps(estimate_info)}
+
+    Provide a structured analysis as a JSON object with these exact fields:
+    - severity: one of "low", "medium", "high", "critical"
+    - summary: one-sentence overall finding
+    - missing_deliverables: list of strings (deliverables in SOW but missing from PM tool tasks)
+    - extra_deliverables: list of strings (deliverables in PM tool not mentioned in SOW)
+    - recommendations: list of strings (max 3 actionable next steps)
+    - compliance_score: integer 0-100 (100 = fully compliant)
     """
-    ai_res = call_gemini(prompt)
+    
+    try:
+        ai_res = call_gemini(prompt, is_json=True)
+    except Exception as e:
+        ai_res = {
+            "severity": "medium",
+            "summary": f"Fallback compliance check due to analysis error: {str(e)}",
+            "missing_deliverables": [],
+            "extra_deliverables": [],
+            "recommendations": ["Re-run compliance check later"],
+            "compliance_score": 50
+        }
     
     disc = {
         "id": f"DISC-{uuid.uuid4().hex[:4]}",
+        "sow_document_id": req.sow_document_id,
         "description": f"Scope check for SOW vs actual deliverables for {req.demand_id}",
-        "ai_analysis": ai_res
+        "severity": ai_res.get("severity", "medium"),
+        "summary": ai_res.get("summary", ""),
+        "missing_deliverables": ai_res.get("missing_deliverables", []),
+        "extra_deliverables": ai_res.get("extra_deliverables", []),
+        "recommendations": ai_res.get("recommendations", []),
+        "compliance_score": ai_res.get("compliance_score", 100)
     }
     
     discrepancies = record.get("sow_discrepancies", [])
@@ -142,21 +187,10 @@ def start_onboarding(req: OnboardRequest):
     
     steps = db.get_checklist_template(req.onboarding_type)
     if not steps:
-        # Fallback if table is empty
-        if req.onboarding_type == 'join':
-            steps = [
-                {"step_name": "NDA Signature", "completed": False},
-                {"step_name": "Compliance Training", "completed": False},
-                {"step_name": "IAM Account Created", "completed": False},
-                {"step_name": "VPN Access Configured", "completed": False}
-            ]
-        else:
-            steps = [
-                {"step_name": "Equipment Returned", "completed": False},
-                {"step_name": "ITSM Revocation Ticket Opened", "completed": False},
-                {"step_name": "IAM Account Deactivated", "completed": False},
-                {"step_name": "Security Exit Interview", "completed": False}
-            ]
+        raise HTTPException(
+            status_code=500,
+            detail="Onboarding checklist templates not found in database. Re-initialize the vendor-coordination database."
+        )
         
     checklist = {
         "request_id": request_id,

@@ -347,12 +347,52 @@ window.renderVendorCoordinationScreen = function(targetContainer) {
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-              ${discrepancies.map(d => `
-                <div style="background: var(--bg-primary); border: 1px solid var(--color-status-amber-border); border-left: 3px solid var(--color-status-amber-text); border-radius: var(--radius-sm); padding: 0.75rem;">
-                  <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">${d.description}</div>
-                  <div style="font-size: 0.8rem; color: var(--text-secondary);">${d.ai_analysis}</div>
+              ${discrepancies.map(d => {
+                const severity = d.severity || 'medium';
+                const severityColor = severity === 'critical' ? 'red' : severity === 'high' ? 'red' : severity === 'medium' ? 'amber' : 'green';
+                const complianceScore = d.compliance_score != null ? d.compliance_score : 100;
+                const scoreColor = complianceScore >= 80 ? 'green' : complianceScore >= 50 ? 'amber' : 'red';
+                
+                return `
+                <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-left: 3px solid var(--color-status-${severityColor}-text); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 0.75rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">SOW: ${d.sow_document_id || 'N/A'}</div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                      <span style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.05); color: var(--color-status-${severityColor}-text); border: 1px solid var(--color-status-${severityColor}-border);">${severity}</span>
+                      <span style="font-size: 0.8rem; font-weight: 700; color: var(--color-status-${scoreColor}-text);">Score: ${complianceScore}%</span>
+                    </div>
+                  </div>
+                  <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem; line-height: 1.4;">${d.summary || 'Scope compliance check completed.'}</div>
+                  
+                  ${(d.missing_deliverables && d.missing_deliverables.length > 0) ? `
+                    <div style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
+                      <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--color-status-red-text); display: block; margin-bottom: 0.2rem;">Missing Deliverables:</span>
+                      <ul style="margin: 0; padding-left: 1.1rem; font-size: 0.78rem; color: var(--text-secondary);">
+                        ${d.missing_deliverables.map(m => `<li>${m}</li>`).join('')}
+                      </ul>
+                    </div>
+                  ` : ''}
+                  
+                  ${(d.extra_deliverables && d.extra_deliverables.length > 0) ? `
+                    <div style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
+                      <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--color-status-amber-text); display: block; margin-bottom: 0.2rem;">Extra/Unplanned Deliverables:</span>
+                      <ul style="margin: 0; padding-left: 1.1rem; font-size: 0.78rem; color: var(--text-secondary);">
+                        ${d.extra_deliverables.map(m => `<li>${m}</li>`).join('')}
+                      </ul>
+                    </div>
+                  ` : ''}
+                  
+                  ${(d.recommendations && d.recommendations.length > 0) ? `
+                    <div style="margin-top: 0.5rem;">
+                      <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--color-brand); display: block; margin-bottom: 0.2rem;">Recommendations:</span>
+                      <ul style="margin: 0; padding-left: 1.1rem; font-size: 0.78rem; color: var(--text-secondary);">
+                        ${d.recommendations.map(r => `<li>${r}</li>`).join('')}
+                      </ul>
+                    </div>
+                  ` : ''}
                 </div>
-              `).join('')}
+                `;
+              }).join('')}
             </div>
           </div>
 

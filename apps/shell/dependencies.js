@@ -697,18 +697,7 @@ function renderDependencyDetails(dep) {
               <div id="chase-workflow-setup" style="display: none; margin-top: 1rem;">
                 <p class="description-text" style="margin-bottom: 1rem;">Configure the AI chase reminder options:</p>
 
-                <div class="form-group" style="margin-bottom: 1rem;">
-                  <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Message Tone</label>
-                  <div id="chase-tone-group" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem;">
-                    <button type="button" class="wf-btn-toggle active" data-tone="friendly">😊 Friendly</button>
-                    <button type="button" class="wf-btn-toggle" data-tone="business">💼 Professional</button>
-                    <button type="button" class="wf-btn-toggle" data-tone="technical">🔧 Technical</button>
-                    <button type="button" class="wf-btn-toggle" data-tone="executive">📊 Executive</button>
-                    <button type="button" class="wf-btn-toggle" data-tone="escalation">⚠️ Escalation</button>
-                    <button type="button" class="wf-btn-toggle" data-tone="urgent">🚨 Urgent</button>
-                    <button type="button" class="wf-btn-toggle" data-tone="short">🤝 Diplomatic</button>
-                  </div>
-                </div>
+
 
                 <div class="form-group" style="margin-bottom: 1rem;">
                   <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Delivery Channel</label>
@@ -1305,8 +1294,8 @@ AI Delivery Lifecycle Agent`;
     }
 
     const data = await res.json();
-    if (data.status === 'simulated') {
-      alert(`Escalation registered (Simulated Email to ${managerEmail}).\n\n(Set SENDER_EMAIL and SENDER_PASSWORD secrets on Fly.io to send a real email!)`);
+    if (data.redirected) {
+      alert(`🔀 Dev-mode: Escalation email redirected to ${data.recipient} (originally for ${managerEmail}).`);
     } else {
       alert(`Critical path risk successfully escalated to ${managerEmail}!`);
     }
@@ -1353,10 +1342,10 @@ async function sendMessage(dep) {
     }
 
     const data = await res.json();
-    if (data.status === 'simulated') {
-      alert("Simulated Send: " + data.message + "\n\n(To send a real email, set SENDER_EMAIL and SENDER_PASSWORD secrets on Fly.io!)");
+    if (data.redirected) {
+      alert(`🔀 Dev-mode: Email redirected to ${data.recipient} (originally for ${recipient}).`);
     } else {
-      alert("Email sent successfully!");
+      alert('Email sent successfully!');
     }
 
     // Record the send time so "days since last contact" starts counting from right now.

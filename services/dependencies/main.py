@@ -1,6 +1,16 @@
+import sys
+import os
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional, Literal
+
+# Allow importing shared services utilities
+_SERVICES_DIR = Path(__file__).parent.parent
+if str(_SERVICES_DIR) not in sys.path:
+    sys.path.insert(0, str(_SERVICES_DIR))
+
+import email_utils  # shared Gmail OAuth2 sender (services/email_utils.py)
 
 from models import (
     DependencyEdge,
@@ -570,45 +580,50 @@ class SendEmailRequest(BaseModel):
     body: str
 
 @app.post("/api/dependencies/{dependency_id}/send-email")
-def send_email(dependency_id: str, req: SendEmailRequest):
-    import smtplib
-    from email.mime.text import MIMEText
-    
-    sender_email = os.environ.get("SENDER_EMAIL")
-    sender_password = os.environ.get("SENDER_PASSWORD")
-    
-    if not sender_email or not sender_password:
-        # Fallback to simulated log output if credentials aren't set
-        print(f"[Simulated Email] From: (unconfigured) | To: {req.recipient} | Subject: {req.subject}\nBody: {req.body}")
-        
-        dep = db.get_by_id(dependency_id)
-        if dep:
-            if not dep.activity_history:
-                dep.activity_history = []
-            dep.activity_history.append(f"✓ (Simulated) Email drafted to {req.recipient} via web browser")
-            db.save(dep)
-        return {"status": "simulated", "message": "SMTP credentials (SENDER_EMAIL/SENDER_PASSWORD) not set. Email printed to console logs."}
-        
+def send_email_endpoint(dependency_id: str, req: SendEmailRequest):
+    """
+    Send an email for a dependency chase/escalation.
+
+    Uses Gmail OAuth2 via services/email_utils.py.
+
+    Dev-redirect switch
+    -------------------
+    When DEV_EMAIL_REDIRECT=1 in .env, *all* emails are silently redirected
+    to karthik8a39@gmail.com, no matter what recipient is passed by the
+    caller.  Set DEV_EMAIL_REDIRECT=0 (or remove it) to send to the real
+    recipient.
+    """
     try:
-        msg = MIMEText(req.body)
-        msg['Subject'] = req.subject
-        msg['From'] = sender_email
-        msg['To'] = req.recipient
-        
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, req.recipient, msg.as_string())
-            
+        result = email_utils.send_email(
+            recipient=req.recipient,
+            subject=req.subject,
+            body=req.body,
+        )
+
+        actual_recipient = result.get("recipient", req.recipient)
+        redirected       = result.get("redirected", False)
+
         dep = db.get_by_id(dependency_id)
         if dep:
             if not dep.activity_history:
                 dep.activity_history = []
-            dep.activity_history.append(f"📧 Email successfully sent to {req.recipient}")
+            history_note = (
+                f"📧 Email sent (redirected to {actual_recipient} – dev mode)"
+                if redirected
+                else f"📧 Email successfully sent to {actual_recipient}"
+            )
+            dep.activity_history.append(history_note)
             db.save(dep)
-            
-        return {"status": "success", "message": f"Email successfully sent to {req.recipient}"}
+
+        return {
+            "status":    result.get("status", "success"),
+            "message":   result.get("message", f"Email sent to {actual_recipient}"),
+            "recipient": actual_recipient,
+            "redirected": redirected,
+        }
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"SMTP failed to send email: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
 
 
 @app.get("/api/dependencies/{dependency_id}/graph")

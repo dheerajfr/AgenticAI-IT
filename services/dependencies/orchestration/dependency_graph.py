@@ -318,7 +318,7 @@ def chase_node(state: DependencyState) -> Dict[str, Any]:
         - Request an updated ETA or status.
         """
     prompt = f"""
-    You are an Automated Project Manager. You need to write a nudge message to check the status of a dependency.
+    You are Cadence Agentic AI. You need to write a nudge message to check the status of a dependency.
 
     The dependency risk has already been calculated by the project management system.
     Do NOT determine threat level, escalation, or criticality yourself. Use the values
